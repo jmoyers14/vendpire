@@ -1,5 +1,13 @@
 import type { CreateHTTPContextOptions } from "@trpc/server/adapters/standalone";
-import { container, AUTH_SERVICE_TOKEN } from "./services/index.ts";
+import {
+  container,
+  AUTH_SERVICE_TOKEN,
+  LOCATION_SERVICE_TOKEN,
+  MACHINE_SERVICE_TOKEN,
+  PRODUCT_SERVICE_TOKEN,
+  PLANOGRAM_SERVICE_TOKEN,
+  PURCHASE_SERVICE_TOKEN,
+} from "./services/index.ts";
 import {
   ANALYTICS_CLIENT_TOKEN,
   APP_CONFIG_TOKEN,
@@ -7,6 +15,11 @@ import {
 } from "@vendpire/platform";
 import type { AnalyticsClient, AppConfig, Logger } from "@vendpire/platform";
 import type { AuthService } from "./services/AuthService/AuthService.ts";
+import type { LocationService } from "./services/LocationService/LocationService.ts";
+import type { MachineService } from "./services/MachineService/MachineService.ts";
+import type { ProductService } from "./services/ProductService/ProductService.ts";
+import type { PlanogramService } from "./services/PlanogramService/PlanogramService.ts";
+import type { PurchaseService } from "./services/PurchaseService/PurchaseService.ts";
 import type { Context } from "./context.ts";
 
 /**
@@ -33,6 +46,12 @@ export async function createContext(
     log,
     analytics: container.resolve<AnalyticsClient>(ANALYTICS_CLIENT_TOKEN),
     appConfig: container.resolve<AppConfig>(APP_CONFIG_TOKEN),
-    services: {},
+    services: {
+      locationService: container.resolve<LocationService>(LOCATION_SERVICE_TOKEN),
+      machineService: container.resolve<MachineService>(MACHINE_SERVICE_TOKEN),
+      productService: container.resolve<ProductService>(PRODUCT_SERVICE_TOKEN),
+      planogramService: container.resolve<PlanogramService>(PLANOGRAM_SERVICE_TOKEN),
+      purchaseService: container.resolve<PurchaseService>(PURCHASE_SERVICE_TOKEN),
+    },
   };
 }

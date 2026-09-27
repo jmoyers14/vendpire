@@ -4,7 +4,12 @@
  * live in the web package). Referencing these constants instead of raw strings
  * keeps a typo from silently splitting an event in PostHog.
  *
- * Convention: `object.action`, past tense. First real events arrive with the
- * Phase 3 entity mutations.
+ * Convention: `object.action`, past tense.
  */
-export const ANALYTICS_EVENTS = {} as const;
+export const ANALYTICS_EVENTS = {
+  LOCATION_CREATED: "location.created",
+  MACHINE_CREATED: "machine.created",
+  PRODUCT_CREATED: "product.created",
+  PLANOGRAM_CREATED: "planogram.created",
+  PURCHASE_CREATED: "purchase.created",
+} as const;

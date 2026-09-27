@@ -4,6 +4,11 @@ import type {
   AuthIdentity,
   Logger,
 } from "@vendpire/platform";
+import type { LocationService } from "./services/LocationService/LocationService.ts";
+import type { MachineService } from "./services/MachineService/MachineService.ts";
+import type { ProductService } from "./services/ProductService/ProductService.ts";
+import type { PlanogramService } from "./services/PlanogramService/PlanogramService.ts";
+import type { PurchaseService } from "./services/PurchaseService/PurchaseService.ts";
 
 /**
  * Authenticated principal for a request — the provider-neutral identity the
@@ -35,6 +40,11 @@ export interface Context {
    * via AppRouter) never sees pino.
    */
   log: Logger;
-  /** Entity services arrive in Phase 3 (locations, machines, products, …). */
-  services: Record<never, never>;
+  services: {
+    locationService: LocationService;
+    machineService: MachineService;
+    productService: ProductService;
+    planogramService: PlanogramService;
+    purchaseService: PurchaseService;
+  };
 }

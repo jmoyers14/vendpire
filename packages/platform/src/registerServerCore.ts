@@ -20,12 +20,24 @@ import {
 } from "./integrations/tokens.ts";
 import { ClerkClient } from "./integrations/auth/ClerkClient.ts";
 import { PostHogClient } from "./integrations/analytics/PostHogClient.ts";
+import {
+  LOCATION_REPOSITORY_TOKEN,
+  MACHINE_REPOSITORY_TOKEN,
+  PRODUCT_REPOSITORY_TOKEN,
+  PLANOGRAM_REPOSITORY_TOKEN,
+  PURCHASE_REPOSITORY_TOKEN,
+} from "./data-access/tokens.ts";
+import { LocationRepositoryImpl } from "./data-access/repositories/LocationRepository/LocationRepositoryImpl.ts";
+import { MachineRepositoryImpl } from "./data-access/repositories/MachineRepository/MachineRepositoryImpl.ts";
+import { ProductRepositoryImpl } from "./data-access/repositories/ProductRepository/ProductRepositoryImpl.ts";
+import { PlanogramRepositoryImpl } from "./data-access/repositories/PlanogramRepository/PlanogramRepositoryImpl.ts";
+import { PurchaseRepositoryImpl } from "./data-access/repositories/PurchaseRepository/PurchaseRepositoryImpl.ts";
 import { LOGGER_TOKEN } from "./logging/Logger.ts";
 import { rootLogger } from "./logging/pinoLogger.ts";
 
 /**
- * Wires the shared backend (config slices, integration adapters, and — once
- * Phase 3 adds them — repositories) into a DI container. Called explicitly by
+ * Wires the shared backend (config slices, repositories, integration
+ * adapters) into a DI container. Called explicitly by
  * each entrypoint's composition root rather than relying on import-time side
  * effects, so a process only registers what it asks for.
  *
@@ -52,6 +64,12 @@ export function registerServerCore(container: DependencyContainer): void {
   container.register(ANALYTICS_CONFIG_TOKEN, {
     useFactory: instanceCachingFactory(() => loadAnalyticsConfig()),
   });
+
+  container.registerSingleton(LOCATION_REPOSITORY_TOKEN, LocationRepositoryImpl);
+  container.registerSingleton(MACHINE_REPOSITORY_TOKEN, MachineRepositoryImpl);
+  container.registerSingleton(PRODUCT_REPOSITORY_TOKEN, ProductRepositoryImpl);
+  container.registerSingleton(PLANOGRAM_REPOSITORY_TOKEN, PlanogramRepositoryImpl);
+  container.registerSingleton(PURCHASE_REPOSITORY_TOKEN, PurchaseRepositoryImpl);
 
   container.registerSingleton(AUTH_CLIENT_TOKEN, ClerkClient);
   container.registerSingleton(ANALYTICS_CLIENT_TOKEN, PostHogClient);

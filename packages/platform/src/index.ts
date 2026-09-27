@@ -14,8 +14,13 @@
 export * from "./config/appConfig.ts";
 
 // Data-access: tokens and repository ports (each re-exports its own entity/input
-// types). Empty until Phase 3.
+// types).
 export * from "./data-access/tokens.ts";
+export * from "./data-access/repositories/LocationRepository/LocationRepository.ts";
+export * from "./data-access/repositories/MachineRepository/MachineRepository.ts";
+export * from "./data-access/repositories/ProductRepository/ProductRepository.ts";
+export * from "./data-access/repositories/PlanogramRepository/PlanogramRepository.ts";
+export * from "./data-access/repositories/PurchaseRepository/PurchaseRepository.ts";
 
 // Integrations: tokens and vendor-neutral ports.
 export * from "./integrations/tokens.ts";

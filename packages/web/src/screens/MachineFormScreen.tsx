@@ -1,0 +1,247 @@
+import { useEffect, useState } from "react";
+import { Link, useNavigate } from "@tanstack/react-router";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { queryClient, trpc } from "../trpc.ts";
+import { ErrorNote, inputClass, Page } from "../components/ui.tsx";
+
+interface FormState {
+  locationId: string;
+  name: string;
+  kind: "snack" | "drink" | "combo";
+  make: string;
+  model: string;
+  serial: string;
+  tagCode: string;
+  slotCodesText: string;
+  readerProvider: "" | "nayax" | "cantaloupe";
+  readerDeviceId: string;
+  active: boolean;
+}
+
+const EMPTY: FormState = {
+  locationId: "",
+  name: "",
+  kind: "snack",
+  make: "",
+  model: "",
+  serial: "",
+  tagCode: "",
+  slotCodesText: "",
+  readerProvider: "",
+  readerDeviceId: "",
+  active: true,
+};
+
+/** "A1, A2 B1" (commas/whitespace/newlines) → ["A1","A2","B1"]. */
+const parseSlotCodes = (text: string): string[] =>
+  text
+    .split(/[\s,]+/)
+    .map((code) => code.trim())
+    .filter(Boolean);
+
+/** Create + edit form: `machineId` present means edit. */
+export function MachineFormScreen({ machineId }: { machineId?: string }) {
+  const navigate = useNavigate();
+  const [error, setError] = useState<string | null>(null);
+  const [form, setForm] = useState<FormState>(EMPTY);
+  const locations = useQuery(trpc.locations.list.queryOptions());
+
+  const existing = useQuery({
+    ...trpc.machines.get.queryOptions({ id: machineId ?? "" }),
+    enabled: Boolean(machineId),
+  });
+
+  useEffect(() => {
+    const machine = existing.data;
+    if (!machine) {
+      return;
+    }
+    setForm({
+      locationId: machine.locationId,
+      name: machine.name,
+      kind: machine.kind,
+      make: machine.make ?? "",
+      model: machine.model ?? "",
+      serial: machine.serial ?? "",
+      tagCode: machine.tagCode ?? "",
+      slotCodesText: machine.slotCodes.join(", "),
+      readerProvider: machine.cardReader?.provider ?? "",
+      readerDeviceId: machine.cardReader?.deviceId ?? "",
+      active: machine.active,
+    });
+  }, [existing.data]);
+
+  const onSaved = () => {
+    queryClient.invalidateQueries({ queryKey: trpc.machines.list.queryKey() });
+    navigate({ to: "/machines" });
+  };
+  const create = useMutation(
+    trpc.machines.create.mutationOptions({
+      onSuccess: onSaved,
+      onError: (e) => setError(e.message),
+    }),
+  );
+  const update = useMutation(
+    trpc.machines.update.mutationOptions({
+      onSuccess: onSaved,
+      onError: (e) => setError(e.message),
+    }),
+  );
+
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    if (!form.locationId) {
+      setError("Pick a location");
+      return;
+    }
+    if (!form.name.trim()) {
+      setError("Name is required");
+      return;
+    }
+    if (form.readerProvider && !form.readerDeviceId.trim()) {
+      setError("Card reader needs a device ID");
+      return;
+    }
+    const data = {
+      locationId: form.locationId,
+      name: form.name.trim(),
+      kind: form.kind,
+      make: form.make.trim() || null,
+      model: form.model.trim() || null,
+      serial: form.serial.trim() || null,
+      tagCode: form.tagCode.trim() || null,
+      slotCodes: parseSlotCodes(form.slotCodesText),
+      cardReader: form.readerProvider
+        ? { provider: form.readerProvider, deviceId: form.readerDeviceId.trim() }
+        : null,
+      active: form.active,
+    };
+    if (machineId) {
+      update.mutate({ id: machineId, ...data });
+    } else {
+      create.mutate(data);
+    }
+  };
+
+  const set = (patch: Partial<FormState>) => setForm({ ...form, ...patch });
+
+  return (
+    <Page max="xl" className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h1 className="font-heading text-xl font-bold text-grey-800">
+          {machineId ? "Edit Machine" : "New Machine"}
+        </h1>
+        <Link to="/machines" className="text-sm text-grey-600 hover:text-grey-800">
+          ← Back
+        </Link>
+      </div>
+
+      <ErrorNote message={error} />
+
+      <form onSubmit={submit} className="space-y-4">
+        <select
+          className={inputClass}
+          value={form.locationId}
+          onChange={(e) => set({ locationId: e.target.value })}
+        >
+          <option value="">Location *</option>
+          {locations.data?.map((location) => (
+            <option key={location.id} value={location.id}>
+              {location.name}
+            </option>
+          ))}
+        </select>
+        <input
+          className={inputClass}
+          placeholder="Name * (e.g. Break room snack)"
+          value={form.name}
+          onChange={(e) => set({ name: e.target.value })}
+        />
+        <select
+          className={inputClass}
+          value={form.kind}
+          onChange={(e) => set({ kind: e.target.value as FormState["kind"] })}
+        >
+          <option value="snack">Snack</option>
+          <option value="drink">Drink</option>
+          <option value="combo">Combo</option>
+        </select>
+        <div className="grid grid-cols-3 gap-2">
+          <input
+            className={inputClass}
+            placeholder="Make"
+            value={form.make}
+            onChange={(e) => set({ make: e.target.value })}
+          />
+          <input
+            className={inputClass}
+            placeholder="Model"
+            value={form.model}
+            onChange={(e) => set({ model: e.target.value })}
+          />
+          <input
+            className={inputClass}
+            placeholder="Serial"
+            value={form.serial}
+            onChange={(e) => set({ serial: e.target.value })}
+          />
+        </div>
+        <input
+          className={inputClass}
+          placeholder="QR tag code (e.g. VP-001)"
+          value={form.tagCode}
+          onChange={(e) => set({ tagCode: e.target.value })}
+        />
+        <div>
+          <textarea
+            className={inputClass}
+            placeholder="Slot codes, in walking order (e.g. A1, A2, A3, B1, B2…)"
+            rows={3}
+            value={form.slotCodesText}
+            onChange={(e) => set({ slotCodesText: e.target.value })}
+          />
+          <p className="mt-1 text-xs text-grey-500">
+            {parseSlotCodes(form.slotCodesText).length} slot(s)
+          </p>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <select
+            className={inputClass}
+            value={form.readerProvider}
+            onChange={(e) =>
+              set({ readerProvider: e.target.value as FormState["readerProvider"] })
+            }
+          >
+            <option value="">No card reader</option>
+            <option value="cantaloupe">Cantaloupe</option>
+            <option value="nayax">Nayax</option>
+          </select>
+          {form.readerProvider ? (
+            <input
+              className={inputClass}
+              placeholder="Reader device ID"
+              value={form.readerDeviceId}
+              onChange={(e) => set({ readerDeviceId: e.target.value })}
+            />
+          ) : null}
+        </div>
+        <label className="flex items-center gap-2 text-sm text-grey-700">
+          <input
+            type="checkbox"
+            checked={form.active}
+            onChange={(e) => set({ active: e.target.checked })}
+          />
+          Active
+        </label>
+        <button
+          type="submit"
+          disabled={create.isPending || update.isPending}
+          className="rounded bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-500 disabled:opacity-50"
+        >
+          {machineId ? "Save Changes" : "Create Machine"}
+        </button>
+      </form>
+    </Page>
+  );
+}

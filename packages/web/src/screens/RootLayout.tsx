@@ -19,13 +19,41 @@ const Header = () => (
         Vend<span className="text-primary-300">pire</span>
       </span>
       <nav className="flex gap-4 text-sm">
-      <Link
+        <Link
           to="/"
           activeOptions={{ exact: true }}
           className="text-primary-200 transition-colors hover:text-grey-50"
           activeProps={{ className: "text-white font-medium" }}
         >
           Dashboard
+        </Link>
+        <Link
+          to="/locations"
+          className="text-primary-200 transition-colors hover:text-grey-50"
+          activeProps={{ className: "text-white font-medium" }}
+        >
+          Locations
+        </Link>
+        <Link
+          to="/machines"
+          className="text-primary-200 transition-colors hover:text-grey-50"
+          activeProps={{ className: "text-white font-medium" }}
+        >
+          Machines
+        </Link>
+        <Link
+          to="/products"
+          className="text-primary-200 transition-colors hover:text-grey-50"
+          activeProps={{ className: "text-white font-medium" }}
+        >
+          Products
+        </Link>
+        <Link
+          to="/purchases"
+          className="text-primary-200 transition-colors hover:text-grey-50"
+          activeProps={{ className: "text-white font-medium" }}
+        >
+          Purchases
         </Link>
       </nav>
     </div>
