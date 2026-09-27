@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { queryClient, trpc } from "../trpc.ts";
-import { ErrorNote, inputClass, Page, TableScroll } from "../components/ui.tsx";
+import { ErrorNote, inputClass, Page } from "../components/ui.tsx";
 import { formatCents, parseDollarsToCents } from "../lib/money.ts";
 
 interface SlotRow {
@@ -21,6 +21,7 @@ export function MachinePlanogramsScreen({ machineId }: { machineId: string }) {
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const [rows, setRows] = useState<SlotRow[]>([]);
+  const [selected, setSelected] = useState<string | null>(null);
 
   const machine = useQuery(trpc.machines.get.queryOptions({ id: machineId }));
   const products = useQuery(trpc.products.list.queryOptions());
@@ -35,6 +36,7 @@ export function MachinePlanogramsScreen({ machineId }: { machineId: string }) {
     if (!editing || !machine.data) {
       return;
     }
+    setSelected(machine.data.slots.flat()[0] ?? null);
     setRows(
       machine.data.slots.flat().map((slotCode) => {
         const slot = current?.slots.find((s) => s.slotCode === slotCode);
@@ -90,9 +92,6 @@ export function MachinePlanogramsScreen({ machineId }: { machineId: string }) {
     create.mutate({ machineId, slots });
   };
 
-  const setRow = (index: number, patch: Partial<SlotRow>) =>
-    setRows(rows.map((row, i) => (i === index ? { ...row, ...patch } : row)));
-
   return (
     <Page max="4xl" className="space-y-4">
       <div className="flex items-center justify-between">
@@ -108,55 +107,70 @@ export function MachinePlanogramsScreen({ machineId }: { machineId: string }) {
 
       {editing ? (
         <div className="space-y-3">
-          <TableScroll>
-            <table className="w-full min-w-[36rem] border-collapse text-sm">
-              <thead>
-                <tr className="border-b border-grey-200 bg-grey-50 text-left text-grey-600">
-                  <th className="px-3 py-2 font-medium">Slot</th>
-                  <th className="px-3 py-2 font-medium">Product</th>
-                  <th className="w-24 px-3 py-2 font-medium">Par</th>
-                  <th className="w-28 px-3 py-2 font-medium">Price $</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((row, index) => (
-                  <tr key={row.slotCode} className="border-b border-grey-100">
-                    <td className="px-3 py-1.5 font-mono text-grey-800">
-                      {row.slotCode}
-                    </td>
-                    <td className="px-3 py-1.5">
-                      <select
-                        className={inputClass}
-                        value={row.productId}
-                        onChange={(e) => setRow(index, { productId: e.target.value })}
-                      >
-                        <option value="">— empty —</option>
-                        {products.data?.map((product) => (
-                          <option key={product.id} value={product.id}>
-                            {product.name}
-                          </option>
-                        ))}
-                      </select>
-                    </td>
-                    <td className="px-3 py-1.5">
-                      <input
-                        className={inputClass}
-                        value={row.par}
-                        onChange={(e) => setRow(index, { par: e.target.value })}
-                      />
-                    </td>
-                    <td className="px-3 py-1.5">
-                      <input
-                        className={inputClass}
-                        value={row.price}
-                        onChange={(e) => setRow(index, { price: e.target.value })}
-                      />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </TableScroll>
+          {/* The machine face — click a cell to edit that slot. */}
+          <div className="space-y-1.5 overflow-x-auto rounded-md bg-grey-100 p-2">
+            {machine.data?.slots.map((shelf, shelfIndex) => (
+              <div key={shelfIndex} className="flex gap-1">
+                {shelf.map((slotCode) => {
+                  const row = rows.find((r) => r.slotCode === slotCode);
+                  const isSelected = selected === slotCode;
+                  return (
+                    <button
+                      type="button"
+                      key={slotCode}
+                      onClick={() => setSelected(slotCode)}
+                      className={`min-w-0 flex-1 rounded border px-1 py-1.5 text-center transition-shadow ${
+                        isSelected
+                          ? "border-primary-500 bg-white ring-2 ring-primary-300"
+                          : row?.productId
+                            ? "border-grey-300 bg-white hover:border-primary-300"
+                            : "border-dashed border-grey-300 bg-grey-50 hover:border-primary-300"
+                      }`}
+                    >
+                      <div className="font-mono text-[10px] text-grey-500">
+                        {slotCode}
+                      </div>
+                      {row?.productId ? (
+                        <>
+                          <div className="truncate text-xs font-medium text-grey-800">
+                            {productName(row.productId)}
+                          </div>
+                          <div className="text-[10px] text-grey-600">
+                            {row.price ? `$${row.price}` : "—"} · par {row.par || "—"}
+                          </div>
+                        </>
+                      ) : (
+                        <div className="text-[10px] text-grey-400">empty</div>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+
+          {/* Edit panel for the selected slot. */}
+          {selected ? (
+            <SlotEditPanel
+              key={selected}
+              slotCode={selected}
+              row={rows.find((r) => r.slotCode === selected)}
+              products={products.data ?? []}
+              onChange={(patch) =>
+                setRows(
+                  rows.map((r) =>
+                    r.slotCode === selected ? { ...r, ...patch } : r,
+                  ),
+                )
+              }
+              onNext={() => {
+                const order = machine.data?.slots.flat() ?? [];
+                const index = order.indexOf(selected);
+                setSelected(order[(index + 1) % order.length] ?? null);
+              }}
+            />
+          ) : null}
+
           <div className="flex gap-2">
             <button
               type="button"
@@ -253,5 +267,87 @@ export function MachinePlanogramsScreen({ machineId }: { machineId: string }) {
         </>
       )}
     </Page>
+  );
+}
+
+interface SlotEditPanelProps {
+  slotCode: string;
+  row: SlotRow | undefined;
+  products: { id: string; name: string; defaultPriceCents: number }[];
+  onChange: (patch: Partial<SlotRow>) => void;
+  onNext: () => void;
+}
+
+/**
+ * Edits one slot of the in-progress planogram version. Picking a product
+ * auto-fills the price from its default (still editable) and defaults par to
+ * the previous value or 10. "Next slot" walks the machine in slot order so a
+ * full setup needs no extra clicks on the grid.
+ */
+function SlotEditPanel({
+  slotCode,
+  row,
+  products,
+  onChange,
+  onNext,
+}: SlotEditPanelProps) {
+  return (
+    <div className="flex flex-wrap items-end gap-2 rounded border border-primary-200 bg-primary-50/50 p-3">
+      <span className="pb-2 font-mono text-sm font-medium text-grey-800">
+        {slotCode}
+      </span>
+      <label className="min-w-48 flex-1 text-xs text-grey-600">
+        Product
+        <select
+          className={inputClass}
+          value={row?.productId ?? ""}
+          onChange={(e) => {
+            const product = products.find((p) => p.id === e.target.value);
+            onChange({
+              productId: e.target.value,
+              price: product ? String(product.defaultPriceCents / 100) : "",
+              par: row?.par || "10",
+            });
+          }}
+        >
+          <option value="">— empty —</option>
+          {products.map((product) => (
+            <option key={product.id} value={product.id}>
+              {product.name}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="w-20 text-xs text-grey-600">
+        Par
+        <input
+          className={inputClass}
+          value={row?.par ?? ""}
+          onChange={(e) => onChange({ par: e.target.value })}
+        />
+      </label>
+      <label className="w-24 text-xs text-grey-600">
+        Price $
+        <input
+          className={inputClass}
+          value={row?.price ?? ""}
+          onChange={(e) => onChange({ price: e.target.value })}
+        />
+      </label>
+      <button
+        type="button"
+        onClick={() => onChange({ productId: "", par: "", price: "" })}
+        className="rounded border border-grey-300 px-3 py-2 text-sm text-grey-600 hover:bg-grey-100"
+      >
+        Clear
+      </button>
+      <button
+        type="button"
+        onClick={onNext}
+        className="rounded bg-primary-600 px-3 py-2 text-sm font-medium text-white hover:bg-primary-500"
+      >
+        Next slot →
+      </button>
+    </div>
   );
 }
