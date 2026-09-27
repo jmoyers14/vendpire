@@ -1,6 +1,11 @@
 #!/bin/bash
 set -euo pipefail
 
+# Never let gcloud stop on an interactive prompt — in a background/CI shell a
+# prompt hangs forever. With prompts disabled it errors loudly instead, and
+# the missing API/permission gets fixed explicitly.
+export CLOUDSDK_CORE_DISABLE_PROMPTS=1
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Personal-account deploy config. These values pin the deploy to the personal
 # Google account + project so it can never hit a work project.
