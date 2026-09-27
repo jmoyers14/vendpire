@@ -14,6 +14,7 @@ type LocationDoc = {
     city?: string | null;
     state?: string | null;
     zip?: string | null;
+    geo?: { lat: number; lng: number } | null;
   };
   contact?: {
     name?: string | null;
@@ -89,6 +90,9 @@ function toLocation(doc: LocationDoc): Location {
       city: doc.address?.city ?? null,
       state: doc.address?.state ?? null,
       zip: doc.address?.zip ?? null,
+      geo: doc.address?.geo
+        ? { lat: doc.address.geo.lat, lng: doc.address.geo.lng }
+        : null,
     },
     contact: {
       name: doc.contact?.name ?? null,

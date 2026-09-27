@@ -4,6 +4,7 @@
  * services first, then one per entity.
  */
 export const AUTH_SERVICE_TOKEN = "AuthService";
+export const ADDRESS_SERVICE_TOKEN = "AddressService";
 export const LOCATION_SERVICE_TOKEN = "LocationService";
 export const MACHINE_SERVICE_TOKEN = "MachineService";
 export const PRODUCT_SERVICE_TOKEN = "ProductService";

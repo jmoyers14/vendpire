@@ -3,11 +3,13 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { queryClient, trpc } from "../trpc.ts";
 import { ErrorNote, inputClass, Page } from "../components/ui.tsx";
+import { AddressAutocomplete } from "../components/AddressAutocomplete.tsx";
 import { parseDollarsToCents, parsePercentToBps } from "../lib/money.ts";
 
 interface FormState {
   name: string;
   line1: string;
+  geo: { lat: number; lng: number } | null;
   city: string;
   state: string;
   zip: string;
@@ -25,6 +27,7 @@ interface FormState {
 const EMPTY: FormState = {
   name: "",
   line1: "",
+  geo: null,
   city: "",
   state: "CA",
   zip: "",
@@ -58,6 +61,7 @@ export function LocationFormScreen({ locationId }: { locationId?: string }) {
     setForm({
       name: location.name,
       line1: location.address.line1 ?? "",
+      geo: location.address.geo,
       city: location.address.city ?? "",
       state: location.address.state ?? "",
       zip: location.address.zip ?? "",
@@ -133,6 +137,7 @@ export function LocationFormScreen({ locationId }: { locationId?: string }) {
         city: form.city.trim() || null,
         state: form.state.trim() || null,
         zip: form.zip.trim() || null,
+        geo: form.geo,
       },
       contact: {
         name: form.contactName.trim() || null,
@@ -175,30 +180,38 @@ export function LocationFormScreen({ locationId }: { locationId?: string }) {
 
         <fieldset className="space-y-2">
           <legend className="text-sm font-medium text-grey-700">Address</legend>
-          <input
-            className={inputClass}
-            placeholder="Street"
+          <AddressAutocomplete
+            placeholder="Street — start typing for suggestions"
             value={form.line1}
-            onChange={(e) => set({ line1: e.target.value })}
+            onChange={(line1) => set({ line1, geo: null })}
+            onResolved={(address) =>
+              set({
+                line1: address.line1 ?? "",
+                city: address.city ?? "",
+                state: address.state ?? "",
+                zip: address.zip ?? "",
+                geo: address.geo,
+              })
+            }
           />
           <div className="grid grid-cols-3 gap-2">
             <input
               className={inputClass}
               placeholder="City"
               value={form.city}
-              onChange={(e) => set({ city: e.target.value })}
+              onChange={(e) => set({ city: e.target.value, geo: null })}
             />
             <input
               className={inputClass}
               placeholder="State"
               value={form.state}
-              onChange={(e) => set({ state: e.target.value })}
+              onChange={(e) => set({ state: e.target.value, geo: null })}
             />
             <input
               className={inputClass}
               placeholder="ZIP"
               value={form.zip}
-              onChange={(e) => set({ zip: e.target.value })}
+              onChange={(e) => set({ zip: e.target.value, geo: null })}
             />
           </div>
         </fieldset>

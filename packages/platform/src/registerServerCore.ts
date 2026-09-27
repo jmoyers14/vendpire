@@ -17,7 +17,13 @@ import {
 import {
   AUTH_CLIENT_TOKEN,
   ANALYTICS_CLIENT_TOKEN,
+  MAPS_CLIENT_TOKEN,
 } from "./integrations/tokens.ts";
+import {
+  MAPS_CONFIG_TOKEN,
+  loadMapsConfig,
+} from "./integrations/maps/mapsConfig.ts";
+import { GoogleMapsClient } from "./integrations/maps/GoogleMapsClient.ts";
 import { ClerkClient } from "./integrations/auth/ClerkClient.ts";
 import { PostHogClient } from "./integrations/analytics/PostHogClient.ts";
 import {
@@ -64,6 +70,9 @@ export function registerServerCore(container: DependencyContainer): void {
   container.register(ANALYTICS_CONFIG_TOKEN, {
     useFactory: instanceCachingFactory(() => loadAnalyticsConfig()),
   });
+  container.register(MAPS_CONFIG_TOKEN, {
+    useFactory: instanceCachingFactory(() => loadMapsConfig()),
+  });
 
   container.registerSingleton(LOCATION_REPOSITORY_TOKEN, LocationRepositoryImpl);
   container.registerSingleton(MACHINE_REPOSITORY_TOKEN, MachineRepositoryImpl);
@@ -73,4 +82,5 @@ export function registerServerCore(container: DependencyContainer): void {
 
   container.registerSingleton(AUTH_CLIENT_TOKEN, ClerkClient);
   container.registerSingleton(ANALYTICS_CLIENT_TOKEN, PostHogClient);
+  container.registerSingleton(MAPS_CLIENT_TOKEN, GoogleMapsClient);
 }

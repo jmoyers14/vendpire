@@ -18,6 +18,7 @@ API_IMAGE="$REGISTRY/api:latest"
 WEB_IMAGE="$REGISTRY/web:latest"
 CLERK_SECRET_NAME="clerk-secret-key" # Secret Manager secret holding the Clerk sk_ key
 MONGO_SECRET_NAME="mongodb-uri"      # Secret Manager secret holding the Atlas connection string
+MAPS_SECRET_NAME="google-maps-api-key" # Secret Manager secret holding the Places key (optional)
 
 # ── Safety guard ─────────────────────────────────────────────────────────────
 # Activate the personal configuration and refuse to proceed unless the active
@@ -139,6 +140,19 @@ ensure_secret "$CLERK_SECRET_NAME" CLERK_SECRET_KEY
 ensure_secret "$MONGO_SECRET_NAME" MONGODB_URI
 
 API_SECRETS="CLERK_SECRET_KEY=$CLERK_SECRET_NAME:latest,MONGODB_URI=$MONGO_SECRET_NAME:latest"
+
+# Google Maps key is optional: wire it only if the secret already exists or
+# GOOGLE_MAPS_API_KEY is available (env or packages/api/.env). Deploys keep
+# working before the address feature is configured.
+if gcloud secrets describe "$MAPS_SECRET_NAME" --project "$PROJECT" >/dev/null 2>&1 \
+  || [ -n "${GOOGLE_MAPS_API_KEY:-}" ] \
+  || grep -qE '^GOOGLE_MAPS_API_KEY=' packages/api/.env 2>/dev/null; then
+  ensure_secret "$MAPS_SECRET_NAME" GOOGLE_MAPS_API_KEY
+  API_SECRETS="$API_SECRETS,GOOGLE_MAPS_API_KEY=$MAPS_SECRET_NAME:latest"
+  echo "Google Maps key wired into the API (address autocomplete)."
+else
+  echo "No Google Maps key found — deploying without address autocomplete."
+fi
 
 # ── API ──────────────────────────────────────────────────────────────────────
 # The web URL is stable across deploys, so look it up now and hand it to the API

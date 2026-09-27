@@ -26,6 +26,17 @@ const locationSchema = new Schema(
       city: { type: String, default: null, trim: true },
       state: { type: String, default: null, trim: true },
       zip: { type: String, default: null, trim: true },
+      // From the Places resolve — enables route planning later.
+      geo: {
+        type: new Schema(
+          {
+            lat: { type: Number, required: true },
+            lng: { type: Number, required: true },
+          },
+          { _id: false },
+        ),
+        default: null,
+      },
     },
     contact: {
       name: { type: String, default: null, trim: true },

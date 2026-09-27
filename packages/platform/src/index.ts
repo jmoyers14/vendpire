@@ -26,6 +26,7 @@ export * from "./data-access/repositories/PurchaseRepository/PurchaseRepository.
 export * from "./integrations/tokens.ts";
 export * from "./integrations/auth/AuthClient.ts";
 export * from "./integrations/analytics/AnalyticsClient.ts";
+export * from "./integrations/maps/MapsClient.ts";
 export * from "./integrations/tasks/TaskQueue.ts";
 
 // Logging: the port + token only. The pino-backed root logger is server-only

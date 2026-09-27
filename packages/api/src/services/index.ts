@@ -7,6 +7,7 @@ import {
 } from "../config/serverConfig.ts";
 import {
   AUTH_SERVICE_TOKEN,
+  ADDRESS_SERVICE_TOKEN,
   LOCATION_SERVICE_TOKEN,
   MACHINE_SERVICE_TOKEN,
   PRODUCT_SERVICE_TOKEN,
@@ -14,6 +15,7 @@ import {
   PURCHASE_SERVICE_TOKEN,
 } from "./tokens.ts";
 import { AuthServiceImpl } from "./AuthService/AuthServiceImpl.ts";
+import { AddressServiceImpl } from "./AddressService/AddressServiceImpl.ts";
 import { LocationServiceImpl } from "./LocationService/LocationServiceImpl.ts";
 import { MachineServiceImpl } from "./MachineService/MachineServiceImpl.ts";
 import { ProductServiceImpl } from "./ProductService/ProductServiceImpl.ts";
@@ -39,6 +41,7 @@ container.register(SERVER_CONFIG_TOKEN, {
 });
 
 container.registerSingleton(AUTH_SERVICE_TOKEN, AuthServiceImpl);
+container.registerSingleton(ADDRESS_SERVICE_TOKEN, AddressServiceImpl);
 container.registerSingleton(LOCATION_SERVICE_TOKEN, LocationServiceImpl);
 container.registerSingleton(MACHINE_SERVICE_TOKEN, MachineServiceImpl);
 container.registerSingleton(PRODUCT_SERVICE_TOKEN, ProductServiceImpl);

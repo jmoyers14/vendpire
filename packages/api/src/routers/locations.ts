@@ -30,6 +30,10 @@ const locationInput = z.object({
     city: z.string().nullable().default(null),
     state: z.string().nullable().default(null),
     zip: z.string().nullable().default(null),
+    geo: z
+      .object({ lat: z.number(), lng: z.number() })
+      .nullable()
+      .default(null),
   }),
   contact: z.object({
     name: z.string().nullable().default(null),

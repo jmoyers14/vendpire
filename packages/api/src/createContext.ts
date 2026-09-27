@@ -2,6 +2,7 @@ import type { CreateHTTPContextOptions } from "@trpc/server/adapters/standalone"
 import {
   container,
   AUTH_SERVICE_TOKEN,
+  ADDRESS_SERVICE_TOKEN,
   LOCATION_SERVICE_TOKEN,
   MACHINE_SERVICE_TOKEN,
   PRODUCT_SERVICE_TOKEN,
@@ -15,6 +16,7 @@ import {
 } from "@vendpire/platform";
 import type { AnalyticsClient, AppConfig, Logger } from "@vendpire/platform";
 import type { AuthService } from "./services/AuthService/AuthService.ts";
+import type { AddressService } from "./services/AddressService/AddressService.ts";
 import type { LocationService } from "./services/LocationService/LocationService.ts";
 import type { MachineService } from "./services/MachineService/MachineService.ts";
 import type { ProductService } from "./services/ProductService/ProductService.ts";
@@ -47,6 +49,7 @@ export async function createContext(
     analytics: container.resolve<AnalyticsClient>(ANALYTICS_CLIENT_TOKEN),
     appConfig: container.resolve<AppConfig>(APP_CONFIG_TOKEN),
     services: {
+      addressService: container.resolve<AddressService>(ADDRESS_SERVICE_TOKEN),
       locationService: container.resolve<LocationService>(LOCATION_SERVICE_TOKEN),
       machineService: container.resolve<MachineService>(MACHINE_SERVICE_TOKEN),
       productService: container.resolve<ProductService>(PRODUCT_SERVICE_TOKEN),

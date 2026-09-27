@@ -19,6 +19,8 @@ export interface Location {
     city: string | null;
     state: string | null;
     zip: string | null;
+    /** From the Places resolve — enables route planning later. */
+    geo: { lat: number; lng: number } | null;
   };
   contact: {
     name: string | null;

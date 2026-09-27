@@ -1,4 +1,5 @@
 import { router } from "./trpc.ts";
+import { addressRouter } from "./routers/address.ts";
 import { authRouter } from "./routers/auth.ts";
 import { systemRouter } from "./routers/system.ts";
 import { locationsRouter } from "./routers/locations.ts";
@@ -8,6 +9,7 @@ import { planogramsRouter } from "./routers/planograms.ts";
 import { purchasesRouter } from "./routers/purchases.ts";
 
 export const appRouter = router({
+  address: addressRouter,
   auth: authRouter,
   system: systemRouter,
   locations: locationsRouter,

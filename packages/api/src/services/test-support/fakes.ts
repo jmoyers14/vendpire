@@ -300,7 +300,7 @@ export class FakePurchaseRepository implements PurchaseRepository {
 /** Minimal valid inputs, spread-overridable per test. */
 export const locationInput = (over: Partial<LocationInput> = {}): LocationInput => ({
   name: "Break Room A",
-  address: { line1: null, city: null, state: null, zip: null },
+  address: { line1: null, city: null, state: null, zip: null, geo: null },
   contact: { name: null, phone: null, email: null },
   commission: { type: "none", percentBps: null, flatCents: null, basis: null },
   notes: null,

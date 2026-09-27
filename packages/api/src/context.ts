@@ -4,6 +4,7 @@ import type {
   AuthIdentity,
   Logger,
 } from "@vendpire/platform";
+import type { AddressService } from "./services/AddressService/AddressService.ts";
 import type { LocationService } from "./services/LocationService/LocationService.ts";
 import type { MachineService } from "./services/MachineService/MachineService.ts";
 import type { ProductService } from "./services/ProductService/ProductService.ts";
@@ -41,6 +42,7 @@ export interface Context {
    */
   log: Logger;
   services: {
+    addressService: AddressService;
     locationService: LocationService;
     machineService: MachineService;
     productService: ProductService;

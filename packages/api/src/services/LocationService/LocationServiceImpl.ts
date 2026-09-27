@@ -75,6 +75,7 @@ function normalize(input: LocationInput): LocationInput {
       city: clean(input.address.city),
       state: clean(input.address.state),
       zip: clean(input.address.zip),
+      geo: input.address.geo,
     },
     contact: {
       name: clean(input.contact.name),
