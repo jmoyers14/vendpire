@@ -3,6 +3,13 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { queryClient, trpc } from "../trpc.ts";
 import { ErrorNote, inputClass, Page } from "../components/ui.tsx";
+import { SlotGridEditor } from "../components/SlotGridEditor.tsx";
+import {
+  buildRows,
+  rowsToSlotCodes,
+  slotCodesToRows,
+  type SlotGridRow,
+} from "../lib/slotGrid.ts";
 
 interface FormState {
   locationId: string;
@@ -12,6 +19,8 @@ interface FormState {
   model: string;
   serial: string;
   tagCode: string;
+  slotMode: "grid" | "custom";
+  slotRows: SlotGridRow[];
   slotCodesText: string;
   readerProvider: "" | "nayax" | "cantaloupe";
   readerDeviceId: string;
@@ -26,6 +35,8 @@ const EMPTY: FormState = {
   model: "",
   serial: "",
   tagCode: "",
+  slotMode: "grid",
+  slotRows: buildRows(6, 8),
   slotCodesText: "",
   readerProvider: "",
   readerDeviceId: "",
@@ -64,6 +75,8 @@ export function MachineFormScreen({ machineId }: { machineId?: string }) {
       model: machine.model ?? "",
       serial: machine.serial ?? "",
       tagCode: machine.tagCode ?? "",
+      slotMode: slotCodesToRows(machine.slotCodes) ? "grid" : "custom",
+      slotRows: slotCodesToRows(machine.slotCodes) ?? buildRows(6, 8),
       slotCodesText: machine.slotCodes.join(", "),
       readerProvider: machine.cardReader?.provider ?? "",
       readerDeviceId: machine.cardReader?.deviceId ?? "",
@@ -111,7 +124,10 @@ export function MachineFormScreen({ machineId }: { machineId?: string }) {
       model: form.model.trim() || null,
       serial: form.serial.trim() || null,
       tagCode: form.tagCode.trim() || null,
-      slotCodes: parseSlotCodes(form.slotCodesText),
+      slotCodes:
+        form.slotMode === "grid"
+          ? rowsToSlotCodes(form.slotRows)
+          : parseSlotCodes(form.slotCodesText),
       cardReader: form.readerProvider
         ? { provider: form.readerProvider, deviceId: form.readerDeviceId.trim() }
         : null,
@@ -193,17 +209,52 @@ export function MachineFormScreen({ machineId }: { machineId?: string }) {
           value={form.tagCode}
           onChange={(e) => set({ tagCode: e.target.value })}
         />
-        <div>
-          <textarea
-            className={inputClass}
-            placeholder="Slot codes, in walking order (e.g. A1, A2, A3, B1, B2…)"
-            rows={3}
-            value={form.slotCodesText}
-            onChange={(e) => set({ slotCodesText: e.target.value })}
-          />
-          <p className="mt-1 text-xs text-grey-500">
-            {parseSlotCodes(form.slotCodesText).length} slot(s)
-          </p>
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium text-grey-700">Slots</span>
+            <button
+              type="button"
+              onClick={() =>
+                set(
+                  form.slotMode === "grid"
+                    ? {
+                        slotMode: "custom",
+                        slotCodesText: rowsToSlotCodes(form.slotRows).join(", "),
+                      }
+                    : {
+                        slotMode: "grid",
+                        slotRows:
+                          slotCodesToRows(parseSlotCodes(form.slotCodesText)) ??
+                          form.slotRows,
+                      },
+                )
+              }
+              className="text-xs text-primary-600 hover:text-primary-500"
+            >
+              {form.slotMode === "grid"
+                ? "Enter codes manually"
+                : "Use grid generator"}
+            </button>
+          </div>
+          {form.slotMode === "grid" ? (
+            <SlotGridEditor
+              rows={form.slotRows}
+              onChange={(slotRows) => set({ slotRows })}
+            />
+          ) : (
+            <div>
+              <textarea
+                className={inputClass}
+                placeholder="Slot codes, in walking order (e.g. A1, A2, A3, B1, B2…)"
+                rows={3}
+                value={form.slotCodesText}
+                onChange={(e) => set({ slotCodesText: e.target.value })}
+              />
+              <p className="mt-1 text-xs text-grey-500">
+                {parseSlotCodes(form.slotCodesText).length} slot(s)
+              </p>
+            </div>
+          )}
         </div>
         <div className="grid grid-cols-2 gap-2">
           <select
