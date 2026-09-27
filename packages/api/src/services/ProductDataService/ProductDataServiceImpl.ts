@@ -1,11 +1,19 @@
 import { inject, injectable } from "tsyringe";
 import { PRODUCT_DATA_CLIENT_TOKEN } from "@vendpire/platform";
-import type { ProductData, ProductDataClient } from "@vendpire/platform";
+import type {
+  ProductData,
+  ProductDataClient,
+  ProductSearchResult,
+} from "@vendpire/platform";
 import type { ProductDataService } from "./ProductDataService.ts";
 
 // GTINs are 8–14 digits; anything else can't be a barcode, so don't waste a
 // provider call on it.
 const GTIN_PATTERN = /^\d{8,14}$/;
+
+// Below this many characters a text query is too vague to be worth a
+// provider call, so we short-circuit to no results.
+const MIN_QUERY_LENGTH = 3;
 
 /**
  * Catalog lookup logic: guard against non-barcode input, then delegate to the
@@ -24,5 +32,13 @@ export class ProductDataServiceImpl implements ProductDataService {
       return null;
     }
     return this.catalog.lookupByUpc(trimmed);
+  }
+
+  async search(query: string): Promise<ProductSearchResult[]> {
+    const trimmed = query.trim();
+    if (trimmed.length < MIN_QUERY_LENGTH) {
+      return [];
+    }
+    return this.catalog.searchByName(trimmed);
   }
 }

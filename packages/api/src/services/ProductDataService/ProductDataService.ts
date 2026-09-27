@@ -1,6 +1,6 @@
-import type { ProductData } from "@vendpire/platform";
+import type { ProductData, ProductSearchResult } from "@vendpire/platform";
 
-export type { ProductData };
+export type { ProductData, ProductSearchResult };
 
 /**
  * External product-catalog lookup, backing the "Look up" button next to the
@@ -8,4 +8,5 @@ export type { ProductData };
  */
 export interface ProductDataService {
   lookup(upc: string): Promise<ProductData | null>;
+  search(query: string): Promise<ProductSearchResult[]>;
 }

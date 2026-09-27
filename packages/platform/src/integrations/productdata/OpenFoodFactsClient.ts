@@ -1,9 +1,26 @@
 import { injectable } from "tsyringe";
-import type { ProductData, ProductDataClient } from "./ProductDataClient.ts";
+import type {
+  ProductData,
+  ProductDataClient,
+  ProductSearchResult,
+} from "./ProductDataClient.ts";
 
 const BASE_URL = "https://world.openfoodfacts.org/api/v2/product";
+// Search-a-licious, OFF's full-text search service.
+const SEARCH_URL = "https://search.openfoodfacts.org/search";
 // Open Food Facts asks API users to identify themselves via User-Agent.
 const USER_AGENT = "vendpire/0.1 (vending route tracker; personal use)";
+
+interface OffSearchResponse {
+  hits?: Array<{
+    code?: string;
+    product_name?: string;
+    // A string on the product endpoint but an ARRAY here — normalize both.
+    brands?: string | string[];
+    image_front_url?: string;
+    image_url?: string;
+  }>;
+}
 
 // The slice of the OFF v2 response we actually read.
 interface OffResponse {
@@ -35,6 +52,39 @@ export class OpenFoodFactsClient implements ProductDataClient {
       return this.fetchProduct(`0${upc}`);
     }
     return null;
+  }
+
+  async searchByName(query: string): Promise<ProductSearchResult[]> {
+    // Bias to US products — without it, "fritos" surfaces Spanish tomate
+    // frito sauces ahead of the corn chips.
+    const q = `${query} countries_tags:"en:united-states"`;
+    const url = new URL(SEARCH_URL);
+    url.searchParams.set("q", q);
+    url.searchParams.set("page_size", "8");
+
+    const res = await fetch(url, { headers: { "User-Agent": USER_AGENT } });
+    if (!res.ok) {
+      throw new Error(`Open Food Facts search failed (${res.status})`);
+    }
+    const json = (await res.json()) as OffSearchResponse;
+    const clean = (value: string | undefined): string | null => {
+      const trimmed = value?.trim();
+      return trimmed ? trimmed : null;
+    };
+    return (json.hits ?? []).flatMap((hit) => {
+      if (!hit.code) {
+        return [];
+      }
+      const brand = Array.isArray(hit.brands) ? hit.brands[0] : hit.brands;
+      return [
+        {
+          upc: hit.code,
+          name: clean(hit.product_name),
+          brand: clean(brand),
+          imageUrl: clean(hit.image_front_url) ?? clean(hit.image_url),
+        },
+      ];
+    });
   }
 
   private async fetchProduct(barcode: string): Promise<ProductData | null> {

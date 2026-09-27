@@ -4,6 +4,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { queryClient, trpc, trpcClient } from "../trpc.ts";
 import { ErrorNote, inputClass, Page } from "../components/ui.tsx";
 import { parseDollarsToCents } from "../lib/money.ts";
+import { CatalogSearch } from "../components/CatalogSearch.tsx";
 
 interface FormState {
   name: string;
@@ -142,6 +143,16 @@ export function ProductFormScreen({ productId }: { productId?: string }) {
       <ErrorNote message={error} />
 
       <form onSubmit={submit} className="space-y-2">
+        <CatalogSearch
+          onPick={(pick) =>
+            setForm({
+              ...form,
+              name: pick.name,
+              upc: pick.upc,
+              imageUrl: pick.imageUrl ?? form.imageUrl,
+            })
+          }
+        />
         <input
           className={inputClass}
           placeholder="Name * (e.g. Doritos Nacho 1.75oz)"
