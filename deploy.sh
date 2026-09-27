@@ -85,11 +85,10 @@ POSTHOG_HOST_VALUE="${POSTHOG_HOST:-$(grep -E '^POSTHOG_HOST=' packages/api/.env
 WEB_POSTHOG_KEY="${VITE_POSTHOG_KEY:-$(grep -E '^VITE_POSTHOG_KEY=' packages/web/.env.local 2>/dev/null | head -1 | cut -d= -f2- || true)}"
 WEB_POSTHOG_HOST="${VITE_POSTHOG_HOST:-$(grep -E '^VITE_POSTHOG_HOST=' packages/web/.env.local 2>/dev/null | head -1 | cut -d= -f2- || true)}"
 
-API_ENV_EXTRA=()
+API_ENV_EXTRA=""
 if [ -n "$POSTHOG_API_KEY_VALUE" ]; then
-  PH_ENV="POSTHOG_API_KEY=$POSTHOG_API_KEY_VALUE"
-  [ -n "$POSTHOG_HOST_VALUE" ] && PH_ENV="$PH_ENV,POSTHOG_HOST=$POSTHOG_HOST_VALUE"
-  API_ENV_EXTRA=(--set-env-vars "$PH_ENV")
+  API_ENV_EXTRA=",POSTHOG_API_KEY=$POSTHOG_API_KEY_VALUE"
+  [ -n "$POSTHOG_HOST_VALUE" ] && API_ENV_EXTRA="$API_ENV_EXTRA,POSTHOG_HOST=$POSTHOG_HOST_VALUE"
   echo "PostHog analytics key wired into the API (server-side events)."
 else
   echo "No PostHog server key found — deploying without server-side analytics."
@@ -168,9 +167,7 @@ gcloud run deploy "$API_SERVICE" \
   --project "$PROJECT" \
   --region "$REGION" \
   --allow-unauthenticated \
-  --set-env-vars ENVIRONMENT=production \
-  --set-env-vars WEB_URL="$API_WEB_URL" \
-  "${API_ENV_EXTRA[@]+"${API_ENV_EXTRA[@]}"}" \
+  --set-env-vars "ENVIRONMENT=production,WEB_URL=$API_WEB_URL$API_ENV_EXTRA" \
   --set-secrets "$API_SECRETS"
 
 API_URL=$(gcloud run services describe "$API_SERVICE" \
@@ -207,10 +204,12 @@ echo "Web deployed at: $WEB_URL"
 # ── Correct the API's trusted web origin on a true first deploy ──────────────
 if [ "$API_WEB_URL" != "$WEB_URL" ]; then
   echo "Updating API WEB_URL to $WEB_URL..."
+  # --update-env-vars merges; --set-env-vars would REPLACE the whole env
+  # block and wipe ENVIRONMENT/POSTHOG (bit us on the first deploy).
   gcloud run services update "$API_SERVICE" \
     --project "$PROJECT" \
     --region "$REGION" \
-    --set-env-vars WEB_URL="$WEB_URL" >/dev/null
+    --update-env-vars WEB_URL="$WEB_URL" >/dev/null
 fi
 
 echo ""
