@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { queryClient, trpc } from "../trpc.ts";
+import { queryClient, trpc, trpcClient } from "../trpc.ts";
 import { ErrorNote, inputClass, Page } from "../components/ui.tsx";
 import { parseDollarsToCents } from "../lib/money.ts";
 
@@ -11,6 +11,7 @@ interface FormState {
   upc: string;
   taxClass: string;
   price: string;
+  imageUrl: string | null;
   active: boolean;
 }
 
@@ -20,6 +21,7 @@ const EMPTY: FormState = {
   upc: "",
   taxClass: "",
   price: "",
+  imageUrl: null,
   active: true,
 };
 
@@ -45,6 +47,7 @@ export function ProductFormScreen({ productId }: { productId?: string }) {
       upc: product.upc ?? "",
       taxClass: product.taxClass ?? "",
       price: String(product.defaultPriceCents / 100),
+      imageUrl: product.imageUrl,
       active: product.active,
     });
   }, [existing.data]);
@@ -66,6 +69,35 @@ export function ProductFormScreen({ productId }: { productId?: string }) {
     }),
   );
 
+  const [lookingUp, setLookingUp] = useState(false);
+  const lookup = async () => {
+    setError(null);
+    setLookingUp(true);
+    try {
+      const found = await trpcClient.products.lookupUpc.query({
+        upc: form.upc.trim(),
+      });
+      if (!found) {
+        setError("No catalog match for that UPC — enter details manually");
+        return;
+      }
+      const name =
+        found.name && found.brand && !found.name.includes(found.brand)
+          ? `${found.brand} ${found.name}`
+          : (found.name ?? form.name);
+      setForm({
+        ...form,
+        // Prefill, but never clobber something already typed.
+        name: form.name.trim() ? form.name : name,
+        imageUrl: found.imageUrl ?? form.imageUrl,
+      });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Lookup failed");
+    } finally {
+      setLookingUp(false);
+    }
+  };
+
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -83,6 +115,7 @@ export function ProductFormScreen({ productId }: { productId?: string }) {
       category: form.category.trim(),
       upc: form.upc.trim() || null,
       taxClass: form.taxClass.trim() || null,
+      imageUrl: form.imageUrl,
       defaultPriceCents,
       active: form.active,
     };
@@ -130,12 +163,23 @@ export function ProductFormScreen({ productId }: { productId?: string }) {
           />
         </div>
         <div className="grid grid-cols-2 gap-2">
-          <input
-            className={inputClass}
-            placeholder="UPC"
-            value={form.upc}
-            onChange={(e) => set({ upc: e.target.value })}
-          />
+          <div className="flex gap-1">
+            <input
+              className={inputClass}
+              placeholder="UPC"
+              value={form.upc}
+              onChange={(e) => set({ upc: e.target.value })}
+            />
+            <button
+              type="button"
+              onClick={lookup}
+              disabled={lookingUp || !form.upc.trim()}
+              title="Look up name + photo from the Open Food Facts catalog"
+              className="shrink-0 rounded border border-primary-300 px-3 text-sm text-primary-600 hover:bg-primary-50 disabled:opacity-40"
+            >
+              {lookingUp ? "…" : "Look up"}
+            </button>
+          </div>
           <input
             className={inputClass}
             placeholder="Tax class (for CA vending rules)"
@@ -143,6 +187,22 @@ export function ProductFormScreen({ productId }: { productId?: string }) {
             onChange={(e) => set({ taxClass: e.target.value })}
           />
         </div>
+        {form.imageUrl ? (
+          <div className="flex items-center gap-3">
+            <img
+              src={form.imageUrl}
+              alt={form.name || "Product"}
+              className="h-16 w-16 rounded border border-grey-200 object-contain"
+            />
+            <button
+              type="button"
+              onClick={() => set({ imageUrl: null })}
+              className="text-xs text-grey-500 hover:text-red-600"
+            >
+              Remove image
+            </button>
+          </div>
+        ) : null}
         <label className="flex items-center gap-2 pt-2 text-sm text-grey-700">
           <input
             type="checkbox"

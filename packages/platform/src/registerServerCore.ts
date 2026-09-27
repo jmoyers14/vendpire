@@ -18,12 +18,14 @@ import {
   AUTH_CLIENT_TOKEN,
   ANALYTICS_CLIENT_TOKEN,
   MAPS_CLIENT_TOKEN,
+  PRODUCT_DATA_CLIENT_TOKEN,
 } from "./integrations/tokens.ts";
 import {
   MAPS_CONFIG_TOKEN,
   loadMapsConfig,
 } from "./integrations/maps/mapsConfig.ts";
 import { GoogleMapsClient } from "./integrations/maps/GoogleMapsClient.ts";
+import { OpenFoodFactsClient } from "./integrations/productdata/OpenFoodFactsClient.ts";
 import { ClerkClient } from "./integrations/auth/ClerkClient.ts";
 import { PostHogClient } from "./integrations/analytics/PostHogClient.ts";
 import {
@@ -83,4 +85,5 @@ export function registerServerCore(container: DependencyContainer): void {
   container.registerSingleton(AUTH_CLIENT_TOKEN, ClerkClient);
   container.registerSingleton(ANALYTICS_CLIENT_TOKEN, PostHogClient);
   container.registerSingleton(MAPS_CLIENT_TOKEN, GoogleMapsClient);
+  container.registerSingleton(PRODUCT_DATA_CLIENT_TOKEN, OpenFoodFactsClient);
 }

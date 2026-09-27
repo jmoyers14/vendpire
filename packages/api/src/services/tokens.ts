@@ -8,5 +8,6 @@ export const ADDRESS_SERVICE_TOKEN = "AddressService";
 export const LOCATION_SERVICE_TOKEN = "LocationService";
 export const MACHINE_SERVICE_TOKEN = "MachineService";
 export const PRODUCT_SERVICE_TOKEN = "ProductService";
+export const PRODUCT_DATA_SERVICE_TOKEN = "ProductDataService";
 export const PLANOGRAM_SERVICE_TOKEN = "PlanogramService";
 export const PURCHASE_SERVICE_TOKEN = "PurchaseService";

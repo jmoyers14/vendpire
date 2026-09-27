@@ -12,6 +12,7 @@ type ProductDoc = {
   upc?: string | null;
   category: string;
   taxClass?: string | null;
+  imageUrl?: string | null;
   defaultPriceCents: number;
   active: boolean;
   createdAt: Date;
@@ -80,6 +81,7 @@ function toProduct(doc: ProductDoc): Product {
     upc: doc.upc ?? null,
     category: doc.category,
     taxClass: doc.taxClass ?? null,
+    imageUrl: doc.imageUrl ?? null,
     defaultPriceCents: doc.defaultPriceCents,
     active: doc.active,
     createdAt: doc.createdAt.toISOString(),

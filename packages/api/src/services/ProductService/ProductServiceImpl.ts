@@ -76,6 +76,7 @@ function normalize(input: ProductInput): ProductInput {
     upc: clean(input.upc),
     category: input.category.trim(),
     taxClass: clean(input.taxClass),
+    imageUrl: clean(input.imageUrl),
     defaultPriceCents: input.defaultPriceCents,
     active: input.active,
   };

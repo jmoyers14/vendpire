@@ -7,6 +7,7 @@ const productInput = z.object({
   upc: z.string().nullable().default(null),
   category: z.string().min(1),
   taxClass: z.string().nullable().default(null),
+  imageUrl: z.string().url().nullable().default(null),
   defaultPriceCents: z.number().int().min(0),
   active: z.boolean().default(true),
 });
@@ -15,6 +16,13 @@ export const productsRouter = router({
   list: orgProtectedProcedure.query(({ ctx }) =>
     ctx.services.productService.list(ctx.auth.orgId),
   ),
+
+  // External catalog lookup for the UPC field — returns name/brand/image.
+  lookupUpc: orgProtectedProcedure
+    .input(z.object({ upc: z.string().min(1) }))
+    .query(({ ctx, input }) =>
+      ctx.services.productDataService.lookup(input.upc),
+    ),
 
   get: orgProtectedProcedure
     .input(z.object({ id: z.string().min(1) }))

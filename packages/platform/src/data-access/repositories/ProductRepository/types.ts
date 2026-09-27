@@ -9,6 +9,7 @@ export interface Product {
   category: string;
   /** Feeds California's vending tax rules (CDTFA pub. 118) in reporting. */
   taxClass: string | null;
+  imageUrl: string | null;
   defaultPriceCents: number;
   active: boolean;
   createdAt: string;

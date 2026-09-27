@@ -44,6 +44,7 @@ export function ProductsScreen() {
           <table className="w-full min-w-[36rem] border-collapse text-sm">
             <thead>
               <tr className="border-b border-grey-200 bg-grey-50 text-left text-grey-600">
+                <th className="w-12 px-4 py-2" />
                 <th className="px-4 py-2 font-medium">Name</th>
                 <th className="px-4 py-2 font-medium">Category</th>
                 <th className="px-4 py-2 font-medium">Price</th>
@@ -54,6 +55,17 @@ export function ProductsScreen() {
             <tbody>
               {products.data.map((product) => (
                 <tr key={product.id} className="border-b border-grey-100">
+                  <td className="px-2 py-1">
+                    {product.imageUrl ? (
+                      <img
+                        src={product.imageUrl}
+                        alt=""
+                        className="h-9 w-9 rounded object-contain"
+                      />
+                    ) : (
+                      <div className="h-9 w-9 rounded bg-grey-100" />
+                    )}
+                  </td>
                   <td className="px-4 py-2 font-medium text-grey-800">
                     {product.name}
                   </td>

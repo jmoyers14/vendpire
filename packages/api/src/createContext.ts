@@ -6,6 +6,7 @@ import {
   LOCATION_SERVICE_TOKEN,
   MACHINE_SERVICE_TOKEN,
   PRODUCT_SERVICE_TOKEN,
+  PRODUCT_DATA_SERVICE_TOKEN,
   PLANOGRAM_SERVICE_TOKEN,
   PURCHASE_SERVICE_TOKEN,
 } from "./services/index.ts";
@@ -20,6 +21,7 @@ import type { AddressService } from "./services/AddressService/AddressService.ts
 import type { LocationService } from "./services/LocationService/LocationService.ts";
 import type { MachineService } from "./services/MachineService/MachineService.ts";
 import type { ProductService } from "./services/ProductService/ProductService.ts";
+import type { ProductDataService } from "./services/ProductDataService/ProductDataService.ts";
 import type { PlanogramService } from "./services/PlanogramService/PlanogramService.ts";
 import type { PurchaseService } from "./services/PurchaseService/PurchaseService.ts";
 import type { Context } from "./context.ts";
@@ -53,6 +55,9 @@ export async function createContext(
       locationService: container.resolve<LocationService>(LOCATION_SERVICE_TOKEN),
       machineService: container.resolve<MachineService>(MACHINE_SERVICE_TOKEN),
       productService: container.resolve<ProductService>(PRODUCT_SERVICE_TOKEN),
+      productDataService: container.resolve<ProductDataService>(
+        PRODUCT_DATA_SERVICE_TOKEN,
+      ),
       planogramService: container.resolve<PlanogramService>(PLANOGRAM_SERVICE_TOKEN),
       purchaseService: container.resolve<PurchaseService>(PURCHASE_SERVICE_TOKEN),
     },

@@ -12,6 +12,8 @@ const productSchema = new Schema(
     upc: { type: String, default: null, trim: true },
     category: { type: String, required: true, trim: true },
     taxClass: { type: String, default: null, trim: true },
+    // From the catalog lookup (or hand-set). Hotlinked for now.
+    imageUrl: { type: String, default: null, trim: true },
     defaultPriceCents: { type: Number, required: true },
     active: { type: Boolean, default: true },
     deletedAt: { type: Date, default: null },

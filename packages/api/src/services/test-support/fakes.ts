@@ -326,6 +326,7 @@ export const productInput = (over: Partial<ProductInput> = {}): ProductInput => 
   name: "Doritos Nacho",
   upc: null,
   category: "chips",
+  imageUrl: null,
   taxClass: null,
   defaultPriceCents: 175,
   active: true,

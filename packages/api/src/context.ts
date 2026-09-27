@@ -8,6 +8,7 @@ import type { AddressService } from "./services/AddressService/AddressService.ts
 import type { LocationService } from "./services/LocationService/LocationService.ts";
 import type { MachineService } from "./services/MachineService/MachineService.ts";
 import type { ProductService } from "./services/ProductService/ProductService.ts";
+import type { ProductDataService } from "./services/ProductDataService/ProductDataService.ts";
 import type { PlanogramService } from "./services/PlanogramService/PlanogramService.ts";
 import type { PurchaseService } from "./services/PurchaseService/PurchaseService.ts";
 
@@ -46,6 +47,7 @@ export interface Context {
     locationService: LocationService;
     machineService: MachineService;
     productService: ProductService;
+    productDataService: ProductDataService;
     planogramService: PlanogramService;
     purchaseService: PurchaseService;
   };
