@@ -4,6 +4,7 @@ import {
   buildRows,
   MAX_ROWS,
   rowsToSlotCodes,
+  slotLabel,
   type SlotGridRow,
 } from "../lib/slotGrid.ts";
 
@@ -24,6 +25,9 @@ const clamp = (value: number, min: number, max: number): number =>
  */
 export function SlotGridEditor({ rows, onChange }: SlotGridEditorProps) {
   const [defaultColumns, setDefaultColumns] = useState(rows[0]?.columns ?? 8);
+  const [showNumbering, setShowNumbering] = useState(
+    rows.some((row) => row.start !== 1 || row.step !== 1),
+  );
 
   const setRowCount = (count: number) => {
     const next = buildRows(clamp(count, 1, MAX_ROWS), defaultColumns).map(
@@ -39,6 +43,24 @@ export function SlotGridEditor({ rows, onChange }: SlotGridEditorProps) {
     onChange(rows.map((row) => ({ ...row, columns: width })));
   };
 
+  const setRowNumbering = (
+    index: number,
+    patch: Partial<Pick<SlotGridRow, "start" | "step">>,
+  ) => {
+    onChange(
+      rows.map((row, i) =>
+        i === index
+          ? {
+              ...row,
+              ...patch,
+              start: clamp(patch.start ?? row.start, 0, 99),
+              step: clamp(patch.step ?? row.step, 1, 9),
+            }
+          : row,
+      ),
+    );
+  };
+
   const bumpRow = (index: number, delta: number) => {
     onChange(
       rows.map((row, i) =>
@@ -51,8 +73,8 @@ export function SlotGridEditor({ rows, onChange }: SlotGridEditorProps) {
 
   return (
     <div className="space-y-3 rounded border border-grey-200 p-3">
-      <div className="grid grid-cols-2 gap-2">
-        <label className="text-sm text-grey-700">
+      <div className="flex items-end gap-2">
+        <label className="flex-1 text-sm text-grey-700">
           Shelves
           <input
             type="number"
@@ -63,7 +85,7 @@ export function SlotGridEditor({ rows, onChange }: SlotGridEditorProps) {
             onChange={(e) => setRowCount(Number(e.target.value) || 1)}
           />
         </label>
-        <label className="text-sm text-grey-700">
+        <label className="flex-1 text-sm text-grey-700">
           Slots per shelf (default)
           <input
             type="number"
@@ -74,6 +96,14 @@ export function SlotGridEditor({ rows, onChange }: SlotGridEditorProps) {
             onChange={(e) => setDefault(Number(e.target.value) || 1)}
           />
         </label>
+        <button
+          type="button"
+          onClick={() => setShowNumbering(!showNumbering)}
+          className="mb-1 whitespace-nowrap text-xs text-primary-600 hover:text-primary-500"
+          title="Some machines number by motor position — e.g. evens only (A0, A2, A4…). Set each shelf's first number and the gap between numbers."
+        >
+          {showNumbering ? "Hide numbering" : "Numbering…"}
+        </button>
       </div>
 
       {/* The machine face. */}
@@ -86,11 +116,40 @@ export function SlotGridEditor({ rows, onChange }: SlotGridEditorProps) {
                   key={i}
                   className="flex-1 rounded border border-grey-300 bg-white py-1.5 text-center font-mono text-xs text-grey-700"
                 >
-                  {row.letter}
-                  {i + 1}
+                  {slotLabel(row, i)}
                 </div>
               ))}
             </div>
+            {showNumbering ? (
+              <div className="flex shrink-0 items-center gap-1 text-xs text-grey-500">
+                <label title={`Row ${row.letter}: first slot number`}>
+                  start
+                  <input
+                    type="number"
+                    min={0}
+                    max={99}
+                    className="ml-0.5 w-11 rounded border border-grey-300 px-1 py-0.5"
+                    value={row.start}
+                    onChange={(e) =>
+                      setRowNumbering(index, { start: Number(e.target.value) })
+                    }
+                  />
+                </label>
+                <label title={`Row ${row.letter}: gap between slot numbers`}>
+                  step
+                  <input
+                    type="number"
+                    min={1}
+                    max={9}
+                    className="ml-0.5 w-9 rounded border border-grey-300 px-1 py-0.5"
+                    value={row.step}
+                    onChange={(e) =>
+                      setRowNumbering(index, { step: Number(e.target.value) })
+                    }
+                  />
+                </label>
+              </div>
+            ) : null}
             <div className="flex shrink-0 gap-0.5">
               <button
                 type="button"
@@ -116,8 +175,9 @@ export function SlotGridEditor({ rows, onChange }: SlotGridEditorProps) {
       </div>
 
       <p className="text-xs text-grey-500">
-        {rowsToSlotCodes(rows).length} slots total — e.g. a combo machine:
-        snack shelves at 8, then − the drink shelf down to 5 or 6.
+        {rowsToSlotCodes(rows).length} slots total. Combo machine? − the drink
+        shelf down to 5–6. Even-numbered machine (A0, A2, A4…)? Numbering… →
+        start 0, step 2.
       </p>
     </div>
   );
