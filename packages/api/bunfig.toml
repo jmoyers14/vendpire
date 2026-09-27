@@ -1,0 +1,5 @@
+# `reflect-metadata` must load before any tsyringe-decorated class. The app
+# entry imports it first thing; tests import service impls directly, so preload
+# it here for every test run.
+[test]
+preload = ["reflect-metadata"]

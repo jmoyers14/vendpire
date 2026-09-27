@@ -1,0 +1,4 @@
+# `reflect-metadata` must load before any tsyringe-decorated class. Adapters and
+# repositories are decorated, so tests that import them directly need it first.
+[test]
+preload = ["reflect-metadata"]

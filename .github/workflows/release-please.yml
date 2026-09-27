@@ -1,0 +1,44 @@
+name: release-please
+
+# Maintains a standing "release" PR that bumps the root package.json version and
+# writes CHANGELOG.md from Conventional Commits. Merging that PR tags the release
+# and publishes GitHub Release notes. Deploy stays manual (deploy.sh) — it reads
+# the bumped version, so the app footer/system.version reflect it after deploy.
+#
+# Every run does two jobs: (1) create/update the release PR from the commits
+# since the last tag, and (2) if a release PR was merged, tag it and publish the
+# release. Merging the PR is itself a push to main, so the run it triggers is
+# what does the tagging — there is no separate step to take.
+#
+# `separate-pull-requests: true` in release-please-config.json is load-bearing.
+# Left false, the Merge plugin runs even with our single package (it only skips
+# at zero candidates) and retitles the release PR using
+# MANIFEST_PULL_REQUEST_TITLE_PATTERN — 'chore: release ${branch}' — which
+# deliberately carries no component or version, since a combined PR spans
+# packages. Job (2) then parses that title for a component, gets undefined,
+# fails to match the configured "vendpire", and creates zero releases. No tag
+# results, and the still-pending PR blocks every later release PR with
+# "There are untagged, merged release PRs outstanding - aborting". That is why
+# earlier releases in the reference repo had to be tagged by hand.
+#
+# If a release ever fails to tag again: `gh release create vX.Y.Z --target <full
+# sha of the release PR merge>`, then move the merged PR's label from
+# `autorelease: pending` to `autorelease: tagged`. The label is how it tracks
+# state; the tag alone is not enough.
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: googleapis/release-please-action@v4
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json

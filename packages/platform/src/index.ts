@@ -1,0 +1,29 @@
+/**
+ * Contract surface of the shared backend layer: tokens, ports, and (from Phase 3)
+ * entity/input types — no values that pull in Mongoose or SDKs. Safe for
+ * type-only consumers (the web client resolves these through the tRPC AppRouter
+ * type). Server-only values (registerServerCore, connectDatabase) live in
+ * ./server.ts.
+ */
+
+// Config: the app-identity slice (environment + build stamp). AppConfig rides on
+// the tRPC Context, so only its zod-free type module is exposed here. The other
+// slices (database, clerk, analytics) and the parse helper are server-only —
+// they read env / call process.exit — so they stay off the contract barrel and
+// never reach the web client.
+export * from "./config/appConfig.ts";
+
+// Data-access: tokens and repository ports (each re-exports its own entity/input
+// types). Empty until Phase 3.
+export * from "./data-access/tokens.ts";
+
+// Integrations: tokens and vendor-neutral ports.
+export * from "./integrations/tokens.ts";
+export * from "./integrations/auth/AuthClient.ts";
+export * from "./integrations/analytics/AnalyticsClient.ts";
+export * from "./integrations/tasks/TaskQueue.ts";
+
+// Logging: the port + token only. The pino-backed root logger is server-only
+// (exported from ./server.ts) so pino never reaches the web client's type graph;
+// the Logger interface is what rides on the tRPC Context.
+export { type Logger, type LogFn, LOGGER_TOKEN } from "./logging/Logger.ts";

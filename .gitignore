@@ -1,0 +1,14 @@
+node_modules/
+dist/
+# Env files: ignore every real one, keep only the committed template.
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+# Playwright
+test-results/
+playwright-report/
+
+# Claude Code local state
+.claude/
