@@ -36,7 +36,7 @@ export function MachinePlanogramsScreen({ machineId }: { machineId: string }) {
       return;
     }
     setRows(
-      machine.data.slotCodes.map((slotCode) => {
+      machine.data.slots.flat().map((slotCode) => {
         const slot = current?.slots.find((s) => s.slotCode === slotCode);
         return {
           slotCode,
@@ -192,35 +192,49 @@ export function MachinePlanogramsScreen({ machineId }: { machineId: string }) {
             </button>
           </div>
 
-          {current ? (
-            <TableScroll>
-              <table className="w-full min-w-[32rem] border-collapse text-sm">
-                <thead>
-                  <tr className="border-b border-grey-200 bg-grey-50 text-left text-grey-600">
-                    <th className="px-4 py-2 font-medium">Slot</th>
-                    <th className="px-4 py-2 font-medium">Product</th>
-                    <th className="px-4 py-2 font-medium">Par</th>
-                    <th className="px-4 py-2 font-medium">Price</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {current.slots.map((slot) => (
-                    <tr key={slot.slotCode} className="border-b border-grey-100">
-                      <td className="px-4 py-2 font-mono text-grey-800">
-                        {slot.slotCode}
-                      </td>
-                      <td className="px-4 py-2 text-grey-800">
-                        {productName(slot.productId)}
-                      </td>
-                      <td className="px-4 py-2 text-grey-600">{slot.par}</td>
-                      <td className="px-4 py-2 text-grey-600">
-                        {formatCents(slot.priceCents)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </TableScroll>
+          {current && machine.data ? (
+            <div className="space-y-1.5 overflow-x-auto rounded-md bg-grey-100 p-2">
+              {machine.data.slots.map((shelf, shelfIndex) => (
+                <div key={shelfIndex} className="flex gap-1">
+                  {shelf.map((slotCode) => {
+                    const slot = current.slots.find(
+                      (s) => s.slotCode === slotCode,
+                    );
+                    return (
+                      <div
+                        key={slotCode}
+                        title={
+                          slot
+                            ? `${slotCode}: ${productName(slot.productId)} — par ${slot.par} @ ${formatCents(slot.priceCents)}`
+                            : `${slotCode}: empty`
+                        }
+                        className={`min-w-0 flex-1 rounded border px-1 py-1.5 text-center ${
+                          slot
+                            ? "border-grey-300 bg-white"
+                            : "border-dashed border-grey-300 bg-grey-50"
+                        }`}
+                      >
+                        <div className="font-mono text-[10px] text-grey-500">
+                          {slotCode}
+                        </div>
+                        {slot ? (
+                          <>
+                            <div className="truncate text-xs font-medium text-grey-800">
+                              {productName(slot.productId)}
+                            </div>
+                            <div className="text-[10px] text-grey-600">
+                              {formatCents(slot.priceCents)} · par {slot.par}
+                            </div>
+                          </>
+                        ) : (
+                          <div className="text-[10px] text-grey-400">—</div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
           ) : null}
 
           {versions.data && versions.data.length > 1 ? (

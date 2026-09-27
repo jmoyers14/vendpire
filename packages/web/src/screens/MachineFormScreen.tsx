@@ -7,10 +7,9 @@ import { SlotGridEditor } from "../components/SlotGridEditor.tsx";
 import { SlotFacePreview } from "../components/SlotFacePreview.tsx";
 import {
   buildRows,
-  groupSlotCodes,
   parseSlotLines,
-  rowsToSlotCodes,
-  slotCodesToRows,
+  rowsToShelves,
+  shelvesToRows,
   type SlotGridRow,
 } from "../lib/slotGrid.ts";
 
@@ -71,11 +70,9 @@ export function MachineFormScreen({ machineId }: { machineId?: string }) {
       model: machine.model ?? "",
       serial: machine.serial ?? "",
       tagCode: machine.tagCode ?? "",
-      slotMode: slotCodesToRows(machine.slotCodes) ? "grid" : "custom",
-      slotRows: slotCodesToRows(machine.slotCodes) ?? buildRows(6, 8),
-      slotCodesText: groupSlotCodes(machine.slotCodes)
-        .map((shelf) => shelf.join(" "))
-        .join("\n"),
+      slotMode: shelvesToRows(machine.slots) ? "grid" : "custom",
+      slotRows: shelvesToRows(machine.slots) ?? buildRows(6, 8),
+      slotCodesText: machine.slots.map((shelf) => shelf.join(" ")).join("\n"),
       readerProvider: machine.cardReader?.provider ?? "",
       readerDeviceId: machine.cardReader?.deviceId ?? "",
       active: machine.active,
@@ -122,10 +119,10 @@ export function MachineFormScreen({ machineId }: { machineId?: string }) {
       model: form.model.trim() || null,
       serial: form.serial.trim() || null,
       tagCode: form.tagCode.trim() || null,
-      slotCodes:
+      slots:
         form.slotMode === "grid"
-          ? rowsToSlotCodes(form.slotRows)
-          : parseSlotLines(form.slotCodesText).flat(),
+          ? rowsToShelves(form.slotRows)
+          : parseSlotLines(form.slotCodesText),
       cardReader: form.readerProvider
         ? { provider: form.readerProvider, deviceId: form.readerDeviceId.trim() }
         : null,
@@ -217,18 +214,15 @@ export function MachineFormScreen({ machineId }: { machineId?: string }) {
                   form.slotMode === "grid"
                     ? {
                         slotMode: "custom",
-                        slotCodesText: form.slotRows
-                          .map((row) =>
-                            rowsToSlotCodes([row]).join(" "),
-                          )
+                        slotCodesText: rowsToShelves(form.slotRows)
+                          .map((shelf) => shelf.join(" "))
                           .join("\n"),
                       }
                     : {
                         slotMode: "grid",
                         slotRows:
-                          slotCodesToRows(
-                            parseSlotLines(form.slotCodesText).flat(),
-                          ) ?? form.slotRows,
+                          shelvesToRows(parseSlotLines(form.slotCodesText)) ??
+                          form.slotRows,
                       },
                 )
               }

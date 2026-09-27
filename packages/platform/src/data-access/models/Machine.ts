@@ -15,8 +15,10 @@ const machineSchema = new Schema(
     model: { type: String, default: null, trim: true },
     serial: { type: String, default: null, trim: true },
     tagCode: { type: String, default: null, trim: true },
-    // The physical slots, in the order you walk them at the machine.
-    slotCodes: { type: [String], default: [] },
+    // The machine face: one array per shelf, slot codes in walking order.
+    // Stored structurally (not flat) so grids render exactly as authored —
+    // no letter-prefix inference anywhere downstream.
+    slots: { type: [[String]], default: [] },
     cardReader: {
       type: new Schema(
         {

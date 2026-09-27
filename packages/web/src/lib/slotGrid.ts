@@ -38,29 +38,33 @@ export const rowsToSlotCodes = (rows: SlotGridRow[]): string[] =>
     Array.from({ length: row.columns }, (_, i) => slotLabel(row, i)),
   );
 
+/** Grid rows → stored shelves (one array of codes per shelf). */
+export const rowsToShelves = (rows: SlotGridRow[]): string[][] =>
+  rows.map((row) =>
+    Array.from({ length: row.columns }, (_, i) => slotLabel(row, i)),
+  );
+
 /**
- * Reverse-parse existing slot codes into grid rows, or null when they don't
- * fit the pattern (then the form opens in custom mode). Codes fit when every
- * code is one letter + a number, rows are consecutive letters from A, and each
- * row's numbers form an arithmetic sequence (any start, constant step ≥ 1 —
- * a single-slot row defaults to step 1).
+ * Reverse-parse stored shelves into grid rows, or null when they don't fit
+ * the pattern (then the form opens in custom mode). Shelves fit when they are
+ * lettered A, B, C… in order and each shelf's numbers form an arithmetic
+ * sequence (any start, constant step ≥ 1 — a single-slot shelf defaults to
+ * step 1).
  */
-export const slotCodesToRows = (codes: string[]): SlotGridRow[] | null => {
-  if (codes.length === 0) {
+export const shelvesToRows = (shelves: string[][]): SlotGridRow[] | null => {
+  if (shelves.length === 0) {
     return null;
   }
   const rows: SlotGridRow[] = [];
-  let index = 0;
-  while (index < codes.length) {
-    const letter = String.fromCharCode(65 + rows.length);
+  for (const [index, shelf] of shelves.entries()) {
+    const letter = String.fromCharCode(65 + index);
     const numbers: number[] = [];
-    while (index < codes.length) {
-      const match = codes[index]?.match(/^([A-Z])(\d+)$/);
+    for (const code of shelf) {
+      const match = code.match(/^([A-Z])(\d+)$/);
       if (!match || match[1] !== letter) {
-        break;
+        return null;
       }
       numbers.push(Number(match[2]));
-      index += 1;
     }
     if (numbers.length === 0) {
       return null;
@@ -93,25 +97,3 @@ export const parseSlotLines = (text: string): string[][] =>
         .filter(Boolean),
     )
     .filter((line) => line.length > 0);
-
-/**
- * Flat stored codes → shelves, for rendering any machine's face regardless of
- * how its codes were authored. Consecutive codes sharing a leading-letter
- * prefix form one shelf ("A1 A2 A5" → shelf A even though it fits no
- * arithmetic rule); a code with no letter prefix starts its own shelf.
- */
-export const groupSlotCodes = (codes: string[]): string[][] => {
-  const groups: string[][] = [];
-  let prefix: string | null = null;
-  for (const code of codes) {
-    const match = code.match(/^[A-Za-z]+/);
-    const codePrefix = match ? match[0].toUpperCase() : null;
-    if (codePrefix !== null && codePrefix === prefix && groups.length > 0) {
-      groups[groups.length - 1]!.push(code);
-    } else {
-      groups.push([code]);
-      prefix = codePrefix;
-    }
-  }
-  return groups;
-};

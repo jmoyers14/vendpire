@@ -10,7 +10,8 @@ const machineInput = z.object({
   model: z.string().nullable().default(null),
   serial: z.string().nullable().default(null),
   tagCode: z.string().nullable().default(null),
-  slotCodes: z.array(z.string().min(1)).default([]),
+  // One array per shelf, slot codes in walking order.
+  slots: z.array(z.array(z.string().min(1))).default([]),
   cardReader: z
     .object({
       provider: z.enum(["nayax", "cantaloupe"]),

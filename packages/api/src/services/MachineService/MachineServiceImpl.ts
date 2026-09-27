@@ -82,8 +82,13 @@ export class MachineServiceImpl implements MachineService {
       throw new ServiceError("BAD_REQUEST", "Location does not exist");
     }
 
-    const slotCodes = input.slotCodes.map((code) => code.trim().toUpperCase());
-    if (new Set(slotCodes).size !== slotCodes.length) {
+    const slots = input.slots
+      .map((shelf) =>
+        shelf.map((code) => code.trim().toUpperCase()).filter(Boolean),
+      )
+      .filter((shelf) => shelf.length > 0);
+    const flat = slots.flat();
+    if (new Set(flat).size !== flat.length) {
       throw new ServiceError("BAD_REQUEST", "Duplicate slot codes");
     }
 
@@ -110,7 +115,7 @@ export class MachineServiceImpl implements MachineService {
       model: clean(input.model),
       serial: clean(input.serial),
       tagCode,
-      slotCodes,
+      slots,
       cardReader: input.cardReader,
       active: input.active,
     };

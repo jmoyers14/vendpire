@@ -32,17 +32,17 @@ describe("MachineService", () => {
     ).rejects.toThrow(/location/i);
   });
 
-  it("uppercases, trims, and de-spaces slot codes", async () => {
+  it("uppercases and trims slot codes, dropping empty shelves", async () => {
     const machine = await service.create(
       ORG,
-      machineInput({ locationId, slotCodes: [" a1", "b2 "] }),
+      machineInput({ locationId, slots: [[" a1", "b2 "], []] }),
     );
-    expect(machine.slotCodes).toEqual(["A1", "B2"]);
+    expect(machine.slots).toEqual([["A1", "B2"]]);
   });
 
-  it("rejects duplicate slot codes", async () => {
+  it("rejects duplicate slot codes, even across shelves", async () => {
     await expect(
-      service.create(ORG, machineInput({ locationId, slotCodes: ["A1", "a1"] })),
+      service.create(ORG, machineInput({ locationId, slots: [["A1"], ["a1"]] })),
     ).rejects.toThrow(/slot/i);
   });
 

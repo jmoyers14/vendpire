@@ -29,7 +29,7 @@ describe("PlanogramService", () => {
     const locationId = locations.seed(ORG, locationInput()).id;
     machineId = machines.seed(
       ORG,
-      machineInput({ locationId, slotCodes: ["A1", "A2", "B1"] }),
+      machineInput({ locationId, slots: [["A1", "A2"], ["B1"]] }),
     ).id;
     productId = products.seed(ORG, productInput()).id;
   });

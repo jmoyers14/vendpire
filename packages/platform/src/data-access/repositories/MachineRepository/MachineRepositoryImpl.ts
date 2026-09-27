@@ -15,7 +15,7 @@ type MachineDoc = {
   model?: string | null;
   serial?: string | null;
   tagCode?: string | null;
-  slotCodes?: string[];
+  slots?: string[][];
   cardReader?: { provider: "nayax" | "cantaloupe"; deviceId: string } | null;
   active: boolean;
   createdAt: Date;
@@ -55,7 +55,7 @@ export class MachineRepositoryImpl implements MachineRepository {
 
   async create(orgId: string, data: MachineInput): Promise<Machine> {
     const doc = await MachineModel.create({ orgId, ...data });
-    return toMachine(doc.toObject() as MachineDoc);
+    return toMachine(doc.toObject() as unknown as MachineDoc);
   }
 
   async update(
@@ -89,7 +89,7 @@ function toMachine(doc: MachineDoc): Machine {
     model: doc.model ?? null,
     serial: doc.serial ?? null,
     tagCode: doc.tagCode ?? null,
-    slotCodes: doc.slotCodes ?? [],
+    slots: (doc.slots ?? []).map((shelf) => [...shelf]),
     cardReader: doc.cardReader
       ? { provider: doc.cardReader.provider, deviceId: doc.cardReader.deviceId }
       : null,

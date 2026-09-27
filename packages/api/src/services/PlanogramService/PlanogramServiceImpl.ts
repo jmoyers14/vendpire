@@ -54,6 +54,7 @@ export class PlanogramServiceImpl implements PlanogramService {
       slotCode: slot.slotCode.trim().toUpperCase(),
     }));
 
+    const machineSlotCodes = new Set(machine.slots.flat());
     const seen = new Set<string>();
     for (const slot of slots) {
       if (seen.has(slot.slotCode)) {
@@ -63,7 +64,7 @@ export class PlanogramServiceImpl implements PlanogramService {
         );
       }
       seen.add(slot.slotCode);
-      if (!machine.slotCodes.includes(slot.slotCode)) {
+      if (!machineSlotCodes.has(slot.slotCode)) {
         throw new ServiceError(
           "BAD_REQUEST",
           `Machine has no slot ${slot.slotCode}`,

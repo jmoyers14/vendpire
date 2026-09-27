@@ -68,7 +68,7 @@ export function MachinesScreen() {
                     {machine.kind}
                   </td>
                   <td className="px-4 py-2 text-grey-600">
-                    {machine.slotCodes.length}
+                    {machine.slots.flat().length}
                   </td>
                   <td className="px-4 py-2 font-mono text-grey-600">
                     {machine.tagCode ?? "—"}

@@ -316,7 +316,7 @@ export const machineInput = (over: Partial<MachineInput> = {}): MachineInput => 
   model: null,
   serial: null,
   tagCode: null,
-  slotCodes: ["A1", "A2"],
+  slots: [["A1", "A2"]],
   cardReader: null,
   active: true,
   ...over,

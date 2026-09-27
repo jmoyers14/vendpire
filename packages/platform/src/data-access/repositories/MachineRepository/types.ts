@@ -13,8 +13,8 @@ export interface Machine {
   serial: string | null;
   /** What the QR/NFC sticker encodes — unique per org when set. */
   tagCode: string | null;
-  /** The physical slots, in the order you walk them at the machine. */
-  slotCodes: string[];
+  /** The machine face: one array per shelf, slot codes in walking order. */
+  slots: string[][];
   cardReader: { provider: "nayax" | "cantaloupe"; deviceId: string } | null;
   active: boolean;
   createdAt: string;
