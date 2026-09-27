@@ -78,3 +78,40 @@ export const slotCodesToRows = (codes: string[]): SlotGridRow[] | null => {
   }
   return rows;
 };
+
+/**
+ * Manual-entry text → shelves: one line per shelf, codes separated by spaces
+ * or commas. Empty lines are ignored.
+ */
+export const parseSlotLines = (text: string): string[][] =>
+  text
+    .split(/\n/)
+    .map((line) =>
+      line
+        .split(/[\s,]+/)
+        .map((code) => code.trim())
+        .filter(Boolean),
+    )
+    .filter((line) => line.length > 0);
+
+/**
+ * Flat stored codes → shelves, for rendering any machine's face regardless of
+ * how its codes were authored. Consecutive codes sharing a leading-letter
+ * prefix form one shelf ("A1 A2 A5" → shelf A even though it fits no
+ * arithmetic rule); a code with no letter prefix starts its own shelf.
+ */
+export const groupSlotCodes = (codes: string[]): string[][] => {
+  const groups: string[][] = [];
+  let prefix: string | null = null;
+  for (const code of codes) {
+    const match = code.match(/^[A-Za-z]+/);
+    const codePrefix = match ? match[0].toUpperCase() : null;
+    if (codePrefix !== null && codePrefix === prefix && groups.length > 0) {
+      groups[groups.length - 1]!.push(code);
+    } else {
+      groups.push([code]);
+      prefix = codePrefix;
+    }
+  }
+  return groups;
+};

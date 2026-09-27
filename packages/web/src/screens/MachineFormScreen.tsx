@@ -4,8 +4,11 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { queryClient, trpc } from "../trpc.ts";
 import { ErrorNote, inputClass, Page } from "../components/ui.tsx";
 import { SlotGridEditor } from "../components/SlotGridEditor.tsx";
+import { SlotFacePreview } from "../components/SlotFacePreview.tsx";
 import {
   buildRows,
+  groupSlotCodes,
+  parseSlotLines,
   rowsToSlotCodes,
   slotCodesToRows,
   type SlotGridRow,
@@ -43,13 +46,6 @@ const EMPTY: FormState = {
   active: true,
 };
 
-/** "A1, A2 B1" (commas/whitespace/newlines) → ["A1","A2","B1"]. */
-const parseSlotCodes = (text: string): string[] =>
-  text
-    .split(/[\s,]+/)
-    .map((code) => code.trim())
-    .filter(Boolean);
-
 /** Create + edit form: `machineId` present means edit. */
 export function MachineFormScreen({ machineId }: { machineId?: string }) {
   const navigate = useNavigate();
@@ -77,7 +73,9 @@ export function MachineFormScreen({ machineId }: { machineId?: string }) {
       tagCode: machine.tagCode ?? "",
       slotMode: slotCodesToRows(machine.slotCodes) ? "grid" : "custom",
       slotRows: slotCodesToRows(machine.slotCodes) ?? buildRows(6, 8),
-      slotCodesText: machine.slotCodes.join(", "),
+      slotCodesText: groupSlotCodes(machine.slotCodes)
+        .map((shelf) => shelf.join(" "))
+        .join("\n"),
       readerProvider: machine.cardReader?.provider ?? "",
       readerDeviceId: machine.cardReader?.deviceId ?? "",
       active: machine.active,
@@ -127,7 +125,7 @@ export function MachineFormScreen({ machineId }: { machineId?: string }) {
       slotCodes:
         form.slotMode === "grid"
           ? rowsToSlotCodes(form.slotRows)
-          : parseSlotCodes(form.slotCodesText),
+          : parseSlotLines(form.slotCodesText).flat(),
       cardReader: form.readerProvider
         ? { provider: form.readerProvider, deviceId: form.readerDeviceId.trim() }
         : null,
@@ -219,13 +217,18 @@ export function MachineFormScreen({ machineId }: { machineId?: string }) {
                   form.slotMode === "grid"
                     ? {
                         slotMode: "custom",
-                        slotCodesText: rowsToSlotCodes(form.slotRows).join(", "),
+                        slotCodesText: form.slotRows
+                          .map((row) =>
+                            rowsToSlotCodes([row]).join(" "),
+                          )
+                          .join("\n"),
                       }
                     : {
                         slotMode: "grid",
                         slotRows:
-                          slotCodesToRows(parseSlotCodes(form.slotCodesText)) ??
-                          form.slotRows,
+                          slotCodesToRows(
+                            parseSlotLines(form.slotCodesText).flat(),
+                          ) ?? form.slotRows,
                       },
                 )
               }
@@ -242,16 +245,17 @@ export function MachineFormScreen({ machineId }: { machineId?: string }) {
               onChange={(slotRows) => set({ slotRows })}
             />
           ) : (
-            <div>
+            <div className="space-y-2">
               <textarea
-                className={inputClass}
-                placeholder="Slot codes, in walking order (e.g. A1, A2, A3, B1, B2…)"
-                rows={3}
+                className={`${inputClass} font-mono`}
+                placeholder={"One shelf per line, codes in walking order:\nA0 A2 A4 A6\nB1 B2 B3 B4 B5"}
+                rows={4}
                 value={form.slotCodesText}
                 onChange={(e) => set({ slotCodesText: e.target.value })}
               />
-              <p className="mt-1 text-xs text-grey-500">
-                {parseSlotCodes(form.slotCodesText).length} slot(s)
+              <SlotFacePreview shelves={parseSlotLines(form.slotCodesText)} />
+              <p className="text-xs text-grey-500">
+                {parseSlotLines(form.slotCodesText).flat().length} slot(s)
               </p>
             </div>
           )}

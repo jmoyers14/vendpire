@@ -1,5 +1,11 @@
 import { describe, expect, it } from "bun:test";
-import { buildRows, rowsToSlotCodes, slotCodesToRows } from "./slotGrid.ts";
+import {
+  buildRows,
+  groupSlotCodes,
+  parseSlotLines,
+  rowsToSlotCodes,
+  slotCodesToRows,
+} from "./slotGrid.ts";
 
 describe("slotGrid", () => {
   it("generates codes in walking order", () => {
@@ -50,5 +56,22 @@ describe("slotGrid", () => {
     expect(slotCodesToRows(["B1", "B2"])).toBeNull();       // doesn't start at A
     expect(slotCodesToRows(["LEFT", "RIGHT"])).toBeNull();  // not letter+number
     expect(slotCodesToRows([])).toBeNull();
+  });
+
+  it("parses manual text one shelf per line", () => {
+    expect(parseSlotLines("A0 A2, A4\n\nB1 B2")).toEqual([
+      ["A0", "A2", "A4"],
+      ["B1", "B2"],
+    ]);
+  });
+
+  it("groups flat codes into shelves by consecutive letter prefix", () => {
+    expect(groupSlotCodes(["A1", "A2", "A5", "B1", "B2"])).toEqual([
+      ["A1", "A2", "A5"],
+      ["B1", "B2"],
+    ]);
+    // A prefix that reappears later starts a NEW shelf (walking order wins).
+    expect(groupSlotCodes(["A1", "B1", "A2"])).toEqual([["A1"], ["B1"], ["A2"]]);
+    expect(groupSlotCodes([])).toEqual([]);
   });
 });
