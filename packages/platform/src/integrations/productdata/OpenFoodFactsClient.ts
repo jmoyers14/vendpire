@@ -46,10 +46,13 @@ export class OpenFoodFactsClient implements ProductDataClient {
     if (direct) {
       return direct;
     }
-    // US UPC-A is 12 digits; OFF often stores it as 13-digit EAN with a
-    // leading zero. Retry the padded form before giving up.
+    // US UPC-A is 12 digits; OFF stores some products padded to 13 with a
+    // leading zero and others stripped to 12. Retry the other spelling.
     if (/^\d{12}$/.test(upc)) {
       return this.fetchProduct(`0${upc}`);
+    }
+    if (/^0\d{12}$/.test(upc)) {
+      return this.fetchProduct(upc.slice(1));
     }
     return null;
   }
