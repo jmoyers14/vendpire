@@ -84,7 +84,10 @@ console.log("Importing into org", orgId);
 const products = container.resolve<ProductService>(PRODUCT_SERVICE_TOKEN);
 const catalog = container.resolve<ProductDataClient>(PRODUCT_DATA_CLIENT_TOKEN);
 const existing = await products.list(orgId);
-const existingUpcs = new Set(existing.map((p) => p.upc).filter(Boolean));
+const existingUpcs = new Set([
+  ...existing.map((p) => p.upc).filter(Boolean),
+  ...existing.flatMap((p) => p.packagings.map((pack) => pack.barcode)),
+]);
 
 const lines = readFileSync(csvPath, "utf8").trim().split("\n");
 let created = 0;
@@ -132,7 +135,10 @@ for (const line of lines.slice(1)) {
 
   await products.create(orgId, {
     name,
-    upc,
+    // The CSV's barcode is the CASE code — that's a packaging, not the unit
+    // upc. The unit barcode stays null until verified from a real can/bag.
+    upc: null,
+    packagings: [{ barcode: upc, unitsPerPack: count ? Number(count) : null }],
     category: inferCategory(name),
     taxClass: null,
     imageUrl,

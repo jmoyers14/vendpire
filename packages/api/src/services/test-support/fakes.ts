@@ -325,6 +325,7 @@ export const machineInput = (over: Partial<MachineInput> = {}): MachineInput => 
 export const productInput = (over: Partial<ProductInput> = {}): ProductInput => ({
   name: "Doritos Nacho",
   upc: null,
+  packagings: [],
   category: "chips",
   imageUrl: null,
   taxClass: null,

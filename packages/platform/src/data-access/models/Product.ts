@@ -9,7 +9,23 @@ const productSchema = new Schema(
   {
     orgId: { type: String, required: true, index: true },
     name: { type: String, required: true, trim: true },
+    // The UNIT barcode (on the can/bag itself) — null until verified.
     upc: { type: String, default: null, trim: true },
+    // Purchasable package configurations: the case/box barcode and how many
+    // sellable units it contains. Scanning a case at purchase time resolves
+    // through these.
+    packagings: {
+      type: [
+        new Schema(
+          {
+            barcode: { type: String, required: true, trim: true },
+            unitsPerPack: { type: Number, default: null },
+          },
+          { _id: false },
+        ),
+      ],
+      default: [],
+    },
     category: { type: String, required: true, trim: true },
     taxClass: { type: String, default: null, trim: true },
     // From the catalog lookup (or hand-set). Hotlinked for now.

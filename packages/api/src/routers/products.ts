@@ -5,6 +5,14 @@ import { ANALYTICS_EVENTS } from "../analytics/events.ts";
 const productInput = z.object({
   name: z.string().min(1),
   upc: z.string().nullable().default(null),
+  packagings: z
+    .array(
+      z.object({
+        barcode: z.string().min(1),
+        unitsPerPack: z.number().int().min(1).nullable().default(null),
+      }),
+    )
+    .default([]),
   category: z.string().min(1),
   taxClass: z.string().nullable().default(null),
   imageUrl: z.string().url().nullable().default(null),

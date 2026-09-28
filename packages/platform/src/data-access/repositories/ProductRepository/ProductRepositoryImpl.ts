@@ -10,6 +10,7 @@ type ProductDoc = {
   _id: unknown;
   name: string;
   upc?: string | null;
+  packagings?: { barcode: string; unitsPerPack?: number | null }[];
   category: string;
   taxClass?: string | null;
   imageUrl?: string | null;
@@ -79,6 +80,10 @@ function toProduct(doc: ProductDoc): Product {
     id: String(doc._id),
     name: doc.name,
     upc: doc.upc ?? null,
+    packagings: (doc.packagings ?? []).map((pack) => ({
+      barcode: pack.barcode,
+      unitsPerPack: pack.unitsPerPack ?? null,
+    })),
     category: doc.category,
     taxClass: doc.taxClass ?? null,
     imageUrl: doc.imageUrl ?? null,

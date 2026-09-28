@@ -74,6 +74,10 @@ function normalize(input: ProductInput): ProductInput {
   return {
     name: input.name.trim(),
     upc: clean(input.upc),
+    packagings: input.packagings.map((pack) => ({
+      barcode: pack.barcode.trim(),
+      unitsPerPack: pack.unitsPerPack,
+    })),
     category: input.category.trim(),
     taxClass: clean(input.taxClass),
     imageUrl: clean(input.imageUrl),
