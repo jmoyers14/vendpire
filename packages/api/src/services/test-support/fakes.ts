@@ -14,6 +14,9 @@ import type {
   Purchase,
   PurchaseInput,
   PurchaseRepository,
+  Pack,
+  PackInput,
+  PackRepository,
 } from "@vendpire/platform";
 
 /**
@@ -162,6 +165,12 @@ export class FakeProductRepository implements ProductRepository {
   async findById(orgId: string, id: string): Promise<Product | null> {
     return (
       this.rows.find((r) => r.orgId === orgId && r.id === id && !r.deleted) ??
+      null
+    );
+  }
+  async findByUpc(orgId: string, upc: string): Promise<Product | null> {
+    return (
+      this.rows.find((r) => r.orgId === orgId && r.upc === upc && !r.deleted) ??
       null
     );
   }
@@ -325,7 +334,6 @@ export const machineInput = (over: Partial<MachineInput> = {}): MachineInput => 
 export const productInput = (over: Partial<ProductInput> = {}): ProductInput => ({
   name: "Doritos Nacho",
   upc: null,
-  packagings: [],
   category: "chips",
   imageUrl: null,
   taxClass: null,
@@ -333,3 +341,64 @@ export const productInput = (over: Partial<ProductInput> = {}): ProductInput => 
   active: true,
   ...over,
 });
+
+export class FakePackRepository implements PackRepository {
+  rows: Stored<Pack>[] = [];
+
+  seed(orgId: string, input: PackInput): Pack {
+    const row: Stored<Pack> = {
+      ...input,
+      id: newId(),
+      createdAt: now(),
+      updatedAt: now(),
+      orgId,
+      deleted: false,
+    };
+    this.rows.push(row);
+    return row;
+  }
+
+  async findByOrg(orgId: string): Promise<Pack[]> {
+    return this.rows.filter((r) => r.orgId === orgId && !r.deleted);
+  }
+  async findById(orgId: string, id: string): Promise<Pack | null> {
+    return (
+      this.rows.find((r) => r.orgId === orgId && r.id === id && !r.deleted) ??
+      null
+    );
+  }
+  async findByBarcode(orgId: string, gtin14: string): Promise<Pack | null> {
+    return (
+      this.rows.find(
+        (r) => r.orgId === orgId && r.barcodes.includes(gtin14) && !r.deleted,
+      ) ?? null
+    );
+  }
+  async countByProduct(orgId: string, productId: string): Promise<number> {
+    return this.rows.filter(
+      (r) =>
+        r.orgId === orgId &&
+        !r.deleted &&
+        r.contents.some((content) => content.productId === productId),
+    ).length;
+  }
+  async create(orgId: string, data: PackInput): Promise<Pack> {
+    return this.seed(orgId, data);
+  }
+  async update(orgId: string, id: string, data: PackInput): Promise<Pack | null> {
+    const row = this.rows.find(
+      (r) => r.orgId === orgId && r.id === id && !r.deleted,
+    );
+    if (!row) {
+      return null;
+    }
+    Object.assign(row, data, { updatedAt: now() });
+    return row;
+  }
+  async softDelete(orgId: string, id: string): Promise<void> {
+    const row = this.rows.find((r) => r.orgId === orgId && r.id === id);
+    if (row) {
+      row.deleted = true;
+    }
+  }
+}

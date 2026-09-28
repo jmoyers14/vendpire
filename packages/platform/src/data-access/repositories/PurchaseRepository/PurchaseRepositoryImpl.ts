@@ -10,7 +10,12 @@ type PurchaseDoc = {
   _id: unknown;
   purchasedAt: Date;
   vendor: string;
-  lines: { productId: string; units: number; totalCostCents: number }[];
+  lines: {
+    productId: string;
+    units: number;
+    totalCostCents: number;
+    packId?: string | null;
+  }[];
   notes?: string | null;
   createdAt: Date;
   updatedAt: Date;
@@ -69,6 +74,7 @@ function toPurchase(doc: PurchaseDoc): Purchase {
       productId: line.productId,
       units: line.units,
       totalCostCents: line.totalCostCents,
+      packId: line.packId ?? null,
     })),
     notes: doc.notes ?? null,
     createdAt: doc.createdAt.toISOString(),

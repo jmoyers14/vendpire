@@ -9,6 +9,7 @@ import {
   PRODUCT_DATA_SERVICE_TOKEN,
   PLANOGRAM_SERVICE_TOKEN,
   PURCHASE_SERVICE_TOKEN,
+  PACK_SERVICE_TOKEN,
 } from "./services/index.ts";
 import {
   ANALYTICS_CLIENT_TOKEN,
@@ -24,6 +25,7 @@ import type { ProductService } from "./services/ProductService/ProductService.ts
 import type { ProductDataService } from "./services/ProductDataService/ProductDataService.ts";
 import type { PlanogramService } from "./services/PlanogramService/PlanogramService.ts";
 import type { PurchaseService } from "./services/PurchaseService/PurchaseService.ts";
+import type { PackService } from "./services/PackService/PackService.ts";
 import type { Context } from "./context.ts";
 
 /**
@@ -60,6 +62,7 @@ export async function createContext(
       ),
       planogramService: container.resolve<PlanogramService>(PLANOGRAM_SERVICE_TOKEN),
       purchaseService: container.resolve<PurchaseService>(PURCHASE_SERVICE_TOKEN),
+      packService: container.resolve<PackService>(PACK_SERVICE_TOKEN),
     },
   };
 }

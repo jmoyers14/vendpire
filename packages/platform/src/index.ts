@@ -21,6 +21,7 @@ export * from "./data-access/repositories/MachineRepository/MachineRepository.ts
 export * from "./data-access/repositories/ProductRepository/ProductRepository.ts";
 export * from "./data-access/repositories/PlanogramRepository/PlanogramRepository.ts";
 export * from "./data-access/repositories/PurchaseRepository/PurchaseRepository.ts";
+export * from "./data-access/repositories/PackRepository/PackRepository.ts";
 
 // Integrations: tokens and vendor-neutral ports.
 export * from "./integrations/tokens.ts";

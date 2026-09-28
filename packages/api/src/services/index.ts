@@ -14,6 +14,7 @@ import {
   PRODUCT_DATA_SERVICE_TOKEN,
   PLANOGRAM_SERVICE_TOKEN,
   PURCHASE_SERVICE_TOKEN,
+  PACK_SERVICE_TOKEN,
 } from "./tokens.ts";
 import { AuthServiceImpl } from "./AuthService/AuthServiceImpl.ts";
 import { AddressServiceImpl } from "./AddressService/AddressServiceImpl.ts";
@@ -23,6 +24,7 @@ import { ProductServiceImpl } from "./ProductService/ProductServiceImpl.ts";
 import { ProductDataServiceImpl } from "./ProductDataService/ProductDataServiceImpl.ts";
 import { PlanogramServiceImpl } from "./PlanogramService/PlanogramServiceImpl.ts";
 import { PurchaseServiceImpl } from "./PurchaseService/PurchaseServiceImpl.ts";
+import { PackServiceImpl } from "./PackService/PackServiceImpl.ts";
 
 // This entrypoint's composition root. Registrations go on a *child* container
 // rather than tsyringe's global one so two entrypoints in the same process (or
@@ -50,6 +52,7 @@ container.registerSingleton(PRODUCT_SERVICE_TOKEN, ProductServiceImpl);
 container.registerSingleton(PRODUCT_DATA_SERVICE_TOKEN, ProductDataServiceImpl);
 container.registerSingleton(PLANOGRAM_SERVICE_TOKEN, PlanogramServiceImpl);
 container.registerSingleton(PURCHASE_SERVICE_TOKEN, PurchaseServiceImpl);
+container.registerSingleton(PACK_SERVICE_TOKEN, PackServiceImpl);
 
 export { container };
 export * from "./tokens.ts";

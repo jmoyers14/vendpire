@@ -49,6 +49,13 @@ const Header = () => (
           Products
         </Link>
         <Link
+          to="/packs"
+          className="text-primary-200 transition-colors hover:text-grey-50"
+          activeProps={{ className: "text-white font-medium" }}
+        >
+          Packs
+        </Link>
+        <Link
           to="/purchases"
           className="text-primary-200 transition-colors hover:text-grey-50"
           activeProps={{ className: "text-white font-medium" }}

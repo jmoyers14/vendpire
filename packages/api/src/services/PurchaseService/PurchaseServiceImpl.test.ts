@@ -25,7 +25,7 @@ describe("PurchaseService", () => {
     const created = await service.create(ORG, {
       purchasedAt: "2026-09-20T00:00:00.000Z",
       vendor: " Costco ",
-      lines: [{ productId, units: 30, totalCostCents: 1499 }],
+      lines: [{ productId, units: 30, totalCostCents: 1499, packId: null }],
       notes: null,
     });
     expect(created.vendor).toBe("Costco");
@@ -37,7 +37,7 @@ describe("PurchaseService", () => {
       service.create(ORG, {
         purchasedAt: "2026-09-20T00:00:00.000Z",
         vendor: "Costco",
-        lines: [{ productId: "ghost", units: 30, totalCostCents: 1499 }],
+        lines: [{ productId: "ghost", units: 30, totalCostCents: 1499, packId: null }],
         notes: null,
       }),
     ).rejects.toThrow(/product/i);

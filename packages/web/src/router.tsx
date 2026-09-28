@@ -13,6 +13,8 @@ import { MachinePlanogramsScreen } from "./screens/MachinePlanogramsScreen.tsx";
 import { ProductsScreen } from "./screens/ProductsScreen.tsx";
 import { ProductFormScreen } from "./screens/ProductFormScreen.tsx";
 import { PurchasesScreen } from "./screens/PurchasesScreen.tsx";
+import { PacksScreen } from "./screens/PacksScreen.tsx";
+import { PackFormScreen } from "./screens/PackFormScreen.tsx";
 import { PurchaseFormScreen } from "./screens/PurchaseFormScreen.tsx";
 
 const rootRoute = createRootRoute({ component: RootLayout });
@@ -95,6 +97,27 @@ const editProductRoute = createRoute({
   },
 });
 
+const packsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/packs",
+  component: PacksScreen,
+});
+
+const newPackRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/packs/new",
+  component: PackFormScreen,
+});
+
+const editPackRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/packs/$packId/edit",
+  component: function EditPack() {
+    const { packId } = editPackRoute.useParams();
+    return <PackFormScreen packId={packId} />;
+  },
+});
+
 const purchasesRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/purchases",
@@ -128,6 +151,9 @@ const routeTree = rootRoute.addChildren([
   productsRoute,
   newProductRoute,
   editProductRoute,
+  packsRoute,
+  newPackRoute,
+  editPackRoute,
   purchasesRoute,
   newPurchaseRoute,
   editPurchaseRoute,

@@ -10,7 +10,6 @@ type ProductDoc = {
   _id: unknown;
   name: string;
   upc?: string | null;
-  packagings?: { barcode: string; unitsPerPack?: number | null }[];
   category: string;
   taxClass?: string | null;
   imageUrl?: string | null;
@@ -33,6 +32,15 @@ export class ProductRepositoryImpl implements ProductRepository {
     const doc = await ProductModel.findOne({
       _id: id,
       orgId,
+      deletedAt: null,
+    }).lean<ProductDoc | null>();
+    return doc ? toProduct(doc) : null;
+  }
+
+  async findByUpc(orgId: string, upc: string): Promise<Product | null> {
+    const doc = await ProductModel.findOne({
+      orgId,
+      upc,
       deletedAt: null,
     }).lean<ProductDoc | null>();
     return doc ? toProduct(doc) : null;
@@ -80,10 +88,6 @@ function toProduct(doc: ProductDoc): Product {
     id: String(doc._id),
     name: doc.name,
     upc: doc.upc ?? null,
-    packagings: (doc.packagings ?? []).map((pack) => ({
-      barcode: pack.barcode,
-      unitsPerPack: pack.unitsPerPack ?? null,
-    })),
     category: doc.category,
     taxClass: doc.taxClass ?? null,
     imageUrl: doc.imageUrl ?? null,

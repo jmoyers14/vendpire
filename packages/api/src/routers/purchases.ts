@@ -11,6 +11,7 @@ const purchaseInput = z.object({
         productId: z.string().min(1),
         units: z.number().int().min(1),
         totalCostCents: z.number().int().min(0),
+        packId: z.string().nullable().default(null),
       }),
     )
     .min(1),

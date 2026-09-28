@@ -9,3 +9,4 @@ export const MACHINE_REPOSITORY_TOKEN = "MachineRepository";
 export const PRODUCT_REPOSITORY_TOKEN = "ProductRepository";
 export const PLANOGRAM_REPOSITORY_TOKEN = "PlanogramRepository";
 export const PURCHASE_REPOSITORY_TOKEN = "PurchaseRepository";
+export const PACK_REPOSITORY_TOKEN = "PackRepository";

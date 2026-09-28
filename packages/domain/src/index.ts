@@ -5,3 +5,5 @@
  * this package must stay runnable in the browser as-is.
  */
 export * from "./types/index.ts";
+export * from "./gtin/gtin.ts";
+export * from "./money/allocate.ts";

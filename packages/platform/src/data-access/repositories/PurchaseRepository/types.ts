@@ -7,6 +7,8 @@ export interface PurchaseLine {
   productId: string;
   units: number;
   totalCostCents: number;
+  /** Set when this line came from expanding a pack — provenance only. */
+  packId: string | null;
 }
 
 export interface Purchase {

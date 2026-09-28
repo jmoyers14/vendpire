@@ -7,6 +7,7 @@ import { machinesRouter } from "./routers/machines.ts";
 import { productsRouter } from "./routers/products.ts";
 import { planogramsRouter } from "./routers/planograms.ts";
 import { purchasesRouter } from "./routers/purchases.ts";
+import { packsRouter } from "./routers/packs.ts";
 
 export const appRouter = router({
   address: addressRouter,
@@ -17,6 +18,7 @@ export const appRouter = router({
   products: productsRouter,
   planograms: planogramsRouter,
   purchases: purchasesRouter,
+  packs: packsRouter,
 });
 
 export type AppRouter = typeof appRouter;

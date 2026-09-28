@@ -9,6 +9,7 @@ export * from "./types.ts";
 export interface ProductRepository {
   findByOrg(orgId: string): Promise<Product[]>;
   findById(orgId: string, id: string): Promise<Product | null>;
+  findByUpc(orgId: string, upc: string): Promise<Product | null>;
   /** Which of `ids` exist (and aren't deleted) — for validating references. */
   findExistingIds(orgId: string, ids: string[]): Promise<Set<string>>;
   create(orgId: string, data: ProductInput): Promise<Product>;

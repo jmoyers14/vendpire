@@ -12,4 +12,5 @@ export const ANALYTICS_EVENTS = {
   PRODUCT_CREATED: "product.created",
   PLANOGRAM_CREATED: "planogram.created",
   PURCHASE_CREATED: "purchase.created",
+  PACK_CREATED: "pack.created",
 } as const;

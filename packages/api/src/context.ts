@@ -11,6 +11,7 @@ import type { ProductService } from "./services/ProductService/ProductService.ts
 import type { ProductDataService } from "./services/ProductDataService/ProductDataService.ts";
 import type { PlanogramService } from "./services/PlanogramService/PlanogramService.ts";
 import type { PurchaseService } from "./services/PurchaseService/PurchaseService.ts";
+import type { PackService } from "./services/PackService/PackService.ts";
 
 /**
  * Authenticated principal for a request — the provider-neutral identity the
@@ -50,5 +51,6 @@ export interface Context {
     productDataService: ProductDataService;
     planogramService: PlanogramService;
     purchaseService: PurchaseService;
+    packService: PackService;
   };
 }

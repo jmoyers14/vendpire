@@ -34,12 +34,14 @@ import {
   PRODUCT_REPOSITORY_TOKEN,
   PLANOGRAM_REPOSITORY_TOKEN,
   PURCHASE_REPOSITORY_TOKEN,
+  PACK_REPOSITORY_TOKEN,
 } from "./data-access/tokens.ts";
 import { LocationRepositoryImpl } from "./data-access/repositories/LocationRepository/LocationRepositoryImpl.ts";
 import { MachineRepositoryImpl } from "./data-access/repositories/MachineRepository/MachineRepositoryImpl.ts";
 import { ProductRepositoryImpl } from "./data-access/repositories/ProductRepository/ProductRepositoryImpl.ts";
 import { PlanogramRepositoryImpl } from "./data-access/repositories/PlanogramRepository/PlanogramRepositoryImpl.ts";
 import { PurchaseRepositoryImpl } from "./data-access/repositories/PurchaseRepository/PurchaseRepositoryImpl.ts";
+import { PackRepositoryImpl } from "./data-access/repositories/PackRepository/PackRepositoryImpl.ts";
 import { LOGGER_TOKEN } from "./logging/Logger.ts";
 import { rootLogger } from "./logging/pinoLogger.ts";
 
@@ -81,6 +83,7 @@ export function registerServerCore(container: DependencyContainer): void {
   container.registerSingleton(PRODUCT_REPOSITORY_TOKEN, ProductRepositoryImpl);
   container.registerSingleton(PLANOGRAM_REPOSITORY_TOKEN, PlanogramRepositoryImpl);
   container.registerSingleton(PURCHASE_REPOSITORY_TOKEN, PurchaseRepositoryImpl);
+  container.registerSingleton(PACK_REPOSITORY_TOKEN, PackRepositoryImpl);
 
   container.registerSingleton(AUTH_CLIENT_TOKEN, ClerkClient);
   container.registerSingleton(ANALYTICS_CLIENT_TOKEN, PostHogClient);

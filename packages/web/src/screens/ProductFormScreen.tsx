@@ -8,7 +8,6 @@ import { CatalogSearch } from "../components/CatalogSearch.tsx";
 
 interface FormState {
   name: string;
-  packagings: { barcode: string; unitsPerPack: number | null }[];
   category: string;
   upc: string;
   taxClass: string;
@@ -19,7 +18,6 @@ interface FormState {
 
 const EMPTY: FormState = {
   name: "",
-  packagings: [],
   category: "",
   upc: "",
   taxClass: "",
@@ -49,7 +47,6 @@ export function ProductFormScreen({ productId }: { productId?: string }) {
       category: product.category,
       upc: product.upc ?? "",
       taxClass: product.taxClass ?? "",
-      packagings: product.packagings,
       price: String(product.defaultPriceCents / 100),
       imageUrl: product.imageUrl,
       active: product.active,
@@ -119,7 +116,6 @@ export function ProductFormScreen({ productId }: { productId?: string }) {
       category: form.category.trim(),
       upc: form.upc.trim() || null,
       taxClass: form.taxClass.trim() || null,
-      packagings: form.packagings,
       imageUrl: form.imageUrl,
       defaultPriceCents,
       active: form.active,
