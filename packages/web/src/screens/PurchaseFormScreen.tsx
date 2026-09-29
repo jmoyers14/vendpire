@@ -2,38 +2,37 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { allocateProportionally } from "@vendpire/domain";
-import { queryClient, trpc } from "../trpc.ts";
+import { queryClient, trpc, trpcClient } from "../trpc.ts";
 import { ErrorNote, inputClass, Page } from "../components/ui.tsx";
+import {
+  BarcodeSetupPanel,
+  type CreatedForPurchase,
+} from "../components/BarcodeSetupPanel.tsx";
 import { formatCents, parseDollarsToCents } from "../lib/money.ts";
 
-interface UnitLineRow {
-  productId: string;
-  units: string;
-  totalCost: string;
-  /** Provenance for lines that came from a pack (preserved on edit). */
-  packId: string | null;
-}
+/**
+ * One line of the purchase being entered. A row is either a pack (N packs for
+ * one total, expanded server-side) or loose units of a single product —
+ * whichever the scanned barcode turned out to be.
+ */
+type Row =
+  | { kind: "pack"; packId: string; qty: string; totalCost: string }
+  | {
+      kind: "unit";
+      productId: string;
+      units: string;
+      totalCost: string;
+      /** Provenance preserved when editing an existing purchase. */
+      packId: string | null;
+    };
 
-interface PackLineRow {
-  packId: string;
-  qty: string;
-  totalCost: string;
+interface PackOption {
+  id: string;
+  name: string;
+  contents: { productId: string; units: number }[];
 }
-
-const EMPTY_UNIT_LINE: UnitLineRow = {
-  productId: "",
-  units: "",
-  totalCost: "",
-  packId: null,
-};
-const EMPTY_PACK_LINE: PackLineRow = { packId: "", qty: "1", totalCost: "" };
 
 const toDateInput = (iso: string): string => iso.slice(0, 10);
-
-const isBlankUnitLine = (line: UnitLineRow): boolean =>
-  !line.productId && !line.units && !line.totalCost;
-const isBlankPackLine = (line: PackLineRow): boolean =>
-  !line.packId && !line.totalCost;
 
 /** Create + edit form: `purchaseId` present means edit. */
 export function PurchaseFormScreen({ purchaseId }: { purchaseId?: string }) {
@@ -43,10 +42,20 @@ export function PurchaseFormScreen({ purchaseId }: { purchaseId?: string }) {
   const [vendor, setVendor] = useState("Costco");
   const [notes, setNotes] = useState("");
   const [receiptTotal, setReceiptTotal] = useState("");
-  const [unitLines, setUnitLines] = useState<UnitLineRow[]>([
-    { ...EMPTY_UNIT_LINE },
-  ]);
-  const [packLines, setPackLines] = useState<PackLineRow[]>([]);
+  const [rows, setRows] = useState<Row[]>([]);
+
+  const [code, setCode] = useState("");
+  const [resolving, setResolving] = useState(false);
+  // Set when a scanned code isn't in the catalog yet — the setup panel below
+  // turns it into a product or a pack before it can join the purchase.
+  const [pendingCode, setPendingCode] = useState<{
+    gtin14: string;
+    candidate: { name: string | null; brand: string | null; imageUrl: string | null } | null;
+  } | null>(null);
+  // Records created mid-entry, so their <option> exists before the list query
+  // refetches.
+  const [extraProducts, setExtraProducts] = useState<{ id: string; name: string }[]>([]);
+  const [extraPacks, setExtraPacks] = useState<PackOption[]>([]);
 
   const products = useQuery(trpc.products.list.queryOptions());
   const packs = useQuery(trpc.packs.list.queryOptions());
@@ -54,6 +63,20 @@ export function PurchaseFormScreen({ purchaseId }: { purchaseId?: string }) {
     ...trpc.purchases.get.queryOptions({ id: purchaseId ?? "" }),
     enabled: Boolean(purchaseId),
   });
+
+  const productOptions = [
+    ...(products.data ?? []).map((product) => ({
+      id: product.id,
+      name: product.name,
+    })),
+    ...extraProducts.filter(
+      (extra) => !products.data?.some((product) => product.id === extra.id),
+    ),
+  ];
+  const packOptions: PackOption[] = [
+    ...(packs.data ?? []),
+    ...extraPacks.filter((extra) => !packs.data?.some((pack) => pack.id === extra.id)),
+  ];
 
   // Stored purchases hold expanded per-product lines — pack lines were already
   // expanded away at save time, so editing shows the unit lines (the facts).
@@ -70,15 +93,15 @@ export function PurchaseFormScreen({ purchaseId }: { purchaseId?: string }) {
         ? String(purchase.receiptTotalCents / 100)
         : "",
     );
-    setUnitLines(
+    setRows(
       purchase.lines.map((line) => ({
+        kind: "unit" as const,
         productId: line.productId,
         units: String(line.units),
         totalCost: String(line.totalCostCents / 100),
         packId: line.packId,
       })),
     );
-    setPackLines([]);
   }, [existing.data]);
 
   const onSaved = () => {
@@ -98,18 +121,82 @@ export function PurchaseFormScreen({ purchaseId }: { purchaseId?: string }) {
     }),
   );
 
-  const productName = (id: string): string =>
-    products.data?.find((product) => product.id === id)?.name ?? "…";
+  const addRow = (row: Row) => setRows((current) => [...current, row]);
+
+  /** Resolve a scanned/typed code and turn it into the right kind of row. */
+  const scan = async () => {
+    const raw = code.trim();
+    if (!raw) {
+      return;
+    }
+    setError(null);
+    setResolving(true);
+    try {
+      const result = await trpcClient.barcodes.resolve.query({ code: raw });
+      switch (result.status) {
+        case "product":
+          addRow({
+            kind: "unit",
+            productId: result.product.id,
+            units: "",
+            totalCost: "",
+            packId: null,
+          });
+          setCode("");
+          break;
+        case "pack":
+          addRow({ kind: "pack", packId: result.pack.id, qty: "1", totalCost: "" });
+          setCode("");
+          break;
+        case "candidate":
+          setPendingCode({ gtin14: result.gtin14, candidate: result.item });
+          setCode("");
+          break;
+        case "unknown":
+          setPendingCode({ gtin14: result.gtin14, candidate: null });
+          setCode("");
+          break;
+        case "invalid":
+          setError(`"${raw}" isn't a valid barcode — check the digits`);
+          break;
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Lookup failed");
+    } finally {
+      setResolving(false);
+    }
+  };
+
+  const onSetupReady = (created: CreatedForPurchase) => {
+    if (created.kind === "unit") {
+      setExtraProducts((current) => [
+        ...current,
+        { id: created.id, name: created.label },
+      ]);
+      addRow({
+        kind: "unit",
+        productId: created.id,
+        units: "",
+        totalCost: "",
+        packId: null,
+      });
+    } else {
+      setExtraPacks((current) => [
+        ...current,
+        { id: created.id, name: created.label, contents: created.contents ?? [] },
+      ]);
+      addRow({ kind: "pack", packId: created.id, qty: "1", totalCost: "" });
+    }
+    setPendingCode(null);
+  };
 
   /**
-   * Display-only preview of how the server will split this pack line's cost.
+   * Display-only preview of how the server will split a pack row's cost.
    * Uses the same domain allocator, so the numbers shown are the numbers
    * stored — but the server's expansion is the authoritative one.
    */
-  const previewSplit = (
-    row: PackLineRow,
-  ): { label: string; cents: number }[] | null => {
-    const pack = packs.data?.find((candidate) => candidate.id === row.packId);
+  const previewSplit = (row: Extract<Row, { kind: "pack" }>) => {
+    const pack = packOptions.find((candidate) => candidate.id === row.packId);
     const qty = Number.parseInt(row.qty, 10);
     const costCents = parseDollarsToCents(row.totalCost);
     if (!pack || Number.isNaN(qty) || qty < 1 || costCents === null) {
@@ -118,25 +205,28 @@ export function PurchaseFormScreen({ purchaseId }: { purchaseId?: string }) {
     const weights = pack.contents.map((content) => content.units * qty);
     const costs = allocateProportionally(costCents, weights);
     return pack.contents.map((content, index) => ({
-      label: `${content.units * qty} × ${productName(content.productId)}`,
+      label: `${content.units * qty} × ${
+        productOptions.find((product) => product.id === content.productId)?.name ??
+        "…"
+      }`,
       cents: costs[index] ?? 0,
     }));
   };
 
-  const linesTotalCents =
-    unitLines.reduce(
-      (sum, line) => sum + (parseDollarsToCents(line.totalCost) ?? 0),
-      0,
-    ) +
-    packLines.reduce(
-      (sum, line) => sum + (parseDollarsToCents(line.totalCost) ?? 0),
-      0,
-    );
+  const enteredCents = rows.reduce(
+    (sum, row) => sum + (parseDollarsToCents(row.totalCost) ?? 0),
+    0,
+  );
   const receiptTotalCents = parseDollarsToCents(receiptTotal);
   const variance =
     receiptTotalCents !== null && receiptTotal.trim()
-      ? linesTotalCents - receiptTotalCents
+      ? enteredCents - receiptTotalCents
       : null;
+
+  const setRow = (index: number, patch: Partial<Row>) =>
+    setRows(
+      rows.map((row, i) => (i === index ? ({ ...row, ...patch } as Row) : row)),
+    );
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -147,40 +237,36 @@ export function PurchaseFormScreen({ purchaseId }: { purchaseId?: string }) {
     }
 
     const lines = [];
-    for (const [index, line] of unitLines.entries()) {
-      if (isBlankUnitLine(line)) {
-        continue;
-      }
-      const units = Number.parseInt(line.units, 10);
-      const totalCostCents = parseDollarsToCents(line.totalCost);
-      if (!line.productId || Number.isNaN(units) || units < 1 || totalCostCents === null) {
-        setError(`Item ${index + 1}: needs a product, unit count, and total cost`);
+    const packLines = [];
+    for (const [index, row] of rows.entries()) {
+      const totalCostCents = parseDollarsToCents(row.totalCost);
+      if (totalCostCents === null) {
+        setError(`Line ${index + 1}: cost must be a dollar amount`);
         return;
       }
-      lines.push({
-        productId: line.productId,
-        units,
-        totalCostCents,
-        packId: line.packId,
-      });
-    }
-
-    const packLinePayload = [];
-    for (const [index, line] of packLines.entries()) {
-      if (isBlankPackLine(line)) {
-        continue;
+      if (row.kind === "pack") {
+        const qty = Number.parseInt(row.qty, 10);
+        if (!row.packId || Number.isNaN(qty) || qty < 1) {
+          setError(`Line ${index + 1}: pick a pack and how many`);
+          return;
+        }
+        packLines.push({ packId: row.packId, qty, totalCostCents });
+      } else {
+        const units = Number.parseInt(row.units, 10);
+        if (!row.productId || Number.isNaN(units) || units < 1) {
+          setError(`Line ${index + 1}: pick a product and how many units`);
+          return;
+        }
+        lines.push({
+          productId: row.productId,
+          units,
+          totalCostCents,
+          packId: row.packId,
+        });
       }
-      const qty = Number.parseInt(line.qty, 10);
-      const totalCostCents = parseDollarsToCents(line.totalCost);
-      if (!line.packId || Number.isNaN(qty) || qty < 1 || totalCostCents === null) {
-        setError(`Pack ${index + 1}: needs a pack, quantity, and total cost`);
-        return;
-      }
-      packLinePayload.push({ packId: line.packId, qty, totalCostCents });
     }
-
-    if (lines.length === 0 && packLinePayload.length === 0) {
-      setError("Add at least one item or pack");
+    if (lines.length === 0 && packLines.length === 0) {
+      setError("Scan a barcode or add an item to get started");
       return;
     }
 
@@ -188,7 +274,7 @@ export function PurchaseFormScreen({ purchaseId }: { purchaseId?: string }) {
       purchasedAt: new Date(`${date}T12:00:00`).toISOString(),
       vendor: vendor.trim(),
       lines,
-      packLines: packLinePayload,
+      packLines,
       receiptTotalCents: receiptTotal.trim() ? receiptTotalCents : null,
       notes: notes.trim() || null,
     };
@@ -198,15 +284,6 @@ export function PurchaseFormScreen({ purchaseId }: { purchaseId?: string }) {
       create.mutate(data);
     }
   };
-
-  const setUnitLine = (index: number, patch: Partial<UnitLineRow>) =>
-    setUnitLines(
-      unitLines.map((line, i) => (i === index ? { ...line, ...patch } : line)),
-    );
-  const setPackLine = (index: number, patch: Partial<PackLineRow>) =>
-    setPackLines(
-      packLines.map((line, i) => (i === index ? { ...line, ...patch } : line)),
-    );
 
   return (
     <Page max="2xl" className="space-y-4">
@@ -220,6 +297,69 @@ export function PurchaseFormScreen({ purchaseId }: { purchaseId?: string }) {
       </div>
 
       <ErrorNote message={error} />
+
+      {/* Scan-first entry. Outside the form so Enter adds a line rather than
+          submitting the purchase. */}
+      <div className="space-y-3 rounded border border-grey-200 bg-grey-50 p-3">
+        <div className="flex gap-2">
+          <input
+            className={`${inputClass} font-mono`}
+            placeholder="Scan or type a barcode — case or single item"
+            value={code}
+            onChange={(e) => setCode(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                void scan();
+              }
+            }}
+            autoComplete="off"
+          />
+          <button
+            type="button"
+            onClick={() => void scan()}
+            disabled={resolving || !code.trim()}
+            className="shrink-0 rounded bg-primary-600 px-4 text-sm font-medium text-white hover:bg-primary-500 disabled:opacity-40"
+          >
+            {resolving ? "…" : "Add"}
+          </button>
+        </div>
+
+        {pendingCode ? (
+          <BarcodeSetupPanel
+            gtin14={pendingCode.gtin14}
+            candidate={pendingCode.candidate}
+            products={productOptions}
+            onReady={onSetupReady}
+            onCancel={() => setPendingCode(null)}
+          />
+        ) : null}
+
+        <div className="flex gap-4 text-sm">
+          <button
+            type="button"
+            onClick={() =>
+              addRow({
+                kind: "unit",
+                productId: "",
+                units: "",
+                totalCost: "",
+                packId: null,
+              })
+            }
+            className="text-primary-600 hover:text-primary-500"
+          >
+            + Add item without a barcode
+          </button>
+          <button
+            type="button"
+            onClick={() => addRow({ kind: "pack", packId: "", qty: "1", totalCost: "" })}
+            className="text-primary-600 hover:text-primary-500"
+          >
+            + Add pack without a barcode
+          </button>
+        </div>
+      </div>
 
       <form onSubmit={submit} className="space-y-4">
         <div className="grid grid-cols-2 gap-2">
@@ -239,50 +379,84 @@ export function PurchaseFormScreen({ purchaseId }: { purchaseId?: string }) {
 
         <fieldset className="space-y-2">
           <legend className="text-sm font-medium text-grey-700">
-            Packs — as the receipt reads them
+            Items on this receipt
           </legend>
-          {packLines.map((line, index) => {
-            const split = previewSplit(line);
+          {rows.length === 0 ? (
+            <p className="rounded border border-dashed border-grey-300 p-4 text-center text-sm text-grey-500">
+              Nothing yet — scan a barcode above to start.
+            </p>
+          ) : null}
+          {rows.map((row, index) => {
+            const split = row.kind === "pack" ? previewSplit(row) : null;
             return (
               <div key={index} className="space-y-1">
-                <div className="grid grid-cols-[1fr_4rem_7rem_2rem] gap-2">
-                  <select
-                    className={inputClass}
-                    value={line.packId}
-                    onChange={(e) => setPackLine(index, { packId: e.target.value })}
+                <div className="grid grid-cols-[3.5rem_1fr_5rem_7rem_2rem] items-center gap-2">
+                  <span
+                    className={`rounded px-1.5 py-0.5 text-center text-[10px] font-medium uppercase ${
+                      row.kind === "pack"
+                        ? "bg-primary-100 text-primary-700"
+                        : "bg-grey-200 text-grey-600"
+                    }`}
                   >
-                    <option value="">Pack…</option>
-                    {packs.data?.map((pack) => (
-                      <option key={pack.id} value={pack.id}>
-                        {pack.name}
-                      </option>
-                    ))}
-                  </select>
+                    {row.kind === "pack" ? "Pack" : "Item"}
+                  </span>
+                  {row.kind === "pack" ? (
+                    <select
+                      className={inputClass}
+                      value={row.packId}
+                      onChange={(e) => setRow(index, { packId: e.target.value })}
+                    >
+                      <option value="">Pack…</option>
+                      {packOptions.map((pack) => (
+                        <option key={pack.id} value={pack.id}>
+                          {pack.name}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <select
+                      className={inputClass}
+                      value={row.productId}
+                      onChange={(e) => setRow(index, { productId: e.target.value })}
+                    >
+                      <option value="">Product…</option>
+                      {productOptions.map((product) => (
+                        <option key={product.id} value={product.id}>
+                          {product.name}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                   <input
                     className={inputClass}
-                    title="How many packs"
-                    value={line.qty}
-                    onChange={(e) => setPackLine(index, { qty: e.target.value })}
+                    placeholder={row.kind === "pack" ? "Packs" : "Units"}
+                    value={row.kind === "pack" ? row.qty : row.units}
+                    onChange={(e) =>
+                      setRow(
+                        index,
+                        row.kind === "pack"
+                          ? { qty: e.target.value }
+                          : { units: e.target.value },
+                      )
+                    }
                   />
                   <input
                     className={inputClass}
                     placeholder="Total $"
-                    value={line.totalCost}
-                    onChange={(e) => setPackLine(index, { totalCost: e.target.value })}
+                    value={row.totalCost}
+                    onChange={(e) => setRow(index, { totalCost: e.target.value })}
                   />
                   <button
                     type="button"
-                    onClick={() =>
-                      setPackLines(packLines.filter((_, i) => i !== index))
-                    }
+                    onClick={() => setRows(rows.filter((_, i) => i !== index))}
                     className="text-grey-400 hover:text-red-600"
-                    title="Remove pack"
+                    title="Remove line"
                   >
                     ✕
                   </button>
                 </div>
                 {split ? (
-                  <p className="pl-2 text-xs text-grey-500">
+                  <p className="pl-[4rem] text-xs text-grey-500">
                     ↳ saves as{" "}
                     {split
                       .map((part) => `${part.label} (${formatCents(part.cents)})`)
@@ -292,62 +466,6 @@ export function PurchaseFormScreen({ purchaseId }: { purchaseId?: string }) {
               </div>
             );
           })}
-          <button
-            type="button"
-            onClick={() => setPackLines([...packLines, { ...EMPTY_PACK_LINE }])}
-            className="text-sm text-primary-600 hover:text-primary-500"
-          >
-            + Add pack
-          </button>
-        </fieldset>
-
-        <fieldset className="space-y-2">
-          <legend className="text-sm font-medium text-grey-700">
-            Loose items — units + TOTAL cost per line
-          </legend>
-          {unitLines.map((line, index) => (
-            <div key={index} className="grid grid-cols-[1fr_6rem_7rem_2rem] gap-2">
-              <select
-                className={inputClass}
-                value={line.productId}
-                onChange={(e) => setUnitLine(index, { productId: e.target.value })}
-              >
-                <option value="">Product…</option>
-                {products.data?.map((product) => (
-                  <option key={product.id} value={product.id}>
-                    {product.name}
-                  </option>
-                ))}
-              </select>
-              <input
-                className={inputClass}
-                placeholder="Units"
-                value={line.units}
-                onChange={(e) => setUnitLine(index, { units: e.target.value })}
-              />
-              <input
-                className={inputClass}
-                placeholder="Total $"
-                value={line.totalCost}
-                onChange={(e) => setUnitLine(index, { totalCost: e.target.value })}
-              />
-              <button
-                type="button"
-                onClick={() => setUnitLines(unitLines.filter((_, i) => i !== index))}
-                className="text-grey-400 hover:text-red-600"
-                title="Remove line"
-              >
-                ✕
-              </button>
-            </div>
-          ))}
-          <button
-            type="button"
-            onClick={() => setUnitLines([...unitLines, { ...EMPTY_UNIT_LINE }])}
-            className="text-sm text-primary-600 hover:text-primary-500"
-          >
-            + Add line
-          </button>
         </fieldset>
 
         {/* Reconciliation: what we're recording vs what the receipt says. */}
@@ -364,7 +482,7 @@ export function PurchaseFormScreen({ purchaseId }: { purchaseId?: string }) {
           <div className="pb-2 text-sm">
             <span className="text-grey-600">Entered: </span>
             <span className="font-medium text-grey-800">
-              {formatCents(linesTotalCents)}
+              {formatCents(enteredCents)}
             </span>
           </div>
           {variance !== null ? (

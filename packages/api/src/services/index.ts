@@ -12,6 +12,7 @@ import {
   MACHINE_SERVICE_TOKEN,
   PRODUCT_SERVICE_TOKEN,
   PRODUCT_DATA_SERVICE_TOKEN,
+  BARCODE_RESOLVER_SERVICE_TOKEN,
   PLANOGRAM_SERVICE_TOKEN,
   PURCHASE_SERVICE_TOKEN,
   PACK_SERVICE_TOKEN,
@@ -22,6 +23,7 @@ import { LocationServiceImpl } from "./LocationService/LocationServiceImpl.ts";
 import { MachineServiceImpl } from "./MachineService/MachineServiceImpl.ts";
 import { ProductServiceImpl } from "./ProductService/ProductServiceImpl.ts";
 import { ProductDataServiceImpl } from "./ProductDataService/ProductDataServiceImpl.ts";
+import { BarcodeResolverServiceImpl } from "./BarcodeResolverService/BarcodeResolverServiceImpl.ts";
 import { PlanogramServiceImpl } from "./PlanogramService/PlanogramServiceImpl.ts";
 import { PurchaseServiceImpl } from "./PurchaseService/PurchaseServiceImpl.ts";
 import { PackServiceImpl } from "./PackService/PackServiceImpl.ts";
@@ -50,6 +52,10 @@ container.registerSingleton(LOCATION_SERVICE_TOKEN, LocationServiceImpl);
 container.registerSingleton(MACHINE_SERVICE_TOKEN, MachineServiceImpl);
 container.registerSingleton(PRODUCT_SERVICE_TOKEN, ProductServiceImpl);
 container.registerSingleton(PRODUCT_DATA_SERVICE_TOKEN, ProductDataServiceImpl);
+container.registerSingleton(
+  BARCODE_RESOLVER_SERVICE_TOKEN,
+  BarcodeResolverServiceImpl,
+);
 container.registerSingleton(PLANOGRAM_SERVICE_TOKEN, PlanogramServiceImpl);
 container.registerSingleton(PURCHASE_SERVICE_TOKEN, PurchaseServiceImpl);
 container.registerSingleton(PACK_SERVICE_TOKEN, PackServiceImpl);
