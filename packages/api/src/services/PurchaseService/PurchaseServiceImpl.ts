@@ -1,21 +1,35 @@
 import { inject, injectable } from "tsyringe";
+import { allocateProportionally } from "@vendpire/domain";
 import {
+  PACK_REPOSITORY_TOKEN,
   PRODUCT_REPOSITORY_TOKEN,
   PURCHASE_REPOSITORY_TOKEN,
 } from "@vendpire/platform";
 import type {
+  PackRepository,
   ProductRepository,
   Purchase,
   PurchaseInput,
+  PurchaseLine,
   PurchaseRepository,
 } from "@vendpire/platform";
 import { ServiceError } from "../errors.ts";
-import type { PurchaseService } from "./PurchaseService.ts";
+import type {
+  PurchaseDraft,
+  PurchasePackLine,
+  PurchaseService,
+} from "./PurchaseService.ts";
 
 /**
- * Purchase business rules: a purchase needs at least one line, and every line
- * must reference an existing product — the weighted-average cost calculation
- * downstream can't price units of a product that was never defined.
+ * Purchase business rules. The important one: pack lines are expanded HERE,
+ * not in a client. A receipt line of "2 × Frito-Lay 30ct variety, $37.98"
+ * becomes one stored line per product, with the cost split by unit count —
+ * so the stored facts are always per-product units and every client (web
+ * today, iOS later) submits packs the same way without reimplementing the
+ * money math.
+ *
+ * Also enforced: a purchase needs at least one line, every line's product
+ * must exist, and any packId referenced must exist.
  */
 @injectable()
 export class PurchaseServiceImpl implements PurchaseService {
@@ -24,6 +38,8 @@ export class PurchaseServiceImpl implements PurchaseService {
     private readonly purchases: PurchaseRepository,
     @inject(PRODUCT_REPOSITORY_TOKEN)
     private readonly products: ProductRepository,
+    @inject(PACK_REPOSITORY_TOKEN)
+    private readonly packs: PackRepository,
   ) {}
 
   list(orgId: string): Promise<Purchase[]> {
@@ -34,19 +50,19 @@ export class PurchaseServiceImpl implements PurchaseService {
     return this.purchases.findById(orgId, id);
   }
 
-  async create(orgId: string, input: PurchaseInput): Promise<Purchase> {
-    return this.purchases.create(orgId, await this.validate(orgId, input));
+  async create(orgId: string, draft: PurchaseDraft): Promise<Purchase> {
+    return this.purchases.create(orgId, await this.buildInput(orgId, draft));
   }
 
   async update(
     orgId: string,
     id: string,
-    input: PurchaseInput,
+    draft: PurchaseDraft,
   ): Promise<Purchase> {
     const updated = await this.purchases.update(
       orgId,
       id,
-      await this.validate(orgId, input),
+      await this.buildInput(orgId, draft),
     );
     if (!updated) {
       throw new ServiceError("NOT_FOUND", "Purchase not found");
@@ -58,28 +74,91 @@ export class PurchaseServiceImpl implements PurchaseService {
     await this.purchases.softDelete(orgId, id);
   }
 
-  private async validate(
+  /** Turn a client draft into the stored shape: all lines, per product. */
+  private async buildInput(
     orgId: string,
-    input: PurchaseInput,
+    draft: PurchaseDraft,
   ): Promise<PurchaseInput> {
-    if (input.lines.length === 0) {
+    const direct: PurchaseLine[] = draft.lines.map((line) => ({
+      productId: line.productId,
+      units: line.units,
+      totalCostCents: line.totalCostCents,
+      packId: line.packId ?? null,
+    }));
+    const expanded = await this.expandPackLines(orgId, draft.packLines ?? []);
+    const lines = [...direct, ...expanded];
+
+    if (lines.length === 0) {
       throw new ServiceError("BAD_REQUEST", "A purchase needs at least one line");
     }
-    const productIds = [...new Set(input.lines.map((line) => line.productId))];
-    const existing = await this.products.findExistingIds(orgId, productIds);
-    const missing = productIds.filter((id) => !existing.has(id));
-    if (missing.length > 0) {
+
+    const productIds = [...new Set(lines.map((line) => line.productId))];
+    const existingProducts = await this.products.findExistingIds(orgId, productIds);
+    const missingProducts = productIds.filter((id) => !existingProducts.has(id));
+    if (missingProducts.length > 0) {
       throw new ServiceError(
         "BAD_REQUEST",
-        `Unknown product(s): ${missing.join(", ")}`,
+        `Unknown product(s): ${missingProducts.join(", ")}`,
       );
     }
-    const notes = input.notes?.trim();
+
+    // Provenance packIds on directly-submitted lines are still references —
+    // validate them rather than trusting the client round-trip.
+    const directPackIds = [
+      ...new Set(
+        direct
+          .map((line) => line.packId)
+          .filter((id): id is string => id !== null),
+      ),
+    ];
+    for (const packId of directPackIds) {
+      if (!(await this.packs.findById(orgId, packId))) {
+        throw new ServiceError("BAD_REQUEST", `Unknown pack: ${packId}`);
+      }
+    }
+
+    const notes = draft.notes?.trim();
     return {
-      purchasedAt: input.purchasedAt,
-      vendor: input.vendor.trim(),
-      lines: input.lines,
+      purchasedAt: draft.purchasedAt,
+      vendor: draft.vendor.trim(),
+      lines,
+      receiptTotalCents: draft.receiptTotalCents ?? null,
       notes: notes ? notes : null,
     };
+  }
+
+  /**
+   * One stored line per product per pack line. Units multiply by pack
+   * quantity; the pack's total cost splits across its contents weighted by
+   * unit count, using largest-remainder allocation so the lines sum EXACTLY
+   * to what was paid.
+   */
+  private async expandPackLines(
+    orgId: string,
+    packLines: PurchasePackLine[],
+  ): Promise<PurchaseLine[]> {
+    const expanded: PurchaseLine[] = [];
+    for (const packLine of packLines) {
+      if (packLine.qty < 1) {
+        throw new ServiceError("BAD_REQUEST", "Pack quantity must be at least 1");
+      }
+      const pack = await this.packs.findById(orgId, packLine.packId);
+      if (!pack) {
+        throw new ServiceError("BAD_REQUEST", `Unknown pack: ${packLine.packId}`);
+      }
+      const weights = pack.contents.map(
+        (content) => content.units * packLine.qty,
+      );
+      const costs = allocateProportionally(packLine.totalCostCents, weights);
+      pack.contents.forEach((content, index) => {
+        expanded.push({
+          productId: content.productId,
+          units: content.units * packLine.qty,
+          totalCostCents: costs[index] ?? 0,
+          packId: pack.id,
+        });
+      });
+    }
+    return expanded;
   }
 }

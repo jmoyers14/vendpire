@@ -5,6 +5,9 @@ import { queryClient, trpc } from "../trpc.ts";
 import { ErrorNote, Page, TableScroll } from "../components/ui.tsx";
 import { formatCents } from "../lib/money.ts";
 
+const lineTotal = (lines: { totalCostCents: number }[]): number =>
+  lines.reduce((sum, line) => sum + line.totalCostCents, 0);
+
 export function PurchasesScreen() {
   const [error, setError] = useState<string | null>(null);
   const purchases = useQuery(trpc.purchases.list.queryOptions());
@@ -64,12 +67,16 @@ export function PurchasesScreen() {
                     {purchase.lines.length} line(s)
                   </td>
                   <td className="px-4 py-2 text-grey-600">
-                    {formatCents(
-                      purchase.lines.reduce(
-                        (sum, line) => sum + line.totalCostCents,
-                        0,
-                      ),
-                    )}
+                    {formatCents(lineTotal(purchase.lines))}
+                    {purchase.receiptTotalCents !== null &&
+                    purchase.receiptTotalCents !== lineTotal(purchase.lines) ? (
+                      <span
+                        className="ml-2 rounded bg-yellow-100 px-1.5 py-0.5 text-xs text-yellow-800"
+                        title={`Receipt says ${formatCents(purchase.receiptTotalCents)}`}
+                      >
+                        ≠ receipt
+                      </span>
+                    ) : null}
                   </td>
                   <td className="space-x-3 px-4 py-2 text-right">
                     <Link

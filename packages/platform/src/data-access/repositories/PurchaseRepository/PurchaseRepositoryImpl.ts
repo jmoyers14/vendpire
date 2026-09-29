@@ -16,6 +16,7 @@ type PurchaseDoc = {
     totalCostCents: number;
     packId?: string | null;
   }[];
+  receiptTotalCents?: number | null;
   notes?: string | null;
   createdAt: Date;
   updatedAt: Date;
@@ -76,6 +77,7 @@ function toPurchase(doc: PurchaseDoc): Purchase {
       totalCostCents: line.totalCostCents,
       packId: line.packId ?? null,
     })),
+    receiptTotalCents: doc.receiptTotalCents ?? null,
     notes: doc.notes ?? null,
     createdAt: doc.createdAt.toISOString(),
     updatedAt: doc.updatedAt.toISOString(),

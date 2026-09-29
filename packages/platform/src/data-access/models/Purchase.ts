@@ -23,6 +23,9 @@ const purchaseSchema = new Schema(
     purchasedAt: { type: Date, required: true },
     vendor: { type: String, required: true, trim: true },
     lines: { type: [purchaseLineSchema], required: true },
+    // What the receipt says you paid, when recorded. Reconciliation anchor:
+    // reports can flag purchases whose lines don't sum to this.
+    receiptTotalCents: { type: Number, default: null },
     notes: { type: String, default: null, trim: true },
     deletedAt: { type: Date, default: null },
   },

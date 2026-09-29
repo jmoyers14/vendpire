@@ -16,6 +16,8 @@ export interface Purchase {
   purchasedAt: string;
   vendor: string;
   lines: PurchaseLine[];
+  /** What the receipt says you paid, when recorded. Null when not entered. */
+  receiptTotalCents: number | null;
   notes: string | null;
   createdAt: string;
   updatedAt: string;

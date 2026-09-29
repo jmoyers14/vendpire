@@ -16,10 +16,15 @@ import { ServiceError } from "../errors.ts";
 import type { ProductService } from "./ProductService.ts";
 
 /**
- * Product business rules: normalize text fields, and block removing a product
- * that a machine is CURRENTLY selling (present in any machine's latest
- * planogram version). Products only in historical versions can go — soft
- * delete keeps them resolvable for past-data reads.
+ * Product business rules:
+ *  - normalize text fields;
+ *  - the unit barcode (upc) is validated and normalized to GTIN-14, and must
+ *    be unique across products AND against pack case codes — one barcode can
+ *    never mean both a can and a case;
+ *  - a product can't be removed while it sits inside an active pack, or while
+ *    a machine is CURRENTLY selling it (present in any machine's latest
+ *    planogram version). Products only in historical versions can go — soft
+ *    delete keeps them resolvable for past-data reads.
  */
 @injectable()
 export class ProductServiceImpl implements ProductService {

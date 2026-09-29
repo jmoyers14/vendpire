@@ -5,6 +5,8 @@ import { ANALYTICS_EVENTS } from "../analytics/events.ts";
 const purchaseInput = z.object({
   purchasedAt: z.string().datetime(),
   vendor: z.string().min(1),
+  // Lines already denominated in sellable units. packId is provenance for
+  // lines that came from a pack (preserved when editing).
   lines: z
     .array(
       z.object({
@@ -14,7 +16,19 @@ const purchaseInput = z.object({
         packId: z.string().nullable().default(null),
       }),
     )
-    .min(1),
+    .default([]),
+  // Lines as the receipt reads them — N packs for one total. Expanded into
+  // per-product unit lines by the service.
+  packLines: z
+    .array(
+      z.object({
+        packId: z.string().min(1),
+        qty: z.number().int().min(1),
+        totalCostCents: z.number().int().min(0),
+      }),
+    )
+    .default([]),
+  receiptTotalCents: z.number().int().min(0).nullable().default(null),
   notes: z.string().nullable().default(null),
 });
 
