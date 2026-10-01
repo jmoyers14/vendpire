@@ -125,20 +125,20 @@ export function AddressAutocomplete({
         autoComplete="off"
       />
       {open && suggestions.length > 0 && (
-        <ul className="absolute z-10 mt-1 max-h-72 w-full overflow-auto rounded-md border border-grey-200 bg-white shadow-lg">
+        <ul className="absolute z-10 mt-1 max-h-72 w-full overflow-auto rounded-md border border-gray-200 bg-white shadow-lg">
           {suggestions.map((suggestion) => (
             <li key={suggestion.placeId}>
               <button
                 type="button"
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => select(suggestion)}
-                className="block w-full px-3 py-2 text-left text-sm hover:bg-grey-100"
+                className="block w-full px-3 py-2 text-left text-sm hover:bg-gray-100"
               >
-                <span className="text-grey-800">
+                <span className="text-gray-800">
                   {suggestion.primary ?? suggestion.description}
                 </span>
                 {suggestion.secondary && (
-                  <span className="ml-1 text-grey-400">
+                  <span className="ml-1 text-gray-400">
                     {suggestion.secondary}
                   </span>
                 )}

@@ -1,0 +1,102 @@
+/* theme.css: vending app design tokens (Tailwind CSS v4).
+ * Lagoon teal primary. Light mode only; dark mode is not designed yet.
+ * Import once from your main stylesheet:  @import "tailwindcss"; @import "./theme.css";
+ */
+
+@theme {
+  /* Remove Tailwind's default palette so only these colors exist. */
+  --color-*: initial;
+  --color-white: #FFFFFF;
+  --color-black: #000000;
+  --color-transparent: transparent;
+  --color-current: currentColor;
+
+  /* primary */
+  --color-primary-50: #E2FEF9;
+  --color-primary-100: #C4F9F3;
+  --color-primary-200: #91EEE7;
+  --color-primary-300: #4DDBD6;
+  --color-primary-400: #01BCBB;
+  --color-primary-500: #019EA0;
+  --color-primary-600: #088387;
+  --color-primary-700: #08686C;
+  --color-primary-800: #044D53;
+  --color-primary-900: #00353A;
+
+  /* gray */
+  --color-gray-50: #F5F9F9;
+  --color-gray-100: #ECF1F1;
+  --color-gray-200: #DCE5E5;
+  --color-gray-300: #C5D0D0;
+  --color-gray-400: #9AA8A8;
+  --color-gray-500: #6E7E7E;
+  --color-gray-600: #4E5F5E;
+  --color-gray-700: #384949;
+  --color-gray-800: #243434;
+  --color-gray-900: #101F1F;
+
+  /* green */
+  --color-green-50: #E9FEE9;
+  --color-green-100: #D3F8D6;
+  --color-green-200: #ACEEB7;
+  --color-green-300: #78DC93;
+  --color-green-400: #30C26F;
+  --color-green-500: #07A25D;
+  --color-green-600: #01824E;
+  --color-green-700: #026841;
+  --color-green-800: #014E32;
+  --color-green-900: #013522;
+
+  /* red */
+  --color-red-50: #FFF4F2;
+  --color-red-100: #FFE7E3;
+  --color-red-200: #FFCDC4;
+  --color-red-300: #FFA999;
+  --color-red-400: #FE745B;
+  --color-red-500: #EF462A;
+  --color-red-600: #CE2C17;
+  --color-red-700: #A52014;
+  --color-red-800: #7E150F;
+  --color-red-900: #570E0B;
+
+  /* amber */
+  --color-amber-50: #FFFAEB;
+  --color-amber-100: #FFF1CC;
+  --color-amber-200: #FFE29B;
+  --color-amber-300: #FFCC5A;
+  --color-amber-400: #FBB61B;
+  --color-amber-500: #ED9F00;
+  --color-amber-600: #CD7D00;
+  --color-amber-700: #A45801;
+  --color-amber-800: #803D05;
+  --color-amber-900: #5D2A0B;
+
+  /* Semantic colors: prefer these in components */
+  --color-app: var(--color-gray-50);          /* page background */
+  --color-card: var(--color-white);
+  --color-divider: var(--color-gray-100);
+  --color-line: var(--color-gray-200);
+  --color-heading: var(--color-gray-900);
+  --color-body: var(--color-gray-700);
+  --color-muted: var(--color-gray-500);
+  --color-nav: var(--color-gray-100);
+  --color-tab: var(--color-gray-600);
+  --color-tab-active: var(--color-primary-700);  /* 700, not 600: 600 is only 4.0:1 on gray-100 */
+  --color-tab-indicator: var(--color-primary-500);
+  --color-profit: var(--color-green-700);
+  --color-loss: var(--color-red-700);
+
+  /* Type */
+  --font-display: "Bricolage Grotesque", "Avenir Next", system-ui, sans-serif;
+  --font-sans: "Atkinson Hyperlegible", "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+
+  /* Shape */
+  --radius-card: 18px;
+  --shadow-card: 0 1px 2px rgb(16 31 31 / 0.08);
+}
+
+@layer base {
+  html { background: var(--color-app); color: var(--color-body); font-family: var(--font-sans); }
+  h1, h2, h3 { font-family: var(--font-display); color: var(--color-heading); text-wrap: balance; }
+}

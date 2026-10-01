@@ -1,8 +1,8 @@
-import { useState } from "react";
-import { Link } from "@tanstack/react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
+import { useState } from "react";
+import { buttonClass, EmptyState, ErrorNote, Page, PageTitle, TableScroll } from "../components/ui.tsx";
 import { queryClient, trpc } from "../trpc.ts";
-import { ErrorNote, Page, TableScroll } from "../components/ui.tsx";
 
 export function MachinesScreen() {
   const [error, setError] = useState<string | null>(null);
@@ -27,12 +27,12 @@ export function MachinesScreen() {
   return (
     <Page max="4xl" className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="font-heading text-xl font-bold text-grey-800">
+        <PageTitle>
           Machines
-        </h1>
+        </PageTitle>
         <Link
           to="/machines/new"
-          className="rounded bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-500"
+          className={buttonClass({ size: "sm" })}
         >
           Add Machine
         </Link>
@@ -41,12 +41,12 @@ export function MachinesScreen() {
       <ErrorNote message={error} />
 
       {machines.isLoading ? (
-        <p className="text-grey-400">Loading…</p>
+        <p className="text-gray-400">Loading…</p>
       ) : machines.data && machines.data.length > 0 ? (
         <TableScroll>
           <table className="w-full min-w-[44rem] border-collapse text-sm">
             <thead>
-              <tr className="border-b border-grey-200 bg-grey-50 text-left text-grey-600">
+              <tr className="border-b border-gray-200 bg-gray-50 text-left text-gray-600">
                 <th className="px-4 py-2 font-medium">Name</th>
                 <th className="px-4 py-2 font-medium">Location</th>
                 <th className="px-4 py-2 font-medium">Kind</th>
@@ -57,20 +57,20 @@ export function MachinesScreen() {
             </thead>
             <tbody>
               {machines.data.map((machine) => (
-                <tr key={machine.id} className="border-b border-grey-100">
-                  <td className="px-4 py-2 font-medium text-grey-800">
+                <tr key={machine.id} className="border-b border-gray-100">
+                  <td className="px-4 py-2 font-medium text-gray-800">
                     {machine.name}
                   </td>
-                  <td className="px-4 py-2 text-grey-600">
+                  <td className="px-4 py-2 text-gray-600">
                     {locationName(machine.locationId)}
                   </td>
-                  <td className="px-4 py-2 capitalize text-grey-600">
+                  <td className="px-4 py-2 capitalize text-gray-600">
                     {machine.kind}
                   </td>
-                  <td className="px-4 py-2 text-grey-600">
+                  <td className="px-4 py-2 text-gray-600">
                     {machine.slots.flat().length}
                   </td>
-                  <td className="px-4 py-2 font-mono text-grey-600">
+                  <td className="px-4 py-2 font-mono text-gray-600">
                     {machine.tagCode ?? "—"}
                   </td>
                   <td className="space-x-3 px-4 py-2 text-right">
@@ -91,7 +91,7 @@ export function MachinesScreen() {
                     <button
                       type="button"
                       onClick={() => remove.mutate({ id: machine.id })}
-                      className="text-grey-400 hover:text-red-600"
+                      className="text-gray-400 hover:text-red-600"
                     >
                       Delete
                     </button>
@@ -102,10 +102,10 @@ export function MachinesScreen() {
           </table>
         </TableScroll>
       ) : (
-        <div className="rounded border border-dashed border-grey-300 p-8 text-center text-grey-600">
+        <EmptyState>
           No machines yet. Add a location first, then{" "}
           <span className="font-medium">Add Machine</span>.
-        </div>
+        </EmptyState>
       )}
     </Page>
   );

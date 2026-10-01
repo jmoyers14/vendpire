@@ -3,19 +3,20 @@ import {
   createRoute,
   createRouter,
 } from "@tanstack/react-router";
-import { RootLayout } from "./screens/RootLayout.tsx";
 import { DashboardScreen } from "./screens/DashboardScreen.tsx";
-import { LocationsScreen } from "./screens/LocationsScreen.tsx";
+import { DesignSystemScreen } from "./screens/DesignSystemScreen.tsx";
 import { LocationFormScreen } from "./screens/LocationFormScreen.tsx";
-import { MachinesScreen } from "./screens/MachinesScreen.tsx";
+import { LocationsScreen } from "./screens/LocationsScreen.tsx";
 import { MachineFormScreen } from "./screens/MachineFormScreen.tsx";
 import { MachinePlanogramsScreen } from "./screens/MachinePlanogramsScreen.tsx";
-import { ProductsScreen } from "./screens/ProductsScreen.tsx";
-import { ProductFormScreen } from "./screens/ProductFormScreen.tsx";
-import { PurchasesScreen } from "./screens/PurchasesScreen.tsx";
-import { PacksScreen } from "./screens/PacksScreen.tsx";
+import { MachinesScreen } from "./screens/MachinesScreen.tsx";
 import { PackFormScreen } from "./screens/PackFormScreen.tsx";
+import { PacksScreen } from "./screens/PacksScreen.tsx";
+import { ProductFormScreen } from "./screens/ProductFormScreen.tsx";
+import { ProductsScreen } from "./screens/ProductsScreen.tsx";
 import { PurchaseFormScreen } from "./screens/PurchaseFormScreen.tsx";
+import { PurchasesScreen } from "./screens/PurchasesScreen.tsx";
+import { RootLayout } from "./screens/RootLayout.tsx";
 
 const rootRoute = createRootRoute({ component: RootLayout });
 
@@ -23,6 +24,13 @@ const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/",
   component: DashboardScreen,
+});
+
+// Unlinked reference page for the design system primitives.
+const designRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/design",
+  component: DesignSystemScreen,
 });
 
 const locationsRoute = createRoute({
@@ -141,6 +149,7 @@ const editPurchaseRoute = createRoute({
 
 const routeTree = rootRoute.addChildren([
   indexRoute,
+  designRoute,
   locationsRoute,
   newLocationRoute,
   editLocationRoute,

@@ -1,9 +1,9 @@
-import { useState } from "react";
-import { Link } from "@tanstack/react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { queryClient, trpc } from "../trpc.ts";
-import { ErrorNote, Page, TableScroll } from "../components/ui.tsx";
+import { Link } from "@tanstack/react-router";
+import { useState } from "react";
+import { buttonClass, EmptyState, ErrorNote, Page, PageTitle, TableScroll } from "../components/ui.tsx";
 import { formatBps, formatCents } from "../lib/money.ts";
+import { queryClient, trpc } from "../trpc.ts";
 
 const commissionLabel = (commission: {
   type: "none" | "percent" | "flat";
@@ -39,12 +39,12 @@ export function LocationsScreen() {
   return (
     <Page max="4xl" className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="font-heading text-xl font-bold text-grey-800">
+        <PageTitle>
           Locations
-        </h1>
+        </PageTitle>
         <Link
           to="/locations/new"
-          className="rounded bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-500"
+          className={buttonClass({ size: "sm" })}
         >
           Add Location
         </Link>
@@ -53,12 +53,12 @@ export function LocationsScreen() {
       <ErrorNote message={error} />
 
       {locations.isLoading ? (
-        <p className="text-grey-400">Loading…</p>
+        <p className="text-gray-400">Loading…</p>
       ) : locations.data && locations.data.length > 0 ? (
         <TableScroll>
           <table className="w-full min-w-[40rem] border-collapse text-sm">
             <thead>
-              <tr className="border-b border-grey-200 bg-grey-50 text-left text-grey-600">
+              <tr className="border-b border-gray-200 bg-gray-50 text-left text-gray-600">
                 <th className="px-4 py-2 font-medium">Name</th>
                 <th className="px-4 py-2 font-medium">City</th>
                 <th className="px-4 py-2 font-medium">Commission</th>
@@ -69,20 +69,20 @@ export function LocationsScreen() {
             </thead>
             <tbody>
               {locations.data.map((location) => (
-                <tr key={location.id} className="border-b border-grey-100">
-                  <td className="px-4 py-2 font-medium text-grey-800">
+                <tr key={location.id} className="border-b border-gray-100">
+                  <td className="px-4 py-2 font-medium text-gray-800">
                     {location.name}
                   </td>
-                  <td className="px-4 py-2 text-grey-600">
+                  <td className="px-4 py-2 text-gray-600">
                     {location.address.city ?? "—"}
                   </td>
-                  <td className="px-4 py-2 text-grey-600">
+                  <td className="px-4 py-2 text-gray-600">
                     {commissionLabel(location.commission)}
                   </td>
-                  <td className="px-4 py-2 text-grey-600">
+                  <td className="px-4 py-2 text-gray-600">
                     {location.contact.name ?? "—"}
                   </td>
-                  <td className="px-4 py-2 text-grey-600">
+                  <td className="px-4 py-2 text-gray-600">
                     {location.active ? "Yes" : "No"}
                   </td>
                   <td className="space-x-3 px-4 py-2 text-right">
@@ -96,7 +96,7 @@ export function LocationsScreen() {
                     <button
                       type="button"
                       onClick={() => remove.mutate({ id: location.id })}
-                      className="text-grey-400 hover:text-red-600"
+                      className="text-gray-400 hover:text-red-600"
                     >
                       Delete
                     </button>
@@ -107,11 +107,11 @@ export function LocationsScreen() {
           </table>
         </TableScroll>
       ) : (
-        <div className="rounded border border-dashed border-grey-300 p-8 text-center text-grey-600">
+        <EmptyState>
           No locations yet. Click{" "}
           <span className="font-medium">Add Location</span> to add the first
           spot your machines live.
-        </div>
+        </EmptyState>
       )}
     </Page>
   );

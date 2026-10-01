@@ -91,14 +91,14 @@ export function CatalogSearch({ onPick }: { onPick: (pick: CatalogPick) => void 
         autoComplete="off"
       />
       {searching ? (
-        <span className="absolute right-3 top-2.5 text-xs text-grey-400">
+        <span className="absolute right-3 top-2.5 text-xs text-gray-400">
           searching…
         </span>
       ) : null}
       {open ? (
-        <ul className="absolute z-10 mt-1 max-h-80 w-full overflow-auto rounded-md border border-grey-200 bg-white shadow-lg">
+        <ul className="absolute z-10 mt-1 max-h-80 w-full overflow-auto rounded-md border border-gray-200 bg-white shadow-lg">
           {results.length === 0 ? (
-            <li className="px-3 py-2 text-sm text-grey-500">
+            <li className="px-3 py-2 text-sm text-gray-500">
               No catalog matches — enter details manually below.
             </li>
           ) : (
@@ -108,7 +108,7 @@ export function CatalogSearch({ onPick }: { onPick: (pick: CatalogPick) => void 
                   type="button"
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => pick(result)}
-                  className="flex w-full items-center gap-3 px-3 py-2 text-left text-sm hover:bg-grey-100"
+                  className="flex w-full items-center gap-3 px-3 py-2 text-left text-sm hover:bg-gray-100"
                 >
                   {result.imageUrl ? (
                     <img
@@ -117,13 +117,13 @@ export function CatalogSearch({ onPick }: { onPick: (pick: CatalogPick) => void 
                       className="h-9 w-9 shrink-0 rounded object-contain"
                     />
                   ) : (
-                    <div className="h-9 w-9 shrink-0 rounded bg-grey-100" />
+                    <div className="h-9 w-9 shrink-0 rounded bg-gray-100" />
                   )}
                   <span className="min-w-0">
-                    <span className="block truncate text-grey-800">
+                    <span className="block truncate text-gray-800">
                       {displayName(result)}
                     </span>
-                    <span className="block font-mono text-xs text-grey-400">
+                    <span className="block font-mono text-xs text-gray-400">
                       {result.upc}
                     </span>
                   </span>

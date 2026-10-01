@@ -1,6 +1,6 @@
-import { createTRPCOptionsProxy } from "@trpc/tanstack-react-query";
 import { QueryClient } from "@tanstack/react-query";
 import { createTRPCClient, httpBatchLink } from "@trpc/client";
+import { createTRPCOptionsProxy } from "@trpc/tanstack-react-query";
 import type { AppRouter } from "@vendpire/api";
 
 // Clerk attaches its instance to window once ClerkProvider mounts. The tRPC

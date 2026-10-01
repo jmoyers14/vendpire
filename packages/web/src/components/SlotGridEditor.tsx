@@ -1,12 +1,12 @@
 import { useState } from "react";
-import { inputClass } from "./ui.tsx";
 import {
   buildRows,
   MAX_ROWS,
   rowsToSlotCodes,
-  slotLabel,
   type SlotGridRow,
+  slotLabel,
 } from "../lib/slotGrid.ts";
+import { inputClass } from "./ui.tsx";
 
 interface SlotGridEditorProps {
   rows: SlotGridRow[];
@@ -72,9 +72,9 @@ export function SlotGridEditor({ rows, onChange }: SlotGridEditorProps) {
   };
 
   return (
-    <div className="space-y-3 rounded border border-grey-200 p-3">
+    <div className="space-y-3 rounded border border-gray-200 p-3">
       <div className="flex items-end gap-2">
-        <label className="flex-1 text-sm text-grey-700">
+        <label className="flex-1 text-sm text-gray-700">
           Shelves
           <input
             type="number"
@@ -85,7 +85,7 @@ export function SlotGridEditor({ rows, onChange }: SlotGridEditorProps) {
             onChange={(e) => setRowCount(Number(e.target.value) || 1)}
           />
         </label>
-        <label className="flex-1 text-sm text-grey-700">
+        <label className="flex-1 text-sm text-gray-700">
           Slots per shelf (default)
           <input
             type="number"
@@ -107,28 +107,28 @@ export function SlotGridEditor({ rows, onChange }: SlotGridEditorProps) {
       </div>
 
       {/* The machine face. */}
-      <div className="space-y-1.5 rounded-md bg-grey-100 p-2">
+      <div className="space-y-1.5 rounded-md bg-gray-100 p-2">
         {rows.map((row, index) => (
           <div key={row.letter} className="flex items-center gap-1.5">
             <div className="flex flex-1 gap-1">
               {Array.from({ length: row.columns }, (_, i) => (
                 <div
                   key={i}
-                  className="flex-1 rounded border border-grey-300 bg-white py-1.5 text-center font-mono text-xs text-grey-700"
+                  className="flex-1 rounded border border-gray-300 bg-white py-1.5 text-center font-mono text-xs text-gray-700"
                 >
                   {slotLabel(row, i)}
                 </div>
               ))}
             </div>
             {showNumbering ? (
-              <div className="flex shrink-0 items-center gap-1 text-xs text-grey-500">
+              <div className="flex shrink-0 items-center gap-1 text-xs text-gray-500">
                 <label title={`Row ${row.letter}: first slot number`}>
                   start
                   <input
                     type="number"
                     min={0}
                     max={99}
-                    className="ml-0.5 w-11 rounded border border-grey-300 px-1 py-0.5"
+                    className="ml-0.5 w-11 rounded border border-gray-300 px-1 py-0.5"
                     value={row.start}
                     onChange={(e) =>
                       setRowNumbering(index, { start: Number(e.target.value) })
@@ -141,7 +141,7 @@ export function SlotGridEditor({ rows, onChange }: SlotGridEditorProps) {
                     type="number"
                     min={1}
                     max={9}
-                    className="ml-0.5 w-9 rounded border border-grey-300 px-1 py-0.5"
+                    className="ml-0.5 w-9 rounded border border-gray-300 px-1 py-0.5"
                     value={row.step}
                     onChange={(e) =>
                       setRowNumbering(index, { step: Number(e.target.value) })
@@ -156,7 +156,7 @@ export function SlotGridEditor({ rows, onChange }: SlotGridEditorProps) {
                 onClick={() => bumpRow(index, -1)}
                 disabled={row.columns <= 1}
                 title={`Remove a slot from row ${row.letter}`}
-                className="h-6 w-6 rounded border border-grey-300 bg-white text-xs text-grey-600 hover:bg-grey-50 disabled:opacity-30"
+                className="h-6 w-6 rounded border border-gray-300 bg-white text-xs text-gray-600 hover:bg-gray-50 disabled:opacity-30"
               >
                 −
               </button>
@@ -165,7 +165,7 @@ export function SlotGridEditor({ rows, onChange }: SlotGridEditorProps) {
                 onClick={() => bumpRow(index, 1)}
                 disabled={row.columns >= 20}
                 title={`Add a slot to row ${row.letter}`}
-                className="h-6 w-6 rounded border border-grey-300 bg-white text-xs text-grey-600 hover:bg-grey-50 disabled:opacity-30"
+                className="h-6 w-6 rounded border border-gray-300 bg-white text-xs text-gray-600 hover:bg-gray-50 disabled:opacity-30"
               >
                 +
               </button>
@@ -174,7 +174,7 @@ export function SlotGridEditor({ rows, onChange }: SlotGridEditorProps) {
         ))}
       </div>
 
-      <p className="text-xs text-grey-500">
+      <p className="text-xs text-gray-500">
         {rowsToSlotCodes(rows).length} slots total. Combo machine? − the drink
         shelf down to 5–6. Even-numbered machine (A0, A2, A4…)? Numbering… →
         start 0, step 2.

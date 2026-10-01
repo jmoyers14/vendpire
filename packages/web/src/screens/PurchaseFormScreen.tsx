@@ -1,14 +1,14 @@
-import { useEffect, useState } from "react";
-import { Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { allocateProportionally } from "@vendpire/domain";
-import { queryClient, trpc, trpcClient } from "../trpc.ts";
-import { ErrorNote, inputClass, Page } from "../components/ui.tsx";
+import { useEffect, useState } from "react";
 import {
   BarcodeSetupPanel,
   type CreatedForPurchase,
 } from "../components/BarcodeSetupPanel.tsx";
+import { Button, ErrorNote, inputClass, Page, PageTitle } from "../components/ui.tsx";
 import { formatCents, parseDollarsToCents } from "../lib/money.ts";
+import { queryClient, trpc, trpcClient } from "../trpc.ts";
 
 /**
  * One line of the purchase being entered. A row is either a pack (N packs for
@@ -288,10 +288,10 @@ export function PurchaseFormScreen({ purchaseId }: { purchaseId?: string }) {
   return (
     <Page max="2xl" className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="font-heading text-xl font-bold text-grey-800">
+        <PageTitle>
           {purchaseId ? "Edit Purchase" : "Log Purchase"}
-        </h1>
-        <Link to="/purchases" className="text-sm text-grey-600 hover:text-grey-800">
+        </PageTitle>
+        <Link to="/purchases" className="text-sm text-gray-600 hover:text-gray-800">
           ← Back
         </Link>
       </div>
@@ -300,7 +300,7 @@ export function PurchaseFormScreen({ purchaseId }: { purchaseId?: string }) {
 
       {/* Scan-first entry. Outside the form so Enter adds a line rather than
           submitting the purchase. */}
-      <div className="space-y-3 rounded border border-grey-200 bg-grey-50 p-3">
+      <div className="space-y-3 rounded border border-gray-200 bg-gray-50 p-3">
         <div className="flex gap-2">
           <input
             className={`${inputClass} font-mono`}
@@ -315,14 +315,14 @@ export function PurchaseFormScreen({ purchaseId }: { purchaseId?: string }) {
             }}
             autoComplete="off"
           />
-          <button
-            type="button"
+          <Button
+            size="sm"
+            className="shrink-0"
             onClick={() => void scan()}
             disabled={resolving || !code.trim()}
-            className="shrink-0 rounded bg-primary-600 px-4 text-sm font-medium text-white hover:bg-primary-500 disabled:opacity-40"
           >
             {resolving ? "…" : "Add"}
-          </button>
+          </Button>
         </div>
 
         {pendingCode ? (
@@ -378,11 +378,11 @@ export function PurchaseFormScreen({ purchaseId }: { purchaseId?: string }) {
         </div>
 
         <fieldset className="space-y-2">
-          <legend className="text-sm font-medium text-grey-700">
+          <legend className="text-sm font-medium text-gray-700">
             Items on this receipt
           </legend>
           {rows.length === 0 ? (
-            <p className="rounded border border-dashed border-grey-300 p-4 text-center text-sm text-grey-500">
+            <p className="rounded border border-dashed border-gray-300 p-4 text-center text-sm text-gray-500">
               Nothing yet — scan a barcode above to start.
             </p>
           ) : null}
@@ -395,7 +395,7 @@ export function PurchaseFormScreen({ purchaseId }: { purchaseId?: string }) {
                     className={`rounded px-1.5 py-0.5 text-center text-[10px] font-medium uppercase ${
                       row.kind === "pack"
                         ? "bg-primary-100 text-primary-700"
-                        : "bg-grey-200 text-grey-600"
+                        : "bg-gray-200 text-gray-600"
                     }`}
                   >
                     {row.kind === "pack" ? "Pack" : "Item"}
@@ -449,14 +449,14 @@ export function PurchaseFormScreen({ purchaseId }: { purchaseId?: string }) {
                   <button
                     type="button"
                     onClick={() => setRows(rows.filter((_, i) => i !== index))}
-                    className="text-grey-400 hover:text-red-600"
+                    className="text-gray-400 hover:text-red-600"
                     title="Remove line"
                   >
                     ✕
                   </button>
                 </div>
                 {split ? (
-                  <p className="pl-[4rem] text-xs text-grey-500">
+                  <p className="pl-[4rem] text-xs text-gray-500">
                     ↳ saves as{" "}
                     {split
                       .map((part) => `${part.label} (${formatCents(part.cents)})`)
@@ -469,8 +469,8 @@ export function PurchaseFormScreen({ purchaseId }: { purchaseId?: string }) {
         </fieldset>
 
         {/* Reconciliation: what we're recording vs what the receipt says. */}
-        <div className="flex flex-wrap items-end gap-3 rounded border border-grey-200 bg-grey-50 p-3">
-          <label className="text-xs text-grey-600">
+        <div className="flex flex-wrap items-end gap-3 rounded border border-gray-200 bg-gray-50 p-3">
+          <label className="text-xs text-gray-600">
             Receipt total (optional)
             <input
               className={inputClass}
@@ -480,8 +480,8 @@ export function PurchaseFormScreen({ purchaseId }: { purchaseId?: string }) {
             />
           </label>
           <div className="pb-2 text-sm">
-            <span className="text-grey-600">Entered: </span>
-            <span className="font-medium text-grey-800">
+            <span className="text-gray-600">Entered: </span>
+            <span className="font-medium text-gray-800">
               {formatCents(enteredCents)}
             </span>
           </div>
@@ -491,7 +491,7 @@ export function PurchaseFormScreen({ purchaseId }: { purchaseId?: string }) {
                 matches receipt
               </span>
             ) : (
-              <span className="mb-2 rounded bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-800">
+              <span className="mb-2 rounded bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
                 {variance > 0 ? "over" : "under"} by {formatCents(Math.abs(variance))}
               </span>
             )
@@ -506,13 +506,13 @@ export function PurchaseFormScreen({ purchaseId }: { purchaseId?: string }) {
           onChange={(e) => setNotes(e.target.value)}
         />
 
-        <button
+        <Button
+          size="sm"
           type="submit"
           disabled={create.isPending || update.isPending}
-          className="rounded bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-500 disabled:opacity-50"
         >
           {purchaseId ? "Save Changes" : "Save Purchase"}
-        </button>
+        </Button>
       </form>
     </Page>
   );

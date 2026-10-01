@@ -1,6 +1,7 @@
 import { fileURLToPath } from "node:url";
-import { defineConfig } from "vite";
+import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
+import { defineConfig } from "vite";
 
 // Resolve @vendpire/domain to its TypeScript source so the shared calculation
 // engine runs in the browser with no build step (esbuild transpiles it inline).
@@ -12,7 +13,7 @@ const domainEntry = fileURLToPath(
 );
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), tailwindcss()],
   resolve: {
     alias: {
       "@vendpire/domain": domainEntry,

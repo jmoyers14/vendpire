@@ -1,10 +1,10 @@
-import { useEffect, useState } from "react";
-import { Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { queryClient, trpc } from "../trpc.ts";
-import { ErrorNote, inputClass, Page } from "../components/ui.tsx";
+import { Link, useNavigate } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import { AddressAutocomplete } from "../components/AddressAutocomplete.tsx";
+import { Button, checkboxClass, ErrorNote, inputClass, Page, PageTitle } from "../components/ui.tsx";
 import { parseDollarsToCents, parsePercentToBps } from "../lib/money.ts";
+import { queryClient, trpc } from "../trpc.ts";
 
 interface FormState {
   name: string;
@@ -160,10 +160,10 @@ export function LocationFormScreen({ locationId }: { locationId?: string }) {
   return (
     <Page max="xl" className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="font-heading text-xl font-bold text-grey-800">
+        <PageTitle>
           {locationId ? "Edit Location" : "New Location"}
-        </h1>
-        <Link to="/locations" className="text-sm text-grey-600 hover:text-grey-800">
+        </PageTitle>
+        <Link to="/locations" className="text-sm text-gray-600 hover:text-gray-800">
           ← Back
         </Link>
       </div>
@@ -179,7 +179,7 @@ export function LocationFormScreen({ locationId }: { locationId?: string }) {
         />
 
         <fieldset className="space-y-2">
-          <legend className="text-sm font-medium text-grey-700">Address</legend>
+          <legend className="text-sm font-medium text-gray-700">Address</legend>
           <AddressAutocomplete
             placeholder="Street — start typing for suggestions"
             value={form.line1}
@@ -217,7 +217,7 @@ export function LocationFormScreen({ locationId }: { locationId?: string }) {
         </fieldset>
 
         <fieldset className="space-y-2">
-          <legend className="text-sm font-medium text-grey-700">Contact</legend>
+          <legend className="text-sm font-medium text-gray-700">Contact</legend>
           <input
             className={inputClass}
             placeholder="Contact name"
@@ -241,7 +241,7 @@ export function LocationFormScreen({ locationId }: { locationId?: string }) {
         </fieldset>
 
         <fieldset className="space-y-2">
-          <legend className="text-sm font-medium text-grey-700">
+          <legend className="text-sm font-medium text-gray-700">
             Commission
           </legend>
           <select
@@ -293,22 +293,23 @@ export function LocationFormScreen({ locationId }: { locationId?: string }) {
           onChange={(e) => set({ notes: e.target.value })}
         />
 
-        <label className="flex items-center gap-2 text-sm text-grey-700">
+        <label className="flex items-center gap-2 text-sm text-gray-700">
           <input
             type="checkbox"
+            className={checkboxClass}
             checked={form.active}
             onChange={(e) => set({ active: e.target.checked })}
           />
           Active
         </label>
 
-        <button
+        <Button
+          size="sm"
           type="submit"
           disabled={create.isPending || update.isPending}
-          className="rounded bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-500 disabled:opacity-50"
         >
           {locationId ? "Save Changes" : "Create Location"}
-        </button>
+        </Button>
       </form>
     </Page>
   );

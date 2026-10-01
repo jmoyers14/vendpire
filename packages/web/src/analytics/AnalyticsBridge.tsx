@@ -1,5 +1,5 @@
-import { useEffect } from "react";
 import { useAuth, useOrganization } from "@clerk/react";
+import { useEffect } from "react";
 import { router } from "../router.tsx";
 import { analyticsEnabled, posthog } from "./posthog.ts";
 

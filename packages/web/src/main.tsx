@@ -1,13 +1,13 @@
-import React from "react";
-import ReactDOM from "react-dom/client";
 import { ClerkProvider } from "@clerk/react";
-import { PostHogProvider } from "posthog-js/react";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider } from "@tanstack/react-router";
+import { PostHogProvider } from "posthog-js/react";
+import React from "react";
+import ReactDOM from "react-dom/client";
+import { AnalyticsBridge } from "./analytics/AnalyticsBridge.tsx";
+import { initAnalytics, posthog } from "./analytics/posthog.ts";
 import { router } from "./router.tsx";
 import { queryClient } from "./trpc.ts";
-import { initAnalytics, posthog } from "./analytics/posthog.ts";
-import { AnalyticsBridge } from "./analytics/AnalyticsBridge.tsx";
 import "./index.css";
 
 const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;

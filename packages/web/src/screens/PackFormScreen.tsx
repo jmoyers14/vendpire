@@ -1,8 +1,8 @@
-import { useEffect, useState } from "react";
-import { Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { Link, useNavigate } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
+import { Button, ErrorNote, inputClass, Page, PageTitle } from "../components/ui.tsx";
 import { queryClient, trpc } from "../trpc.ts";
-import { ErrorNote, inputClass, Page } from "../components/ui.tsx";
 
 interface ContentRow {
   productId: string;
@@ -104,10 +104,10 @@ export function PackFormScreen({ packId }: { packId?: string }) {
   return (
     <Page max="xl" className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="font-heading text-xl font-bold text-grey-800">
+        <PageTitle>
           {packId ? "Edit Pack" : "New Pack"}
-        </h1>
-        <Link to="/packs" className="text-sm text-grey-600 hover:text-grey-800">
+        </PageTitle>
+        <Link to="/packs" className="text-sm text-gray-600 hover:text-gray-800">
           ← Back
         </Link>
       </div>
@@ -129,7 +129,7 @@ export function PackFormScreen({ packId }: { packId?: string }) {
         />
 
         <fieldset className="space-y-2">
-          <legend className="text-sm font-medium text-grey-700">
+          <legend className="text-sm font-medium text-gray-700">
             Contents — what's inside one pack, in sellable units
           </legend>
           {contents.map((row, index) => (
@@ -155,7 +155,7 @@ export function PackFormScreen({ packId }: { packId?: string }) {
               <button
                 type="button"
                 onClick={() => setContents(contents.filter((_, i) => i !== index))}
-                className="text-grey-400 hover:text-red-600"
+                className="text-gray-400 hover:text-red-600"
                 title="Remove"
               >
                 ✕
@@ -171,13 +171,13 @@ export function PackFormScreen({ packId }: { packId?: string }) {
           </button>
         </fieldset>
 
-        <button
+        <Button
+          size="sm"
           type="submit"
           disabled={create.isPending || update.isPending}
-          className="rounded bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-500 disabled:opacity-50"
         >
           {packId ? "Save Changes" : "Create Pack"}
-        </button>
+        </Button>
       </form>
     </Page>
   );

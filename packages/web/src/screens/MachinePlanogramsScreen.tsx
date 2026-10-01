@@ -1,9 +1,9 @@
-import { useEffect, useState } from "react";
-import { Link } from "@tanstack/react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { queryClient, trpc } from "../trpc.ts";
-import { ErrorNote, inputClass, Page } from "../components/ui.tsx";
+import { Link } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
+import { Button, ErrorNote, inputClass, Page, PageTitle, SlotRow } from "../components/ui.tsx";
 import { formatCents, parseDollarsToCents } from "../lib/money.ts";
+import { queryClient, trpc } from "../trpc.ts";
 
 interface SlotRow {
   slotCode: string;
@@ -95,10 +95,10 @@ export function MachinePlanogramsScreen({ machineId }: { machineId: string }) {
   return (
     <Page max="4xl" className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="font-heading text-xl font-bold text-grey-800">
+        <PageTitle>
           Planogram — {machine.data?.name ?? "…"}
-        </h1>
-        <Link to="/machines" className="text-sm text-grey-600 hover:text-grey-800">
+        </PageTitle>
+        <Link to="/machines" className="text-sm text-gray-600 hover:text-gray-800">
           ← Machines
         </Link>
       </div>
@@ -108,7 +108,7 @@ export function MachinePlanogramsScreen({ machineId }: { machineId: string }) {
       {editing ? (
         <div className="space-y-3">
           {/* The machine face — click a cell to edit that slot. */}
-          <div className="space-y-1.5 overflow-x-auto rounded-md bg-grey-100 p-2">
+          <div className="space-y-1.5 overflow-x-auto rounded-md bg-gray-100 p-2">
             {machine.data?.slots.map((shelf, shelfIndex) => (
               <div key={shelfIndex} className="flex gap-1">
                 {shelf.map((slotCode) => {
@@ -123,24 +123,24 @@ export function MachinePlanogramsScreen({ machineId }: { machineId: string }) {
                         isSelected
                           ? "border-primary-500 bg-white ring-2 ring-primary-300"
                           : row?.productId
-                            ? "border-grey-300 bg-white hover:border-primary-300"
-                            : "border-dashed border-grey-300 bg-grey-50 hover:border-primary-300"
+                            ? "border-gray-300 bg-white hover:border-primary-300"
+                            : "border-dashed border-gray-300 bg-gray-50 hover:border-primary-300"
                       }`}
                     >
-                      <div className="font-mono text-[10px] text-grey-500">
+                      <div className="font-mono text-[10px] text-gray-500">
                         {slotCode}
                       </div>
                       {row?.productId ? (
                         <>
-                          <div className="truncate text-xs font-medium text-grey-800">
+                          <div className="truncate text-xs font-medium text-gray-800">
                             {productName(row.productId)}
                           </div>
-                          <div className="text-[10px] text-grey-600">
+                          <div className="text-[10px] text-gray-600">
                             {row.price ? `$${row.price}` : "—"} · par {row.par || "—"}
                           </div>
                         </>
                       ) : (
-                        <div className="text-[10px] text-grey-400">empty</div>
+                        <div className="text-[10px] text-gray-400">empty</div>
                       )}
                     </button>
                   );
@@ -172,42 +172,40 @@ export function MachinePlanogramsScreen({ machineId }: { machineId: string }) {
           ) : null}
 
           <div className="flex gap-2">
-            <button
-              type="button"
+            <Button
+              size="sm"
               onClick={save}
               disabled={create.isPending}
-              className="rounded bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-500 disabled:opacity-50"
             >
               Save New Version
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
               onClick={() => setEditing(false)}
-              className="rounded border border-grey-300 px-4 py-2 text-sm text-grey-700 hover:bg-grey-100"
             >
               Cancel
-            </button>
+            </Button>
           </div>
         </div>
       ) : (
         <>
           <div className="flex items-center justify-between">
-            <p className="text-sm text-grey-600">
+            <p className="text-sm text-gray-600">
               {current
                 ? `Current since ${new Date(current.effectiveFrom).toLocaleDateString()} · ${current.slots.length} slot(s) assigned`
                 : "No planogram yet."}
             </p>
-            <button
-              type="button"
+            <Button
+              size="sm"
               onClick={() => setEditing(true)}
-              className="rounded bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-500"
             >
               {current ? "New Version" : "Set Up Planogram"}
-            </button>
+            </Button>
           </div>
 
           {current && machine.data ? (
-            <div className="space-y-1.5 overflow-x-auto rounded-md bg-grey-100 p-2">
+            <div className="space-y-1.5 overflow-x-auto rounded-md bg-gray-100 p-2">
               {machine.data.slots.map((shelf, shelfIndex) => (
                 <div key={shelfIndex} className="flex gap-1">
                   {shelf.map((slotCode) => {
@@ -224,24 +222,24 @@ export function MachinePlanogramsScreen({ machineId }: { machineId: string }) {
                         }
                         className={`min-w-0 flex-1 rounded border px-1 py-1.5 text-center ${
                           slot
-                            ? "border-grey-300 bg-white"
-                            : "border-dashed border-grey-300 bg-grey-50"
+                            ? "border-gray-300 bg-white"
+                            : "border-dashed border-gray-300 bg-gray-50"
                         }`}
                       >
-                        <div className="font-mono text-[10px] text-grey-500">
+                        <div className="font-mono text-[10px] text-gray-500">
                           {slotCode}
                         </div>
                         {slot ? (
                           <>
-                            <div className="truncate text-xs font-medium text-grey-800">
+                            <div className="truncate text-xs font-medium text-gray-800">
                               {productName(slot.productId)}
                             </div>
-                            <div className="text-[10px] text-grey-600">
+                            <div className="text-[10px] text-gray-600">
                               {formatCents(slot.priceCents)} · par {slot.par}
                             </div>
                           </>
                         ) : (
-                          <div className="text-[10px] text-grey-400">—</div>
+                          <div className="text-[10px] text-gray-400">—</div>
                         )}
                       </div>
                     );
@@ -253,8 +251,8 @@ export function MachinePlanogramsScreen({ machineId }: { machineId: string }) {
 
           {versions.data && versions.data.length > 1 ? (
             <div>
-              <h2 className="mb-1 text-sm font-medium text-grey-700">History</h2>
-              <ul className="space-y-1 text-sm text-grey-600">
+              <h2 className="mb-1 text-sm font-medium text-gray-700">History</h2>
+              <ul className="space-y-1 text-sm text-gray-600">
                 {versions.data.slice(1).map((version) => (
                   <li key={version.id}>
                     {new Date(version.effectiveFrom).toLocaleString()} —{" "}
@@ -293,10 +291,10 @@ function SlotEditPanel({
 }: SlotEditPanelProps) {
   return (
     <div className="flex flex-wrap items-end gap-2 rounded border border-primary-200 bg-primary-50/50 p-3">
-      <span className="pb-2 font-mono text-sm font-medium text-grey-800">
+      <span className="pb-2 font-mono text-sm font-medium text-gray-800">
         {slotCode}
       </span>
-      <label className="min-w-48 flex-1 text-xs text-grey-600">
+      <label className="min-w-48 flex-1 text-xs text-gray-600">
         Product
         <select
           className={inputClass}
@@ -318,7 +316,7 @@ function SlotEditPanel({
           ))}
         </select>
       </label>
-      <label className="w-20 text-xs text-grey-600">
+      <label className="w-20 text-xs text-gray-600">
         Par
         <input
           className={inputClass}
@@ -326,7 +324,7 @@ function SlotEditPanel({
           onChange={(e) => onChange({ par: e.target.value })}
         />
       </label>
-      <label className="w-24 text-xs text-grey-600">
+      <label className="w-24 text-xs text-gray-600">
         Price $
         <input
           className={inputClass}
@@ -334,20 +332,19 @@ function SlotEditPanel({
           onChange={(e) => onChange({ price: e.target.value })}
         />
       </label>
-      <button
-        type="button"
+      <Button
+        variant="secondary"
+        size="sm"
         onClick={() => onChange({ productId: "", par: "", price: "" })}
-        className="rounded border border-grey-300 px-3 py-2 text-sm text-grey-600 hover:bg-grey-100"
       >
         Clear
-      </button>
-      <button
-        type="button"
+      </Button>
+      <Button
+        size="sm"
         onClick={onNext}
-        className="rounded bg-primary-600 px-3 py-2 text-sm font-medium text-white hover:bg-primary-500"
       >
         Next slot →
-      </button>
+      </Button>
     </div>
   );
 }

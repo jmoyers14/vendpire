@@ -1,9 +1,9 @@
-import { useState } from "react";
-import { Link } from "@tanstack/react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { queryClient, trpc } from "../trpc.ts";
-import { ErrorNote, Page, TableScroll } from "../components/ui.tsx";
+import { Link } from "@tanstack/react-router";
+import { useState } from "react";
+import { buttonClass, EmptyState, ErrorNote, Page, PageTitle, TableScroll } from "../components/ui.tsx";
 import { formatCents } from "../lib/money.ts";
+import { queryClient, trpc } from "../trpc.ts";
 
 const lineTotal = (lines: { totalCostCents: number }[]): number =>
   lines.reduce((sum, line) => sum + line.totalCostCents, 0);
@@ -27,12 +27,12 @@ export function PurchasesScreen() {
   return (
     <Page max="4xl" className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="font-heading text-xl font-bold text-grey-800">
+        <PageTitle>
           Purchases
-        </h1>
+        </PageTitle>
         <Link
           to="/purchases/new"
-          className="rounded bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-500"
+          className={buttonClass({ size: "sm" })}
         >
           Log Purchase
         </Link>
@@ -41,12 +41,12 @@ export function PurchasesScreen() {
       <ErrorNote message={error} />
 
       {purchases.isLoading ? (
-        <p className="text-grey-400">Loading…</p>
+        <p className="text-gray-400">Loading…</p>
       ) : purchases.data && purchases.data.length > 0 ? (
         <TableScroll>
           <table className="w-full min-w-[36rem] border-collapse text-sm">
             <thead>
-              <tr className="border-b border-grey-200 bg-grey-50 text-left text-grey-600">
+              <tr className="border-b border-gray-200 bg-gray-50 text-left text-gray-600">
                 <th className="px-4 py-2 font-medium">Date</th>
                 <th className="px-4 py-2 font-medium">Vendor</th>
                 <th className="px-4 py-2 font-medium">Items</th>
@@ -56,22 +56,22 @@ export function PurchasesScreen() {
             </thead>
             <tbody>
               {purchases.data.map((purchase) => (
-                <tr key={purchase.id} className="border-b border-grey-100">
-                  <td className="px-4 py-2 text-grey-800">
+                <tr key={purchase.id} className="border-b border-gray-100">
+                  <td className="px-4 py-2 text-gray-800">
                     {new Date(purchase.purchasedAt).toLocaleDateString()}
                   </td>
-                  <td className="px-4 py-2 font-medium text-grey-800">
+                  <td className="px-4 py-2 font-medium text-gray-800">
                     {purchase.vendor}
                   </td>
-                  <td className="px-4 py-2 text-grey-600">
+                  <td className="px-4 py-2 text-gray-600">
                     {purchase.lines.length} line(s)
                   </td>
-                  <td className="px-4 py-2 text-grey-600">
+                  <td className="px-4 py-2 text-gray-600">
                     {formatCents(lineTotal(purchase.lines))}
                     {purchase.receiptTotalCents !== null &&
                     purchase.receiptTotalCents !== lineTotal(purchase.lines) ? (
                       <span
-                        className="ml-2 rounded bg-yellow-100 px-1.5 py-0.5 text-xs text-yellow-800"
+                        className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-800"
                         title={`Receipt says ${formatCents(purchase.receiptTotalCents)}`}
                       >
                         ≠ receipt
@@ -89,7 +89,7 @@ export function PurchasesScreen() {
                     <button
                       type="button"
                       onClick={() => remove.mutate({ id: purchase.id })}
-                      className="text-grey-400 hover:text-red-600"
+                      className="text-gray-400 hover:text-red-600"
                     >
                       Delete
                     </button>
@@ -100,11 +100,11 @@ export function PurchasesScreen() {
           </table>
         </TableScroll>
       ) : (
-        <div className="rounded border border-dashed border-grey-300 p-8 text-center text-grey-600">
+        <EmptyState>
           No purchases yet. Click{" "}
           <span className="font-medium">Log Purchase</span> after your next
           Costco run.
-        </div>
+        </EmptyState>
       )}
     </Page>
   );

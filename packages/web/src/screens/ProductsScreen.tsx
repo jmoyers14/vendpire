@@ -1,9 +1,9 @@
-import { useState } from "react";
-import { Link } from "@tanstack/react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { queryClient, trpc } from "../trpc.ts";
-import { ErrorNote, Page, TableScroll } from "../components/ui.tsx";
+import { Link } from "@tanstack/react-router";
+import { useState } from "react";
+import { buttonClass, EmptyState, ErrorNote, Page, PageTitle, TableScroll } from "../components/ui.tsx";
 import { formatCents } from "../lib/money.ts";
+import { queryClient, trpc } from "../trpc.ts";
 
 export function ProductsScreen() {
   const [error, setError] = useState<string | null>(null);
@@ -24,12 +24,12 @@ export function ProductsScreen() {
   return (
     <Page max="4xl" className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="font-heading text-xl font-bold text-grey-800">
+        <PageTitle>
           Products
-        </h1>
+        </PageTitle>
         <Link
           to="/products/new"
-          className="rounded bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-500"
+          className={buttonClass({ size: "sm" })}
         >
           Add Product
         </Link>
@@ -38,12 +38,12 @@ export function ProductsScreen() {
       <ErrorNote message={error} />
 
       {products.isLoading ? (
-        <p className="text-grey-400">Loading…</p>
+        <p className="text-gray-400">Loading…</p>
       ) : products.data && products.data.length > 0 ? (
         <TableScroll>
           <table className="w-full min-w-[36rem] border-collapse text-sm">
             <thead>
-              <tr className="border-b border-grey-200 bg-grey-50 text-left text-grey-600">
+              <tr className="border-b border-gray-200 bg-gray-50 text-left text-gray-600">
                 <th className="w-12 px-4 py-2" />
                 <th className="px-4 py-2 font-medium">Name</th>
                 <th className="px-4 py-2 font-medium">Category</th>
@@ -54,7 +54,7 @@ export function ProductsScreen() {
             </thead>
             <tbody>
               {products.data.map((product) => (
-                <tr key={product.id} className="border-b border-grey-100">
+                <tr key={product.id} className="border-b border-gray-100">
                   <td className="px-2 py-1">
                     {product.imageUrl ? (
                       <img
@@ -63,17 +63,17 @@ export function ProductsScreen() {
                         className="h-9 w-9 rounded object-contain"
                       />
                     ) : (
-                      <div className="h-9 w-9 rounded bg-grey-100" />
+                      <div className="h-9 w-9 rounded bg-gray-100" />
                     )}
                   </td>
-                  <td className="px-4 py-2 font-medium text-grey-800">
+                  <td className="px-4 py-2 font-medium text-gray-800">
                     {product.name}
                   </td>
-                  <td className="px-4 py-2 text-grey-600">{product.category}</td>
-                  <td className="px-4 py-2 text-grey-600">
+                  <td className="px-4 py-2 text-gray-600">{product.category}</td>
+                  <td className="px-4 py-2 text-gray-600">
                     {formatCents(product.defaultPriceCents)}
                   </td>
-                  <td className="px-4 py-2 font-mono text-grey-600">
+                  <td className="px-4 py-2 font-mono text-gray-600">
                     {product.upc ?? "—"}
                   </td>
                   <td className="space-x-3 px-4 py-2 text-right">
@@ -87,7 +87,7 @@ export function ProductsScreen() {
                     <button
                       type="button"
                       onClick={() => remove.mutate({ id: product.id })}
-                      className="text-grey-400 hover:text-red-600"
+                      className="text-gray-400 hover:text-red-600"
                     >
                       Delete
                     </button>
@@ -98,11 +98,11 @@ export function ProductsScreen() {
           </table>
         </TableScroll>
       ) : (
-        <div className="rounded border border-dashed border-grey-300 p-8 text-center text-grey-600">
+        <EmptyState>
           No products yet. Click{" "}
           <span className="font-medium">Add Product</span> to catalog what you
           sell.
-        </div>
+        </EmptyState>
       )}
     </Page>
   );

@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Page } from "../components/ui.tsx";
+import { Page, PageTitle } from "../components/ui.tsx";
 import { trpc } from "../trpc.ts";
 
 /**
@@ -12,17 +12,17 @@ export function DashboardScreen() {
 
   return (
     <Page max="4xl">
-      <h1 className="font-heading text-2xl font-bold text-grey-800">
+      <PageTitle>
         Dashboard
-      </h1>
+      </PageTitle>
       {org.isLoading ? (
-        <p className="mt-2 text-grey-500">Loading…</p>
+        <p className="mt-2 text-gray-500">Loading…</p>
       ) : org.isError ? (
         <p className="mt-2 text-red-600">
           Couldn&apos;t reach the API: {org.error.message}
         </p>
       ) : (
-        <p className="mt-2 text-grey-600">
+        <p className="mt-2 text-gray-600">
           Signed in to <span className="font-medium">{org.data?.orgSlug}</span>{" "}
           as <span className="font-medium">{org.data?.orgRole}</span>. Locations,
           machines, and reports arrive in the next phases.

@@ -1,17 +1,17 @@
-import { useEffect, useState } from "react";
-import { Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { queryClient, trpc } from "../trpc.ts";
-import { ErrorNote, inputClass, Page } from "../components/ui.tsx";
-import { SlotGridEditor } from "../components/SlotGridEditor.tsx";
+import { Link, useNavigate } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import { SlotFacePreview } from "../components/SlotFacePreview.tsx";
+import { SlotGridEditor } from "../components/SlotGridEditor.tsx";
+import { Button, Card, checkboxClass, ErrorNote, inputClass, Page, PageTitle } from "../components/ui.tsx";
 import {
   buildRows,
   parseSlotLines,
   rowsToShelves,
-  shelvesToRows,
   type SlotGridRow,
+  shelvesToRows,
 } from "../lib/slotGrid.ts";
+import { queryClient, trpc } from "../trpc.ts";
 
 interface FormState {
   locationId: string;
@@ -140,10 +140,10 @@ export function MachineFormScreen({ machineId }: { machineId?: string }) {
   return (
     <Page max="xl" className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="font-heading text-xl font-bold text-grey-800">
+        <PageTitle>
           {machineId ? "Edit Machine" : "New Machine"}
-        </h1>
-        <Link to="/machines" className="text-sm text-grey-600 hover:text-grey-800">
+        </PageTitle>
+        <Link to="/machines" className="text-sm text-gray-600 hover:text-gray-800">
           ← Back
         </Link>
       </div>
@@ -206,7 +206,7 @@ export function MachineFormScreen({ machineId }: { machineId?: string }) {
         />
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-grey-700">Slots</span>
+            <span className="text-sm font-medium text-gray-700">Slots</span>
             <button
               type="button"
               onClick={() =>
@@ -248,7 +248,7 @@ export function MachineFormScreen({ machineId }: { machineId?: string }) {
                 onChange={(e) => set({ slotCodesText: e.target.value })}
               />
               <SlotFacePreview shelves={parseSlotLines(form.slotCodesText)} />
-              <p className="text-xs text-grey-500">
+              <p className="text-xs text-gray-500">
                 {parseSlotLines(form.slotCodesText).flat().length} slot(s)
               </p>
             </div>
@@ -275,21 +275,22 @@ export function MachineFormScreen({ machineId }: { machineId?: string }) {
             />
           ) : null}
         </div>
-        <label className="flex items-center gap-2 text-sm text-grey-700">
+        <label className="flex items-center gap-2 text-sm text-gray-700">
           <input
             type="checkbox"
+            className={checkboxClass}
             checked={form.active}
             onChange={(e) => set({ active: e.target.checked })}
           />
           Active
         </label>
-        <button
+        <Button
+          size="sm"
           type="submit"
           disabled={create.isPending || update.isPending}
-          className="rounded bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-500 disabled:opacity-50"
         >
           {machineId ? "Save Changes" : "Create Machine"}
-        </button>
+        </Button>
       </form>
     </Page>
   );

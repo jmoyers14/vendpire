@@ -9,13 +9,13 @@ export function SlotFacePreview({ shelves }: { shelves: string[][] }) {
     return null;
   }
   return (
-    <div className="space-y-1.5 rounded-md bg-grey-100 p-2">
+    <div className="space-y-1.5 rounded-md bg-gray-100 p-2">
       {shelves.map((shelf, index) => (
         <div key={index} className="flex gap-1">
           {shelf.map((code, i) => (
             <div
               key={`${code}-${i}`}
-              className="flex-1 rounded border border-grey-300 bg-white py-1.5 text-center font-mono text-xs text-grey-700"
+              className="flex-1 rounded border border-gray-300 bg-white py-1.5 text-center font-mono text-xs text-gray-700"
             >
               {code}
             </div>

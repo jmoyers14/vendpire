@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { queryClient, trpc, trpcClient } from "../trpc.ts";
-import { ErrorNote, inputClass } from "./ui.tsx";
 import { parseDollarsToCents } from "../lib/money.ts";
+import { queryClient, trpc, trpcClient } from "../trpc.ts";
+import { Button, ErrorNote, inputClass } from "./ui.tsx";
 
 interface CatalogCandidate {
   name: string | null;
@@ -138,16 +138,16 @@ export function BarcodeSetupPanel({
           <img
             src={candidate.imageUrl}
             alt=""
-            className="h-12 w-12 rounded border border-grey-200 bg-white object-contain"
+            className="h-12 w-12 rounded border border-gray-200 bg-white object-contain"
           />
         ) : null}
         <div className="min-w-0">
-          <p className="text-sm font-medium text-grey-800">
+          <p className="text-sm font-medium text-gray-800">
             {candidate?.name
               ? "Not in your catalog yet"
               : "Unknown barcode — tell us what it is"}
           </p>
-          <p className="font-mono text-xs text-grey-500">{gtin14}</p>
+          <p className="font-mono text-xs text-gray-500">{gtin14}</p>
         </div>
       </div>
 
@@ -160,7 +160,7 @@ export function BarcodeSetupPanel({
             className={`rounded border px-3 py-1 ${
               kind === option
                 ? "border-primary-500 bg-white font-medium text-primary-700"
-                : "border-grey-300 text-grey-600 hover:bg-white"
+                : "border-gray-300 text-gray-600 hover:bg-white"
             }`}
           >
             {option === "unit" ? "A single item" : "A case / pack"}
@@ -172,7 +172,7 @@ export function BarcodeSetupPanel({
 
       {kind === "pack" ? (
         <div className="grid grid-cols-[1fr_7rem] gap-2">
-          <label className="text-xs text-grey-600">
+          <label className="text-xs text-gray-600">
             Contains
             <select
               className={inputClass}
@@ -187,7 +187,7 @@ export function BarcodeSetupPanel({
               ))}
             </select>
           </label>
-          <label className="text-xs text-grey-600">
+          <label className="text-xs text-gray-600">
             Units per pack
             <input
               className={inputClass}
@@ -201,7 +201,7 @@ export function BarcodeSetupPanel({
 
       {needsNewProduct ? (
         <div className="grid grid-cols-[1fr_8rem_7rem] gap-2">
-          <label className="text-xs text-grey-600">
+          <label className="text-xs text-gray-600">
             {kind === "pack" ? "New product name" : "Name"}
             <input
               className={inputClass}
@@ -210,7 +210,7 @@ export function BarcodeSetupPanel({
               onChange={(e) => setName(e.target.value)}
             />
           </label>
-          <label className="text-xs text-grey-600">
+          <label className="text-xs text-gray-600">
             Category
             <input
               className={inputClass}
@@ -219,7 +219,7 @@ export function BarcodeSetupPanel({
               onChange={(e) => setCategory(e.target.value)}
             />
           </label>
-          <label className="text-xs text-grey-600">
+          <label className="text-xs text-gray-600">
             Sell price $
             <input
               className={inputClass}
@@ -232,18 +232,17 @@ export function BarcodeSetupPanel({
       ) : null}
 
       <div className="flex gap-2">
-        <button
-          type="button"
+        <Button
+          size="sm"
           onClick={save}
           disabled={saving}
-          className="rounded bg-primary-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-primary-500 disabled:opacity-50"
         >
           {saving ? "Saving…" : "Add to purchase"}
-        </button>
+        </Button>
         <button
           type="button"
           onClick={onCancel}
-          className="rounded border border-grey-300 px-3 py-1.5 text-sm text-grey-700 hover:bg-white"
+          className="rounded border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-white"
         >
           Cancel
         </button>

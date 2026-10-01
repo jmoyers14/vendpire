@@ -22,12 +22,12 @@ export function VersionFooter() {
   const skew = apiCommit !== undefined && apiCommit !== WEB_COMMIT;
 
   return (
-    <footer className="px-4 py-3 text-center text-xs text-grey-400 md:px-6">
+    <footer className="px-4 py-3 text-center text-xs text-gray-400 md:px-6">
       <span title={`web built ${WEB_BUILT_AT}`}>
         Vendpire v{WEB_VERSION} ({WEB_COMMIT})
       </span>
       {skew ? (
-        <span className="ml-2 text-yellow-600" title="API build differs from web">
+        <span className="ml-2 text-amber-600" title="API build differs from web">
           · API {apiCommit}
         </span>
       ) : null}

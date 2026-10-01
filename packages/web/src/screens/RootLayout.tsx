@@ -1,5 +1,3 @@
-import { useEffect } from "react";
-import { Link, Outlet } from "@tanstack/react-router";
 import {
   CreateOrganization,
   OrganizationSwitcher,
@@ -7,75 +5,75 @@ import {
   UserButton,
   useOrganization,
 } from "@clerk/react";
-import { queryClient } from "../trpc.ts";
-import { Page } from "../components/ui.tsx";
+import { Link, Outlet } from "@tanstack/react-router";
+import { useEffect } from "react";
+import { focusRing, Page, PageTitle } from "../components/ui.tsx";
 import { VersionFooter } from "../components/VersionFooter.tsx";
+import { queryClient } from "../trpc.ts";
 import { LandingScreen } from "./LandingScreen.tsx";
 
+// `exact` keeps the Dashboard tab from matching every nested route under "/".
+const TABS: { to: string; label: string; exact?: boolean }[] = [
+  { to: "/", label: "Dashboard", exact: true },
+  { to: "/locations", label: "Locations" },
+  { to: "/machines", label: "Machines" },
+  { to: "/products", label: "Products" },
+  { to: "/packs", label: "Packs" },
+  { to: "/purchases", label: "Purchases" },
+];
+
+// Router Link appends activeProps to the base className rather than replacing
+// it, so the tab's color and border live entirely in active/inactiveProps —
+// otherwise the two sets collide and stylesheet order decides the winner.
+const TAB_BASE =
+  "border-b-[3px] px-2.5 pt-2 pb-2.5 text-sm font-bold whitespace-nowrap";
+
 const Header = () => (
-  <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-white/10 bg-primary-900 px-4 py-3 md:px-6">
-    <div className="flex items-center gap-4 md:gap-6">
-      <span className="font-heading text-lg tracking-wide text-grey-50">
-        Vend<span className="text-primary-300">pire</span>
-      </span>
-      <nav className="flex gap-4 text-sm">
+  <header className="border-b border-line bg-nav">
+    <div className="flex flex-col gap-2.5 px-4 pt-3.5 sm:px-6">
+      <div className="flex items-center justify-between gap-4">
         <Link
           to="/"
-          activeOptions={{ exact: true }}
-          className="text-primary-200 transition-colors hover:text-grey-50"
-          activeProps={{ className: "text-white font-medium" }}
+          className={`flex items-center gap-2 font-display font-extrabold text-heading ${focusRing}`}
         >
-          Dashboard
+          <span className="size-[18px] rounded-md bg-primary-500" />
+          Vendpire
         </Link>
-        <Link
-          to="/locations"
-          className="text-primary-200 transition-colors hover:text-grey-50"
-          activeProps={{ className: "text-white font-medium" }}
-        >
-          Locations
-        </Link>
-        <Link
-          to="/machines"
-          className="text-primary-200 transition-colors hover:text-grey-50"
-          activeProps={{ className: "text-white font-medium" }}
-        >
-          Machines
-        </Link>
-        <Link
-          to="/products"
-          className="text-primary-200 transition-colors hover:text-grey-50"
-          activeProps={{ className: "text-white font-medium" }}
-        >
-          Products
-        </Link>
-        <Link
-          to="/packs"
-          className="text-primary-200 transition-colors hover:text-grey-50"
-          activeProps={{ className: "text-white font-medium" }}
-        >
-          Packs
-        </Link>
-        <Link
-          to="/purchases"
-          className="text-primary-200 transition-colors hover:text-grey-50"
-          activeProps={{ className: "text-white font-medium" }}
-        >
-          Purchases
-        </Link>
+        <div className="flex items-center gap-3">
+          <OrganizationSwitcher
+            afterCreateOrganizationUrl="/"
+            appearance={{
+              elements: {
+                organizationSwitcherTrigger:
+                  "text-gray-700 hover:bg-gray-200 rounded-full",
+                organizationPreviewMainIdentifier: "text-gray-800 font-bold",
+              },
+            }}
+          />
+          <UserButton />
+        </div>
+      </div>
+      <nav className="flex gap-1 overflow-x-auto" aria-label="Main">
+        {TABS.map((tab) => (
+          <Link
+            key={tab.to}
+            to={tab.to}
+            activeOptions={tab.exact ? { exact: true } : undefined}
+            className={`${TAB_BASE} ${focusRing}`}
+            activeProps={{
+              className: "border-tab-indicator text-tab-active",
+              "aria-current": "page",
+            }}
+            inactiveProps={{
+              // Transparent (not absent) so the label doesn't shift when the
+              // tab becomes current.
+              className: "border-transparent text-tab hover:text-gray-800",
+            }}
+          >
+            {tab.label}
+          </Link>
+        ))}
       </nav>
-    </div>
-    <div className="flex items-center gap-3">
-      <OrganizationSwitcher
-        afterCreateOrganizationUrl="/"
-        appearance={{
-          elements: {
-            organizationSwitcherTrigger:
-              "text-grey-50 hover:bg-white/10 rounded-md",
-            organizationPreviewMainIdentifier: "text-grey-50",
-          },
-        }}
-      />
-      <UserButton />
     </div>
   </header>
 );
@@ -89,21 +87,21 @@ const SignedInArea = () => {
   }, [organization?.id]);
 
   if (!isLoaded) {
-    return <div className="p-4 text-grey-400 md:p-8">Loading…</div>;
+    return <div className="p-4 text-muted sm:p-6">Loading…</div>;
   }
 
   // The Clerk organization IS the business — a user must belong to one before
   // anything else works, since every document is keyed by its orgId.
   if (!organization) {
     return (
-      <Page max="xl">
-        <h1 className="font-heading text-xl font-bold text-grey-800">
-          Create your business
-        </h1>
-        <p className="mt-1 mb-4 text-grey-600">
-          Set up your vending business to continue. You can invite your
-          partner afterward.
-        </p>
+      <Page max="xl" className="grid gap-4">
+        <div className="grid gap-1">
+          <PageTitle>Create your business</PageTitle>
+          <p className="text-body">
+            Set up your vending business to continue. You can invite your
+            partner afterward.
+          </p>
+        </div>
         <CreateOrganization afterCreateOrganizationUrl="/" />
       </Page>
     );
@@ -119,7 +117,7 @@ export function RootLayout() {
         <LandingScreen />
       </Show>
       <Show when="signed-in">
-        <div className="flex min-h-screen flex-col bg-white">
+        <div className="flex min-h-screen flex-col bg-app">
           <Header />
           <div className="flex-1">
             <SignedInArea />

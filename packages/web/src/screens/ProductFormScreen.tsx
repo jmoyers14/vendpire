@@ -1,10 +1,10 @@
-import { useEffect, useState } from "react";
-import { Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { queryClient, trpc, trpcClient } from "../trpc.ts";
-import { ErrorNote, inputClass, Page } from "../components/ui.tsx";
-import { parseDollarsToCents } from "../lib/money.ts";
+import { Link, useNavigate } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import { CatalogSearch } from "../components/CatalogSearch.tsx";
+import { Button, checkboxClass, ErrorNote, inputClass, Page, PageTitle } from "../components/ui.tsx";
+import { parseDollarsToCents } from "../lib/money.ts";
+import { queryClient, trpc, trpcClient } from "../trpc.ts";
 
 interface FormState {
   name: string;
@@ -132,10 +132,10 @@ export function ProductFormScreen({ productId }: { productId?: string }) {
   return (
     <Page max="xl" className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="font-heading text-xl font-bold text-grey-800">
+        <PageTitle>
           {productId ? "Edit Product" : "New Product"}
-        </h1>
-        <Link to="/products" className="text-sm text-grey-600 hover:text-grey-800">
+        </PageTitle>
+        <Link to="/products" className="text-sm text-gray-600 hover:text-gray-800">
           ← Back
         </Link>
       </div>
@@ -203,32 +203,34 @@ export function ProductFormScreen({ productId }: { productId?: string }) {
             <img
               src={form.imageUrl}
               alt={form.name || "Product"}
-              className="h-16 w-16 rounded border border-grey-200 object-contain"
+              className="h-16 w-16 rounded border border-gray-200 object-contain"
             />
             <button
               type="button"
               onClick={() => set({ imageUrl: null })}
-              className="text-xs text-grey-500 hover:text-red-600"
+              className="text-xs text-gray-500 hover:text-red-600"
             >
               Remove image
             </button>
           </div>
         ) : null}
-        <label className="flex items-center gap-2 pt-2 text-sm text-grey-700">
+        <label className="flex items-center gap-2 pt-2 text-sm text-gray-700">
           <input
             type="checkbox"
+            className={checkboxClass}
             checked={form.active}
             onChange={(e) => set({ active: e.target.checked })}
           />
           Active
         </label>
-        <button
+        <Button
+          size="sm"
+          className="mt-2"
           type="submit"
           disabled={create.isPending || update.isPending}
-          className="mt-2 rounded bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-500 disabled:opacity-50"
         >
           {productId ? "Save Changes" : "Create Product"}
-        </button>
+        </Button>
       </form>
     </Page>
   );
