@@ -5,6 +5,7 @@ import {
   CardTitle,
   EmptyState,
   hintClass,
+  InfoHint,
   inputClass,
   KpiCard,
   KpiGrid,
@@ -138,6 +139,11 @@ export function DesignSystemScreen() {
             <Button>Primary</Button>
             <Button variant="secondary">Secondary</Button>
             <Button variant="danger">Danger</Button>
+            <Button variant="outline">Outline</Button>
+            <span className="inline-flex items-center gap-1 text-sm text-body">
+              Info hint
+              <InfoHint text="Explains a field without a permanent line of helper text under it." />
+            </span>
             <Button disabled>Disabled</Button>
           </div>
           <div className="flex flex-wrap items-center gap-2">

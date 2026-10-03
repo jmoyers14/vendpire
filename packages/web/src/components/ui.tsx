@@ -9,6 +9,7 @@ export type { KpiTone } from "./ui/Card.tsx";
 export { Card, CardTitle, KpiCard, KpiGrid } from "./ui/Card.tsx";
 export { checkboxClass, hintClass, inputClass, labelClass } from "./ui/Field.tsx";
 export { focusRing } from "./ui/focus.ts";
+export { InfoHint } from "./ui/InfoHint.tsx";
 export {
   EmptyState,
   Page,

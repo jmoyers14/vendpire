@@ -15,7 +15,12 @@ const planogramInput = z.object({
         slotCode: z.string().min(1),
         productId: z.string().min(1),
         par: z.number().int().min(1),
-        priceCents: z.number().int().min(0),
+        // min(1): products created mid-purchase can carry a $0 placeholder
+        // price; a slot is where that becomes real money, so it must be set.
+        priceCents: z
+          .number()
+          .int()
+          .min(1, "Slot price must be set before a planogram goes live"),
       }),
     )
     .min(1),

@@ -3,9 +3,11 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { allocateProportionally } from "@vendpire/domain";
 import { useEffect, useState } from "react";
 import {
-  BarcodeSetupPanel,
+  BarcodeNotFoundPanel,
   type CreatedForPurchase,
-} from "../components/BarcodeSetupPanel.tsx";
+} from "../components/BarcodeNotFoundPanel.tsx";
+import { ScanOrSearchInput } from "../components/ScanOrSearchInput.tsx";
+import { type CatalogItem, buildCatalogItems } from "../lib/catalogSearch.ts";
 import { Button, ErrorNote, inputClass, Page, PageTitle } from "../components/ui.tsx";
 import { formatCents, parseDollarsToCents } from "../lib/money.ts";
 import { queryClient, trpc, trpcClient } from "../trpc.ts";
@@ -44,13 +46,13 @@ export function PurchaseFormScreen({ purchaseId }: { purchaseId?: string }) {
   const [receiptTotal, setReceiptTotal] = useState("");
   const [rows, setRows] = useState<Row[]>([]);
 
-  const [code, setCode] = useState("");
   const [resolving, setResolving] = useState(false);
-  // Set when a scanned code isn't in the catalog yet — the setup panel below
-  // turns it into a product or a pack before it can join the purchase.
+  // Set when a scanned code isn't in the catalog yet — the panel below attaches
+  // it to an existing record or creates one before it can join the purchase.
   const [pendingCode, setPendingCode] = useState<{
     gtin14: string;
     candidate: { name: string | null; brand: string | null; imageUrl: string | null } | null;
+    likelyCase: boolean;
   } | null>(null);
   // Records created mid-entry, so their <option> exists before the list query
   // refetches.
@@ -121,50 +123,67 @@ export function PurchaseFormScreen({ purchaseId }: { purchaseId?: string }) {
     }),
   );
 
+  // Searchable catalog, built from the live lists. A record created mid-entry
+  // is added as a row immediately, so it needn't be searchable before refetch.
+  const catalogItems = buildCatalogItems(products.data ?? [], packs.data ?? []);
+
   const addRow = (row: Row) => setRows((current) => [...current, row]);
 
-  /** Resolve a scanned/typed code and turn it into the right kind of row. */
-  const scan = async () => {
-    const raw = code.trim();
-    if (!raw) {
-      return;
-    }
+  /**
+   * Resolve a scanned code into a row, or open the not-found panel. Returns
+   * false to leave the text in the box so a mistyped digit can be fixed.
+   */
+  const resolveBarcode = async (raw: string): Promise<boolean> => {
     setError(null);
     setResolving(true);
     try {
       const result = await trpcClient.barcodes.resolve.query({ code: raw });
-      switch (result.status) {
-        case "product":
-          addRow({
-            kind: "unit",
-            productId: result.product.id,
-            units: "",
-            totalCost: "",
-            packId: null,
-          });
-          setCode("");
-          break;
-        case "pack":
-          addRow({ kind: "pack", packId: result.pack.id, qty: "1", totalCost: "" });
-          setCode("");
-          break;
-        case "candidate":
-          setPendingCode({ gtin14: result.gtin14, candidate: result.item });
-          setCode("");
-          break;
-        case "unknown":
-          setPendingCode({ gtin14: result.gtin14, candidate: null });
-          setCode("");
-          break;
-        case "invalid":
-          setError(`"${raw}" isn't a valid barcode — check the digits`);
-          break;
+      if (result.status === "product") {
+        addRow({
+          kind: "unit",
+          productId: result.product.id,
+          units: "",
+          totalCost: "",
+          packId: null,
+        });
+        return true;
       }
+      if (result.status === "pack") {
+        addRow({ kind: "pack", packId: result.pack.id, qty: "1", totalCost: "" });
+        return true;
+      }
+      if (result.status === "invalid") {
+        setError(`"${raw}" isn't a valid barcode — check the digits`);
+        return false;
+      }
+      setPendingCode({
+        gtin14: result.gtin14,
+        candidate: result.status === "candidate" ? result.item : null,
+        likelyCase: result.likelyCase,
+      });
+      return true;
     } catch (e) {
       setError(e instanceof Error ? e.message : "Lookup failed");
+      return false;
     } finally {
       setResolving(false);
     }
+  };
+
+  /** A result picked by name — the same row a scan of it would have added. */
+  const addFromCatalog = (item: CatalogItem) => {
+    setError(null);
+    if (item.kind === "unit") {
+      addRow({
+        kind: "unit",
+        productId: item.id,
+        units: "",
+        totalCost: "",
+        packId: null,
+      });
+      return;
+    }
+    addRow({ kind: "pack", packId: item.id, qty: "1", totalCost: "" });
   };
 
   const onSetupReady = (created: CreatedForPurchase) => {
@@ -298,38 +317,23 @@ export function PurchaseFormScreen({ purchaseId }: { purchaseId?: string }) {
 
       <ErrorNote message={error} />
 
-      {/* Scan-first entry. Outside the form so Enter adds a line rather than
-          submitting the purchase. */}
-      <div className="space-y-3 rounded border border-gray-200 bg-gray-50 p-3">
-        <div className="flex gap-2">
-          <input
-            className={`${inputClass} font-mono`}
-            placeholder="Scan or type a barcode — case or single item"
-            value={code}
-            onChange={(e) => setCode(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                void scan();
-              }
-            }}
-            autoComplete="off"
-          />
-          <Button
-            size="sm"
-            className="shrink-0"
-            onClick={() => void scan()}
-            disabled={resolving || !code.trim()}
-          >
-            {resolving ? "…" : "Add"}
-          </Button>
-        </div>
+      {/* Entry sits outside the form so Enter adds a line rather than
+          submitting the whole purchase. */}
+      <div className="space-y-3 rounded-card border border-line bg-gray-50 p-3">
+        <ScanOrSearchInput
+          items={catalogItems}
+          busy={resolving}
+          onSubmitBarcode={resolveBarcode}
+          onPick={addFromCatalog}
+        />
 
         {pendingCode ? (
-          <BarcodeSetupPanel
+          <BarcodeNotFoundPanel
             gtin14={pendingCode.gtin14}
             candidate={pendingCode.candidate}
-            products={productOptions}
+            likelyCase={pendingCode.likelyCase}
+            products={products.data ?? []}
+            packs={packs.data ?? []}
             onReady={onSetupReady}
             onCancel={() => setPendingCode(null)}
           />

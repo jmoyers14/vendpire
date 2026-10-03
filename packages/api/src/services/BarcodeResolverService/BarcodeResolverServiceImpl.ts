@@ -35,7 +35,7 @@ export class BarcodeResolverServiceImpl implements BarcodeResolverService {
     if (!normalized) {
       return { status: "invalid", raw };
     }
-    const gtin14 = normalized.gtin14;
+    const { gtin14, likelyCase } = normalized;
 
     const product = await this.products.findByUpc(orgId, gtin14);
     if (product) {
@@ -54,12 +54,12 @@ export class BarcodeResolverServiceImpl implements BarcodeResolverService {
     try {
       const item = await this.catalog.lookup(gtin14);
       if (item) {
-        return { status: "candidate", gtin14, item };
+        return { status: "candidate", gtin14, likelyCase, item };
       }
     } catch {
       // fall through
     }
 
-    return { status: "unknown", gtin14 };
+    return { status: "unknown", gtin14, likelyCase };
   }
 }

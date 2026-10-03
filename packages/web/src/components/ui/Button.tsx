@@ -1,13 +1,18 @@
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 import { focusRing } from "./focus.ts";
 
-export type ButtonVariant = "primary" | "secondary" | "danger";
+export type ButtonVariant = "primary" | "secondary" | "danger" | "outline";
 export type ButtonSize = "md" | "sm";
 
 const VARIANT: Record<ButtonVariant, string> = {
   primary: "bg-primary-600 text-white hover:bg-primary-700 active:bg-primary-800",
   secondary: "bg-gray-200 text-gray-800 hover:bg-gray-300",
   danger: "bg-red-50 text-red-700 hover:bg-red-100",
+  // For a list of equally-valid choices: carrying primary in the border
+  // rather than a fill keeps them siblings instead of making one look like
+  // the recommended action. Transparent so it sits on any card colour.
+  outline:
+    "border-2 border-primary-500 bg-transparent text-primary-700 hover:bg-primary-50",
 };
 
 // `md` is the design system's documented button. `sm` exists for dense contexts
