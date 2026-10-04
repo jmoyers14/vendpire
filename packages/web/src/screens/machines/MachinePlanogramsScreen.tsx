@@ -1,14 +1,14 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Button, ErrorNote, inputClass, Page, PageTitle, SlotRow } from "../components/ui.tsx";
-import type { ApiProduct } from "../lib/apiTypes.ts";
+import { Button, ErrorNote, inputClass, Page, PageTitle, SlotRow } from "../../ui.tsx";
+import type { ApiProduct } from "../../apiTypes.ts";
 import {
   centsToInput,
   formatCents,
   parseDollarsToCents,
-} from "../lib/money.ts";
-import { queryClient, trpc } from "../trpc.ts";
+} from "../../utils/money.ts";
+import { queryClient, trpc } from "../../trpc.ts";
 
 interface SlotRow {
   slotCode: string;

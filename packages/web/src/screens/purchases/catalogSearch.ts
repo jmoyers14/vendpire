@@ -7,7 +7,7 @@
  * before they reach here, so matching codes would only ever create ambiguity.
  */
 
-import type { ApiPack, ApiProduct } from "./apiTypes.ts";
+import type { ApiPack, ApiProduct } from "../../apiTypes.ts";
 
 /**
  * What this module needs of a record, derived from the wire type so a server

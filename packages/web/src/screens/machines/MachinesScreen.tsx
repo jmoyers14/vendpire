@@ -1,20 +1,22 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { buttonClass, EmptyState, ErrorNote, Page, PageTitle, TableScroll } from "../components/ui.tsx";
-import { commissionLabel } from "../lib/commission.ts";
-import { queryClient, trpc } from "../trpc.ts";
+import { buttonClass, EmptyState, ErrorNote, Page, PageTitle, TableScroll } from "../../ui.tsx";
+import { queryClient, trpc } from "../../trpc.ts";
 
-
-export function LocationsScreen() {
+export function MachinesScreen() {
   const [error, setError] = useState<string | null>(null);
+  const machines = useQuery(trpc.machines.list.queryOptions());
   const locations = useQuery(trpc.locations.list.queryOptions());
 
+  const locationName = (id: string): string =>
+    locations.data?.find((location) => location.id === id)?.name ?? "—";
+
   const remove = useMutation(
-    trpc.locations.remove.mutationOptions({
+    trpc.machines.remove.mutationOptions({
       onSuccess: () => {
         queryClient.invalidateQueries({
-          queryKey: trpc.locations.list.queryKey(),
+          queryKey: trpc.machines.list.queryKey(),
         });
         setError(null);
       },
@@ -26,62 +28,69 @@ export function LocationsScreen() {
     <Page max="4xl" className="space-y-4">
       <div className="flex items-center justify-between">
         <PageTitle>
-          Locations
+          Machines
         </PageTitle>
         <Link
-          to="/locations/new"
+          to="/machines/new"
           className={buttonClass({ size: "sm" })}
         >
-          Add Location
+          Add Machine
         </Link>
       </div>
 
       <ErrorNote message={error} />
 
-      {locations.isLoading ? (
+      {machines.isLoading ? (
         <p className="text-gray-400">Loading…</p>
-      ) : locations.data && locations.data.length > 0 ? (
+      ) : machines.data && machines.data.length > 0 ? (
         <TableScroll>
-          <table className="w-full min-w-[40rem] border-collapse text-sm">
+          <table className="w-full min-w-[44rem] border-collapse text-sm">
             <thead>
               <tr className="border-b border-gray-200 bg-gray-50 text-left text-gray-600">
                 <th className="px-4 py-2 font-medium">Name</th>
-                <th className="px-4 py-2 font-medium">City</th>
-                <th className="px-4 py-2 font-medium">Commission</th>
-                <th className="px-4 py-2 font-medium">Contact</th>
-                <th className="px-4 py-2 font-medium">Active</th>
+                <th className="px-4 py-2 font-medium">Location</th>
+                <th className="px-4 py-2 font-medium">Kind</th>
+                <th className="px-4 py-2 font-medium">Slots</th>
+                <th className="px-4 py-2 font-medium">Tag</th>
                 <th className="px-4 py-2" />
               </tr>
             </thead>
             <tbody>
-              {locations.data.map((location) => (
-                <tr key={location.id} className="border-b border-gray-100">
+              {machines.data.map((machine) => (
+                <tr key={machine.id} className="border-b border-gray-100">
                   <td className="px-4 py-2 font-medium text-gray-800">
-                    {location.name}
+                    {machine.name}
                   </td>
                   <td className="px-4 py-2 text-gray-600">
-                    {location.address.city ?? "—"}
+                    {locationName(machine.locationId)}
+                  </td>
+                  <td className="px-4 py-2 capitalize text-gray-600">
+                    {machine.kind}
                   </td>
                   <td className="px-4 py-2 text-gray-600">
-                    {commissionLabel(location.commission)}
+                    {machine.slots.flat().length}
                   </td>
-                  <td className="px-4 py-2 text-gray-600">
-                    {location.contact.name ?? "—"}
-                  </td>
-                  <td className="px-4 py-2 text-gray-600">
-                    {location.active ? "Yes" : "No"}
+                  <td className="px-4 py-2 font-mono text-gray-600">
+                    {machine.tagCode ?? "—"}
                   </td>
                   <td className="space-x-3 px-4 py-2 text-right">
                     <Link
-                      to="/locations/$locationId/edit"
-                      params={{ locationId: location.id }}
+                      to="/machines/$machineId/planograms"
+                      params={{ machineId: machine.id }}
+                      className="text-primary-600 hover:text-primary-500"
+                    >
+                      Planogram
+                    </Link>
+                    <Link
+                      to="/machines/$machineId/edit"
+                      params={{ machineId: machine.id }}
                       className="text-primary-600 hover:text-primary-500"
                     >
                       Edit
                     </Link>
                     <button
                       type="button"
-                      onClick={() => remove.mutate({ id: location.id })}
+                      onClick={() => remove.mutate({ id: machine.id })}
                       className="text-gray-400 hover:text-red-600"
                     >
                       Delete
@@ -94,9 +103,8 @@ export function LocationsScreen() {
         </TableScroll>
       ) : (
         <EmptyState>
-          No locations yet. Click{" "}
-          <span className="font-medium">Add Location</span> to add the first
-          spot your machines live.
+          No machines yet. Add a location first, then{" "}
+          <span className="font-medium">Add Machine</span>.
         </EmptyState>
       )}
     </Page>

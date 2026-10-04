@@ -17,7 +17,7 @@ import {
   SlotRow,
   StatusPill,
   stockTone,
-} from "../components/ui.tsx";
+} from "../../ui.tsx";
 
 /**
  * Living reference for the design system — every primitive rendered in one

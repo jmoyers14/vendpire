@@ -1,17 +1,17 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { SlotFacePreview } from "../components/SlotFacePreview.tsx";
-import { SlotGridEditor } from "../components/SlotGridEditor.tsx";
-import { Button, Card, checkboxClass, ErrorNote, inputClass, Page, PageTitle } from "../components/ui.tsx";
+import { SlotFacePreview } from "./SlotFacePreview.tsx";
+import { SlotGridEditor } from "./SlotGridEditor.tsx";
+import { Button, Card, checkboxClass, ErrorNote, inputClass, Page, PageTitle } from "../../ui.tsx";
 import {
   buildRows,
   parseSlotLines,
   rowsToShelves,
   type SlotGridRow,
   shelvesToRows,
-} from "../lib/slotGrid.ts";
-import { queryClient, trpc } from "../trpc.ts";
+} from "./slotGrid.ts";
+import { queryClient, trpc } from "../../trpc.ts";
 
 interface FormState {
   locationId: string;

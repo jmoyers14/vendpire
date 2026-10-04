@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { normalizeGtin } from "@vendpire/domain";
-import { queryClient, trpc, trpcClient } from "../trpc.ts";
+import { queryClient, trpc, trpcClient } from "../../trpc.ts";
 import {
   Button,
   ErrorNote,
@@ -8,16 +8,16 @@ import {
   InfoHint,
   inputClass,
   labelClass,
-} from "./ui.tsx";
-import type { ApiPack, ApiProduct } from "../lib/apiTypes.ts";
-import { parseDollarsToCents } from "../lib/money.ts";
+} from "../../ui.tsx";
+import type { ApiPack, ApiProduct } from "../../apiTypes.ts";
+import { parseDollarsToCents } from "../../utils/money.ts";
 import {
   type CatalogItem,
   buildCatalogItems,
   isPackItem,
   isUnitItem,
   searchCatalogItems,
-} from "../lib/catalogSearch.ts";
+} from "./catalogSearch.ts";
 
 export interface CatalogCandidate {
   name: string | null;

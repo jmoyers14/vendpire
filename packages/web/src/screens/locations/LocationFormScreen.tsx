@@ -1,20 +1,20 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { AddressAutocomplete } from "../components/AddressAutocomplete.tsx";
-import { Button, checkboxClass, ErrorNote, inputClass, Page, PageTitle } from "../components/ui.tsx";
+import { AddressAutocomplete } from "./AddressAutocomplete.tsx";
+import { Button, checkboxClass, ErrorNote, inputClass, Page, PageTitle } from "../../ui.tsx";
 import {
   bpsToInput,
   centsToInput,
   parseDollarsToCents,
   parsePercentToBps,
-} from "../lib/money.ts";
+} from "../../utils/money.ts";
 import {
   type Commission,
   isFlatCommission,
   isPercentCommission,
-} from "../lib/commission.ts";
-import { queryClient, trpc } from "../trpc.ts";
+} from "./commission.ts";
+import { queryClient, trpc } from "../../trpc.ts";
 
 interface FormState {
   name: string;

@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { trpc } from "../trpc.ts";
+import { trpc } from "../../trpc.ts";
 
 // Baked in at build time by the deploy pipeline; placeholders in local dev.
 const WEB_VERSION = import.meta.env.VITE_APP_VERSION ?? "0.0.0";

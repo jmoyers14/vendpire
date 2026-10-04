@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { Page, PageTitle } from "../components/ui.tsx";
-import { trpc } from "../trpc.ts";
+import { Page, PageTitle } from "../../ui.tsx";
+import { trpc } from "../../trpc.ts";
 
 /**
  * Phase 1 placeholder. Proves the full wiring — Clerk session → tRPC

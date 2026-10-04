@@ -1,55 +1,44 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { allocateProportionally } from "@vendpire/domain";
 import { useEffect, useState } from "react";
 import {
   BarcodeNotFoundPanel,
   type CatalogCandidate,
   type CreatedForPurchase,
   isCreatedUnit,
-} from "../components/BarcodeNotFoundPanel.tsx";
-import { ScanOrSearchInput } from "../components/ScanOrSearchInput.tsx";
-import type { ApiPack, ApiProduct, ApiPurchase } from "../lib/apiTypes.ts";
+} from "./BarcodeNotFoundPanel.tsx";
+import { PurchaseLineRow } from "./PurchaseLineRow.tsx";
+import { ReceiptReconciliation } from "./ReceiptReconciliation.tsx";
+import { ScanOrSearchInput } from "./ScanOrSearchInput.tsx";
+import type { ApiPack, ApiProduct } from "../../apiTypes.ts";
+import { previewPackSplit } from "./packSplit.ts";
+import {
+  isPackRow,
+  newPackRow,
+  newUnitRow,
+  type Row,
+  toUnitRow,
+} from "./rows.ts";
 import {
   type CatalogItem,
   buildCatalogItems,
   isUnitItem,
-} from "../lib/catalogSearch.ts";
+} from "./catalogSearch.ts";
 import {
   Button,
   ErrorNote,
   inputClass,
   Page,
   PageTitle,
-} from "../components/ui.tsx";
-import { centsToInput, formatCents, parseDollarsToCents } from "../lib/money.ts";
-import { queryClient, trpc, trpcClient } from "../trpc.ts";
+} from "../../ui.tsx";
+import { centsToInput, formatCents, parseDollarsToCents } from "../../utils/money.ts";
+import { queryClient, trpc, trpcClient } from "../../trpc.ts";
 
 /**
  * One line of the purchase being entered. A row is either a pack (N packs for
  * one total, expanded server-side) or loose units of a single product —
  * whichever the scanned barcode turned out to be.
  */
-export interface PackRow {
-  kind: "pack";
-  packId: string;
-  qty: string;
-  totalCost: string;
-}
-
-export interface UnitRow {
-  kind: "unit";
-  productId: string;
-  units: string;
-  totalCost: string;
-  /** Provenance preserved when editing an existing purchase. */
-  packId: string | null;
-}
-
-type Row = PackRow | UnitRow;
-
-const isPackRow = (row: Row): row is PackRow => row.kind === "pack";
-
 /**
  * What a <select> needs of each record — the lists also hold entries created
  * mid-entry, which have no server round trip behind them yet.
@@ -82,36 +71,7 @@ const DEFAULT_VENDOR = "Costco";
  */
 const MIDDAY_SUFFIX = "T12:00:00";
 
-/** A scanned or picked case is one case until the operator says otherwise. */
-const DEFAULT_PACK_QTY = "1";
-
 const toDateInput = (iso: string): string => iso.slice(0, ISO_DATE_LENGTH);
-
-/** A stored line, reopened for editing. Stored lines are always per-product. */
-const toUnitRow = (line: ApiPurchase["lines"][number]): UnitRow => ({
-  kind: "unit",
-  productId: line.productId,
-  units: String(line.units),
-  totalCost: centsToInput(line.totalCostCents),
-  packId: line.packId,
-});
-
-/** A blank row for a product — cost and count are filled in from the receipt. */
-const newUnitRow = (productId: string): UnitRow => ({
-  kind: "unit",
-  productId,
-  units: "",
-  totalCost: "",
-  packId: null,
-});
-
-/** A blank row for a case. One case until the operator says otherwise. */
-const newPackRow = (packId: string): PackRow => ({
-  kind: "pack",
-  packId,
-  qty: DEFAULT_PACK_QTY,
-  totalCost: "",
-});
 
 const toProductOption = (product: ApiProduct): ProductOption => ({
   id: product.id,
@@ -258,29 +218,6 @@ export function PurchaseFormScreen({ purchaseId }: { purchaseId?: string }) {
       addRow(newPackRow(created.id));
     }
     setPendingCode(null);
-  };
-
-  /**
-   * Display-only preview of how the server will split a pack row's cost.
-   * Uses the same domain allocator, so the numbers shown are the numbers
-   * stored — but the server's expansion is the authoritative one.
-   */
-  const previewSplit = (row: PackRow) => {
-    const pack = packOptions.find((candidate) => candidate.id === row.packId);
-    const qty = Number.parseInt(row.qty, 10);
-    const costCents = parseDollarsToCents(row.totalCost);
-    if (!pack || Number.isNaN(qty) || qty < 1 || costCents === null) {
-      return null;
-    }
-    const weights = pack.contents.map((content) => content.units * qty);
-    const costs = allocateProportionally(costCents, weights);
-    return pack.contents.map((content, index) => ({
-      label: `${content.units * qty} × ${
-        productOptions.find((product) => product.id === content.productId)
-          ?.name ?? "…"
-      }`,
-      cents: costs[index] ?? 0,
-    }));
   };
 
   const enteredCents = rows.reduce(
@@ -438,126 +375,35 @@ export function PurchaseFormScreen({ purchaseId }: { purchaseId?: string }) {
               Nothing yet — scan a barcode above to start.
             </p>
           ) : null}
-          {rows.map((row, index) => {
-            const split = isPackRow(row) ? previewSplit(row) : null;
-            return (
-              <div key={index} className="space-y-1">
-                <div className="grid grid-cols-[3.5rem_1fr_5rem_7rem_2rem] items-center gap-2">
-                  <span
-                    className={`rounded px-1.5 py-0.5 text-center text-[10px] font-medium uppercase ${
-                      isPackRow(row)
-                        ? "bg-primary-100 text-primary-700"
-                        : "bg-gray-200 text-gray-600"
-                    }`}
-                  >
-                    {isPackRow(row) ? "Pack" : "Item"}
-                  </span>
-                  {isPackRow(row) ? (
-                    <select
-                      className={inputClass}
-                      value={row.packId}
-                      onChange={(e) =>
-                        setRow(index, { packId: e.target.value })
-                      }
-                    >
-                      <option value="">Pack…</option>
-                      {packOptions.map((pack) => (
-                        <option key={pack.id} value={pack.id}>
-                          {pack.name}
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    <select
-                      className={inputClass}
-                      value={row.productId}
-                      onChange={(e) =>
-                        setRow(index, { productId: e.target.value })
-                      }
-                    >
-                      <option value="">Product…</option>
-                      {productOptions.map((product) => (
-                        <option key={product.id} value={product.id}>
-                          {product.name}
-                        </option>
-                      ))}
-                    </select>
-                  )}
-                  <input
-                    className={inputClass}
-                    placeholder={isPackRow(row) ? "Packs" : "Units"}
-                    value={isPackRow(row) ? row.qty : row.units}
-                    onChange={(e) =>
-                      setRow(
-                        index,
-                        isPackRow(row)
-                          ? { qty: e.target.value }
-                          : { units: e.target.value },
-                      )
-                    }
-                  />
-                  <input
-                    className={inputClass}
-                    placeholder="Total $"
-                    value={row.totalCost}
-                    onChange={(e) =>
-                      setRow(index, { totalCost: e.target.value })
-                    }
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setRows(rows.filter((_, i) => i !== index))}
-                    className="text-gray-400 hover:text-red-600"
-                    title="Remove line"
-                  >
-                    ✕
-                  </button>
-                </div>
-                {split ? (
-                  <p className="pl-[4rem] text-xs text-gray-500">
-                    ↳ saves as{" "}
-                    {split
-                      .map(
-                        (part) => `${part.label} (${formatCents(part.cents)})`,
-                      )
-                      .join(" · ")}
-                  </p>
-                ) : null}
-              </div>
-            );
-          })}
+          {rows.map((row, index) => (
+            // Rows are positional and reorder by removal, so the index is the
+            // only stable key available.
+            <PurchaseLineRow
+              key={index}
+              row={row}
+              products={productOptions}
+              packs={packOptions}
+              split={
+                isPackRow(row)
+                  ? previewPackSplit(
+                      packOptions.find((pack) => pack.id === row.packId),
+                      row.qty,
+                      row.totalCost,
+                    )
+                  : null
+              }
+              onChange={(patch) => setRow(index, patch)}
+              onRemove={() => setRows(rows.filter((_, i) => i !== index))}
+            />
+          ))}
         </fieldset>
 
-        {/* Reconciliation: what we're recording vs what the receipt says. */}
-        <div className="flex flex-wrap items-end gap-3 rounded border border-gray-200 bg-gray-50 p-3">
-          <label className="text-xs text-gray-600">
-            Receipt total (optional)
-            <input
-              className={inputClass}
-              placeholder="e.g. 128.47"
-              value={receiptTotal}
-              onChange={(e) => setReceiptTotal(e.target.value)}
-            />
-          </label>
-          <div className="pb-2 text-sm">
-            <span className="text-gray-600">Entered: </span>
-            <span className="font-medium text-gray-800">
-              {formatCents(enteredCents)}
-            </span>
-          </div>
-          {variance !== null ? (
-            variance === 0 ? (
-              <span className="mb-2 rounded bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
-                matches receipt
-              </span>
-            ) : (
-              <span className="mb-2 rounded bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
-                {variance > 0 ? "over" : "under"} by{" "}
-                {formatCents(Math.abs(variance))}
-              </span>
-            )
-          ) : null}
-        </div>
+        <ReceiptReconciliation
+          receiptTotal={receiptTotal}
+          onReceiptTotalChange={setReceiptTotal}
+          enteredCents={enteredCents}
+          variance={variance}
+        />
 
         <textarea
           className={inputClass}

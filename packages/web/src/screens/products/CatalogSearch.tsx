@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { trpcClient } from "../trpc.ts";
-import { inputClass } from "./ui.tsx";
+import { trpcClient } from "../../trpc.ts";
+import { inputClass } from "../../ui.tsx";
 
 export interface CatalogPick {
   upc: string;

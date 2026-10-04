@@ -1,10 +1,10 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { CatalogSearch } from "../components/CatalogSearch.tsx";
-import { Button, checkboxClass, ErrorNote, inputClass, Page, PageTitle } from "../components/ui.tsx";
-import { centsToInput, parseDollarsToCents } from "../lib/money.ts";
-import { queryClient, trpc, trpcClient } from "../trpc.ts";
+import { CatalogSearch } from "./CatalogSearch.tsx";
+import { Button, checkboxClass, ErrorNote, inputClass, Page, PageTitle } from "../../ui.tsx";
+import { centsToInput, parseDollarsToCents } from "../../utils/money.ts";
+import { queryClient, trpc, trpcClient } from "../../trpc.ts";
 
 interface FormState {
   name: string;

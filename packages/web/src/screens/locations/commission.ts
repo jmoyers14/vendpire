@@ -1,5 +1,5 @@
-import type { ApiLocation } from "./apiTypes.ts";
-import { formatBps, formatCents } from "./money.ts";
+import type { ApiLocation } from "../../apiTypes.ts";
+import { formatBps, formatCents } from "../../utils/money.ts";
 
 /**
  * What a location is owed, and how to read it. The server models this as a

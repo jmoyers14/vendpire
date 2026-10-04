@@ -1,9 +1,9 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { buttonClass, EmptyState, ErrorNote, Page, PageTitle, TableScroll } from "../components/ui.tsx";
-import { formatCents } from "../lib/money.ts";
-import { queryClient, trpc } from "../trpc.ts";
+import { buttonClass, EmptyState, ErrorNote, Page, PageTitle, TableScroll } from "../../ui.tsx";
+import { formatCents } from "../../utils/money.ts";
+import { queryClient, trpc } from "../../trpc.ts";
 
 export function ProductsScreen() {
   const [error, setError] = useState<string | null>(null);

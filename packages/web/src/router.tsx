@@ -3,20 +3,20 @@ import {
   createRoute,
   createRouter,
 } from "@tanstack/react-router";
-import { DashboardScreen } from "./screens/DashboardScreen.tsx";
-import { DesignSystemScreen } from "./screens/DesignSystemScreen.tsx";
-import { LocationFormScreen } from "./screens/LocationFormScreen.tsx";
-import { LocationsScreen } from "./screens/LocationsScreen.tsx";
-import { MachineFormScreen } from "./screens/MachineFormScreen.tsx";
-import { MachinePlanogramsScreen } from "./screens/MachinePlanogramsScreen.tsx";
-import { MachinesScreen } from "./screens/MachinesScreen.tsx";
-import { PackFormScreen } from "./screens/PackFormScreen.tsx";
-import { PacksScreen } from "./screens/PacksScreen.tsx";
-import { ProductFormScreen } from "./screens/ProductFormScreen.tsx";
-import { ProductsScreen } from "./screens/ProductsScreen.tsx";
-import { PurchaseFormScreen } from "./screens/PurchaseFormScreen.tsx";
-import { PurchasesScreen } from "./screens/PurchasesScreen.tsx";
-import { RootLayout } from "./screens/RootLayout.tsx";
+import { DashboardScreen } from "./screens/dashboard/DashboardScreen.tsx";
+import { DesignSystemScreen } from "./screens/design-system/DesignSystemScreen.tsx";
+import { LocationFormScreen } from "./screens/locations/LocationFormScreen.tsx";
+import { LocationsScreen } from "./screens/locations/LocationsScreen.tsx";
+import { MachineFormScreen } from "./screens/machines/MachineFormScreen.tsx";
+import { MachinePlanogramsScreen } from "./screens/machines/MachinePlanogramsScreen.tsx";
+import { MachinesScreen } from "./screens/machines/MachinesScreen.tsx";
+import { PackFormScreen } from "./screens/packs/PackFormScreen.tsx";
+import { PacksScreen } from "./screens/packs/PacksScreen.tsx";
+import { ProductFormScreen } from "./screens/products/ProductFormScreen.tsx";
+import { ProductsScreen } from "./screens/products/ProductsScreen.tsx";
+import { PurchaseFormScreen } from "./screens/purchases/PurchaseFormScreen.tsx";
+import { PurchasesScreen } from "./screens/purchases/PurchasesScreen.tsx";
+import { RootLayout } from "./screens/root-layout/RootLayout.tsx";
 
 const rootRoute = createRootRoute({ component: RootLayout });
 

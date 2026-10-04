@@ -1,13 +1,13 @@
 import { useState } from "react";
 import { normalizeGtin } from "@vendpire/domain";
-import { Button } from "./ui.tsx";
-import { inputClass } from "./ui.tsx";
+import { Button } from "../../ui.tsx";
+import { inputClass } from "../../ui.tsx";
 import {
   type CatalogItem,
   isPackItem,
   looksLikeBarcode,
   searchCatalogItems,
-} from "../lib/catalogSearch.ts";
+} from "./catalogSearch.ts";
 
 interface ScanOrSearchInputProps {
   /** The operator's own catalog, already flattened by buildCatalogItems. */

@@ -5,8 +5,8 @@ import {
   rowsToSlotCodes,
   type SlotGridRow,
   slotLabel,
-} from "../lib/slotGrid.ts";
-import { inputClass } from "./ui.tsx";
+} from "./slotGrid.ts";
+import { inputClass } from "../../ui.tsx";
 
 interface SlotGridEditorProps {
   rows: SlotGridRow[];

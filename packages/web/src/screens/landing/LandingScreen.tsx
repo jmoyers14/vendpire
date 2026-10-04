@@ -1,5 +1,5 @@
 import { SignInButton } from "@clerk/react";
-import { Button } from "../components/ui.tsx";
+import { Button } from "../../ui.tsx";
 
 /**
  * The signed-out screen. Vendpire is an internal tool for one business, so this

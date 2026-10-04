@@ -7,10 +7,10 @@ import {
 } from "@clerk/react";
 import { Link, Outlet } from "@tanstack/react-router";
 import { useEffect } from "react";
-import { focusRing, Page, PageTitle } from "../components/ui.tsx";
-import { VersionFooter } from "../components/VersionFooter.tsx";
-import { queryClient } from "../trpc.ts";
-import { LandingScreen } from "./LandingScreen.tsx";
+import { focusRing, Page, PageTitle } from "../../ui.tsx";
+import { VersionFooter } from "./VersionFooter.tsx";
+import { queryClient } from "../../trpc.ts";
+import { LandingScreen } from "../landing/LandingScreen.tsx";
 
 // `exact` keeps the Dashboard tab from matching every nested route under "/".
 const TABS: { to: string; label: string; exact?: boolean }[] = [

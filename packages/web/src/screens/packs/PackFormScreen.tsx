@@ -1,9 +1,9 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Button, ErrorNote, inputClass, Page, PageTitle } from "../components/ui.tsx";
-import type { ApiPackContent } from "../lib/apiTypes.ts";
-import { queryClient, trpc } from "../trpc.ts";
+import { Button, ErrorNote, inputClass, Page, PageTitle } from "../../ui.tsx";
+import type { ApiPackContent } from "../../apiTypes.ts";
+import { queryClient, trpc } from "../../trpc.ts";
 
 /**
  * One editable contents line. Units is a string because it backs a text input;
