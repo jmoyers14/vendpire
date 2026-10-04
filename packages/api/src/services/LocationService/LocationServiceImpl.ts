@@ -82,45 +82,8 @@ function normalize(input: LocationInput): LocationInput {
       phone: clean(input.contact.phone),
       email: clean(input.contact.email)?.toLowerCase() ?? null,
     },
-    commission: normalizeCommission(input.commission),
+    commission: input.commission,
     notes: clean(input.notes),
     active: input.active,
   };
-}
-
-function normalizeCommission(
-  commission: LocationInput["commission"],
-): LocationInput["commission"] {
-  switch (commission.type) {
-    case "none":
-      return { type: "none", percentBps: null, flatCents: null, basis: null };
-    case "percent": {
-      if (commission.percentBps === null) {
-        throw new ServiceError(
-          "BAD_REQUEST",
-          "A percent commission needs percentBps",
-        );
-      }
-      return {
-        type: "percent",
-        percentBps: commission.percentBps,
-        flatCents: null,
-        basis: commission.basis ?? "gross",
-      };
-    }
-    case "flat": {
-      if (commission.flatCents === null) {
-        throw new ServiceError(
-          "BAD_REQUEST",
-          "A flat commission needs flatCents",
-        );
-      }
-      return {
-        type: "flat",
-        percentBps: null,
-        flatCents: commission.flatCents,
-        basis: null,
-      };
-    }
-  }
 }

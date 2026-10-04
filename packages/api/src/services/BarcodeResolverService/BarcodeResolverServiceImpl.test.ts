@@ -15,6 +15,8 @@ const UPC_A = "049000006346";
 const EAN_13 = "0049000006346";
 const UPC_E = "04963406";
 const GTIN_14 = "00049000006346";
+// The case code for the same product: indicator digit 1, so likelyCase.
+const CASE_GTIN_14 = "10049000006343";
 
 class FakeCatalog implements ProductDataService {
   result: ProductData | null = null;
@@ -95,5 +97,24 @@ describe("BarcodeResolverService", () => {
     catalog.shouldThrow = true;
     const result = await service.resolve(ORG, UPC_A);
     expect(result.status).toBe("unknown");
+  });
+
+  it("reports likelyCase on unknown codes so the setup UI can preselect", async () => {
+    expect(await service.resolve(ORG, CASE_GTIN_14)).toMatchObject({
+      status: "unknown",
+      likelyCase: true,
+    });
+    expect(await service.resolve(ORG, UPC_A)).toMatchObject({
+      status: "unknown",
+      likelyCase: false,
+    });
+  });
+
+  it("reports likelyCase on catalog candidates too", async () => {
+    catalog.result = { name: "Coca-Cola", brand: null, imageUrl: null };
+    expect(await service.resolve(ORG, CASE_GTIN_14)).toMatchObject({
+      status: "candidate",
+      likelyCase: true,
+    });
   });
 });

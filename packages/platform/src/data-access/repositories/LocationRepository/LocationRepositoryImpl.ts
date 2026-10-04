@@ -2,6 +2,7 @@ import { injectable } from "tsyringe";
 import { LocationModel } from "../../models/Location.ts";
 import type {
   Location,
+  LocationCommission,
   LocationInput,
   LocationRepository,
 } from "./LocationRepository.ts";
@@ -81,6 +82,29 @@ export class LocationRepositoryImpl implements LocationRepository {
   }
 }
 
+/**
+ * The one place a loose document meets the strict union. Writes go through
+ * zod's discriminated union and the service's normalizer, so a stored
+ * commission is always consistent — but a hand-edited document could still
+ * claim "percent" with no basis points. Falling back to "none" keeps one bad
+ * record from breaking the whole locations list.
+ */
+export function toCommission(
+  doc: LocationDoc["commission"],
+): LocationCommission {
+  if (doc.type === "percent" && doc.percentBps != null) {
+    return {
+      type: "percent",
+      percentBps: doc.percentBps,
+      basis: doc.basis ?? "gross",
+    };
+  }
+  if (doc.type === "flat" && doc.flatCents != null) {
+    return { type: "flat", flatCents: doc.flatCents };
+  }
+  return { type: "none" };
+}
+
 function toLocation(doc: LocationDoc): Location {
   return {
     id: String(doc._id),
@@ -99,12 +123,7 @@ function toLocation(doc: LocationDoc): Location {
       phone: doc.contact?.phone ?? null,
       email: doc.contact?.email ?? null,
     },
-    commission: {
-      type: doc.commission.type,
-      percentBps: doc.commission.percentBps ?? null,
-      flatCents: doc.commission.flatCents ?? null,
-      basis: doc.commission.basis ?? null,
-    },
+    commission: toCommission(doc.commission),
     notes: doc.notes ?? null,
     active: doc.active,
     createdAt: doc.createdAt.toISOString(),

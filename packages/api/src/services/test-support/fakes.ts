@@ -311,7 +311,7 @@ export const locationInput = (over: Partial<LocationInput> = {}): LocationInput 
   name: "Break Room A",
   address: { line1: null, city: null, state: null, zip: null, geo: null },
   contact: { name: null, phone: null, email: null },
-  commission: { type: "none", percentBps: null, flatCents: null, basis: null },
+  commission: { type: "none" },
   notes: null,
   active: true,
   ...over,
