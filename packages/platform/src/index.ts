@@ -23,6 +23,13 @@ export * from "./data-access/repositories/ProductRepository/ProductRepository.ts
 export * from "./data-access/repositories/PlanogramRepository/PlanogramRepository.ts";
 export * from "./data-access/repositories/PurchaseRepository/PurchaseRepository.ts";
 export * from "./data-access/repositories/PackRepository/PackRepository.ts";
+// Platform-infrastructure records (not org-scoped) and the Clerk identity
+// mirrors the webhook handlers maintain.
+export * from "./data-access/repositories/WebhookEventRepository/WebhookEventRepository.ts";
+export * from "./data-access/repositories/JobRepository/JobRepository.ts";
+export * from "./data-access/repositories/UserRepository/UserRepository.ts";
+export * from "./data-access/repositories/OrganizationRepository/OrganizationRepository.ts";
+export * from "./data-access/repositories/OrganizationMembershipRepository/OrganizationMembershipRepository.ts";
 
 // Integrations: tokens and vendor-neutral ports.
 export * from "./integrations/tokens.ts";
@@ -31,6 +38,16 @@ export * from "./integrations/analytics/AnalyticsClient.ts";
 export * from "./integrations/maps/MapsClient.ts";
 export * from "./integrations/productdata/ProductDataClient.ts";
 export * from "./integrations/tasks/TaskQueue.ts";
+// Webhook verification + the /tasks/* guard: ports and pure helpers only. The
+// adapters pull SDKs and are registered from ./webhook, never exported here.
+export * from "./integrations/webhooks/WebhookVerifier.ts";
+export * from "./integrations/tasks/TaskAuthenticator.ts";
+
+// The job/queue vocabulary: what job kinds exist, which queues they ride, and
+// how a task is named and addressed. Shared so the router, the registry, and
+// deploy.sh can't drift.
+export * from "./jobs/jobTypes.ts";
+export * from "./jobs/taskKey.ts";
 
 // Logging: the port + token only. The pino-backed root logger is server-only
 // (exported from ./server.ts) so pino never reaches the web client's type graph;
