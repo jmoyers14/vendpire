@@ -7,62 +7,82 @@
  * before they reach here, so matching codes would only ever create ambiguity.
  */
 
-export type CatalogKind = "unit" | "pack";
+import type { ApiPack, ApiProduct } from "./apiTypes.ts";
 
-export interface CatalogItem {
-  kind: CatalogKind;
+/**
+ * What this module needs of a record, derived from the wire type so a server
+ * rename still breaks the build — but narrow enough that a caller (or a test)
+ * supplies only what's actually read.
+ */
+export type SearchableProduct = Pick<
+  ApiProduct,
+  "id" | "name" | "upc" | "imageUrl" | "active"
+>;
+export type SearchablePack = Pick<
+  ApiPack,
+  "id" | "name" | "barcodes" | "contents" | "active"
+>;
+
+interface CatalogItemBase {
   id: string;
   name: string;
   /** Unit upc, or a pack's first case barcode. Null means "no code yet". */
   barcode: string | null;
-  imageUrl: string | null;
-  /** Packs only: units in one pack, for the "35 units" hint. */
-  units: number | null;
 }
 
-interface ProductLike {
-  id: string;
-  name: string;
-  upc: string | null;
+export interface UnitItem extends CatalogItemBase {
+  kind: "unit";
   imageUrl: string | null;
-  active: boolean;
 }
 
-interface PackLike {
-  id: string;
-  name: string;
-  barcodes: string[];
-  contents: { productId: string; units: number }[];
-  active: boolean;
+export interface PackItem extends CatalogItemBase {
+  kind: "pack";
+  /** Units in one pack, totalled across its contents. */
+  units: number;
 }
+
+/**
+ * A union rather than one shape with nullable fields: a pack always has a unit
+ * count and never an image, and a product the reverse. Encoding that in the
+ * type means a guard narrows it away instead of every caller null-checking.
+ */
+export type CatalogItem = UnitItem | PackItem;
+
+export type CatalogKind = CatalogItem["kind"];
+
+export const isUnitItem = (item: CatalogItem): item is UnitItem =>
+  item.kind === "unit";
+
+export const isPackItem = (item: CatalogItem): item is PackItem =>
+  item.kind === "pack";
 
 export const DEFAULT_SEARCH_LIMIT = 8;
 
+const isActive = (record: { active: boolean }): boolean => record.active;
+
+const toUnitItem = (product: SearchableProduct): UnitItem => ({
+  kind: "unit",
+  id: product.id,
+  name: product.name,
+  barcode: product.upc,
+  imageUrl: product.imageUrl,
+});
+
+const toPackItem = (pack: SearchablePack): PackItem => ({
+  kind: "pack",
+  id: pack.id,
+  name: pack.name,
+  barcode: pack.barcodes[0] ?? null,
+  units: pack.contents.reduce((sum, content) => sum + content.units, 0),
+});
+
 /** Flatten both catalogs into one list the dropdown can render uniformly. */
 export const buildCatalogItems = (
-  products: ProductLike[],
-  packs: PackLike[],
+  products: SearchableProduct[],
+  packs: SearchablePack[],
 ): CatalogItem[] => [
-  ...products
-    .filter((product) => product.active)
-    .map((product): CatalogItem => ({
-      kind: "unit",
-      id: product.id,
-      name: product.name,
-      barcode: product.upc,
-      imageUrl: product.imageUrl,
-      units: null,
-    })),
-  ...packs
-    .filter((pack) => pack.active)
-    .map((pack): CatalogItem => ({
-      kind: "pack",
-      id: pack.id,
-      name: pack.name,
-      barcode: pack.barcodes[0] ?? null,
-      imageUrl: null,
-      units: pack.contents.reduce((sum, content) => sum + content.units, 0),
-    })),
+  ...products.filter(isActive).map(toUnitItem),
+  ...packs.filter(isActive).map(toPackItem),
 ];
 
 /**

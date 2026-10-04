@@ -2,14 +2,25 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Button, ErrorNote, inputClass, Page, PageTitle } from "../components/ui.tsx";
+import type { ApiPackContent } from "../lib/apiTypes.ts";
 import { queryClient, trpc } from "../trpc.ts";
 
+/**
+ * One editable contents line. Units is a string because it backs a text input;
+ * it only becomes a number on submit.
+ */
 interface ContentRow {
   productId: string;
   units: string;
 }
 
 const EMPTY_CONTENT: ContentRow = { productId: "", units: "" };
+
+/** A stored pack content, reopened for editing. */
+const toContentRow = (content: ApiPackContent): ContentRow => ({
+  productId: content.productId,
+  units: String(content.units),
+});
 
 /** Create + edit form: `packId` present means edit. */
 export function PackFormScreen({ packId }: { packId?: string }) {
@@ -32,12 +43,7 @@ export function PackFormScreen({ packId }: { packId?: string }) {
     }
     setName(pack.name);
     setBarcodesText(pack.barcodes.join(", "));
-    setContents(
-      pack.contents.map((content) => ({
-        productId: content.productId,
-        units: String(content.units),
-      })),
-    );
+    setContents(pack.contents.map(toContentRow));
   }, [existing.data]);
 
   const onSaved = () => {

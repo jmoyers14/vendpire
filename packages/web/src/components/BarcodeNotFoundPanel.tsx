@@ -9,45 +9,45 @@ import {
   inputClass,
   labelClass,
 } from "./ui.tsx";
+import type { ApiPack, ApiProduct } from "../lib/apiTypes.ts";
 import { parseDollarsToCents } from "../lib/money.ts";
 import {
   type CatalogItem,
   buildCatalogItems,
+  isPackItem,
+  isUnitItem,
   searchCatalogItems,
 } from "../lib/catalogSearch.ts";
 
-interface CatalogCandidate {
+export interface CatalogCandidate {
   name: string | null;
   brand: string | null;
   imageUrl: string | null;
 }
 
-export interface ProductRecord {
-  id: string;
-  name: string;
-  upc: string | null;
-  category: string;
-  taxClass: string | null;
-  imageUrl: string | null;
-  defaultPriceCents: number;
-  active: boolean;
-}
-
-export interface PackRecord {
-  id: string;
-  name: string;
-  barcodes: string[];
-  contents: { productId: string; units: number }[];
-  active: boolean;
-}
-
-export interface CreatedForPurchase {
-  kind: "unit" | "pack";
+export interface CreatedUnit {
+  kind: "unit";
   id: string;
   label: string;
-  /** Packs only — lets the caller preview the cost split immediately. */
-  contents?: { productId: string; units: number }[];
 }
+
+export interface CreatedPack {
+  kind: "pack";
+  id: string;
+  label: string;
+  /** Lets the caller preview the cost split immediately. */
+  contents: ApiPack["contents"];
+}
+
+/**
+ * What the panel handed back, for the caller to turn into a purchase row.
+ * A union so `contents` is present exactly when it means something.
+ */
+export type CreatedForPurchase = CreatedUnit | CreatedPack;
+
+export const isCreatedUnit = (
+  created: CreatedForPurchase,
+): created is CreatedUnit => created.kind === "unit";
 
 interface BarcodeNotFoundPanelProps {
   gtin14: string;
@@ -55,8 +55,8 @@ interface BarcodeNotFoundPanelProps {
   candidate: CatalogCandidate | null;
   /** From normalizeGtin: a case-level code, so open on "a case". */
   likelyCase: boolean;
-  products: ProductRecord[];
-  packs: PackRecord[];
+  products: ApiProduct[];
+  packs: ApiPack[];
   onReady: (created: CreatedForPurchase) => void;
   onCancel: () => void;
 }
@@ -171,7 +171,7 @@ export function BarcodeNotFoundPanel({
     setError(null);
     setSaving(true);
     try {
-      if (item.kind === "unit") {
+      if (isUnitItem(item)) {
         const product = products.find((candidate) => candidate.id === item.id);
         if (!product) {
           throw new Error("That product is no longer available");
@@ -434,12 +434,12 @@ export function BarcodeNotFoundPanel({
                     >
                       <span
                         className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${
-                          item.kind === "pack"
+                          isPackItem(item)
                             ? "bg-primary-100 text-primary-700"
                             : "bg-gray-200 text-gray-700"
                         }`}
                       >
-                        {item.kind === "pack" ? "Case" : "Item"}
+                        {isPackItem(item) ? "Case" : "Item"}
                       </span>
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm text-body">
@@ -447,7 +447,7 @@ export function BarcodeNotFoundPanel({
                         </span>
                         <span className="block font-mono text-xs text-muted">
                           {item.barcode ?? "no barcode yet"}
-                          {item.units !== null ? ` · ${item.units} units` : ""}
+                          {isPackItem(item) ? ` · ${item.units} units` : ""}
                         </span>
                       </span>
                     </button>

@@ -3,7 +3,7 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { CatalogSearch } from "../components/CatalogSearch.tsx";
 import { Button, checkboxClass, ErrorNote, inputClass, Page, PageTitle } from "../components/ui.tsx";
-import { parseDollarsToCents } from "../lib/money.ts";
+import { centsToInput, parseDollarsToCents } from "../lib/money.ts";
 import { queryClient, trpc, trpcClient } from "../trpc.ts";
 
 interface FormState {
@@ -47,7 +47,7 @@ export function ProductFormScreen({ productId }: { productId?: string }) {
       category: product.category,
       upc: product.upc ?? "",
       taxClass: product.taxClass ?? "",
-      price: String(product.defaultPriceCents / 100),
+      price: centsToInput(product.defaultPriceCents),
       imageUrl: product.imageUrl,
       active: product.active,
     });

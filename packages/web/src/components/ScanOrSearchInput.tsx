@@ -4,6 +4,7 @@ import { Button } from "./ui.tsx";
 import { inputClass } from "./ui.tsx";
 import {
   type CatalogItem,
+  isPackItem,
   looksLikeBarcode,
   searchCatalogItems,
 } from "../lib/catalogSearch.ts";
@@ -117,12 +118,12 @@ export function ScanOrSearchInput({
                 >
                   <span
                     className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${
-                      item.kind === "pack"
+                      isPackItem(item)
                         ? "bg-primary-100 text-primary-700"
                         : "bg-gray-200 text-gray-700"
                     }`}
                   >
-                    {item.kind === "pack" ? "Case" : "Item"}
+                    {isPackItem(item) ? "Case" : "Item"}
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm text-body">
@@ -130,7 +131,7 @@ export function ScanOrSearchInput({
                     </span>
                     <span className="block font-mono text-xs text-muted">
                       {item.barcode ?? "no barcode yet"}
-                      {item.units !== null ? ` · ${item.units} units` : ""}
+                      {isPackItem(item) ? ` · ${item.units} units` : ""}
                     </span>
                   </span>
                 </button>

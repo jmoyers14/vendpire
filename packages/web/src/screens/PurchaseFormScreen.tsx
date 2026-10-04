@@ -4,12 +4,25 @@ import { allocateProportionally } from "@vendpire/domain";
 import { useEffect, useState } from "react";
 import {
   BarcodeNotFoundPanel,
+  type CatalogCandidate,
   type CreatedForPurchase,
+  isCreatedUnit,
 } from "../components/BarcodeNotFoundPanel.tsx";
 import { ScanOrSearchInput } from "../components/ScanOrSearchInput.tsx";
-import { type CatalogItem, buildCatalogItems } from "../lib/catalogSearch.ts";
-import { Button, ErrorNote, inputClass, Page, PageTitle } from "../components/ui.tsx";
-import { formatCents, parseDollarsToCents } from "../lib/money.ts";
+import type { ApiPack, ApiProduct, ApiPurchase } from "../lib/apiTypes.ts";
+import {
+  type CatalogItem,
+  buildCatalogItems,
+  isUnitItem,
+} from "../lib/catalogSearch.ts";
+import {
+  Button,
+  ErrorNote,
+  inputClass,
+  Page,
+  PageTitle,
+} from "../components/ui.tsx";
+import { centsToInput, formatCents, parseDollarsToCents } from "../lib/money.ts";
 import { queryClient, trpc, trpcClient } from "../trpc.ts";
 
 /**
@@ -17,46 +30,109 @@ import { queryClient, trpc, trpcClient } from "../trpc.ts";
  * one total, expanded server-side) or loose units of a single product —
  * whichever the scanned barcode turned out to be.
  */
-type Row =
-  | { kind: "pack"; packId: string; qty: string; totalCost: string }
-  | {
-      kind: "unit";
-      productId: string;
-      units: string;
-      totalCost: string;
-      /** Provenance preserved when editing an existing purchase. */
-      packId: string | null;
-    };
-
-interface PackOption {
-  id: string;
-  name: string;
-  contents: { productId: string; units: number }[];
+export interface PackRow {
+  kind: "pack";
+  packId: string;
+  qty: string;
+  totalCost: string;
 }
 
-const toDateInput = (iso: string): string => iso.slice(0, 10);
+export interface UnitRow {
+  kind: "unit";
+  productId: string;
+  units: string;
+  totalCost: string;
+  /** Provenance preserved when editing an existing purchase. */
+  packId: string | null;
+}
+
+type Row = PackRow | UnitRow;
+
+const isPackRow = (row: Row): row is PackRow => row.kind === "pack";
+
+/**
+ * What a <select> needs of each record — the lists also hold entries created
+ * mid-entry, which have no server round trip behind them yet.
+ */
+type ProductOption = Pick<ApiProduct, "id" | "name">;
+type PackOption = Pick<ApiPack, "id" | "name" | "contents">;
+
+/**
+ * A scanned code with nothing behind it yet. Held until the setup panel either
+ * attaches it to an existing record or creates the one it belongs to.
+ */
+interface PendingCode {
+  gtin14: string;
+  /** What an outside catalog guessed, when it recognised the code. */
+  candidate: CatalogCandidate | null;
+  /** A case-level code, so the panel opens on "a case". */
+  likelyCase: boolean;
+}
+
+/** Length of the `YYYY-MM-DD` prefix an <input type="date"> expects. */
+const ISO_DATE_LENGTH = 10;
+
+/** Most runs are a Costco trip. Only a starting point — the field is editable. */
+const DEFAULT_VENDOR = "Costco";
+
+/**
+ * Midday rather than midnight: the date input gives a bare calendar day, and
+ * anchoring it at noon keeps the stored instant on that same day across every
+ * US timezone instead of slipping a day either side of UTC.
+ */
+const MIDDAY_SUFFIX = "T12:00:00";
+
+/** A scanned or picked case is one case until the operator says otherwise. */
+const DEFAULT_PACK_QTY = "1";
+
+const toDateInput = (iso: string): string => iso.slice(0, ISO_DATE_LENGTH);
+
+/** A stored line, reopened for editing. Stored lines are always per-product. */
+const toUnitRow = (line: ApiPurchase["lines"][number]): UnitRow => ({
+  kind: "unit",
+  productId: line.productId,
+  units: String(line.units),
+  totalCost: centsToInput(line.totalCostCents),
+  packId: line.packId,
+});
+
+/** A blank row for a product — cost and count are filled in from the receipt. */
+const newUnitRow = (productId: string): UnitRow => ({
+  kind: "unit",
+  productId,
+  units: "",
+  totalCost: "",
+  packId: null,
+});
+
+/** A blank row for a case. One case until the operator says otherwise. */
+const newPackRow = (packId: string): PackRow => ({
+  kind: "pack",
+  packId,
+  qty: DEFAULT_PACK_QTY,
+  totalCost: "",
+});
+
+const toProductOption = (product: ApiProduct): ProductOption => ({
+  id: product.id,
+  name: product.name,
+});
 
 /** Create + edit form: `purchaseId` present means edit. */
 export function PurchaseFormScreen({ purchaseId }: { purchaseId?: string }) {
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
   const [date, setDate] = useState(toDateInput(new Date().toISOString()));
-  const [vendor, setVendor] = useState("Costco");
+  const [vendor, setVendor] = useState(DEFAULT_VENDOR);
   const [notes, setNotes] = useState("");
   const [receiptTotal, setReceiptTotal] = useState("");
   const [rows, setRows] = useState<Row[]>([]);
 
   const [resolving, setResolving] = useState(false);
-  // Set when a scanned code isn't in the catalog yet — the panel below attaches
-  // it to an existing record or creates one before it can join the purchase.
-  const [pendingCode, setPendingCode] = useState<{
-    gtin14: string;
-    candidate: { name: string | null; brand: string | null; imageUrl: string | null } | null;
-    likelyCase: boolean;
-  } | null>(null);
+  const [pendingCode, setPendingCode] = useState<PendingCode | null>(null);
   // Records created mid-entry, so their <option> exists before the list query
   // refetches.
-  const [extraProducts, setExtraProducts] = useState<{ id: string; name: string }[]>([]);
+  const [extraProducts, setExtraProducts] = useState<ProductOption[]>([]);
   const [extraPacks, setExtraPacks] = useState<PackOption[]>([]);
 
   const products = useQuery(trpc.products.list.queryOptions());
@@ -66,19 +142,20 @@ export function PurchaseFormScreen({ purchaseId }: { purchaseId?: string }) {
     enabled: Boolean(purchaseId),
   });
 
-  const productOptions = [
-    ...(products.data ?? []).map((product) => ({
-      id: product.id,
-      name: product.name,
-    })),
-    ...extraProducts.filter(
-      (extra) => !products.data?.some((product) => product.id === extra.id),
-    ),
-  ];
-  const packOptions: PackOption[] = [
-    ...(packs.data ?? []),
-    ...extraPacks.filter((extra) => !packs.data?.some((pack) => pack.id === extra.id)),
-  ];
+  const loadedProducts = products.data ?? [];
+  const loadedPacks = packs.data ?? [];
+
+  // Anything created mid-entry that the list query hasn't caught up with yet.
+  const unlistedProducts = extraProducts.filter(
+    (extra) => !loadedProducts.some((product) => product.id === extra.id),
+  );
+  const unlistedPacks = extraPacks.filter(
+    (extra) => !loadedPacks.some((pack) => pack.id === extra.id),
+  );
+
+  const listedProductOptions = loadedProducts.map(toProductOption);
+  const productOptions = [...listedProductOptions, ...unlistedProducts];
+  const packOptions: PackOption[] = [...loadedPacks, ...unlistedPacks];
 
   // Stored purchases hold expanded per-product lines — pack lines were already
   // expanded away at save time, so editing shows the unit lines (the facts).
@@ -92,18 +169,10 @@ export function PurchaseFormScreen({ purchaseId }: { purchaseId?: string }) {
     setNotes(purchase.notes ?? "");
     setReceiptTotal(
       purchase.receiptTotalCents !== null
-        ? String(purchase.receiptTotalCents / 100)
+        ? centsToInput(purchase.receiptTotalCents)
         : "",
     );
-    setRows(
-      purchase.lines.map((line) => ({
-        kind: "unit" as const,
-        productId: line.productId,
-        units: String(line.units),
-        totalCost: String(line.totalCostCents / 100),
-        packId: line.packId,
-      })),
-    );
+    setRows(purchase.lines.map(toUnitRow));
   }, [existing.data]);
 
   const onSaved = () => {
@@ -125,7 +194,7 @@ export function PurchaseFormScreen({ purchaseId }: { purchaseId?: string }) {
 
   // Searchable catalog, built from the live lists. A record created mid-entry
   // is added as a row immediately, so it needn't be searchable before refetch.
-  const catalogItems = buildCatalogItems(products.data ?? [], packs.data ?? []);
+  const catalogItems = buildCatalogItems(loadedProducts, loadedPacks);
 
   const addRow = (row: Row) => setRows((current) => [...current, row]);
 
@@ -139,17 +208,11 @@ export function PurchaseFormScreen({ purchaseId }: { purchaseId?: string }) {
     try {
       const result = await trpcClient.barcodes.resolve.query({ code: raw });
       if (result.status === "product") {
-        addRow({
-          kind: "unit",
-          productId: result.product.id,
-          units: "",
-          totalCost: "",
-          packId: null,
-        });
+        addRow(newUnitRow(result.product.id));
         return true;
       }
       if (result.status === "pack") {
-        addRow({ kind: "pack", packId: result.pack.id, qty: "1", totalCost: "" });
+        addRow(newPackRow(result.pack.id));
         return true;
       }
       if (result.status === "invalid") {
@@ -173,38 +236,26 @@ export function PurchaseFormScreen({ purchaseId }: { purchaseId?: string }) {
   /** A result picked by name — the same row a scan of it would have added. */
   const addFromCatalog = (item: CatalogItem) => {
     setError(null);
-    if (item.kind === "unit") {
-      addRow({
-        kind: "unit",
-        productId: item.id,
-        units: "",
-        totalCost: "",
-        packId: null,
-      });
+    if (isUnitItem(item)) {
+      addRow(newUnitRow(item.id));
       return;
     }
-    addRow({ kind: "pack", packId: item.id, qty: "1", totalCost: "" });
+    addRow(newPackRow(item.id));
   };
 
   const onSetupReady = (created: CreatedForPurchase) => {
-    if (created.kind === "unit") {
+    if (isCreatedUnit(created)) {
       setExtraProducts((current) => [
         ...current,
         { id: created.id, name: created.label },
       ]);
-      addRow({
-        kind: "unit",
-        productId: created.id,
-        units: "",
-        totalCost: "",
-        packId: null,
-      });
+      addRow(newUnitRow(created.id));
     } else {
       setExtraPacks((current) => [
         ...current,
-        { id: created.id, name: created.label, contents: created.contents ?? [] },
+        { id: created.id, name: created.label, contents: created.contents },
       ]);
-      addRow({ kind: "pack", packId: created.id, qty: "1", totalCost: "" });
+      addRow(newPackRow(created.id));
     }
     setPendingCode(null);
   };
@@ -214,7 +265,7 @@ export function PurchaseFormScreen({ purchaseId }: { purchaseId?: string }) {
    * Uses the same domain allocator, so the numbers shown are the numbers
    * stored — but the server's expansion is the authoritative one.
    */
-  const previewSplit = (row: Extract<Row, { kind: "pack" }>) => {
+  const previewSplit = (row: PackRow) => {
     const pack = packOptions.find((candidate) => candidate.id === row.packId);
     const qty = Number.parseInt(row.qty, 10);
     const costCents = parseDollarsToCents(row.totalCost);
@@ -225,8 +276,8 @@ export function PurchaseFormScreen({ purchaseId }: { purchaseId?: string }) {
     const costs = allocateProportionally(costCents, weights);
     return pack.contents.map((content, index) => ({
       label: `${content.units * qty} × ${
-        productOptions.find((product) => product.id === content.productId)?.name ??
-        "…"
+        productOptions.find((product) => product.id === content.productId)
+          ?.name ?? "…"
       }`,
       cents: costs[index] ?? 0,
     }));
@@ -263,7 +314,7 @@ export function PurchaseFormScreen({ purchaseId }: { purchaseId?: string }) {
         setError(`Line ${index + 1}: cost must be a dollar amount`);
         return;
       }
-      if (row.kind === "pack") {
+      if (isPackRow(row)) {
         const qty = Number.parseInt(row.qty, 10);
         if (!row.packId || Number.isNaN(qty) || qty < 1) {
           setError(`Line ${index + 1}: pick a pack and how many`);
@@ -290,7 +341,7 @@ export function PurchaseFormScreen({ purchaseId }: { purchaseId?: string }) {
     }
 
     const data = {
-      purchasedAt: new Date(`${date}T12:00:00`).toISOString(),
+      purchasedAt: new Date(`${date}${MIDDAY_SUFFIX}`).toISOString(),
       vendor: vendor.trim(),
       lines,
       packLines,
@@ -307,10 +358,11 @@ export function PurchaseFormScreen({ purchaseId }: { purchaseId?: string }) {
   return (
     <Page max="2xl" className="space-y-4">
       <div className="flex items-center justify-between">
-        <PageTitle>
-          {purchaseId ? "Edit Purchase" : "Log Purchase"}
-        </PageTitle>
-        <Link to="/purchases" className="text-sm text-gray-600 hover:text-gray-800">
+        <PageTitle>{purchaseId ? "Edit Purchase" : "Log Purchase"}</PageTitle>
+        <Link
+          to="/purchases"
+          className="text-sm text-gray-600 hover:text-gray-800"
+        >
           ← Back
         </Link>
       </div>
@@ -332,8 +384,8 @@ export function PurchaseFormScreen({ purchaseId }: { purchaseId?: string }) {
             gtin14={pendingCode.gtin14}
             candidate={pendingCode.candidate}
             likelyCase={pendingCode.likelyCase}
-            products={products.data ?? []}
-            packs={packs.data ?? []}
+            products={loadedProducts}
+            packs={loadedPacks}
             onReady={onSetupReady}
             onCancel={() => setPendingCode(null)}
           />
@@ -343,13 +395,7 @@ export function PurchaseFormScreen({ purchaseId }: { purchaseId?: string }) {
           <button
             type="button"
             onClick={() =>
-              addRow({
-                kind: "unit",
-                productId: "",
-                units: "",
-                totalCost: "",
-                packId: null,
-              })
+              addRow(newUnitRow(""))
             }
             className="text-primary-600 hover:text-primary-500"
           >
@@ -357,7 +403,9 @@ export function PurchaseFormScreen({ purchaseId }: { purchaseId?: string }) {
           </button>
           <button
             type="button"
-            onClick={() => addRow({ kind: "pack", packId: "", qty: "1", totalCost: "" })}
+            onClick={() =>
+              addRow(newPackRow(""))
+            }
             className="text-primary-600 hover:text-primary-500"
           >
             + Add pack without a barcode
@@ -391,24 +439,26 @@ export function PurchaseFormScreen({ purchaseId }: { purchaseId?: string }) {
             </p>
           ) : null}
           {rows.map((row, index) => {
-            const split = row.kind === "pack" ? previewSplit(row) : null;
+            const split = isPackRow(row) ? previewSplit(row) : null;
             return (
               <div key={index} className="space-y-1">
                 <div className="grid grid-cols-[3.5rem_1fr_5rem_7rem_2rem] items-center gap-2">
                   <span
                     className={`rounded px-1.5 py-0.5 text-center text-[10px] font-medium uppercase ${
-                      row.kind === "pack"
+                      isPackRow(row)
                         ? "bg-primary-100 text-primary-700"
                         : "bg-gray-200 text-gray-600"
                     }`}
                   >
-                    {row.kind === "pack" ? "Pack" : "Item"}
+                    {isPackRow(row) ? "Pack" : "Item"}
                   </span>
-                  {row.kind === "pack" ? (
+                  {isPackRow(row) ? (
                     <select
                       className={inputClass}
                       value={row.packId}
-                      onChange={(e) => setRow(index, { packId: e.target.value })}
+                      onChange={(e) =>
+                        setRow(index, { packId: e.target.value })
+                      }
                     >
                       <option value="">Pack…</option>
                       {packOptions.map((pack) => (
@@ -421,7 +471,9 @@ export function PurchaseFormScreen({ purchaseId }: { purchaseId?: string }) {
                     <select
                       className={inputClass}
                       value={row.productId}
-                      onChange={(e) => setRow(index, { productId: e.target.value })}
+                      onChange={(e) =>
+                        setRow(index, { productId: e.target.value })
+                      }
                     >
                       <option value="">Product…</option>
                       {productOptions.map((product) => (
@@ -433,12 +485,12 @@ export function PurchaseFormScreen({ purchaseId }: { purchaseId?: string }) {
                   )}
                   <input
                     className={inputClass}
-                    placeholder={row.kind === "pack" ? "Packs" : "Units"}
-                    value={row.kind === "pack" ? row.qty : row.units}
+                    placeholder={isPackRow(row) ? "Packs" : "Units"}
+                    value={isPackRow(row) ? row.qty : row.units}
                     onChange={(e) =>
                       setRow(
                         index,
-                        row.kind === "pack"
+                        isPackRow(row)
                           ? { qty: e.target.value }
                           : { units: e.target.value },
                       )
@@ -448,7 +500,9 @@ export function PurchaseFormScreen({ purchaseId }: { purchaseId?: string }) {
                     className={inputClass}
                     placeholder="Total $"
                     value={row.totalCost}
-                    onChange={(e) => setRow(index, { totalCost: e.target.value })}
+                    onChange={(e) =>
+                      setRow(index, { totalCost: e.target.value })
+                    }
                   />
                   <button
                     type="button"
@@ -463,7 +517,9 @@ export function PurchaseFormScreen({ purchaseId }: { purchaseId?: string }) {
                   <p className="pl-[4rem] text-xs text-gray-500">
                     ↳ saves as{" "}
                     {split
-                      .map((part) => `${part.label} (${formatCents(part.cents)})`)
+                      .map(
+                        (part) => `${part.label} (${formatCents(part.cents)})`,
+                      )
                       .join(" · ")}
                   </p>
                 ) : null}
@@ -496,7 +552,8 @@ export function PurchaseFormScreen({ purchaseId }: { purchaseId?: string }) {
               </span>
             ) : (
               <span className="mb-2 rounded bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
-                {variance > 0 ? "over" : "under"} by {formatCents(Math.abs(variance))}
+                {variance > 0 ? "over" : "under"} by{" "}
+                {formatCents(Math.abs(variance))}
               </span>
             )
           ) : null}

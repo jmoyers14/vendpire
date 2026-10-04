@@ -2,7 +2,12 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Button, ErrorNote, inputClass, Page, PageTitle, SlotRow } from "../components/ui.tsx";
-import { formatCents, parseDollarsToCents } from "../lib/money.ts";
+import type { ApiProduct } from "../lib/apiTypes.ts";
+import {
+  centsToInput,
+  formatCents,
+  parseDollarsToCents,
+} from "../lib/money.ts";
 import { queryClient, trpc } from "../trpc.ts";
 
 interface SlotRow {
@@ -11,6 +16,9 @@ interface SlotRow {
   par: string;
   price: string;
 }
+
+/** What the slot editor reads of a product, derived so a rename breaks here. */
+type SlotProductOption = Pick<ApiProduct, "id" | "name" | "defaultPriceCents">;
 
 /**
  * A machine's planogram: the current version, its history, and an editor that
@@ -44,7 +52,7 @@ export function MachinePlanogramsScreen({ machineId }: { machineId: string }) {
           slotCode,
           productId: slot?.productId ?? "",
           par: slot ? String(slot.par) : "",
-          price: slot ? String(slot.priceCents / 100) : "",
+          price: slot ? centsToInput(slot.priceCents) : "",
         };
       }),
     );
@@ -271,7 +279,7 @@ export function MachinePlanogramsScreen({ machineId }: { machineId: string }) {
 interface SlotEditPanelProps {
   slotCode: string;
   row: SlotRow | undefined;
-  products: { id: string; name: string; defaultPriceCents: number }[];
+  products: SlotProductOption[];
   onChange: (patch: Partial<SlotRow>) => void;
   onNext: () => void;
 }
@@ -303,7 +311,7 @@ function SlotEditPanel({
             const product = products.find((p) => p.id === e.target.value);
             onChange({
               productId: e.target.value,
-              price: product ? String(product.defaultPriceCents / 100) : "",
+              price: product ? centsToInput(product.defaultPriceCents) : "",
               par: row?.par || "10",
             });
           }}

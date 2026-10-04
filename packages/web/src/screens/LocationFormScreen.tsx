@@ -3,7 +3,12 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { AddressAutocomplete } from "../components/AddressAutocomplete.tsx";
 import { Button, checkboxClass, ErrorNote, inputClass, Page, PageTitle } from "../components/ui.tsx";
-import { parseDollarsToCents, parsePercentToBps } from "../lib/money.ts";
+import {
+  bpsToInput,
+  centsToInput,
+  parseDollarsToCents,
+  parsePercentToBps,
+} from "../lib/money.ts";
 import { queryClient, trpc } from "../trpc.ts";
 
 interface FormState {
@@ -71,12 +76,12 @@ export function LocationFormScreen({ locationId }: { locationId?: string }) {
       commissionType: location.commission.type,
       commissionPercent:
         location.commission.percentBps !== null
-          ? String(location.commission.percentBps / 100)
+          ? bpsToInput(location.commission.percentBps)
           : "",
       commissionBasis: location.commission.basis ?? "gross",
       commissionFlat:
         location.commission.flatCents !== null
-          ? String(location.commission.flatCents / 100)
+          ? centsToInput(location.commission.flatCents)
           : "",
       notes: location.notes ?? "",
       active: location.active,
