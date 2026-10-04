@@ -36,6 +36,11 @@ import {
   PLANOGRAM_REPOSITORY_TOKEN,
   PURCHASE_REPOSITORY_TOKEN,
   PACK_REPOSITORY_TOKEN,
+  WEBHOOK_EVENT_REPOSITORY_TOKEN,
+  JOB_REPOSITORY_TOKEN,
+  USER_REPOSITORY_TOKEN,
+  ORGANIZATION_REPOSITORY_TOKEN,
+  ORGANIZATION_MEMBERSHIP_REPOSITORY_TOKEN,
 } from "./data-access/tokens.ts";
 import { LocationRepositoryImpl } from "./data-access/repositories/LocationRepository/LocationRepositoryImpl.ts";
 import { MachineRepositoryImpl } from "./data-access/repositories/MachineRepository/MachineRepositoryImpl.ts";
@@ -44,6 +49,11 @@ import { ProductRepositoryImpl } from "./data-access/repositories/ProductReposit
 import { PlanogramRepositoryImpl } from "./data-access/repositories/PlanogramRepository/PlanogramRepositoryImpl.ts";
 import { PurchaseRepositoryImpl } from "./data-access/repositories/PurchaseRepository/PurchaseRepositoryImpl.ts";
 import { PackRepositoryImpl } from "./data-access/repositories/PackRepository/PackRepositoryImpl.ts";
+import { WebhookEventRepositoryImpl } from "./data-access/repositories/WebhookEventRepository/WebhookEventRepositoryImpl.ts";
+import { JobRepositoryImpl } from "./data-access/repositories/JobRepository/JobRepositoryImpl.ts";
+import { UserRepositoryImpl } from "./data-access/repositories/UserRepository/UserRepositoryImpl.ts";
+import { OrganizationRepositoryImpl } from "./data-access/repositories/OrganizationRepository/OrganizationRepositoryImpl.ts";
+import { OrganizationMembershipRepositoryImpl } from "./data-access/repositories/OrganizationMembershipRepository/OrganizationMembershipRepositoryImpl.ts";
 import { LOGGER_TOKEN } from "./logging/Logger.ts";
 import { rootLogger } from "./logging/pinoLogger.ts";
 
@@ -90,6 +100,25 @@ export function registerServerCore(container: DependencyContainer): void {
   container.registerSingleton(PLANOGRAM_REPOSITORY_TOKEN, PlanogramRepositoryImpl);
   container.registerSingleton(PURCHASE_REPOSITORY_TOKEN, PurchaseRepositoryImpl);
   container.registerSingleton(PACK_REPOSITORY_TOKEN, PackRepositoryImpl);
+
+  // Webhook-fed infrastructure and identity mirrors. On registerServerCore
+  // rather than registerWebhookCore because these are ordinary repositories —
+  // any process may read them. Only the *writers* (verifier, queue) are
+  // worker-only.
+  container.registerSingleton(
+    WEBHOOK_EVENT_REPOSITORY_TOKEN,
+    WebhookEventRepositoryImpl,
+  );
+  container.registerSingleton(JOB_REPOSITORY_TOKEN, JobRepositoryImpl);
+  container.registerSingleton(USER_REPOSITORY_TOKEN, UserRepositoryImpl);
+  container.registerSingleton(
+    ORGANIZATION_REPOSITORY_TOKEN,
+    OrganizationRepositoryImpl,
+  );
+  container.registerSingleton(
+    ORGANIZATION_MEMBERSHIP_REPOSITORY_TOKEN,
+    OrganizationMembershipRepositoryImpl,
+  );
 
   container.registerSingleton(AUTH_CLIENT_TOKEN, ClerkClient);
   container.registerSingleton(ANALYTICS_CLIENT_TOKEN, PostHogClient);

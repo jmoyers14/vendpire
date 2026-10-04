@@ -12,11 +12,16 @@ import { MongoMemoryServer } from "mongodb-memory-server";
  * port collisions. The stack tears down when the worker exits.
  *
  * Layered so api-only specs stay cheap and key-free:
- *   apiStack  — in-memory Mongo + api process (no Clerk keys needed; the api
- *               only validates its Clerk config when a token is presented)
- *   webStack  — Vite dev server pointed at this worker's api. Requires a Clerk
- *               publishable key (the web app refuses to boot without one), so
- *               browser specs skip via `browserTest` when keys are absent.
+ *   apiStack    — in-memory Mongo + api process (no Clerk keys needed; the api
+ *                 only validates its Clerk config when a token is presented)
+ *   workerStack — the worker process on this worker's SAME in-memory Mongo, so
+ *                 a webhook delivered to it lands in the database the api
+ *                 reads. ENVIRONMENT=local, so it picks InlineTaskQueue and the
+ *                 allow-all /tasks/* guard — a task posts straight back to
+ *                 itself over localhost.
+ *   webStack    — Vite dev server pointed at this worker's api. Requires a Clerk
+ *                 publishable key (the web app refuses to boot without one), so
+ *                 browser specs skip via `browserTest` when keys are absent.
  */
 
 const repoRoot = fileURLToPath(new URL("../..", import.meta.url));
@@ -24,6 +29,12 @@ const repoRoot = fileURLToPath(new URL("../..", import.meta.url));
 export interface ApiStack {
   apiUrl: string;
   mongoUri: string;
+}
+
+export interface WorkerStack {
+  workerUrl: string;
+  /** The signing secret the worker was started with, for signing fixtures. */
+  signingSecret: string;
 }
 
 export interface WebStack {
@@ -74,6 +85,7 @@ const stop = (child: ChildProcess): void => {
 
 type WorkerFixtures = {
   apiStack: ApiStack;
+  workerStack: WorkerStack;
   webStack: WebStack;
 };
 
@@ -107,6 +119,42 @@ export const test = base.extend<Record<never, never>, WorkerFixtures>({
       } finally {
         stop(api);
         await mongo.stop();
+      }
+    },
+    { scope: "worker" },
+  ],
+
+  workerStack: [
+    // Depends on apiStack purely for its Mongo URI: the two processes must share
+    // one database or an ingested webhook would be invisible to the api.
+    async ({ apiStack }, use) => {
+      const port = await freePort();
+      const workerUrl = `http://localhost:${port}`;
+      // Base64, because Standard Webhooks secrets are decoded before use.
+      const signingSecret = Buffer.from(
+        "an-e2e-signing-secret-32-bytes!!",
+      ).toString("base64");
+
+      const worker = spawn("bun", ["src/index.ts"], {
+        cwd: path.join(repoRoot, "packages/worker"),
+        detached: true,
+        stdio: "ignore",
+        env: {
+          ...process.env,
+          ENVIRONMENT: "local",
+          PORT: String(port),
+          MONGODB_URI: apiStack.mongoUri,
+          CLERK_WEBHOOK_SIGNING_SECRET: signingSecret,
+          // Where InlineTaskQueue delivers: itself.
+          WORKER_URL: workerUrl,
+        },
+      });
+
+      try {
+        await waitForHttp(`${workerUrl}/health`, 30_000);
+        await use({ workerUrl, signingSecret });
+      } finally {
+        stop(worker);
       }
     },
     { scope: "worker" },

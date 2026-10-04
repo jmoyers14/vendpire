@@ -14,7 +14,9 @@
     "@playwright/test": "^1.50.0",
     "@types/node": "^22.0.0",
     "dotenv": "^16.4.5",
+    "mongodb": "7.2.0",
     "mongodb-memory-server": "^10.1.0",
+    "standardwebhooks": "1.0.0",
     "typescript": "^5.3.3"
   }
 }

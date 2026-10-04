@@ -4,6 +4,13 @@ Mermaid diagrams, kept as fenced code blocks inside Markdown so they stay
 diffable and reviewable — a changed arrow shows up in a PR as a changed line,
 which a checked-in SVG or PNG can't do.
 
+## Index
+
+| File | Shows |
+|---|---|
+| `barcode-resolution.md` | How a scanned barcode resolves to a product or pack. |
+| `webhook-ingestion.md` | How a Clerk webhook becomes a local user / org / membership row. |
+
 ## Authoring
 
 Write a ` ```mermaid ` fence in any `.md` file here. One file per mechanism,
