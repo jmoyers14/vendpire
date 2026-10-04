@@ -5,6 +5,7 @@ import { authRouter } from "./routers/auth.ts";
 import { systemRouter } from "./routers/system.ts";
 import { locationsRouter } from "./routers/locations.ts";
 import { machinesRouter } from "./routers/machines.ts";
+import { machineTemplatesRouter } from "./routers/machineTemplates.ts";
 import { productsRouter } from "./routers/products.ts";
 import { planogramsRouter } from "./routers/planograms.ts";
 import { purchasesRouter } from "./routers/purchases.ts";
@@ -17,6 +18,7 @@ export const appRouter = router({
   system: systemRouter,
   locations: locationsRouter,
   machines: machinesRouter,
+  machineTemplates: machineTemplatesRouter,
   products: productsRouter,
   planograms: planogramsRouter,
   purchases: purchasesRouter,

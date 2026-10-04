@@ -15,6 +15,7 @@ type MachineDoc = {
   model?: string | null;
   serial?: string | null;
   tagCode?: string | null;
+  templateId?: string | null;
   slots?: string[][];
   cardReader?: { provider: "nayax" | "cantaloupe"; deviceId: string } | null;
   active: boolean;
@@ -89,6 +90,7 @@ function toMachine(doc: MachineDoc): Machine {
     model: doc.model ?? null,
     serial: doc.serial ?? null,
     tagCode: doc.tagCode ?? null,
+    templateId: doc.templateId ?? null,
     slots: (doc.slots ?? []).map((shelf) => [...shelf]),
     cardReader: doc.cardReader
       ? { provider: doc.cardReader.provider, deviceId: doc.cardReader.deviceId }

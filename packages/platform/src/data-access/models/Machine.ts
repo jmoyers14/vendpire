@@ -15,6 +15,8 @@ const machineSchema = new Schema(
     model: { type: String, default: null, trim: true },
     serial: { type: String, default: null, trim: true },
     tagCode: { type: String, default: null, trim: true },
+    // Layout lineage only — slots below is this machine's own snapshot.
+    templateId: { type: String, default: null },
     // The machine face: one array per shelf, slot codes in walking order.
     // Stored structurally (not flat) so grids render exactly as authored —
     // no letter-prefix inference anywhere downstream.

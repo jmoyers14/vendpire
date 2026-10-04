@@ -10,6 +10,7 @@ import {
   ADDRESS_SERVICE_TOKEN,
   LOCATION_SERVICE_TOKEN,
   MACHINE_SERVICE_TOKEN,
+  MACHINE_TEMPLATE_SERVICE_TOKEN,
   PRODUCT_SERVICE_TOKEN,
   PRODUCT_DATA_SERVICE_TOKEN,
   BARCODE_RESOLVER_SERVICE_TOKEN,
@@ -21,6 +22,7 @@ import { AuthServiceImpl } from "./AuthService/AuthServiceImpl.ts";
 import { AddressServiceImpl } from "./AddressService/AddressServiceImpl.ts";
 import { LocationServiceImpl } from "./LocationService/LocationServiceImpl.ts";
 import { MachineServiceImpl } from "./MachineService/MachineServiceImpl.ts";
+import { MachineTemplateServiceImpl } from "./MachineTemplateService/MachineTemplateServiceImpl.ts";
 import { ProductServiceImpl } from "./ProductService/ProductServiceImpl.ts";
 import { ProductDataServiceImpl } from "./ProductDataService/ProductDataServiceImpl.ts";
 import { BarcodeResolverServiceImpl } from "./BarcodeResolverService/BarcodeResolverServiceImpl.ts";
@@ -50,6 +52,10 @@ container.registerSingleton(AUTH_SERVICE_TOKEN, AuthServiceImpl);
 container.registerSingleton(ADDRESS_SERVICE_TOKEN, AddressServiceImpl);
 container.registerSingleton(LOCATION_SERVICE_TOKEN, LocationServiceImpl);
 container.registerSingleton(MACHINE_SERVICE_TOKEN, MachineServiceImpl);
+container.registerSingleton(
+  MACHINE_TEMPLATE_SERVICE_TOKEN,
+  MachineTemplateServiceImpl,
+);
 container.registerSingleton(PRODUCT_SERVICE_TOKEN, ProductServiceImpl);
 container.registerSingleton(PRODUCT_DATA_SERVICE_TOKEN, ProductDataServiceImpl);
 container.registerSingleton(

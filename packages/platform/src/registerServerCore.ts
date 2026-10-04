@@ -31,6 +31,7 @@ import { PostHogClient } from "./integrations/analytics/PostHogClient.ts";
 import {
   LOCATION_REPOSITORY_TOKEN,
   MACHINE_REPOSITORY_TOKEN,
+  MACHINE_TEMPLATE_REPOSITORY_TOKEN,
   PRODUCT_REPOSITORY_TOKEN,
   PLANOGRAM_REPOSITORY_TOKEN,
   PURCHASE_REPOSITORY_TOKEN,
@@ -38,6 +39,7 @@ import {
 } from "./data-access/tokens.ts";
 import { LocationRepositoryImpl } from "./data-access/repositories/LocationRepository/LocationRepositoryImpl.ts";
 import { MachineRepositoryImpl } from "./data-access/repositories/MachineRepository/MachineRepositoryImpl.ts";
+import { MachineTemplateRepositoryImpl } from "./data-access/repositories/MachineTemplateRepository/MachineTemplateRepositoryImpl.ts";
 import { ProductRepositoryImpl } from "./data-access/repositories/ProductRepository/ProductRepositoryImpl.ts";
 import { PlanogramRepositoryImpl } from "./data-access/repositories/PlanogramRepository/PlanogramRepositoryImpl.ts";
 import { PurchaseRepositoryImpl } from "./data-access/repositories/PurchaseRepository/PurchaseRepositoryImpl.ts";
@@ -80,6 +82,10 @@ export function registerServerCore(container: DependencyContainer): void {
 
   container.registerSingleton(LOCATION_REPOSITORY_TOKEN, LocationRepositoryImpl);
   container.registerSingleton(MACHINE_REPOSITORY_TOKEN, MachineRepositoryImpl);
+  container.registerSingleton(
+    MACHINE_TEMPLATE_REPOSITORY_TOKEN,
+    MachineTemplateRepositoryImpl,
+  );
   container.registerSingleton(PRODUCT_REPOSITORY_TOKEN, ProductRepositoryImpl);
   container.registerSingleton(PLANOGRAM_REPOSITORY_TOKEN, PlanogramRepositoryImpl);
   container.registerSingleton(PURCHASE_REPOSITORY_TOKEN, PurchaseRepositoryImpl);

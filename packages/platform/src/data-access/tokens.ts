@@ -6,6 +6,7 @@
  */
 export const LOCATION_REPOSITORY_TOKEN = "LocationRepository";
 export const MACHINE_REPOSITORY_TOKEN = "MachineRepository";
+export const MACHINE_TEMPLATE_REPOSITORY_TOKEN = "MachineTemplateRepository";
 export const PRODUCT_REPOSITORY_TOKEN = "ProductRepository";
 export const PLANOGRAM_REPOSITORY_TOKEN = "PlanogramRepository";
 export const PURCHASE_REPOSITORY_TOKEN = "PurchaseRepository";

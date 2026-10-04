@@ -9,6 +9,8 @@ import { LocationFormScreen } from "./screens/locations/LocationFormScreen.tsx";
 import { LocationsScreen } from "./screens/locations/LocationsScreen.tsx";
 import { MachineFormScreen } from "./screens/machines/MachineFormScreen.tsx";
 import { MachinePlanogramsScreen } from "./screens/machines/MachinePlanogramsScreen.tsx";
+import { MachineTemplatesScreen } from "./screens/machines/MachineTemplatesScreen.tsx";
+import { MachineTemplateFormScreen } from "./screens/machines/MachineTemplateFormScreen.tsx";
 import { MachinesScreen } from "./screens/machines/MachinesScreen.tsx";
 import { PackFormScreen } from "./screens/packs/PackFormScreen.tsx";
 import { PacksScreen } from "./screens/packs/PacksScreen.tsx";
@@ -64,6 +66,29 @@ const newMachineRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/machines/new",
   component: MachineFormScreen,
+});
+
+// Static "templates" outranks the $machineId routes below — the matcher scores
+// static segments above dynamic ones, so declaration order doesn't matter.
+const machineTemplatesRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/machines/templates",
+  component: MachineTemplatesScreen,
+});
+
+const newMachineTemplateRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/machines/templates/new",
+  component: MachineTemplateFormScreen,
+});
+
+const editMachineTemplateRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/machines/templates/$templateId/edit",
+  component: function EditMachineTemplate() {
+    const { templateId } = editMachineTemplateRoute.useParams();
+    return <MachineTemplateFormScreen templateId={templateId} />;
+  },
 });
 
 const editMachineRoute = createRoute({
@@ -155,6 +180,9 @@ const routeTree = rootRoute.addChildren([
   editLocationRoute,
   machinesRoute,
   newMachineRoute,
+  machineTemplatesRoute,
+  newMachineTemplateRoute,
+  editMachineTemplateRoute,
   editMachineRoute,
   machinePlanogramsRoute,
   productsRoute,

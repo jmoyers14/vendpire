@@ -4,9 +4,11 @@ import { MachineServiceImpl } from "./MachineServiceImpl.ts";
 import {
   FakeLocationRepository,
   FakeMachineRepository,
+  FakeMachineTemplateRepository,
   FakePlanogramRepository,
   locationInput,
   machineInput,
+  machineTemplateInput,
 } from "../test-support/fakes.ts";
 
 const ORG = "org_1";
@@ -15,6 +17,7 @@ describe("MachineService", () => {
   let locations: FakeLocationRepository;
   let machines: FakeMachineRepository;
   let planograms: FakePlanogramRepository;
+  let templates: FakeMachineTemplateRepository;
   let service: MachineServiceImpl;
   let locationId: string;
 
@@ -22,7 +25,13 @@ describe("MachineService", () => {
     locations = new FakeLocationRepository();
     machines = new FakeMachineRepository();
     planograms = new FakePlanogramRepository();
-    service = new MachineServiceImpl(machines, locations, planograms);
+    templates = new FakeMachineTemplateRepository();
+    service = new MachineServiceImpl(
+      machines,
+      locations,
+      planograms,
+      templates,
+    );
     locationId = locations.seed(ORG, locationInput()).id;
   });
 
@@ -44,6 +53,39 @@ describe("MachineService", () => {
     await expect(
       service.create(ORG, machineInput({ locationId, slots: [["A1"], ["a1"]] })),
     ).rejects.toThrow(/slot/i);
+  });
+
+  it("rejects a machine referencing a template that doesn't exist", async () => {
+    await expect(
+      service.create(ORG, machineInput({ locationId, templateId: "ghost" })),
+    ).rejects.toThrow(/template/i);
+  });
+
+  it("records the template a machine was built from", async () => {
+    const template = templates.seed(ORG, machineTemplateInput());
+    const machine = await service.create(
+      ORG,
+      machineInput({ locationId, templateId: template.id }),
+    );
+    expect(machine.templateId).toBe(template.id);
+  });
+
+  // The template check is create-only on purpose: templates are soft-deletable
+  // with no dependency check, and lineage is never dereferenced.
+  it("still saves a machine whose template was deleted afterward", async () => {
+    const template = templates.seed(ORG, machineTemplateInput());
+    const machine = await service.create(
+      ORG,
+      machineInput({ locationId, templateId: template.id }),
+    );
+    await templates.softDelete(ORG, template.id);
+    const updated = await service.update(
+      ORG,
+      machine.id,
+      machineInput({ locationId, templateId: template.id, name: "Renamed" }),
+    );
+    expect(updated.name).toBe("Renamed");
+    expect(updated.templateId).toBe(template.id);
   });
 
   it("keeps tagCode unique within the org", async () => {

@@ -5,6 +5,9 @@ import type {
   Machine,
   MachineInput,
   MachineRepository,
+  MachineTemplate,
+  MachineTemplateInput,
+  MachineTemplateRepository,
   Planogram,
   PlanogramInput,
   PlanogramRepository,
@@ -126,6 +129,59 @@ export class FakeMachineRepository implements MachineRepository {
     id: string,
     data: MachineInput,
   ): Promise<Machine | null> {
+    const row = this.rows.find(
+      (r) => r.orgId === orgId && r.id === id && !r.deleted,
+    );
+    if (!row) {
+      return null;
+    }
+    Object.assign(row, data, { updatedAt: now() });
+    return row;
+  }
+  async softDelete(orgId: string, id: string): Promise<void> {
+    const row = this.rows.find((r) => r.orgId === orgId && r.id === id);
+    if (row) {
+      row.deleted = true;
+    }
+  }
+}
+
+export class FakeMachineTemplateRepository implements MachineTemplateRepository {
+  rows: Stored<MachineTemplate>[] = [];
+
+  seed(orgId: string, input: MachineTemplateInput): MachineTemplate {
+    const row: Stored<MachineTemplate> = {
+      ...input,
+      id: newId(),
+      createdAt: now(),
+      updatedAt: now(),
+      orgId,
+      deleted: false,
+    };
+    this.rows.push(row);
+    return row;
+  }
+
+  async findByOrg(orgId: string): Promise<MachineTemplate[]> {
+    return this.rows.filter((r) => r.orgId === orgId && !r.deleted);
+  }
+  async findById(orgId: string, id: string): Promise<MachineTemplate | null> {
+    return (
+      this.rows.find((r) => r.orgId === orgId && r.id === id && !r.deleted) ??
+      null
+    );
+  }
+  async create(
+    orgId: string,
+    data: MachineTemplateInput,
+  ): Promise<MachineTemplate> {
+    return this.seed(orgId, data);
+  }
+  async update(
+    orgId: string,
+    id: string,
+    data: MachineTemplateInput,
+  ): Promise<MachineTemplate | null> {
     const row = this.rows.find(
       (r) => r.orgId === orgId && r.id === id && !r.deleted,
     );
@@ -325,9 +381,21 @@ export const machineInput = (over: Partial<MachineInput> = {}): MachineInput => 
   model: null,
   serial: null,
   tagCode: null,
+  templateId: null,
   slots: [["A1", "A2"]],
   cardReader: null,
   active: true,
+  ...over,
+});
+
+export const machineTemplateInput = (
+  over: Partial<MachineTemplateInput> = {},
+): MachineTemplateInput => ({
+  name: "Snack — 2 shelves",
+  kind: "snack",
+  make: null,
+  model: null,
+  slots: [["A1", "A2"]],
   ...over,
 });
 

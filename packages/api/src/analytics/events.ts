@@ -9,6 +9,7 @@
 export const ANALYTICS_EVENTS = {
   LOCATION_CREATED: "location.created",
   MACHINE_CREATED: "machine.created",
+  MACHINE_TEMPLATE_CREATED: "machine_template.created",
   PRODUCT_CREATED: "product.created",
   PLANOGRAM_CREATED: "planogram.created",
   PURCHASE_CREATED: "purchase.created",

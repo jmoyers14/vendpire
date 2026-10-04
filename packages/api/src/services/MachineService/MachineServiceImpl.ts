@@ -1,7 +1,9 @@
 import { inject, injectable } from "tsyringe";
+import { normalizeSlots } from "@vendpire/domain";
 import {
   LOCATION_REPOSITORY_TOKEN,
   MACHINE_REPOSITORY_TOKEN,
+  MACHINE_TEMPLATE_REPOSITORY_TOKEN,
   PLANOGRAM_REPOSITORY_TOKEN,
 } from "@vendpire/platform";
 import type {
@@ -9,6 +11,7 @@ import type {
   Machine,
   MachineInput,
   MachineRepository,
+  MachineTemplateRepository,
   PlanogramRepository,
 } from "@vendpire/platform";
 import { ServiceError } from "../errors.ts";
@@ -19,6 +22,10 @@ import type { MachineService } from "./MachineService.ts";
  * normalized (uppercased, trimmed) and must be unique within the machine, the
  * QR tagCode must be unique within the org, and a machine with planogram
  * history can't be removed — it would orphan the versions visits point at.
+ *
+ * `templateId` is layout lineage, checked only on create: templates are
+ * soft-deletable with no dependency check, so re-checking on every update would
+ * make a machine unsavable the moment its template was deleted.
  */
 @injectable()
 export class MachineServiceImpl implements MachineService {
@@ -29,6 +36,8 @@ export class MachineServiceImpl implements MachineService {
     private readonly locations: LocationRepository,
     @inject(PLANOGRAM_REPOSITORY_TOKEN)
     private readonly planograms: PlanogramRepository,
+    @inject(MACHINE_TEMPLATE_REPOSITORY_TOKEN)
+    private readonly templates: MachineTemplateRepository,
   ) {}
 
   list(orgId: string): Promise<Machine[]> {
@@ -82,14 +91,19 @@ export class MachineServiceImpl implements MachineService {
       throw new ServiceError("BAD_REQUEST", "Location does not exist");
     }
 
-    const slots = input.slots
-      .map((shelf) =>
-        shelf.map((code) => code.trim().toUpperCase()).filter(Boolean),
-      )
-      .filter((shelf) => shelf.length > 0);
-    const flat = slots.flat();
-    if (new Set(flat).size !== flat.length) {
-      throw new ServiceError("BAD_REQUEST", "Duplicate slot codes");
+    if (excludeId === null && input.templateId) {
+      const template = await this.templates.findById(orgId, input.templateId);
+      if (!template) {
+        throw new ServiceError("BAD_REQUEST", "Machine template does not exist");
+      }
+    }
+
+    const { slots, duplicates } = normalizeSlots(input.slots);
+    if (duplicates.length > 0) {
+      throw new ServiceError(
+        "BAD_REQUEST",
+        `Duplicate slot codes: ${duplicates.join(", ")}`,
+      );
     }
 
     const clean = (value: string | null): string | null => {
@@ -115,6 +129,7 @@ export class MachineServiceImpl implements MachineService {
       model: clean(input.model),
       serial: clean(input.serial),
       tagCode,
+      templateId: input.templateId,
       slots,
       cardReader: input.cardReader,
       active: input.active,

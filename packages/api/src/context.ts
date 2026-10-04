@@ -7,6 +7,7 @@ import type {
 import type { AddressService } from "./services/AddressService/AddressService.ts";
 import type { LocationService } from "./services/LocationService/LocationService.ts";
 import type { MachineService } from "./services/MachineService/MachineService.ts";
+import type { MachineTemplateService } from "./services/MachineTemplateService/MachineTemplateService.ts";
 import type { ProductService } from "./services/ProductService/ProductService.ts";
 import type { ProductDataService } from "./services/ProductDataService/ProductDataService.ts";
 import type { BarcodeResolverService } from "./services/BarcodeResolverService/BarcodeResolverService.ts";
@@ -48,6 +49,7 @@ export interface Context {
     addressService: AddressService;
     locationService: LocationService;
     machineService: MachineService;
+    machineTemplateService: MachineTemplateService;
     productService: ProductService;
     productDataService: ProductDataService;
     barcodeResolverService: BarcodeResolverService;

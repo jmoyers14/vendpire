@@ -7,3 +7,4 @@
 export * from "./types/index.ts";
 export * from "./gtin/gtin.ts";
 export * from "./money/allocate.ts";
+export * from "./machines/slots.ts";

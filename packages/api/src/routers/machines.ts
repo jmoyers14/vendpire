@@ -10,6 +10,8 @@ const machineInput = z.object({
   model: z.string().nullable().default(null),
   serial: z.string().nullable().default(null),
   tagCode: z.string().nullable().default(null),
+  // Layout lineage — the template this face came from, or was saved off.
+  templateId: z.string().nullable().default(null),
   // One array per shelf, slot codes in walking order.
   slots: z.array(z.array(z.string().min(1))).default([]),
   cardReader: z

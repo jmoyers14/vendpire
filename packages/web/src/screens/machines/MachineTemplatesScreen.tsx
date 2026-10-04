@@ -1,22 +1,25 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { buttonClass, EmptyState, ErrorNote, Page, PageTitle, TableScroll } from "../../ui.tsx";
+import {
+  buttonClass,
+  EmptyState,
+  ErrorNote,
+  Page,
+  PageTitle,
+  TableScroll,
+} from "../../ui.tsx";
 import { queryClient, trpc } from "../../trpc.ts";
 
-export function MachinesScreen() {
+export function MachineTemplatesScreen() {
   const [error, setError] = useState<string | null>(null);
-  const machines = useQuery(trpc.machines.list.queryOptions());
-  const locations = useQuery(trpc.locations.list.queryOptions());
-
-  const locationName = (id: string): string =>
-    locations.data?.find((location) => location.id === id)?.name ?? "—";
+  const templates = useQuery(trpc.machineTemplates.list.queryOptions());
 
   const remove = useMutation(
-    trpc.machines.remove.mutationOptions({
+    trpc.machineTemplates.remove.mutationOptions({
       onSuccess: () => {
         queryClient.invalidateQueries({
-          queryKey: trpc.machines.list.queryKey(),
+          queryKey: trpc.machineTemplates.list.queryKey(),
         });
         setError(null);
       },
@@ -27,78 +30,72 @@ export function MachinesScreen() {
   return (
     <Page max="4xl" className="space-y-4">
       <div className="flex items-center justify-between">
-        <PageTitle>
-          Machines
-        </PageTitle>
+        <PageTitle>Machine Templates</PageTitle>
         <div className="flex items-center gap-3">
           <Link
-            to="/machines/templates"
+            to="/machines"
             className="text-sm text-gray-600 hover:text-gray-800"
           >
-            Templates
+            ← Machines
           </Link>
           <Link
-            to="/machines/new"
+            to="/machines/templates/new"
             className={buttonClass({ size: "sm" })}
           >
-            Add Machine
+            Add Template
           </Link>
         </div>
       </div>
 
+      <p className="text-sm text-gray-600">
+        A saved machine face you can reuse. Machines copy the layout when you
+        create them, so editing a template never changes a machine already out
+        on the route.
+      </p>
+
       <ErrorNote message={error} />
 
-      {machines.isLoading ? (
+      {templates.isLoading ? (
         <p className="text-gray-400">Loading…</p>
-      ) : machines.data && machines.data.length > 0 ? (
+      ) : templates.data && templates.data.length > 0 ? (
         <TableScroll>
-          <table className="w-full min-w-[44rem] border-collapse text-sm">
+          <table className="w-full min-w-[36rem] border-collapse text-sm">
             <thead>
               <tr className="border-b border-gray-200 bg-gray-50 text-left text-gray-600">
                 <th className="px-4 py-2 font-medium">Name</th>
-                <th className="px-4 py-2 font-medium">Location</th>
                 <th className="px-4 py-2 font-medium">Kind</th>
+                <th className="px-4 py-2 font-medium">Make / Model</th>
                 <th className="px-4 py-2 font-medium">Slots</th>
-                <th className="px-4 py-2 font-medium">Tag</th>
                 <th className="px-4 py-2" />
               </tr>
             </thead>
             <tbody>
-              {machines.data.map((machine) => (
-                <tr key={machine.id} className="border-b border-gray-100">
+              {templates.data.map((template) => (
+                <tr key={template.id} className="border-b border-gray-100">
                   <td className="px-4 py-2 font-medium text-gray-800">
-                    {machine.name}
-                  </td>
-                  <td className="px-4 py-2 text-gray-600">
-                    {locationName(machine.locationId)}
+                    {template.name}
                   </td>
                   <td className="px-4 py-2 capitalize text-gray-600">
-                    {machine.kind}
+                    {template.kind}
                   </td>
                   <td className="px-4 py-2 text-gray-600">
-                    {machine.slots.flat().length}
+                    {[template.make, template.model].filter(Boolean).join(" ") ||
+                      "—"}
                   </td>
-                  <td className="px-4 py-2 font-mono text-gray-600">
-                    {machine.tagCode ?? "—"}
+                  <td className="px-4 py-2 text-gray-600">
+                    {template.slots.flat().length}
                   </td>
                   <td className="space-x-3 px-4 py-2 text-right">
                     <Link
-                      to="/machines/$machineId/planograms"
-                      params={{ machineId: machine.id }}
-                      className="text-primary-600 hover:text-primary-500"
-                    >
-                      Planogram
-                    </Link>
-                    <Link
-                      to="/machines/$machineId/edit"
-                      params={{ machineId: machine.id }}
+                      to="/machines/templates/$templateId/edit"
+                      params={{ templateId: template.id }}
                       className="text-primary-600 hover:text-primary-500"
                     >
                       Edit
                     </Link>
                     <button
                       type="button"
-                      onClick={() => remove.mutate({ id: machine.id })}
+                      onClick={() => remove.mutate({ id: template.id })}
                       className="text-gray-400 hover:text-red-600"
                     >
                       Delete
@@ -111,8 +108,8 @@ export function MachinesScreen() {
         </TableScroll>
       ) : (
         <EmptyState>
-          No machines yet. Add a location first, then{" "}
-          <span className="font-medium">Add Machine</span>.
+          No templates yet. Build one here, or save a layout from the machine
+          form as you go.
         </EmptyState>
       )}
     </Page>

@@ -1,15 +1,21 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { SlotFacePreview } from "./SlotFacePreview.tsx";
-import { SlotGridEditor } from "./SlotGridEditor.tsx";
-import { Button, Card, checkboxClass, ErrorNote, inputClass, Page, PageTitle } from "../../ui.tsx";
+import { SlotsField } from "./SlotsField.tsx";
 import {
-  buildRows,
-  parseSlotLines,
-  rowsToShelves,
-  type SlotGridRow,
-  shelvesToRows,
+  Alert,
+  Button,
+  checkboxClass,
+  ErrorNote,
+  inputClass,
+  Page,
+  PageTitle,
+} from "../../ui.tsx";
+import {
+  emptySlotsValue,
+  shelvesToSlotsValue,
+  type SlotsValue,
+  slotsValueToShelves,
 } from "./slotGrid.ts";
 import { queryClient, trpc } from "../../trpc.ts";
 
@@ -21,9 +27,11 @@ interface FormState {
   model: string;
   serial: string;
   tagCode: string;
-  slotMode: "grid" | "custom";
-  slotRows: SlotGridRow[];
-  slotCodesText: string;
+  /** Layout lineage. Carried through edits so saving doesn't erase it. */
+  templateId: string | null;
+  slots: SlotsValue;
+  saveAsTemplate: boolean;
+  newTemplateName: string;
   readerProvider: "" | "nayax" | "cantaloupe";
   readerDeviceId: string;
   active: boolean;
@@ -37,9 +45,10 @@ const EMPTY: FormState = {
   model: "",
   serial: "",
   tagCode: "",
-  slotMode: "grid",
-  slotRows: buildRows(6, 8),
-  slotCodesText: "",
+  templateId: null,
+  slots: emptySlotsValue(),
+  saveAsTemplate: false,
+  newTemplateName: "",
   readerProvider: "",
   readerDeviceId: "",
   active: true,
@@ -51,9 +60,17 @@ export function MachineFormScreen({ machineId }: { machineId?: string }) {
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY);
   const locations = useQuery(trpc.locations.list.queryOptions());
+  const templates = useQuery(trpc.machineTemplates.list.queryOptions());
 
   const existing = useQuery({
     ...trpc.machines.get.queryOptions({ id: machineId ?? "" }),
+    enabled: Boolean(machineId),
+  });
+
+  // Which slots the machine's live planogram is currently using. Applying a
+  // template can drop some of them, which the warning below calls out.
+  const currentPlanogram = useQuery({
+    ...trpc.planograms.getCurrent.queryOptions({ machineId: machineId ?? "" }),
     enabled: Boolean(machineId),
   });
 
@@ -63,6 +80,7 @@ export function MachineFormScreen({ machineId }: { machineId?: string }) {
       return;
     }
     setForm({
+      ...EMPTY,
       locationId: machine.locationId,
       name: machine.name,
       kind: machine.kind,
@@ -70,9 +88,8 @@ export function MachineFormScreen({ machineId }: { machineId?: string }) {
       model: machine.model ?? "",
       serial: machine.serial ?? "",
       tagCode: machine.tagCode ?? "",
-      slotMode: shelvesToRows(machine.slots) ? "grid" : "custom",
-      slotRows: shelvesToRows(machine.slots) ?? buildRows(6, 8),
-      slotCodesText: machine.slots.map((shelf) => shelf.join(" ")).join("\n"),
+      templateId: machine.templateId,
+      slots: shelvesToSlotsValue(machine.slots),
       readerProvider: machine.cardReader?.provider ?? "",
       readerDeviceId: machine.cardReader?.deviceId ?? "",
       active: machine.active,
@@ -95,8 +112,47 @@ export function MachineFormScreen({ machineId }: { machineId?: string }) {
       onError: (e) => setError(e.message),
     }),
   );
+  const createTemplate = useMutation(
+    trpc.machineTemplates.create.mutationOptions(),
+  );
 
-  const submit = (e: React.FormEvent) => {
+  const set = (patch: Partial<FormState>) => setForm({ ...form, ...patch });
+
+  // Prefill from a template on pick — never in an effect, which would clobber
+  // edits in progress. Make/model fill only when blank; kind always applies,
+  // since the select has no empty state to test for.
+  const applyTemplate = (templateId: string) => {
+    const template = templates.data?.find((row) => row.id === templateId);
+    if (!template) {
+      set({ templateId: null });
+      return;
+    }
+    set({
+      templateId: template.id,
+      kind: template.kind,
+      make: form.make.trim() ? form.make : (template.make ?? ""),
+      model: form.model.trim() ? form.model : (template.model ?? ""),
+      slots: shelvesToSlotsValue(template.slots),
+    });
+  };
+
+  const shelves = slotsValueToShelves(form.slots);
+
+  // Slot codes the live planogram fills that this layout no longer has. The
+  // save still goes through — slots have always been editable by hand — but
+  // those assignments stop showing on the face.
+  const orphanedSlots = (() => {
+    const slots = currentPlanogram.data?.slots;
+    if (!slots) {
+      return [];
+    }
+    const codes = new Set(shelves.flat());
+    return slots
+      .map((slot) => slot.slotCode)
+      .filter((code) => !codes.has(code));
+  })();
+
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     if (!form.locationId) {
@@ -111,6 +167,44 @@ export function MachineFormScreen({ machineId }: { machineId?: string }) {
       setError("Card reader needs a device ID");
       return;
     }
+
+    // Saved first so the machine can carry the new template's id. A name clash
+    // stops here rather than leaving a machine pointing at nothing; on retry
+    // the existing template of that name is reused.
+    let templateId = form.templateId;
+    if (form.saveAsTemplate) {
+      const name = form.newTemplateName.trim();
+      if (!name) {
+        setError("Name the template you're saving");
+        return;
+      }
+      const reusable = templates.data?.find(
+        (row) => row.name.toLowerCase() === name.toLowerCase(),
+      );
+      if (reusable) {
+        templateId = reusable.id;
+      } else {
+        try {
+          const saved = await createTemplate.mutateAsync({
+            name,
+            kind: form.kind,
+            make: form.make.trim() || null,
+            model: form.model.trim() || null,
+            slots: shelves,
+          });
+          templateId = saved.id;
+          queryClient.invalidateQueries({
+            queryKey: trpc.machineTemplates.list.queryKey(),
+          });
+        } catch (templateError) {
+          setError(
+            `Couldn't save the template: ${(templateError as Error).message}`,
+          );
+          return;
+        }
+      }
+    }
+
     const data = {
       locationId: form.locationId,
       name: form.name.trim(),
@@ -119,10 +213,8 @@ export function MachineFormScreen({ machineId }: { machineId?: string }) {
       model: form.model.trim() || null,
       serial: form.serial.trim() || null,
       tagCode: form.tagCode.trim() || null,
-      slots:
-        form.slotMode === "grid"
-          ? rowsToShelves(form.slotRows)
-          : parseSlotLines(form.slotCodesText),
+      templateId,
+      slots: shelves,
       cardReader: form.readerProvider
         ? { provider: form.readerProvider, deviceId: form.readerDeviceId.trim() }
         : null,
@@ -134,8 +226,6 @@ export function MachineFormScreen({ machineId }: { machineId?: string }) {
       create.mutate(data);
     }
   };
-
-  const set = (patch: Partial<FormState>) => setForm({ ...form, ...patch });
 
   return (
     <Page max="xl" className="space-y-4">
@@ -204,56 +294,63 @@ export function MachineFormScreen({ machineId }: { machineId?: string }) {
           value={form.tagCode}
           onChange={(e) => set({ tagCode: e.target.value })}
         />
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-gray-700">Slots</span>
-            <button
-              type="button"
-              onClick={() =>
-                set(
-                  form.slotMode === "grid"
-                    ? {
-                        slotMode: "custom",
-                        slotCodesText: rowsToShelves(form.slotRows)
-                          .map((shelf) => shelf.join(" "))
-                          .join("\n"),
-                      }
-                    : {
-                        slotMode: "grid",
-                        slotRows:
-                          shelvesToRows(parseSlotLines(form.slotCodesText)) ??
-                          form.slotRows,
-                      },
-                )
-              }
-              className="text-xs text-primary-600 hover:text-primary-500"
+
+        {templates.data && templates.data.length > 0 ? (
+          <div className="space-y-1">
+            <select
+              className={inputClass}
+              value={form.templateId ?? ""}
+              onChange={(e) => applyTemplate(e.target.value)}
             >
-              {form.slotMode === "grid"
-                ? "Enter codes manually"
-                : "Use grid generator"}
-            </button>
+              <option value="">Start from a template…</option>
+              {templates.data.map((template) => (
+                <option key={template.id} value={template.id}>
+                  {template.name} ({template.slots.flat().length} slots)
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-gray-500">
+              Fills in the layout below. The machine keeps its own copy — later
+              template edits won't touch it.
+            </p>
           </div>
-          {form.slotMode === "grid" ? (
-            <SlotGridEditor
-              rows={form.slotRows}
-              onChange={(slotRows) => set({ slotRows })}
+        ) : null}
+
+        <SlotsField value={form.slots} onChange={(slots) => set({ slots })} />
+
+        {orphanedSlots.length > 0 ? (
+          <Alert
+            tone="warning"
+            title={`This layout drops ${orphanedSlots.length} slot(s) the current planogram fills`}
+          >
+            <p>
+              <span className="font-mono">{orphanedSlots.join(", ")}</span> would
+              no longer exist on the machine. Saving is fine — those assignments
+              just stop showing. Create a new planogram version to clean them up.
+            </p>
+          </Alert>
+        ) : null}
+
+        <div className="space-y-2">
+          <label className="flex items-center gap-2 text-sm text-gray-700">
+            <input
+              type="checkbox"
+              className={checkboxClass}
+              checked={form.saveAsTemplate}
+              onChange={(e) => set({ saveAsTemplate: e.target.checked })}
             />
-          ) : (
-            <div className="space-y-2">
-              <textarea
-                className={`${inputClass} font-mono`}
-                placeholder={"One shelf per line, codes in walking order:\nA0 A2 A4 A6\nB1 B2 B3 B4 B5"}
-                rows={4}
-                value={form.slotCodesText}
-                onChange={(e) => set({ slotCodesText: e.target.value })}
-              />
-              <SlotFacePreview shelves={parseSlotLines(form.slotCodesText)} />
-              <p className="text-xs text-gray-500">
-                {parseSlotLines(form.slotCodesText).flat().length} slot(s)
-              </p>
-            </div>
-          )}
+            Save this layout as a template
+          </label>
+          {form.saveAsTemplate ? (
+            <input
+              className={inputClass}
+              placeholder="Template name (e.g. AMS 39 — 6 shelves)"
+              value={form.newTemplateName}
+              onChange={(e) => set({ newTemplateName: e.target.value })}
+            />
+          ) : null}
         </div>
+
         <div className="grid grid-cols-2 gap-2">
           <select
             className={inputClass}
@@ -287,7 +384,9 @@ export function MachineFormScreen({ machineId }: { machineId?: string }) {
         <Button
           size="sm"
           type="submit"
-          disabled={create.isPending || update.isPending}
+          disabled={
+            create.isPending || update.isPending || createTemplate.isPending
+          }
         >
           {machineId ? "Save Changes" : "Create Machine"}
         </Button>

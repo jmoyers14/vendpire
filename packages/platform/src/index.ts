@@ -18,6 +18,7 @@ export * from "./config/appConfig.ts";
 export * from "./data-access/tokens.ts";
 export * from "./data-access/repositories/LocationRepository/LocationRepository.ts";
 export * from "./data-access/repositories/MachineRepository/MachineRepository.ts";
+export * from "./data-access/repositories/MachineTemplateRepository/MachineTemplateRepository.ts";
 export * from "./data-access/repositories/ProductRepository/ProductRepository.ts";
 export * from "./data-access/repositories/PlanogramRepository/PlanogramRepository.ts";
 export * from "./data-access/repositories/PurchaseRepository/PurchaseRepository.ts";

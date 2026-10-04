@@ -97,3 +97,56 @@ export const parseSlotLines = (text: string): string[][] =>
         .filter(Boolean),
     )
     .filter((line) => line.length > 0);
+
+/**
+ * The slots half of a machine/template form: the editor mode plus both
+ * representations, since switching modes has to carry the layout across.
+ */
+export interface SlotsValue {
+  mode: "grid" | "custom";
+  rows: SlotGridRow[];
+  codesText: string;
+}
+
+/** Default grid for a form with nothing to prefill: 6 shelves of 8. */
+export const emptySlotsValue = (): SlotsValue => ({
+  mode: "grid",
+  rows: buildRows(6, 8),
+  codesText: "",
+});
+
+/** What gets persisted, from whichever mode the form is in. */
+export const slotsValueToShelves = (value: SlotsValue): string[][] =>
+  value.mode === "grid"
+    ? rowsToShelves(value.rows)
+    : parseSlotLines(value.codesText);
+
+/**
+ * Stored shelves → form state. Opens in grid mode when the shelves reverse-
+ * parse and custom mode when they don't, and always fills BOTH
+ * representations so flipping the mode toggle never loses the layout.
+ */
+export const shelvesToSlotsValue = (shelves: string[][]): SlotsValue => {
+  const rows = shelvesToRows(shelves);
+  return {
+    mode: rows ? "grid" : "custom",
+    rows: rows ?? buildRows(6, 8),
+    codesText: shelves.map((shelf) => shelf.join(" ")).join("\n"),
+  };
+};
+
+/** Carry the layout across a mode flip, keeping the other mode's text/rows. */
+export const toggleSlotsMode = (value: SlotsValue): SlotsValue =>
+  value.mode === "grid"
+    ? {
+        mode: "custom",
+        rows: value.rows,
+        codesText: rowsToShelves(value.rows)
+          .map((shelf) => shelf.join(" "))
+          .join("\n"),
+      }
+    : {
+        mode: "grid",
+        rows: shelvesToRows(parseSlotLines(value.codesText)) ?? value.rows,
+        codesText: value.codesText,
+      };

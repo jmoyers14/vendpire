@@ -5,6 +5,7 @@ import {
   ADDRESS_SERVICE_TOKEN,
   LOCATION_SERVICE_TOKEN,
   MACHINE_SERVICE_TOKEN,
+  MACHINE_TEMPLATE_SERVICE_TOKEN,
   PRODUCT_SERVICE_TOKEN,
   PRODUCT_DATA_SERVICE_TOKEN,
   BARCODE_RESOLVER_SERVICE_TOKEN,
@@ -22,6 +23,7 @@ import type { AuthService } from "./services/AuthService/AuthService.ts";
 import type { AddressService } from "./services/AddressService/AddressService.ts";
 import type { LocationService } from "./services/LocationService/LocationService.ts";
 import type { MachineService } from "./services/MachineService/MachineService.ts";
+import type { MachineTemplateService } from "./services/MachineTemplateService/MachineTemplateService.ts";
 import type { ProductService } from "./services/ProductService/ProductService.ts";
 import type { ProductDataService } from "./services/ProductDataService/ProductDataService.ts";
 import type { BarcodeResolverService } from "./services/BarcodeResolverService/BarcodeResolverService.ts";
@@ -58,6 +60,9 @@ export async function createContext(
       addressService: container.resolve<AddressService>(ADDRESS_SERVICE_TOKEN),
       locationService: container.resolve<LocationService>(LOCATION_SERVICE_TOKEN),
       machineService: container.resolve<MachineService>(MACHINE_SERVICE_TOKEN),
+      machineTemplateService: container.resolve<MachineTemplateService>(
+        MACHINE_TEMPLATE_SERVICE_TOKEN,
+      ),
       productService: container.resolve<ProductService>(PRODUCT_SERVICE_TOKEN),
       productDataService: container.resolve<ProductDataService>(
         PRODUCT_DATA_SERVICE_TOKEN,
