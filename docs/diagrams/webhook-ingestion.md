@@ -1,8 +1,79 @@
 # Clerk webhook ingestion
 
 How a Clerk event becomes a local `users` / `organizations` /
-`organizationmemberships` row. Lives in `packages/worker`, the second Cloud Run
+`organizationmemberships` row. Lives in `packages/worker`, the third Cloud Run
 service — see `packages/worker/README.md`.
+
+## The system
+
+Two inbound edges reach the worker, and they are guarded differently — that is
+the whole reason both guards sit in application code. The worker is the only
+process that *writes* the Clerk mirrors; the api only reads them.
+
+```mermaid
+flowchart LR
+    Browser([browser])
+
+    subgraph clerk["Clerk"]
+        Hook["webhook sender"]
+    end
+
+    subgraph gcp["GCP project vendpire-128694"]
+        Web["vendpire-web<br/>nginx + React bundle"]
+        Api["vendpire-api<br/>tRPC over node:http"]
+        Worker["vendpire-worker<br/>Bun.serve"]
+        Tasks{{"Cloud Tasks<br/>user-sync-queue<br/>org-sync-queue<br/>org-membership-sync-queue"}}
+    end
+
+    Mongo[("MongoDB Atlas")]
+
+    Browser -->|"loads the bundle"| Web
+    Browser -->|"tRPC + Bearer token"| Api
+    Hook -->|"POST /ingest/clerk<br/>guard: svix signature"| Worker
+    Worker -->|"queue.enqueue<br/>name = jobType:dedupKey:attempts"| Tasks
+    Tasks -->|"POST /tasks/{jobType}<br/>guard: OIDC, aud = WORKER_URL"| Worker
+    Worker -->|"writes webhookevents, jobs,<br/>users, organizations,<br/>organizationmemberships"| Mongo
+    Api -->|"reads the mirrors;<br/>read/write tenant collections"| Mongo
+```
+
+The worker is deployed `--allow-unauthenticated`, so neither guard above is
+IAM's doing. See "Why the guards live in the app" below.
+
+## Who owns which code
+
+One codebase, two backend processes. The split that matters is the nested box:
+`./webhook` statically pulls the Cloud Tasks and google-auth SDKs, so it is
+deliberately *not* reachable from the barrel the api imports.
+
+```mermaid
+flowchart LR
+    Api["packages/api"]
+    Worker["packages/worker<br/>ingest, runJob, handlers"]
+
+    subgraph platform["@vendpire/platform"]
+        direction TB
+        Barrel["· — ports, tokens,<br/>entity types, JOB_TYPES, taskName"]
+        Server["./server — registerServerCore,<br/>connectDatabase, rootLogger"]
+
+        subgraph workeronly["worker-only · statically pulls the GCP SDKs"]
+            Webhook["./webhook — registerWebhookCore,<br/>ClerkWebhookVerifier,<br/>queue adapters, /tasks/* guard"]
+        end
+    end
+
+    Api -->|"ports + tokens"| Barrel
+    Api -->|"registerServerCore"| Server
+    Worker -->|"ports, JOB_TYPES, taskName"| Barrel
+    Worker -->|"registerServerCore"| Server
+    Worker -->|"registerWebhookCore"| Webhook
+```
+
+The api has no edge into the worker-only box, and that absence is the point: if
+it imported `./webhook` it would bundle the Cloud Tasks and google-auth SDKs and
+crash at boot. That is why those registrations are a separate subpath export
+rather than part of `./server`.
+
+It also means the api never has to supply a webhook signing secret or GCP queue
+settings, because it never resolves anything that reads them.
 
 ## The two hops
 

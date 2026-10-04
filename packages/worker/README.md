@@ -1,6 +1,6 @@
 # @vendpire/worker
 
-The second Cloud Run service: vendpire's background job-execution home.
+The third Cloud Run service: vendpire's background job-execution home.
 
 It shares the whole backend — repositories, integration adapters, config — with
 the api through `@vendpire/platform`, and adds only transport: running work off a

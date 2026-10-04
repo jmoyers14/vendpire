@@ -15,7 +15,7 @@ import {
 } from "@vendpire/platform/server";
 
 /**
- * Worker entrypoint: the second Cloud Run service and the app's background
+ * Worker entrypoint: the third Cloud Run service and the app's background
  * job-execution home. It shares the whole backend (repositories, integration
  * adapters, config) with the api through `@vendpire/platform` and adds only
  * transport — running work off a queue, plus the inbound endpoints that enqueue
