@@ -1,0 +1,24 @@
+{
+  "name": "@vendpire/worker",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "bun --watch src/index.ts",
+    "start": "bun run src/index.ts",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@vendpire/domain": "workspace:*",
+    "@vendpire/platform": "workspace:*",
+    "mongoose": "9.7.0",
+    "reflect-metadata": "^0.2.1",
+    "tsyringe": "^4.8.0",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "bun-types": "^1.0.0",
+    "standardwebhooks": "1.0.0",
+    "typescript": "^5.3.3"
+  }
+}
