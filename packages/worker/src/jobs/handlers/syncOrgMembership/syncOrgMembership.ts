@@ -7,9 +7,9 @@ import {
   type OrganizationMembershipRepository,
   type WebhookEventRepository,
 } from "@vendpire/platform";
-import type { JobHandler } from "../JobHandler.ts";
-import { PoisonJobError } from "../PoisonJobError.ts";
-import { webhookPayloadSchema } from "./webhookPayload.ts";
+import type { JobHandler } from "../../JobHandler.ts";
+import { PoisonJobError } from "../../PoisonJobError.ts";
+import { webhookPayloadSchema } from "../webhookPayload.ts";
 
 /**
  * Clerk's `organizationMembership.*` payload (event.data). Both ids are nested

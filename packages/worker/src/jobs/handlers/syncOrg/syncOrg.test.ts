@@ -2,11 +2,11 @@ import { beforeEach, describe, expect, it } from "bun:test";
 import { JOB_TYPES } from "@vendpire/platform";
 import { makeJob, makeWebhookEvent } from "@vendpire/platform/test-support";
 import { SyncOrgHandler } from "./syncOrg.ts";
-import { PoisonJobError } from "../PoisonJobError.ts";
+import { PoisonJobError } from "../../PoisonJobError.ts";
 import {
   eventsReturning,
   FakeOrganizationRepository,
-} from "../../test-support/fakes.ts";
+} from "../../../test-support/fakes.ts";
 
 const job = () =>
   makeJob({

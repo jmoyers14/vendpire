@@ -7,9 +7,9 @@ import {
   type OrganizationRepository,
   type WebhookEventRepository,
 } from "@vendpire/platform";
-import type { JobHandler } from "../JobHandler.ts";
-import { PoisonJobError } from "../PoisonJobError.ts";
-import { webhookPayloadSchema } from "./webhookPayload.ts";
+import type { JobHandler } from "../../JobHandler.ts";
+import { PoisonJobError } from "../../PoisonJobError.ts";
+import { webhookPayloadSchema } from "../webhookPayload.ts";
 
 /**
  * Clerk's `organization.*` payload (event.data). The id IS the app's orgId — the

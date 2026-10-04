@@ -1,9 +1,9 @@
 import { injectable } from "tsyringe";
 import { JOB_TYPES } from "@vendpire/platform";
 import type { JobHandler } from "./JobHandler.ts";
-import { SyncUserHandler } from "./handlers/syncUser.ts";
-import { SyncOrgHandler } from "./handlers/syncOrg.ts";
-import { SyncOrgMembershipHandler } from "./handlers/syncOrgMembership.ts";
+import { SyncUserHandler } from "./handlers/syncUser/syncUser.ts";
+import { SyncOrgHandler } from "./handlers/syncOrg/syncOrg.ts";
+import { SyncOrgMembershipHandler } from "./handlers/syncOrgMembership/syncOrgMembership.ts";
 
 /**
  * Looks up the handler for a job type. The one place job types bind to

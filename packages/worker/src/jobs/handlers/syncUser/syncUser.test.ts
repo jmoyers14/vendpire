@@ -2,11 +2,11 @@ import { beforeEach, describe, expect, it } from "bun:test";
 import { JOB_TYPES } from "@vendpire/platform";
 import { makeJob, makeWebhookEvent } from "@vendpire/platform/test-support";
 import { SyncUserHandler } from "./syncUser.ts";
-import { PoisonJobError } from "../PoisonJobError.ts";
+import { PoisonJobError } from "../../PoisonJobError.ts";
 import {
   eventsReturning,
   FakeUserRepository,
-} from "../../test-support/fakes.ts";
+} from "../../../test-support/fakes.ts";
 
 /** The job the runner hands the handler: a pointer to the recorded event. */
 const job = () =>
