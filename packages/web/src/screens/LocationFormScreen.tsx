@@ -9,6 +9,11 @@ import {
   parseDollarsToCents,
   parsePercentToBps,
 } from "../lib/money.ts";
+import {
+  type Commission,
+  isFlatCommission,
+  isPercentCommission,
+} from "../lib/commission.ts";
 import { queryClient, trpc } from "../trpc.ts";
 
 interface FormState {
@@ -63,6 +68,9 @@ export function LocationFormScreen({ locationId }: { locationId?: string }) {
     if (!location) {
       return;
     }
+    // Pulled out so the guards below narrow it — narrowing doesn't survive
+    // repeated property access through `location`.
+    const { commission } = location;
     setForm({
       name: location.name,
       line1: location.address.line1 ?? "",
@@ -73,16 +81,14 @@ export function LocationFormScreen({ locationId }: { locationId?: string }) {
       contactName: location.contact.name ?? "",
       contactPhone: location.contact.phone ?? "",
       contactEmail: location.contact.email ?? "",
-      commissionType: location.commission.type,
-      commissionPercent:
-        location.commission.percentBps !== null
-          ? bpsToInput(location.commission.percentBps)
-          : "",
-      commissionBasis: location.commission.basis ?? "gross",
-      commissionFlat:
-        location.commission.flatCents !== null
-          ? centsToInput(location.commission.flatCents)
-          : "",
+      commissionType: commission.type,
+      commissionPercent: isPercentCommission(commission)
+        ? bpsToInput(commission.percentBps)
+        : "",
+      commissionBasis: isPercentCommission(commission) ? commission.basis : "gross",
+      commissionFlat: isFlatCommission(commission)
+        ? centsToInput(commission.flatCents)
+        : "",
       notes: location.notes ?? "",
       active: location.active,
     });
@@ -113,10 +119,7 @@ export function LocationFormScreen({ locationId }: { locationId?: string }) {
       return;
     }
 
-    let commission:
-      | { type: "none" }
-      | { type: "percent"; percentBps: number; basis: "gross" | "net" }
-      | { type: "flat"; flatCents: number };
+    let commission: Commission;
     if (form.commissionType === "percent") {
       const percentBps = parsePercentToBps(form.commissionPercent);
       if (percentBps === null) {

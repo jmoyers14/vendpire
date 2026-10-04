@@ -27,5 +27,6 @@ export type ApiProduct = Outputs["products"]["list"][number];
 export type ApiPack = Outputs["packs"]["list"][number];
 export type ApiPackContent = ApiPack["contents"][number];
 export type ApiPurchase = NonNullable<Outputs["purchases"]["get"]>;
+export type ApiLocation = Outputs["locations"]["list"][number];
 export type ApiBarcodeResolution = Outputs["barcodes"]["resolve"];
 

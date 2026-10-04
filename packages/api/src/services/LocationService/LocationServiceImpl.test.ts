@@ -34,41 +34,39 @@ describe("LocationService", () => {
     expect(created.contact.email).toBe("pat@gym.com");
   });
 
-  it("rejects a percent commission without percentBps", async () => {
-    await expect(
-      service.create(
-        ORG,
-        locationInput({
-          commission: { type: "percent", percentBps: null, flatCents: null, basis: "gross" },
-        }),
-      ),
-    ).rejects.toThrow(ServiceError);
-  });
-
-  it("rejects a flat commission without flatCents", async () => {
-    await expect(
-      service.create(
-        ORG,
-        locationInput({
-          commission: { type: "flat", percentBps: null, flatCents: null, basis: null },
-        }),
-      ),
-    ).rejects.toThrow(ServiceError);
-  });
-
-  it("nulls commission amounts when type is none", async () => {
+  // The two cases this file used to cover — a percent commission with no basis
+  // points, a flat one with no cents — are no longer expressible: the
+  // LocationCommission union has no arm for them, so they fail to compile
+  // rather than failing at runtime. What's left worth asserting is that each
+  // arm round-trips with its own payload and nothing else.
+  it("stores a percent commission with its rate and basis", async () => {
     const created = await service.create(
       ORG,
       locationInput({
-        commission: { type: "none", percentBps: 1000, flatCents: 500, basis: "gross" },
+        commission: { type: "percent", percentBps: 1500, basis: "net" },
       }),
     );
     expect(created.commission).toEqual({
-      type: "none",
-      percentBps: null,
-      flatCents: null,
-      basis: null,
+      type: "percent",
+      percentBps: 1500,
+      basis: "net",
     });
+  });
+
+  it("stores a flat commission with its amount", async () => {
+    const created = await service.create(
+      ORG,
+      locationInput({ commission: { type: "flat", flatCents: 5000 } }),
+    );
+    expect(created.commission).toEqual({ type: "flat", flatCents: 5000 });
+  });
+
+  it("carries no payload when there is no commission", async () => {
+    const created = await service.create(
+      ORG,
+      locationInput({ commission: { type: "none" } }),
+    );
+    expect(created.commission).toEqual({ type: "none" });
   });
 
   it("blocks removing a location that still has machines", async () => {

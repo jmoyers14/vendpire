@@ -2,24 +2,19 @@ import { z } from "zod";
 import { orgProtectedProcedure, router } from "../trpc.ts";
 import { ANALYTICS_EVENTS } from "../analytics/events.ts";
 
+// Each arm carries only its own payload — the shape the entity now uses, so
+// the parsed input reaches the service needing no reshaping. Unknown keys are
+// stripped, so a client still sending the old null padding is accepted.
 const commissionInput = z.discriminatedUnion("type", [
-  z.object({
-    type: z.literal("none"),
-    percentBps: z.null().default(null),
-    flatCents: z.null().default(null),
-    basis: z.null().default(null),
-  }),
+  z.object({ type: z.literal("none") }),
   z.object({
     type: z.literal("percent"),
     percentBps: z.number().int().min(1).max(10_000),
-    flatCents: z.null().default(null),
     basis: z.enum(["gross", "net"]).default("gross"),
   }),
   z.object({
     type: z.literal("flat"),
-    percentBps: z.null().default(null),
     flatCents: z.number().int().min(1),
-    basis: z.null().default(null),
   }),
 ]);
 

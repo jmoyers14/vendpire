@@ -2,23 +2,9 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { buttonClass, EmptyState, ErrorNote, Page, PageTitle, TableScroll } from "../components/ui.tsx";
-import { formatBps, formatCents } from "../lib/money.ts";
+import { commissionLabel } from "../lib/commission.ts";
 import { queryClient, trpc } from "../trpc.ts";
 
-const commissionLabel = (commission: {
-  type: "none" | "percent" | "flat";
-  percentBps: number | null;
-  flatCents: number | null;
-  basis: "gross" | "net" | null;
-}): string => {
-  if (commission.type === "percent" && commission.percentBps !== null) {
-    return `${formatBps(commission.percentBps)} of ${commission.basis ?? "gross"}`;
-  }
-  if (commission.type === "flat" && commission.flatCents !== null) {
-    return `${formatCents(commission.flatCents)} flat`;
-  }
-  return "None";
-};
 
 export function LocationsScreen() {
   const [error, setError] = useState<string | null>(null);

@@ -2,14 +2,37 @@
  * Location entity — plain data, free of Mongoose types. The repository maps
  * documents to this shape so nothing driver-related leaks past the boundary.
  */
-export interface LocationCommission {
-  type: "none" | "percent" | "flat";
-  /** Basis points (1000 = 10%) — never a float percentage. */
-  percentBps: number | null;
-  flatCents: number | null;
-  /** What a percentage applies to: total sales, or sales net of card fees. */
-  basis: "gross" | "net" | null;
+export interface NoCommission {
+  type: "none";
 }
+
+export interface PercentCommission {
+  type: "percent";
+  /** Basis points (1000 = 10%) — never a float percentage. */
+  percentBps: number;
+  /** What the percentage applies to: total sales, or sales net of card fees. */
+  basis: "gross" | "net";
+}
+
+export interface FlatCommission {
+  type: "flat";
+  flatCents: number;
+}
+
+/**
+ * What a location is owed. A union rather than one shape with nullable
+ * payloads: a percent commission ALWAYS has basis points and a basis, a flat
+ * one always has cents, and neither carries the other's fields. The flat shape
+ * admitted 36 combinations when only these three can occur, which pushed a
+ * null check onto every reader.
+ *
+ * The stored document still carries all four keys — narrowing happens in the
+ * repository mapper, so no migration is needed.
+ */
+export type LocationCommission =
+  | NoCommission
+  | PercentCommission
+  | FlatCommission;
 
 export interface Location {
   id: string;
