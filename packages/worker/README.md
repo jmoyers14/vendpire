@@ -39,6 +39,13 @@ Four independent layers make a redelivery harmless: the unique index on
 runner's already-succeeded short-circuit. The handlers are idempotent on top of
 all that, because the queue only promises at-least-once.
 
+## When something breaks
+
+`docs/runbooks/job-recovery.md` — triage queries, a symptom table, and the
+replay procedure. Short version: handlers are idempotent and four dedup layers
+mean replay converges rather than duplicates, so re-driving work is the safe
+default.
+
 ## Not "the webhook service"
 
 Webhook ingestion is the first workload here, not the only intended one. A

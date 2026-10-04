@@ -4,6 +4,9 @@ How a Clerk event becomes a local `users` / `organizations` /
 `organizationmemberships` row. Lives in `packages/worker`, the third Cloud Run
 service — see `packages/worker/README.md`.
 
+This file is the happy path. For what to do when it fails, see
+`docs/runbooks/job-recovery.md`.
+
 ## The system
 
 Two inbound edges reach the worker, and they are guarded differently — that is
