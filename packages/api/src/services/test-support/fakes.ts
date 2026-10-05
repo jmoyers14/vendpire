@@ -16,6 +16,8 @@ import type {
   ProductRepository,
   Purchase,
   PurchaseInput,
+  PurchaseListQuery,
+  PurchasePage,
   PurchaseRepository,
   Pack,
   PackInput,
@@ -29,7 +31,11 @@ import type {
  */
 
 let nextId = 1;
-const newId = (): string => String(nextId++);
+// ObjectId-shaped: the purchase cursor validates 24 hex characters before it
+// will touch Mongo, so a bare "1" would be rejected. Zero-padded decimal also
+// sorts lexicographically the way it sorts numerically — the property the
+// keyset tiebreaker relies on.
+const newId = (): string => String(nextId++).padStart(24, "0");
 const now = (): string => new Date().toISOString();
 
 type Stored<T> = T & { orgId: string; deleted: boolean };
@@ -312,6 +318,13 @@ export class FakePlanogramRepository implements PlanogramRepository {
   }
 }
 
+/**
+ * Descending (purchasedAt, id) — the same total order the real compound index
+ * gives. ISO-Z strings and zero-padded ids both compare correctly as strings.
+ */
+const byNewestThenId = (a: Purchase, b: Purchase): number =>
+  b.purchasedAt.localeCompare(a.purchasedAt) || b.id.localeCompare(a.id);
+
 export class FakePurchaseRepository implements PurchaseRepository {
   rows: Stored<Purchase>[] = [];
 
@@ -328,8 +341,29 @@ export class FakePurchaseRepository implements PurchaseRepository {
     return row;
   }
 
-  async findByOrg(orgId: string): Promise<Purchase[]> {
-    return this.rows.filter((r) => r.orgId === orgId && !r.deleted);
+  async findPageByOrg(
+    orgId: string,
+    query: PurchaseListQuery,
+  ): Promise<PurchasePage> {
+    const cursor = query.cursor;
+    const matching = this.rows
+      .filter((r) => r.orgId === orgId && !r.deleted)
+      .filter((r) => (query.from ? r.purchasedAt >= query.from : true))
+      .filter((r) => (query.to ? r.purchasedAt <= query.to : true))
+      // Strictly past the cursor position, mirroring the $or in
+      // purchaseListFilter — including the equality-plus-id branch, so page
+      // boundaries inside a shared purchasedAt are observable in tests.
+      .filter((r) =>
+        cursor
+          ? r.purchasedAt < cursor.purchasedAt ||
+            (r.purchasedAt === cursor.purchasedAt && r.id < cursor.id)
+          : true,
+      )
+      .sort(byNewestThenId);
+    return {
+      items: matching.slice(0, query.limit),
+      hasMore: matching.length > query.limit,
+    };
   }
   async findById(orgId: string, id: string): Promise<Purchase | null> {
     return (

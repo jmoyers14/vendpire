@@ -11,7 +11,8 @@
   },
   "scripts": {
     "test": "bun test",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:integration": "VENDPIRE_INTEGRATION=1 bun test"
   },
   "dependencies": {
     "@clerk/backend": "^3.6.1",
@@ -27,6 +28,7 @@
   },
   "devDependencies": {
     "bun-types": "^1.0.0",
+    "mongodb-memory-server": "^10.1.0",
     "standardwebhooks": "1.0.0",
     "typescript": "^5.3.3"
   }

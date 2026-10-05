@@ -9,15 +9,20 @@ import type {
   PackRepository,
   ProductRepository,
   Purchase,
+  PurchaseCursor,
   PurchaseInput,
   PurchaseLine,
   PurchaseRepository,
 } from "@vendpire/platform";
 import { ServiceError } from "../errors.ts";
-import type {
-  PurchaseDraft,
-  PurchasePackLine,
-  PurchaseService,
+import { decodePurchaseCursor, encodePurchaseCursor } from "./cursor.ts";
+import {
+  DEFAULT_PURCHASE_PAGE_SIZE,
+  type PurchaseDraft,
+  type PurchaseListOptions,
+  type PurchaseListPage,
+  type PurchasePackLine,
+  type PurchaseService,
 } from "./PurchaseService.ts";
 
 /**
@@ -42,8 +47,35 @@ export class PurchaseServiceImpl implements PurchaseService {
     private readonly packs: PackRepository,
   ) {}
 
-  list(orgId: string): Promise<Purchase[]> {
-    return this.purchases.findByOrg(orgId);
+  async list(
+    orgId: string,
+    options: PurchaseListOptions,
+  ): Promise<PurchaseListPage> {
+    let cursor: PurchaseCursor | null = null;
+    if (options.cursor) {
+      cursor = decodePurchaseCursor(options.cursor);
+      if (!cursor) {
+        throw new ServiceError("BAD_REQUEST", "Invalid cursor");
+      }
+    }
+
+    const page = await this.purchases.findPageByOrg(orgId, {
+      from: options.from ?? null,
+      to: options.to ?? null,
+      limit: options.limit ?? DEFAULT_PURCHASE_PAGE_SIZE,
+      cursor,
+    });
+
+    // The next cursor is the POSITION of the last row handed out, never a
+    // count — so a row written or removed behind the reader can't shift a page.
+    const last = page.items.at(-1);
+    return {
+      items: page.items,
+      nextCursor:
+        page.hasMore && last
+          ? encodePurchaseCursor({ purchasedAt: last.purchasedAt, id: last.id })
+          : null,
+    };
   }
 
   get(orgId: string, id: string): Promise<Purchase | null> {
