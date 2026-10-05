@@ -1,13 +1,34 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { buttonClass, EmptyState, ErrorNote, Page, PageTitle, TableScroll } from "../../ui.tsx";
+import {
+  buttonClass,
+  EmptyState,
+  ErrorNote,
+  Page,
+  PageTitle,
+  SearchInput,
+  TableScroll,
+} from "../../ui.tsx";
 import { formatCents } from "../../utils/money.ts";
+import { matchesSearch } from "../../utils/textMatch.ts";
 import { queryClient, trpc } from "../../trpc.ts";
 
 export function ProductsScreen() {
   const [error, setError] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
   const products = useQuery(trpc.products.list.queryOptions());
+
+  const all = products.data ?? [];
+  // Name, category and UPC — the three things on screen, so what you type
+  // matches what you can see. The list stays in the server's name order;
+  // filtering never reorders it.
+  const rows = all.filter((product) =>
+    matchesSearch(
+      `${product.name} ${product.category} ${product.upc ?? ""}`,
+      query,
+    ),
+  );
 
   const remove = useMutation(
     trpc.products.remove.mutationOptions({
@@ -37,9 +58,19 @@ export function ProductsScreen() {
 
       <ErrorNote message={error} />
 
+      {all.length > 0 ? (
+        <div className="w-full sm:max-w-xs">
+          <SearchInput
+            value={query}
+            onChange={setQuery}
+            placeholder="Search products"
+          />
+        </div>
+      ) : null}
+
       {products.isLoading ? (
         <p className="text-gray-400">Loading…</p>
-      ) : products.data && products.data.length > 0 ? (
+      ) : rows.length > 0 ? (
         <TableScroll>
           <table className="w-full min-w-[36rem] border-collapse text-sm">
             <thead>
@@ -53,7 +84,7 @@ export function ProductsScreen() {
               </tr>
             </thead>
             <tbody>
-              {products.data.map((product) => (
+              {rows.map((product) => (
                 <tr key={product.id} className="border-b border-gray-100">
                   <td className="px-2 py-1">
                     {product.imageUrl ? (
@@ -97,6 +128,8 @@ export function ProductsScreen() {
             </tbody>
           </table>
         </TableScroll>
+      ) : all.length > 0 ? (
+        <EmptyState>No products match “{query}”.</EmptyState>
       ) : (
         <EmptyState>
           No products yet. Click{" "}
