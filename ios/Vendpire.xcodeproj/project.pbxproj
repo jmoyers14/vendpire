@@ -6,6 +6,11 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		996FC5CD3075A1D200BBCD42 /* ClerkKit in Frameworks */ = {isa = PBXBuildFile; productRef = 996FC5CC3075A1D200BBCD42 /* ClerkKit */; };
+		996FC5CF3075A1D200BBCD42 /* ClerkKitUI in Frameworks */ = {isa = PBXBuildFile; productRef = 996FC5CE3075A1D200BBCD42 /* ClerkKitUI */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		99128E1230758C6A00630E2F /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -27,6 +32,9 @@
 		99128E0430758C6800630E2F /* Vendpire.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Vendpire.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		99128E1130758C6A00630E2F /* VendpireTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = VendpireTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		99128E1B30758C6A00630E2F /* VendpireUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = VendpireUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		AA0000000000000000000002 /* Debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Debug.xcconfig; sourceTree = "<group>"; };
+		AA0000000000000000000003 /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Release.xcconfig; sourceTree = "<group>"; };
+		AA0000000000000000000004 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -52,6 +60,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				996FC5CD3075A1D200BBCD42 /* ClerkKit in Frameworks */,
+				996FC5CF3075A1D200BBCD42 /* ClerkKitUI in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -75,6 +85,7 @@
 		99128DFB30758C6800630E2F = {
 			isa = PBXGroup;
 			children = (
+				AA0000000000000000000001 /* Config */,
 				99128E0630758C6800630E2F /* Vendpire */,
 				99128E1430758C6A00630E2F /* VendpireTests */,
 				99128E1E30758C6A00630E2F /* VendpireUITests */,
@@ -90,6 +101,16 @@
 				99128E1B30758C6A00630E2F /* VendpireUITests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		AA0000000000000000000001 /* Config */ = {
+			isa = PBXGroup;
+			children = (
+				AA0000000000000000000002 /* Debug.xcconfig */,
+				AA0000000000000000000003 /* Release.xcconfig */,
+				AA0000000000000000000004 /* Info.plist */,
+			);
+			path = Config;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -112,6 +133,8 @@
 			);
 			name = Vendpire;
 			packageProductDependencies = (
+				996FC5CC3075A1D200BBCD42 /* ClerkKit */,
+				996FC5CE3075A1D200BBCD42 /* ClerkKitUI */,
 			);
 			productName = Vendpire;
 			productReference = 99128E0430758C6800630E2F /* Vendpire.app */;
@@ -195,6 +218,9 @@
 			);
 			mainGroup = 99128DFB30758C6800630E2F;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				996FC5CB3075A1D200BBCD42 /* XCRemoteSwiftPackageReference "clerk-ios" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 99128E0530758C6800630E2F /* Products */;
 			projectDirPath = "";
@@ -271,6 +297,7 @@
 /* Begin XCBuildConfiguration section */
 		99128E2330758C6A00630E2F /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = AA0000000000000000000002 /* Debug.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
@@ -335,6 +362,7 @@
 		};
 		99128E2430758C6A00630E2F /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = AA0000000000000000000003 /* Release.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
@@ -393,6 +421,7 @@
 		99128E2630758C6A00630E2F /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				INFOPLIST_FILE = Config/Info.plist;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
@@ -417,7 +446,7 @@
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
+				SWIFT_VERSION = 6.2;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
@@ -425,6 +454,7 @@
 		99128E2730758C6A00630E2F /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				INFOPLIST_FILE = Config/Info.plist;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
@@ -449,7 +479,7 @@
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
+				SWIFT_VERSION = 6.2;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Release;
@@ -470,7 +500,7 @@
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
+				SWIFT_VERSION = 6.2;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Vendpire.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Vendpire";
 			};
@@ -492,7 +522,7 @@
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
+				SWIFT_VERSION = 6.2;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Vendpire.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Vendpire";
 			};
@@ -512,7 +542,7 @@
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
+				SWIFT_VERSION = 6.2;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_TARGET_NAME = Vendpire;
 			};
@@ -532,7 +562,7 @@
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
+				SWIFT_VERSION = 6.2;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_TARGET_NAME = Vendpire;
 			};
@@ -578,6 +608,30 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		996FC5CB3075A1D200BBCD42 /* XCRemoteSwiftPackageReference "clerk-ios" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/clerk/clerk-ios";
+			requirement = {
+				kind = exactVersion;
+				version = 1.5.8;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		996FC5CC3075A1D200BBCD42 /* ClerkKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 996FC5CB3075A1D200BBCD42 /* XCRemoteSwiftPackageReference "clerk-ios" */;
+			productName = ClerkKit;
+		};
+		996FC5CE3075A1D200BBCD42 /* ClerkKitUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 996FC5CB3075A1D200BBCD42 /* XCRemoteSwiftPackageReference "clerk-ios" */;
+			productName = ClerkKitUI;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 99128DFC30758C6800630E2F /* Project object */;
 }

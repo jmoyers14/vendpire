@@ -1,0 +1,9 @@
+// Vendpire — Release build settings. See Debug.xcconfig for the $(SLASH) note.
+SLASH = /
+
+// Still the dev Clerk instance: there is no production Clerk instance yet.
+// Swap this when one exists — it is the only change needed here.
+CLERK_PUBLISHABLE_KEY = pk_test_ZHluYW1pYy1raXQtNjY1Ny5jbGVyay5hY2NvdW50cy5kZXYk
+
+// The deployed Cloud Run API (see DEPLOY.md). Unused until Phase 7.
+VENDPIRE_API_BASE_URL = https:$(SLASH)$(SLASH)vendpire-api-fmivoycv6q-uc.a.run.app

@@ -1,0 +1,20 @@
+// Vendpire — Debug build settings.
+//
+// Values live here rather than in Swift so no environment detail is ever
+// hardcoded in a source file. Environment.swift reads them back out of the
+// generated Info.plist at runtime.
+//
+// Gotcha: `//` begins a comment in xcconfig, so a literal URL is silently
+// truncated ("https://host" becomes "https:"). $(SLASH) is the usual escape.
+SLASH = /
+
+// Clerk publishable key for the dynamic-kit-6657 dev instance.
+// Publishable (pk_) keys are PUBLIC by design — deploy.sh bakes this same value
+// into every web bundle we serve — so it's committed rather than kept local.
+CLERK_PUBLISHABLE_KEY = pk_test_ZHluYW1pYy1raXQtNjY1Ny5jbGVyay5hY2NvdW50cy5kZXYk
+
+// Unused until Phase 7. Defined now so that when networking arrives there is
+// already a right place to put the URL. The simulator shares the Mac's network
+// so localhost resolves; a physical device needs the Mac's LAN IP instead.
+// Port 3211 is this worktree's API port — worktrees differ, check before use.
+VENDPIRE_API_BASE_URL = http:$(SLASH)$(SLASH)localhost:3211

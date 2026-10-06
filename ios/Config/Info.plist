@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Xcode merges its generated keys into this file at build time; only the
+	     custom ones need to be declared here. Values are substituted from the
+	     active Config/*.xcconfig. -->
+	<key>ClerkPublishableKey</key>
+	<string>$(CLERK_PUBLISHABLE_KEY)</string>
+	<key>VendpireAPIBaseURL</key>
+	<string>$(VENDPIRE_API_BASE_URL)</string>
+</dict>
+</plist>
