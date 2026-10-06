@@ -135,6 +135,78 @@ describe.skipIf(!ENABLED)("PurchaseRepositoryImpl against MongoDB", () => {
     expect(page.items.map((item) => item.id)).toEqual([inside]);
   });
 
+  /**
+   * The partialFilterExpression on {orgId, clientRequestId}. This is the one
+   * claim in the whole slice that unit tests cannot touch and that fails on the
+   * SECOND row rather than the first — a plain unique index treats every null
+   * as the same value, so the web's keyless purchases would start colliding the
+   * moment somebody recorded a second one.
+   */
+  describe("the clientRequestId partial unique index", () => {
+    it("accepts any number of purchases with no key", async () => {
+      await seed(SHARED);
+      await seed(OLDER);
+      await seed(OLDER);
+      expect(
+        await PurchaseModel.countDocuments({ orgId: ORG, clientRequestId: null }),
+      ).toBe(3);
+    });
+
+    it("still rejects a duplicate key when one is given", async () => {
+      const withKey = (clientRequestId: string) =>
+        PurchaseModel.create({
+          orgId: ORG,
+          purchasedAt: SHARED,
+          vendor: "Costco",
+          lines: [{ productId: "p1", units: 1, totalCostCents: 100 }],
+          clientRequestId,
+        });
+      await withKey("req_1");
+      let code: number | undefined;
+      try {
+        await withKey("req_1");
+      } catch (error) {
+        code = (error as { code?: number }).code;
+      }
+      expect(code).toBe(11000);
+    });
+
+    it("finds a purchase by its key, and nothing by a null one", async () => {
+      await PurchaseModel.create({
+        orgId: ORG,
+        purchasedAt: SHARED,
+        vendor: "Costco",
+        lines: [{ productId: "p1", units: 1, totalCostCents: 100 }],
+        clientRequestId: "req_1",
+      });
+      await seed(OLDER);
+      expect((await repo.findByClientRequestId(ORG, "req_1"))?.vendor).toBe("Costco");
+      expect(await repo.findByClientRequestId(ORG, "nope")).toBeNull();
+    });
+
+    // An edit must not be able to strand the key its submitter still retries
+    // under — the PurchaseUpdate type says so, and this proves the impl agrees.
+    it("leaves the key untouched across an update", async () => {
+      const created = await repo.create(ORG, {
+        purchasedAt: SHARED.toISOString(),
+        vendor: "Costco",
+        lines: [{ productId: "p1", units: 1, totalCostCents: 100, packId: null }],
+        receiptTotalCents: null,
+        notes: null,
+        clientRequestId: "req_1",
+      });
+      const updated = await repo.update(ORG, created.id, {
+        purchasedAt: SHARED.toISOString(),
+        vendor: "Sam's",
+        lines: [{ productId: "p1", units: 2, totalCostCents: 200, packId: null }],
+        receiptTotalCents: null,
+        notes: null,
+      });
+      expect(updated?.vendor).toBe("Sam's");
+      expect(updated?.clientRequestId).toBe("req_1");
+    });
+  });
+
   // The only way to catch a future index regression: without {orgId,
   // purchasedAt, _id} the planner has to insert a blocking SORT over the whole
   // org's purchases on every page.

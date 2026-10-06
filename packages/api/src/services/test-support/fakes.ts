@@ -19,6 +19,7 @@ import type {
   PurchaseListQuery,
   PurchasePage,
   PurchaseRepository,
+  PurchaseUpdate,
   Pack,
   PackInput,
   PackRepository,
@@ -64,6 +65,14 @@ export class FakeLocationRepository implements LocationRepository {
       this.rows.find((r) => r.orgId === orgId && r.id === id && !r.deleted) ??
       null
     );
+  }
+  // Genuinely tolerant of the soft delete, so a test asserting that a visit
+  // against a deleted location is still accepted actually proves something.
+  async findByIdIncludingDeleted(
+    orgId: string,
+    id: string,
+  ): Promise<Location | null> {
+    return this.rows.find((r) => r.orgId === orgId && r.id === id) ?? null;
   }
   async create(orgId: string, data: LocationInput): Promise<Location> {
     return this.seed(orgId, data);
@@ -114,6 +123,12 @@ export class FakeMachineRepository implements MachineRepository {
       this.rows.find((r) => r.orgId === orgId && r.id === id && !r.deleted) ??
       null
     );
+  }
+  async findByIdIncludingDeleted(
+    orgId: string,
+    id: string,
+  ): Promise<Machine | null> {
+    return this.rows.find((r) => r.orgId === orgId && r.id === id) ?? null;
   }
   async findByTagCode(orgId: string, tagCode: string): Promise<Machine | null> {
     return (
@@ -239,6 +254,15 @@ export class FakeProductRepository implements ProductRepository {
   async findExistingIds(orgId: string, ids: string[]): Promise<Set<string>> {
     const existing = this.rows
       .filter((r) => r.orgId === orgId && !r.deleted && ids.includes(r.id))
+      .map((r) => r.id);
+    return new Set(existing);
+  }
+  async findExistingIdsIncludingDeleted(
+    orgId: string,
+    ids: string[],
+  ): Promise<Set<string>> {
+    const existing = this.rows
+      .filter((r) => r.orgId === orgId && ids.includes(r.id))
       .map((r) => r.id);
     return new Set(existing);
   }
@@ -371,13 +395,25 @@ export class FakePurchaseRepository implements PurchaseRepository {
       null
     );
   }
+  async findByClientRequestId(
+    orgId: string,
+    clientRequestId: string,
+  ): Promise<Purchase | null> {
+    // Not filtered on `deleted`, mirroring the impl: a soft-deleted purchase
+    // still owns its key, so a retry must find it rather than re-create.
+    return (
+      this.rows.find(
+        (r) => r.orgId === orgId && r.clientRequestId === clientRequestId,
+      ) ?? null
+    );
+  }
   async create(orgId: string, data: PurchaseInput): Promise<Purchase> {
     return this.seed(orgId, data);
   }
   async update(
     orgId: string,
     id: string,
-    data: PurchaseInput,
+    data: PurchaseUpdate,
   ): Promise<Purchase | null> {
     const row = this.rows.find(
       (r) => r.orgId === orgId && r.id === id && !r.deleted,

@@ -13,6 +13,7 @@ import type {
   PurchaseInput,
   PurchaseLine,
   PurchaseRepository,
+  PurchaseUpdate,
 } from "@vendpire/platform";
 import { ServiceError } from "../errors.ts";
 import { decodePurchaseCursor, encodePurchaseCursor } from "./cursor.ts";
@@ -83,7 +84,10 @@ export class PurchaseServiceImpl implements PurchaseService {
   }
 
   async create(orgId: string, draft: PurchaseDraft): Promise<Purchase> {
-    return this.purchases.create(orgId, await this.buildInput(orgId, draft));
+    return this.purchases.create(orgId, {
+      ...(await this.buildStored(orgId, draft)),
+      clientRequestId: draft.clientRequestId ?? null,
+    });
   }
 
   async update(
@@ -91,10 +95,14 @@ export class PurchaseServiceImpl implements PurchaseService {
     id: string,
     draft: PurchaseDraft,
   ): Promise<Purchase> {
+    // clientRequestId is deliberately absent from what an edit writes — the
+    // PurchaseUpdate type is what enforces that. Rewriting it would strand the
+    // key the submitting client still retries under, and that retry would then
+    // create a SECOND purchase instead of getting this one back.
     const updated = await this.purchases.update(
       orgId,
       id,
-      await this.buildInput(orgId, draft),
+      await this.buildStored(orgId, draft),
     );
     if (!updated) {
       throw new ServiceError("NOT_FOUND", "Purchase not found");
@@ -106,11 +114,15 @@ export class PurchaseServiceImpl implements PurchaseService {
     await this.purchases.softDelete(orgId, id);
   }
 
-  /** Turn a client draft into the stored shape: all lines, per product. */
-  private async buildInput(
+  /**
+   * Turn a client draft into the stored shape: all lines, per product. Returns
+   * the fields an edit may write, so `create` is the only caller that adds
+   * `clientRequestId`.
+   */
+  private async buildStored(
     orgId: string,
     draft: PurchaseDraft,
-  ): Promise<PurchaseInput> {
+  ): Promise<PurchaseUpdate> {
     const direct: PurchaseLine[] = draft.lines.map((line) => ({
       productId: line.productId,
       units: line.units,

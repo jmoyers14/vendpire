@@ -3,6 +3,7 @@ import type {
   PurchaseInput,
   PurchaseListQuery,
   PurchasePage,
+  PurchaseUpdate,
 } from "./types.ts";
 
 export * from "./types.ts";
@@ -19,7 +20,16 @@ export interface PurchaseRepository {
    */
   findPageByOrg(orgId: string, query: PurchaseListQuery): Promise<PurchasePage>;
   findById(orgId: string, id: string): Promise<Purchase | null>;
+  /**
+   * The idempotency read, for clients that submit a key (the phone). Returns
+   * null for the web's keyless purchases — a null key matches nothing.
+   */
+  findByClientRequestId(
+    orgId: string,
+    clientRequestId: string,
+  ): Promise<Purchase | null>;
   create(orgId: string, data: PurchaseInput): Promise<Purchase>;
-  update(orgId: string, id: string, data: PurchaseInput): Promise<Purchase | null>;
+  /** Cannot change `clientRequestId` — see PurchaseUpdate for why. */
+  update(orgId: string, id: string, data: PurchaseUpdate): Promise<Purchase | null>;
   softDelete(orgId: string, id: string): Promise<void>;
 }

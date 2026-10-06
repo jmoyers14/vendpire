@@ -2,9 +2,10 @@ import type {
   Purchase,
   PurchaseCursor,
   PurchaseInput,
+  PurchaseUpdate,
 } from "@vendpire/platform";
 
-export type { Purchase, PurchaseCursor, PurchaseInput };
+export type { Purchase, PurchaseCursor, PurchaseInput, PurchaseUpdate };
 
 /** A line entered directly in sellable units. */
 export interface PurchaseDraftLine {
@@ -43,6 +44,12 @@ export interface PurchaseDraft {
   packLines?: PurchasePackLine[];
   receiptTotalCents?: number | null;
   notes: string | null;
+  /**
+   * Client-minted idempotency key. Optional: the web form submits none, and a
+   * keyless purchase is stored with null. Only honored on create — an edit
+   * cannot change it, or a retry under the old key would double-post.
+   */
+  clientRequestId?: string | null;
 }
 
 /**

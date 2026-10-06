@@ -19,11 +19,25 @@ export interface Purchase {
   /** What the receipt says you paid, when recorded. Null when not entered. */
   receiptTotalCents: number | null;
   notes: string | null;
+  /**
+   * Client-minted idempotency key, or null for a purchase recorded on the web
+   * (and for every purchase written before the field existed). Unique per org
+   * among the non-null values.
+   */
+  clientRequestId: string | null;
   createdAt: string;
   updatedAt: string;
 }
 
 export type PurchaseInput = Omit<Purchase, "id" | "createdAt" | "updatedAt">;
+
+/**
+ * What an edit may change — everything except the idempotency key. Rewriting
+ * `clientRequestId` on update would strand the key the submitting client still
+ * retries under, so a later retry would create a SECOND purchase instead of
+ * getting the original back. The type is what keeps that from happening.
+ */
+export type PurchaseUpdate = Omit<PurchaseInput, "clientRequestId">;
 
 /**
  * A position in the purchases list. purchasedAt is NOT unique — several supply
