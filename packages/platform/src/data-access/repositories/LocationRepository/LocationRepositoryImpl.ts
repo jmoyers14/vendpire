@@ -56,6 +56,18 @@ export class LocationRepositoryImpl implements LocationRepository {
     return doc ? toLocation(doc) : null;
   }
 
+  async findByIdIncludingDeleted(
+    orgId: string,
+    id: string,
+  ): Promise<Location | null> {
+    // No deletedAt predicate, on purpose — see the port. Still org-scoped.
+    const doc = await LocationModel.findOne({
+      _id: id,
+      orgId,
+    }).lean<LocationDoc | null>();
+    return doc ? toLocation(doc) : null;
+  }
+
   async create(orgId: string, data: LocationInput): Promise<Location> {
     const doc = await LocationModel.create({ orgId, ...data });
     return toLocation(doc.toObject() as LocationDoc);
