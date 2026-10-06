@@ -15,3 +15,10 @@ playwright-report/
 
 # Visual brainstorming companion scratch
 .superpowers/
+
+# Xcode / iOS
+ios/build/
+DerivedData/
+*.xcuserstate
+xcuserdata/
+.swiftpm/
