@@ -53,7 +53,8 @@ struct AccountView: View {
     @ViewBuilder
     private func claimReportSection(_ report: ClerkSession.ClaimReport) -> some View {
         Section("Session token claims") {
-            LabeledContent("Activated org", value: report.activatedOrganizationId ?? "none")
+            LabeledContent("Membership org", value: report.membershipOrganizationId ?? "none")
+            LabeledContent("setActive called", value: report.didCallSetActive ? "yes" : "no")
             LabeledContent(
                 "org claim before",
                 value: report.beforeActivation?.organizationId ?? "ABSENT"

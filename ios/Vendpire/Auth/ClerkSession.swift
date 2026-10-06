@@ -17,14 +17,18 @@ final class ClerkSession {
         case failed(message: String)
     }
 
-    /// What the session token claimed before and after the organization was
-    /// activated. Two samples rather than one because the difference is the
-    /// finding: if the org claim is absent first and present after, the answer
-    /// is "activation was required", not "the SDK cannot do it".
+    /// What the session token claimed before and after organization activation.
+    ///
+    /// Two samples rather than one because the difference is the finding. On the
+    /// instance this was built against the claim is already present *before*
+    /// activation — Clerk auto-activates a lone membership at sign-in — so
+    /// `didCallSetActive` records whether the explicit call was needed at all,
+    /// rather than implying it did the work.
     struct ClaimReport: Equatable, Sendable {
         var beforeActivation: SessionTokenClaims?
         var afterActivation: SessionTokenClaims?
-        var activatedOrganizationId: String?
+        var membershipOrganizationId: String?
+        var didCallSetActive = false
         var note: String?
     }
 
@@ -50,6 +54,15 @@ final class ClerkSession {
         state = .signingIn
         claimReport = nil
 
+        #if DEBUG
+            // Delimited and counted so whitespace or a substituted character is
+            // visible rather than inferred. Never logs the password itself.
+            print("""
+            [signIn] identifier=<\(email)> count=\(email.count) \
+            password.count=\(password.count) clerkLoaded=\(Clerk.shared.isLoaded)
+            """)
+        #endif
+
         do {
             let attempt = try await Clerk.shared.auth.signInWithPassword(
                 identifier: email,
@@ -65,9 +78,10 @@ final class ClerkSession {
 
             var report = ClaimReport()
             report.beforeActivation = try? await currentClaims()
-            report.activatedOrganizationId = try await activateOrganizationIfNeeded()
+            (report.membershipOrganizationId, report.didCallSetActive) =
+                try await activateOrganizationIfNeeded()
             report.afterActivation = try? await currentClaims()
-            if report.activatedOrganizationId == nil {
+            if report.membershipOrganizationId == nil {
                 report.note = "No organization membership found for this user."
             }
             claimReport = report
@@ -78,7 +92,7 @@ final class ClerkSession {
                     ?? Clerk.shared.session?.lastActiveOrganizationId
             )
         } catch {
-            state = .failed(message: error.localizedDescription)
+            state = .failed(message: describe(error))
         }
     }
 
@@ -94,28 +108,34 @@ final class ClerkSession {
     }
 
     /// Clerk only puts an organization claim in the token when an organization
-    /// is *active* — membership alone is not enough. A fresh user has no active
-    /// organization, so without this call the token names no org and every
-    /// `orgProtectedProcedure` would reject it.
+    /// is *active* — membership alone is not enough.
     ///
-    /// No picker: this is a two-person business with one organization. If that
-    /// ever stops being true, this is where the choice belongs.
-    @discardableResult
-    private func activateOrganizationIfNeeded() async throws -> String? {
-        guard let session = Clerk.shared.session else { return nil }
+    /// In practice Clerk activates a lone membership during sign-in, so this is
+    /// usually a no-op. It stays because that behaviour is Clerk's to change,
+    /// and because a user who later belongs to more than one organization would
+    /// have no active one by default. No picker: this is a two-person business
+    /// with one organization, and if that stops being true, the choice belongs
+    /// here.
+    ///
+    /// - Returns: the membership's organization id, and whether `setActive` was
+    ///   actually called.
+    private func activateOrganizationIfNeeded() async throws -> (String?, Bool) {
+        guard let session = Clerk.shared.session else { return (nil, false) }
 
         let memberships = Clerk.shared.user?.organizationMemberships ?? []
         guard let organizationId = memberships.first?.organization.id else {
-            return nil
+            return (nil, false)
         }
 
-        if session.lastActiveOrganizationId != organizationId {
-            try await Clerk.shared.auth.setActive(
-                sessionId: session.id,
-                organizationId: organizationId
-            )
+        guard session.lastActiveOrganizationId != organizationId else {
+            return (organizationId, false)
         }
-        return organizationId
+
+        try await Clerk.shared.auth.setActive(
+            sessionId: session.id,
+            organizationId: organizationId
+        )
+        return (organizationId, true)
     }
 
     private func currentClaims() async throws -> SessionTokenClaims? {
@@ -123,16 +143,36 @@ final class ClerkSession {
         return try SessionTokenDecoder.claims(from: token)
     }
 
-    /// Printed rather than returned because the DECIDE subtask asks for the
-    /// result to be written down, and the console is where it gets read off.
+    /// `localizedDescription` flattens Clerk's errors to a short phrase like
+    /// "Identifier is invalid", hiding the code and the offending parameter —
+    /// the two things that tell a format rejection apart from a missing account.
+    private func describe(_ error: Error) -> String {
+        guard let apiError = error as? ClerkAPIError else {
+            print("[signIn] non-API error: \(error)")
+            return error.localizedDescription
+        }
+        print("""
+        [signIn] ClerkAPIError
+                 code    : \(apiError.code)
+                 param   : \(apiError.meta?["param_name"]?.stringValue ?? "-")
+                 message : \(apiError.message ?? "-")
+                 long    : \(apiError.longMessage ?? "-")
+                 traceId : \(apiError.clerkTraceId ?? "-")
+        """)
+        return "\(apiError.code): \(apiError.longMessage ?? apiError.message ?? "unknown")"
+    }
+
+    /// Printed as well as shown on screen because the DECIDE subtask asks for
+    /// the result to be written down, and the console is where it is read off.
     private func log(_ report: ClaimReport) {
         print("""
 
         ───────── Clerk session token claims ─────────
-        memberships activated : \(report.activatedOrganizationId ?? "none")
-        org claim BEFORE      : \(report.beforeActivation?.organizationId ?? "ABSENT")
-        org claim AFTER       : \(report.afterActivation?.organizationId ?? "ABSENT")
-        claim names AFTER     : \(report.afterActivation?.claimNames.joined(separator: ", ") ?? "-")
+        membership org  : \(report.membershipOrganizationId ?? "none")
+        setActive called: \(report.didCallSetActive)
+        org claim BEFORE: \(report.beforeActivation?.organizationId ?? "ABSENT")
+        org claim AFTER : \(report.afterActivation?.organizationId ?? "ABSENT")
+        claim names     : \(report.afterActivation?.claimNames.joined(separator: ", ") ?? "-")
         \(report.note ?? "")
         payload AFTER:
         \(report.afterActivation?.prettyPrinted ?? "-")

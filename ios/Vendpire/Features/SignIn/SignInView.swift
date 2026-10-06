@@ -5,6 +5,7 @@ import SwiftUI
 /// `ClerkSession`.
 struct SignInView: View {
     @Environment(ClerkSession.self) private var session
+    @Environment(\.dismiss) private var dismiss
 
     @State private var email = ""
     @State private var password = ""
@@ -42,6 +43,11 @@ struct SignInView: View {
             }
         }
         .navigationTitle("Sign In")
+        // Success is otherwise invisible from this screen: the state change
+        // lands on AccountView behind it, and the form just sits there.
+        .onChange(of: session.isSignedIn) { _, signedIn in
+            if signedIn { dismiss() }
+        }
     }
 
     private func submit() {
