@@ -62,9 +62,42 @@ has gone through the system. The Visit schema will change once you use it.
 
 | Question | Current leaning | Resolved by |
 |---|---|---|
-| iOS auth | **Clerk on device** | **Phase 2** — if the token carries no org claim, fall back to an `X-Vendpire-Org` header, then to device tokens |
+| iOS auth | **Clerk on device** — ✅ **RESOLVED, see below** | Phase 2 |
 | Swift API client | **Generated from an OpenAPI spec** over a REST surface (`/api/v1`), per `README.md:13-14`. tRPC stays web-only | Phase 6. If the Visit contract churns in real use, a hand-written client gets relatively cheaper |
 | Offline model | **Mirror + outbox** — SwiftData mirror by full refresh; outbox persists drafts before any network attempt. Delta sync deferred | Phase 7. Nothing likely to change it; the data is tiny and it's forward-compatible with delta sync |
+
+### RESOLVED 2026-10-06 — the session token does carry an organization claim
+
+Signed in on device with clerk-ios 1.5.8 and decoded the session token. The
+payload contains the claim the backend reads:
+
+```json
+"o": { "id": "org_3KL2Mt9qvTe0ZgEzEyKOmWkkFoC", "rol": "admin", "slg": "mobile-e2e-org-…" },
+"sub": "user_3KL2K8ztL8M7jZWD4VZX15uB5GH",
+"v": 2
+```
+
+`ClerkClient.verifySessionToken` reads `claims.org_id ?? o?.id`, so this token
+satisfies `orgProtectedProcedure`. **Neither fallback is needed** — no
+`X-Vendpire-Org` header, no `auth.pairDevice` device tokens. Those options can
+be struck from the plan.
+
+Two details worth carrying forward:
+
+- **The claim is nested (`o.id`), not flat (`org_id`), and the token is `v: 2`.**
+  Anything that reads these claims must handle the nested spelling.
+- **Clerk activates a lone membership during sign-in**, so the claim was already
+  present *before* the explicit `setActive` call — contrary to the expectation
+  that a null `last_active_organization_id` on the user would mean no claim. The
+  call is kept anyway: that behaviour is Clerk's to change, and a user with more
+  than one membership gets no active organization by default.
+
+Also confirmed: the session persists in the Keychain across a full terminate and
+cold relaunch, restoring signed-in state with the organization intact.
+
+Not yet tested: a cold launch with no network. That is what `LocalLock` and the
+"store readable without auth" rule exist for, and it needs the store to exist
+before it can be checked.
 
 ### Why mirror + outbox rather than delta sync
 
