@@ -136,7 +136,7 @@ export function PurchaseFormScreen({ purchaseId }: { purchaseId?: string }) {
   }, [existing.data]);
 
   const onSaved = () => {
-    queryClient.invalidateQueries({ queryKey: trpc.purchases.list.queryKey() });
+    queryClient.invalidateQueries({ queryKey: trpc.purchases.list.pathKey() });
     navigate({ to: "/purchases" });
   };
   const create = useMutation(

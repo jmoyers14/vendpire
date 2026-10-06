@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   Alert,
   Button,
@@ -10,9 +11,11 @@ import {
   KpiCard,
   KpiGrid,
   labelClass,
+  LoadMore,
   Page,
   PageSubtitle,
   PageTitle,
+  SearchInput,
   SlotList,
   SlotRow,
   StatusPill,
@@ -37,6 +40,34 @@ const Section = ({
     {children}
   </section>
 );
+
+/**
+ * The two list controls need state to show anything, so they get a live demo
+ * rather than a static render like the rest of the page.
+ */
+const ListControlsDemo = () => {
+  const [query, setQuery] = useState("");
+  const [pages, setPages] = useState(1);
+  return (
+    <Card className="grid gap-3 p-3">
+      <div className="w-full sm:max-w-xs">
+        <SearchInput
+          value={query}
+          onChange={setQuery}
+          placeholder="Search products"
+        />
+      </div>
+      <p className={hintClass}>
+        Filtering on “{query || "—"}” · {pages} page(s) loaded
+      </p>
+      <LoadMore
+        hasMore={pages < 3}
+        loading={false}
+        onClick={() => setPages((count) => count + 1)}
+      />
+    </Card>
+  );
+};
 
 const SCALES = ["primary", "gray", "green", "red", "amber"] as const;
 const STEPS = [50, 100, 200, 300, 400, 500, 600, 700, 800, 900] as const;
@@ -157,6 +188,10 @@ export function DesignSystemScreen() {
           </div>
           <Button full>Start fill visit</Button>
         </Card>
+      </Section>
+
+      <Section title="List controls">
+        <ListControlsDemo />
       </Section>
 
       <Section title="Status pills">

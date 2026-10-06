@@ -1,16 +1,39 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { buttonClass, EmptyState, ErrorNote, Page, PageTitle, TableScroll } from "../../ui.tsx";
+import {
+  buttonClass,
+  EmptyState,
+  ErrorNote,
+  Page,
+  PageTitle,
+  SearchInput,
+  TableScroll,
+} from "../../ui.tsx";
+import { matchesSearch } from "../../utils/textMatch.ts";
 import { queryClient, trpc } from "../../trpc.ts";
 
 export function PacksScreen() {
   const [error, setError] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
   const packs = useQuery(trpc.packs.list.queryOptions());
   const products = useQuery(trpc.products.list.queryOptions());
 
   const productName = (id: string): string =>
     products.data?.find((product) => product.id === id)?.name ?? "…";
+
+  const all = packs.data ?? [];
+  // Content names are in the haystack too, so searching a product finds the
+  // cases that contain it. productName returns "…" while products are still
+  // loading — harmless, matches just improve once it resolves.
+  const rows = all.filter((pack) =>
+    matchesSearch(
+      `${pack.name} ${pack.barcodes.join(" ")} ${pack.contents
+        .map((content) => productName(content.productId))
+        .join(" ")}`,
+      query,
+    ),
+  );
 
   const remove = useMutation(
     trpc.packs.remove.mutationOptions({
@@ -42,9 +65,19 @@ export function PacksScreen() {
 
       <ErrorNote message={error} />
 
+      {all.length > 0 ? (
+        <div className="w-full sm:max-w-xs">
+          <SearchInput
+            value={query}
+            onChange={setQuery}
+            placeholder="Search packs or a product in them"
+          />
+        </div>
+      ) : null}
+
       {packs.isLoading ? (
         <p className="text-gray-400">Loading…</p>
-      ) : packs.data && packs.data.length > 0 ? (
+      ) : rows.length > 0 ? (
         <TableScroll>
           <table className="w-full min-w-[40rem] border-collapse text-sm">
             <thead>
@@ -56,7 +89,7 @@ export function PacksScreen() {
               </tr>
             </thead>
             <tbody>
-              {packs.data.map((pack) => (
+              {rows.map((pack) => (
                 <tr key={pack.id} className="border-b border-gray-100">
                   <td className="px-4 py-2 font-medium text-gray-800">
                     {pack.name}
@@ -90,6 +123,8 @@ export function PacksScreen() {
             </tbody>
           </table>
         </TableScroll>
+      ) : all.length > 0 ? (
+        <EmptyState>No packs match “{query}”.</EmptyState>
       ) : (
         <EmptyState>
           No packs yet. Click <span className="font-medium">Add Pack</span> to

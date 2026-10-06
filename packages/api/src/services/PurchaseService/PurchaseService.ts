@@ -1,6 +1,10 @@
-import type { Purchase, PurchaseInput } from "@vendpire/platform";
+import type {
+  Purchase,
+  PurchaseCursor,
+  PurchaseInput,
+} from "@vendpire/platform";
 
-export type { Purchase, PurchaseInput };
+export type { Purchase, PurchaseCursor, PurchaseInput };
 
 /** A line entered directly in sellable units. */
 export interface PurchaseDraftLine {
@@ -41,8 +45,30 @@ export interface PurchaseDraft {
   notes: string | null;
 }
 
+/**
+ * Page size when the caller doesn't say. There is deliberately no maximum:
+ * the page plus "Load more" is the bound, not a cap that would silently
+ * truncate somebody's history.
+ */
+export const DEFAULT_PURCHASE_PAGE_SIZE = 50;
+
+export interface PurchaseListOptions {
+  /** Inclusive ISO instant bounds on purchasedAt. */
+  from?: string | null;
+  to?: string | null;
+  limit?: number;
+  /** Opaque cursor from a previous page's nextCursor. */
+  cursor?: string | null;
+}
+
+export interface PurchaseListPage {
+  items: Purchase[];
+  /** Pass back as `cursor` for the next page. Null means this was the last. */
+  nextCursor: string | null;
+}
+
 export interface PurchaseService {
-  list(orgId: string): Promise<Purchase[]>;
+  list(orgId: string, options: PurchaseListOptions): Promise<PurchaseListPage>;
   get(orgId: string, id: string): Promise<Purchase | null>;
   create(orgId: string, draft: PurchaseDraft): Promise<Purchase>;
   update(orgId: string, id: string, draft: PurchaseDraft): Promise<Purchase>;

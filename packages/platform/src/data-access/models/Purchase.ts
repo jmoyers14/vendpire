@@ -33,6 +33,12 @@ const purchaseSchema = new Schema(
 );
 
 purchaseSchema.index({ orgId: 1, purchasedAt: -1 });
+// Keyset pagination reads in (purchasedAt desc, _id desc) order and compares on
+// the pair, because purchasedAt is not unique — several supply runs share a
+// date. _id has to be IN the index: Mongo orders equal-purchasedAt entries by
+// RecordId, not by _id, so without this key it can serve the filter but not the
+// sort and falls back to a blocking SORT over the whole org on every page.
+purchaseSchema.index({ orgId: 1, purchasedAt: -1, _id: -1 });
 purchaseSchema.index({ orgId: 1, updatedAt: -1 });
 
 export const PurchaseModel = model("Purchase", purchaseSchema);

@@ -345,7 +345,14 @@ const catalog = container.resolve<ProductDataClient>(PRODUCT_DATA_CLIENT_TOKEN);
 
 const existingProducts = await products.list(orgId);
 const existingPacks = await packs.list(orgId);
-const existingPurchases = await purchases.list(orgId);
+// Purchases are paginated now, and the only ones this script cares about are
+// the ones it would create — the seeded rows are stamped at UTC midnight on
+// PURCHASED_AT, so a one-day window is both cheaper and exactly the dedupe set.
+const { items: existingPurchases } = await purchases.list(orgId, {
+  from: `${PURCHASED_AT}T00:00:00.000Z`,
+  to: `${PURCHASED_AT}T23:59:59.999Z`,
+  limit: 100,
+});
 
 // Products created or already present, keyed by name — packs need their ids.
 const productIdByName = new Map(

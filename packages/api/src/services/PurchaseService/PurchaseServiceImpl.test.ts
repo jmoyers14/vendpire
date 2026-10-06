@@ -166,4 +166,161 @@ describe("PurchaseService", () => {
     const created = await service.create(ORG, draft({ receiptTotalCents: 1499 }));
     expect(created.receiptTotalCents).toBe(1499);
   });
+
+  describe("list", () => {
+    /** Seeds one purchase per given instant and returns the created ids. */
+    const seedOn = async (instants: string[]): Promise<string[]> => {
+      const ids: string[] = [];
+      for (const purchasedAt of instants) {
+        const created = await service.create(ORG, draft({ purchasedAt }));
+        ids.push(created.id);
+      }
+      return ids;
+    };
+
+    /** Follows nextCursor to exhaustion and returns every id handed out. */
+    const pageThrough = async (limit: number): Promise<string[]> => {
+      const seen: string[] = [];
+      let cursor: string | null = null;
+      // Bounded so a broken cursor fails as a test rather than hanging.
+      for (let request = 0; request < 50; request += 1) {
+        const page = await service.list(ORG, { limit, cursor });
+        seen.push(...page.items.map((item) => item.id));
+        if (!page.nextCursor) {
+          return seen;
+        }
+        cursor = page.nextCursor;
+      }
+      throw new Error("list did not terminate");
+    };
+
+    it("returns newest first", async () => {
+      await seedOn([
+        "2026-09-18T12:00:00.000Z",
+        "2026-09-20T12:00:00.000Z",
+        "2026-09-19T12:00:00.000Z",
+      ]);
+      const page = await service.list(ORG, {});
+      expect(page.items.map((item) => item.purchasedAt)).toEqual([
+        "2026-09-20T12:00:00.000Z",
+        "2026-09-19T12:00:00.000Z",
+        "2026-09-18T12:00:00.000Z",
+      ]);
+    });
+
+    it("defaults to a page of 50", async () => {
+      await seedOn(
+        Array.from(
+          { length: 51 },
+          (_, index) => `2026-09-${String(index + 1).padStart(2, "0")}T12:00:00.000Z`,
+        ),
+      );
+      const page = await service.list(ORG, {});
+      expect(page.items).toHaveLength(50);
+      expect(page.nextCursor).not.toBeNull();
+    });
+
+    it("reports no next cursor when the page isn't full", async () => {
+      await seedOn(["2026-09-20T12:00:00.000Z"]);
+      expect((await service.list(ORG, { limit: 10 })).nextCursor).toBeNull();
+    });
+
+    it("reports no next cursor when the last page is exactly full", async () => {
+      await seedOn(["2026-09-20T12:00:00.000Z", "2026-09-19T12:00:00.000Z"]);
+      expect((await service.list(ORG, { limit: 2 })).nextCursor).toBeNull();
+    });
+
+    it("excludes other orgs", async () => {
+      // Products are org-scoped too, so the other org needs its own.
+      const theirProduct = products.seed("org_2", productInput({ name: "Sprite" }));
+      await service.create(
+        "org_2",
+        draft({
+          lines: [{ productId: theirProduct.id, units: 12, totalCostCents: 899 }],
+        }),
+      );
+      expect((await service.list(ORG, {})).items).toHaveLength(0);
+    });
+
+    it("excludes removed purchases", async () => {
+      const [id] = await seedOn(["2026-09-20T12:00:00.000Z"]);
+      await service.remove(ORG, id as string);
+      expect((await service.list(ORG, {})).items).toHaveLength(0);
+    });
+
+    // The case a naive purchasedAt-only cursor gets wrong: every row shares a
+    // date, so the id tiebreaker is the only thing advancing the position.
+    it("pages through rows that all share a purchasedAt without skips or duplicates", async () => {
+      const ids = await seedOn(Array(5).fill("2026-09-20T12:00:00.000Z"));
+      const seen = await pageThrough(2);
+      expect(new Set(seen).size).toBe(5);
+      expect(seen).toEqual([...ids].reverse());
+    });
+
+    it("pages correctly when a boundary falls inside a shared-date group", async () => {
+      // 3 rows on the 20th, 2 on the 19th, read 2 at a time: the first page
+      // ends mid-group, which is exactly where a missing tiebreaker shows up.
+      const ids = await seedOn([
+        "2026-09-19T12:00:00.000Z",
+        "2026-09-19T12:00:00.000Z",
+        "2026-09-20T12:00:00.000Z",
+        "2026-09-20T12:00:00.000Z",
+        "2026-09-20T12:00:00.000Z",
+      ]);
+      const seen = await pageThrough(2);
+      expect(new Set(seen).size).toBe(5);
+      expect(seen).toEqual([ids[4], ids[3], ids[2], ids[1], ids[0]]);
+    });
+
+    // The property offset pagination cannot give you.
+    it("keeps paging stable when a row is inserted behind the reader", async () => {
+      const ids = await seedOn([
+        "2026-09-20T12:00:00.000Z",
+        "2026-09-19T12:00:00.000Z",
+        "2026-09-18T12:00:00.000Z",
+      ]);
+      const first = await service.list(ORG, { limit: 2 });
+      const inserted = await service.create(
+        ORG,
+        draft({ purchasedAt: "2026-09-17T12:00:00.000Z" }),
+      );
+      const second = await service.list(ORG, {
+        limit: 2,
+        cursor: first.nextCursor,
+      });
+      expect(first.items.map((item) => item.id)).toEqual([ids[0], ids[1]]);
+      expect(second.items.map((item) => item.id)).toEqual([ids[2], inserted.id]);
+    });
+
+    it("narrows to the given date window", async () => {
+      await seedOn([
+        "2026-09-18T12:00:00.000Z",
+        "2026-09-20T12:00:00.000Z",
+        "2026-09-25T12:00:00.000Z",
+      ]);
+      const page = await service.list(ORG, {
+        from: "2026-09-19T00:00:00.000Z",
+        to: "2026-09-21T00:00:00.000Z",
+      });
+      expect(page.items.map((item) => item.purchasedAt)).toEqual([
+        "2026-09-20T12:00:00.000Z",
+      ]);
+    });
+
+    it("includes rows exactly on the window edges", async () => {
+      await seedOn(["2026-09-19T00:00:00.000Z", "2026-09-21T00:00:00.000Z"]);
+      const page = await service.list(ORG, {
+        from: "2026-09-19T00:00:00.000Z",
+        to: "2026-09-21T00:00:00.000Z",
+      });
+      expect(page.items).toHaveLength(2);
+    });
+
+    it("rejects a cursor it did not mint", async () => {
+      await expect(service.list(ORG, { cursor: "not-a-cursor" })).rejects.toThrow(
+        /cursor/i,
+      );
+    });
+  });
 });
+

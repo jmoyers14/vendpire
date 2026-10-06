@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { orgProtectedProcedure, router } from "../trpc.ts";
 import { ANALYTICS_EVENTS } from "../analytics/events.ts";
+import { DEFAULT_PURCHASE_PAGE_SIZE } from "../services/PurchaseService/PurchaseService.ts";
 
 const purchaseInput = z.object({
   purchasedAt: z.string().datetime(),
@@ -32,10 +33,28 @@ const purchaseInput = z.object({
   notes: z.string().nullable().default(null),
 });
 
+// Cursor pagination over (purchasedAt desc, _id desc) plus an optional date
+// window. Two things are load-bearing here:
+//   - `cursor` must be a declared key, or tRPC's infiniteQueryOptions helper
+//     never appears on the client proxy. `nullish` (not `optional`) is what
+//     makes `initialCursor: null` typecheck.
+//   - this must stay a NON-strict z.object: the tanstack-react-query adapter
+//     injects a `direction` field into every infinite-query request, which a
+//     plain object strips and `.strict()` would reject with a 400.
+// No maximum on `limit` — the page plus "Load more" is the bound.
+const purchaseListInput = z.object({
+  from: z.string().datetime().optional(),
+  to: z.string().datetime().optional(),
+  limit: z.number().int().positive().default(DEFAULT_PURCHASE_PAGE_SIZE),
+  cursor: z.string().nullish(),
+});
+
 export const purchasesRouter = router({
-  list: orgProtectedProcedure.query(({ ctx }) =>
-    ctx.services.purchaseService.list(ctx.auth.orgId),
-  ),
+  list: orgProtectedProcedure
+    .input(purchaseListInput)
+    .query(({ ctx, input }) =>
+      ctx.services.purchaseService.list(ctx.auth.orgId, input),
+    ),
 
   get: orgProtectedProcedure
     .input(z.object({ id: z.string().min(1) }))

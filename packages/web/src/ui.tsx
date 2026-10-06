@@ -10,6 +10,7 @@ export { Card, CardTitle, KpiCard, KpiGrid } from "./ui/Card.tsx";
 export { checkboxClass, hintClass, inputClass, labelClass } from "./ui/Field.tsx";
 export { focusRing } from "./ui/focus.ts";
 export { InfoHint } from "./ui/InfoHint.tsx";
+export { LoadMore } from "./ui/LoadMore.tsx";
 export {
   EmptyState,
   Page,
@@ -17,6 +18,7 @@ export {
   PageTitle,
   TableScroll,
 } from "./ui/Page.tsx";
+export { SearchInput } from "./ui/SearchInput.tsx";
 export { SlotList, SlotRow } from "./ui/SlotList.tsx";
 export type { Tone } from "./ui/StatusPill.tsx";
 export { StatusPill, stockTone } from "./ui/StatusPill.tsx";

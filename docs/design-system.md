@@ -17,9 +17,9 @@ invent dark values. If dark mode comes up, flag it instead of guessing.
 | Tokens (`@theme`) | `packages/web/src/theme.css` |
 | Stylesheet entry | `packages/web/src/index.css` |
 | Fonts | `packages/web/index.html` |
-| Components | `packages/web/src/components/ui/` |
-| Import barrel | `packages/web/src/components/ui.tsx` |
-| Living reference | `/design` route — `packages/web/src/screens/DesignSystemScreen.tsx` |
+| Components | `packages/web/src/ui/` |
+| Import barrel | `packages/web/src/ui.tsx` |
+| Living reference | `/design` route — `packages/web/src/screens/design-system/DesignSystemScreen.tsx` |
 
 `theme.css` **removes Tailwind's default palette** (`--color-*: initial`). Only the colors
 below exist, so `bg-blue-500` or `text-slate-600` won't generate. That's deliberate. If a
@@ -161,6 +161,19 @@ query/mutation failures and renders nothing when `message` is null.
 
 `checkboxClass` applies `accent-primary-600` so native checkboxes stop rendering in the
 browser's default blue.
+
+### List controls — `<SearchInput>`, `<LoadMore>`
+
+`<SearchInput value onChange placeholder label?>` is the filter box above a table. It
+wears `inputClass`, so it is a soft rectangle rather than a pill, and it is a plain
+input — not a combobox — because it narrows the table in place instead of opening a
+result list. It is `w-full`; wrap it in a sized box (`w-full sm:max-w-xs`) to constrain
+it.
+
+`<LoadMore hasMore loading onClick label?>` is the footer of a cursor-paginated list. It
+renders nothing when `hasMore` is false, so screens can include it unconditionally. A
+`secondary` `sm` button, centered — secondary so it doesn't compete with the page's
+primary action.
 
 ## Don'ts
 
