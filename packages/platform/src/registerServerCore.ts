@@ -35,6 +35,7 @@ import {
   PRODUCT_REPOSITORY_TOKEN,
   PLANOGRAM_REPOSITORY_TOKEN,
   PURCHASE_REPOSITORY_TOKEN,
+  VISIT_REPOSITORY_TOKEN,
   PACK_REPOSITORY_TOKEN,
   WEBHOOK_EVENT_REPOSITORY_TOKEN,
   JOB_REPOSITORY_TOKEN,
@@ -48,6 +49,7 @@ import { MachineTemplateRepositoryImpl } from "./data-access/repositories/Machin
 import { ProductRepositoryImpl } from "./data-access/repositories/ProductRepository/ProductRepositoryImpl.ts";
 import { PlanogramRepositoryImpl } from "./data-access/repositories/PlanogramRepository/PlanogramRepositoryImpl.ts";
 import { PurchaseRepositoryImpl } from "./data-access/repositories/PurchaseRepository/PurchaseRepositoryImpl.ts";
+import { VisitRepositoryImpl } from "./data-access/repositories/VisitRepository/VisitRepositoryImpl.ts";
 import { PackRepositoryImpl } from "./data-access/repositories/PackRepository/PackRepositoryImpl.ts";
 import { WebhookEventRepositoryImpl } from "./data-access/repositories/WebhookEventRepository/WebhookEventRepositoryImpl.ts";
 import { JobRepositoryImpl } from "./data-access/repositories/JobRepository/JobRepositoryImpl.ts";
@@ -99,6 +101,7 @@ export function registerServerCore(container: DependencyContainer): void {
   container.registerSingleton(PRODUCT_REPOSITORY_TOKEN, ProductRepositoryImpl);
   container.registerSingleton(PLANOGRAM_REPOSITORY_TOKEN, PlanogramRepositoryImpl);
   container.registerSingleton(PURCHASE_REPOSITORY_TOKEN, PurchaseRepositoryImpl);
+  container.registerSingleton(VISIT_REPOSITORY_TOKEN, VisitRepositoryImpl);
   container.registerSingleton(PACK_REPOSITORY_TOKEN, PackRepositoryImpl);
 
   // Webhook-fed infrastructure and identity mirrors. On registerServerCore

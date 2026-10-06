@@ -22,6 +22,7 @@ export * from "./data-access/repositories/MachineTemplateRepository/MachineTempl
 export * from "./data-access/repositories/ProductRepository/ProductRepository.ts";
 export * from "./data-access/repositories/PlanogramRepository/PlanogramRepository.ts";
 export * from "./data-access/repositories/PurchaseRepository/PurchaseRepository.ts";
+export * from "./data-access/repositories/VisitRepository/VisitRepository.ts";
 export * from "./data-access/repositories/PackRepository/PackRepository.ts";
 // Platform-infrastructure records (not org-scoped) and the Clerk identity
 // mirrors the webhook handlers maintain.
