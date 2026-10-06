@@ -1,9 +1,11 @@
 import ClerkKit
+import SwiftData
 import SwiftUI
 
 @main
 struct VendpireApp: App {
     @State private var session = ClerkSession()
+    private let container = VendpireStore.makeContainer()
 
     init() {
         Clerk.configure(publishableKey: AppEnvironment.clerkPublishableKey)
@@ -13,6 +15,7 @@ struct VendpireApp: App {
         WindowGroup {
             AccountView()
                 .environment(session)
+                .modelContainer(container)
                 .task {
                     // Clerk rehydrates a persisted session itself; this only
                     // reads the result. It must never gate what is shown —
