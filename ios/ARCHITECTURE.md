@@ -109,6 +109,16 @@ assumed cheap by the mirror-by-full-refresh model.
 
 ## Main actor until proven otherwise
 
+Xcode 26 sets `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` on new projects, so
+anything without explicit isolation is implicitly `@MainActor`. That matches the
+decision below, but it over-applies: it also pins pure value types and pure
+functions to the main actor, which makes them unreachable from a nonisolated
+test and needlessly serialised later.
+
+**Pure logic is therefore marked `nonisolated` explicitly** — `SessionTokenDecoder`
+today, and everything in `Domain/` as it arrives. Code that touches no shared
+state should have no actor affinity.
+
 `ModelContext` is not `Sendable`, and everything stays on the main actor. The
 whole org is ~43 products and well under 100 KB, so a background context buys
 nothing measurable while premature `@ModelActor` use is a reliable source of
