@@ -20,6 +20,11 @@ bun run ios:screenshot   # capture the booted simulator to ios/build/screenshot.
 All four delegate to `ios/Scripts/xc`, which can also be called directly
 (`ios/Scripts/xc run --console-pty` streams the app's stdout).
 
+## Architecture
+
+See [ARCHITECTURE.md](ARCHITECTURE.md) — layering, why there are no view models
+yet, and why auth never gates the store.
+
 ## Toolchain
 
 This machine has two Xcodes. The scripts pin **Xcode 26.1** via `DEVELOPER_DIR`
