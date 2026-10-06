@@ -1,0 +1,61 @@
+{
+  "comment": "Shared test vectors for normalizeGtin / gs1CheckDigit. Read by gtin.test.ts here and by ios/VendpireTests/GtinTests.swift as a bundle resource, so the TS and Swift implementations cannot drift apart the first time someone fixes a UPC-E edge case. Adding a case here is adding it to both suites.",
+  "checkDigits": [
+    { "digits": "04900000634", "expected": 6, "note": "Coca-Cola 12oz, UPC-A body" },
+    { "digits": "002840004400", "expected": 4, "note": "Cheetos case, EAN-13 body" }
+  ],
+  "normalize": [
+    {
+      "input": "049000006346",
+      "note": "UPC-A zero-pads to GTIN-14",
+      "expected": { "gtin14": "00049000006346", "format": "upc-a", "likelyCase": false }
+    },
+    {
+      "input": "04963406",
+      "note": "UPC-E expands to UPC-A before the check digit is validated",
+      "expected": { "gtin14": "00049000006346", "format": "upc-e", "likelyCase": false }
+    },
+    {
+      "input": " 0-49000-00634-6 ",
+      "note": "separators and surrounding space are stripped",
+      "expected": { "gtin14": "00049000006346", "format": "upc-a", "likelyCase": false }
+    },
+    {
+      "input": "0028400044004",
+      "note": "EAN-13, the zero-padded spelling a CSV tends to carry",
+      "expected": { "gtin14": "00028400044004", "format": "ean-13", "likelyCase": false }
+    },
+    {
+      "input": "10028400044001",
+      "note": "native GTIN-14 with indicator digit 1 — a case, not a unit",
+      "expected": { "gtin14": "10028400044001", "format": "gtin-14", "likelyCase": true }
+    },
+    {
+      "input": "00049000006346",
+      "note": "already GTIN-14; indicator 0 is a unit, not a case",
+      "expected": { "gtin14": "00049000006346", "format": "gtin-14", "likelyCase": false }
+    },
+    {
+      "input": "90028400044007",
+      "note": "indicator 9 is reserved for variable measure, so not a case either",
+      "expected": { "gtin14": "90028400044007", "format": "gtin-14", "likelyCase": false }
+    },
+    { "input": "049000006345", "note": "wrong check digit", "expected": null },
+    { "input": "04963407", "note": "UPC-E with a wrong check digit", "expected": null },
+    { "input": "29000006347", "note": "11 digits is not a GTIN length", "expected": null },
+    { "input": "12345", "note": "too short", "expected": null },
+    { "input": "", "note": "empty", "expected": null },
+    { "input": "not-a-code", "note": "no digits at all", "expected": null },
+    { "input": "24963406", "note": "UPC-E number system must be 0 or 1", "expected": null }
+  ],
+  "equivalences": [
+    {
+      "note": "the same code spelled 12- and 13-digit must land on one GTIN-14",
+      "inputs": ["049000006346", "0049000006346"]
+    },
+    {
+      "note": "UPC-E and its expanded UPC-A are the same product",
+      "inputs": ["04963406", "049000006346"]
+    }
+  ]
+}

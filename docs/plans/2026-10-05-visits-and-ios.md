@@ -4,6 +4,11 @@
 > hold; **Stage C is explicitly revisable** — re-read it before starting rather than treating
 > it as settled.
 >
+> **Amended 2026-10-05:** visit lines gained `removedUnits` + `removedReason`. Walking
+> through planogram re-organization and expired stock found a hole that invents revenue —
+> units can leave a slot without being sold, and the original schema had no way to say so.
+> See "Units that leave a slot without being sold" below.
+>
 > Task board: shuffleboard project `Vendpire`, nine phase tasks mirroring the phases below.
 > Subtasks prefixed `DECIDE:` mark the open questions, deliberately left to be answered at
 > the phase that reaches them rather than up front.
@@ -125,13 +130,57 @@ the next read returns. Cost: reports scan N visits — hundreds of documents a m
 For a given **(slotCode, productId)** key:
 
 ```
-sold = prev.remaining + prev.added − current.remaining
+levelAfter(visit)  = visit.remaining − visit.removedUnits + visit.added
+sold (prev → cur)  = levelAfter(prev) − cur.remaining
 ```
 
-`remaining` is the count **before** refilling. Keying by (slotCode, productId) rather than
-slotCode alone is what makes mixed spirals record per-flavor counts.
+`remaining` is what was physically in the slot on arrival — **before refilling and before
+pulling anything out**. Keying by (slotCode, productId) rather than slotCode alone is what
+makes mixed spirals record per-flavor counts, and what lets one slot carry both its outgoing
+and incoming product on a re-planogram visit.
 
-### Seven traps this design exists to avoid
+`added` and `removedUnits` both belong to the **previous** visit in the formula: they are
+things you did at that servicing, and together they set the level the next interval draws
+down from.
+
+### Units that leave a slot without being sold
+
+Expired stock, damage, and destocking all take units out of a slot with no revenue. Without
+a dedicated field the arithmetic assumes a customer paid for them — the same family of bug
+as treating a missing line as zero. There is no way to record it with counts alone: counting
+before you bin expired stock gets this interval right and the next one wrong; counting after
+invents revenue immediately. Either way you lose exactly the units you binned.
+
+So each line carries `removedUnits` and a `removedReason`, and the reason decides whether
+it's a loss:
+
+| reason | disposition | P&L effect |
+|---|---|---|
+| `expired`, `damaged`, `recalled` | `written-off` | cost hits profit |
+| `destocked` (slow mover → van), `transferred` (→ another machine) | `returned-to-stock` | **none** |
+
+A transfer is free, and not by convention — unit cost is an all-time, org-wide weighted
+average per product, so when those units sell at another machine their COGS lands there.
+Booking them at removal would double-count. `visits/removals.ts` holds the one mapping from
+reason to disposition, so the engine never branches on a reason and adding one later
+("stolen") is a table change rather than an arithmetic change.
+
+Two consequences worth having:
+
+- **A product swap becomes recoverable.** Record the outgoing product with
+  `removedUnits = remaining` alongside the incoming product's line — legal already, since a
+  duplicate `slotCode` with a different `productId` is the mixed-spiral case — and the
+  closing interval computes normally instead of reporting `product-changed`.
+- **`levelAfter === 0` with the key absent next visit means the position closed
+  deliberately** — no interval, no anomaly. Previously indistinguishable from "you forgot to
+  count it." Anomalies that fire every week get ignored; these now fire only on real
+  problems.
+
+Van stock also falls out for free as a later report, with no new data:
+`Σ purchased − Σ added + Σ removed(returned-to-stock)`. A negative result is a data-entry
+error worth surfacing.
+
+### Eight traps this design exists to avoid
 
 1. **Never reject an out-of-order visit.** Offline-first makes backdating normal: you
    service at 9am with no signal, your wife services at 2pm and submits first, you sync at
@@ -156,7 +205,10 @@ slotCode alone is what makes mixed spirals record per-flavor counts.
    profit, and a fresh catalog has plenty of products with no purchase history. Same for
    sold. `unknownCostRows` lets the UI say "profit unavailable: 3 products lack purchase
    history."
-7. **Idempotency returns 200 with the original document, never 409.** A client that timed
+7. **Units removed from a slot were not sold.** Expired, damaged, or destocked stock leaves
+   via `removedUnits`, and `removedReason` decides whether it's a write-off or a transfer.
+   Omit the field and the engine books a customer purchase that never happened.
+8. **Idempotency returns 200 with the original document, never 409.** A client that timed
    out can't distinguish "succeeded, response lost" from "failed"; a 409 makes the outbox
    either drop the draft or retry forever.
 
@@ -171,17 +223,27 @@ Phases 1 and 2 are fully independent of each other and of everything downstream.
 Test-first, pure, no I/O, no mocks. No commission module in v1; P&L is revenue − COGS.
 
 ```
-src/visits/{types,anomalies,sold}.ts + sold.test.ts
+src/visits/{types,removals,anomalies,sold}.ts + sold.test.ts
 src/costs/unitCost.ts + unitCost.test.ts
 src/pnl/pnl.ts + pnl.test.ts
 src/gtin/vectors.json          # extracted from gtin.test.ts, shared with Swift in Phase 2
 ```
 Modify `src/index.ts` to export `./visits`, `./costs`, `./pnl`. `money/` stays for money
-*primitives* (`allocate`); `costs/` holds the domain costing rule.
+*primitives* (`allocate`); `costs/` holds the domain costing rule. `UnknownSoldReason` lives
+in `types.ts` rather than `sold.ts` so `anomalies.ts` can reference it without a cycle.
+
+```ts
+// visits/removals.ts — the ONE place the loss-vs-transfer policy lives.
+export type RemovalReason =
+  | "expired" | "damaged" | "recalled"   // → written-off
+  | "destocked" | "transferred";         // → returned-to-stock
+export type RemovalDisposition = "written-off" | "returned-to-stock";
+export const dispositionFor: (reason: RemovalReason) => RemovalDisposition;
+export const isWrittenOff: (reason: RemovalReason) => boolean;
+```
 
 ```ts
 // visits/sold.ts
-export type UnknownSoldReason = "first-visit" | "product-changed" | "slot-not-counted";
 export type SoldUnits =
   | { readonly status: "known"; readonly units: number }   // may be NEGATIVE
   | { readonly status: "unknown"; readonly reason: UnknownSoldReason };
@@ -194,12 +256,26 @@ export interface SlotInterval {
   readonly parAtFill: number | null;
 }
 
-export const diffVisits: (previous: VisitObservation | null, current: VisitObservation)
+/**
+ * A removal is a property of a VISIT, not of an interval — it happens at the
+ * boundary. Returned separately so a removal on the LAST visit isn't dropped
+ * for want of a following interval.
+ */
+export interface SlotRemoval {
+  readonly slotCode: string; readonly productId: string;
+  readonly visitId: string; readonly countedAt: string;
+  readonly units: number;
+  readonly reason: RemovalReason | null;   // null → unknown-removal-reason
+}
+
+/** An object, not two positional visits: same type, so a swap typechecks and
+ *  silently inverts the arithmetic. */
+export const diffVisits: (visits: { previous: VisitObservation | null; current: VisitObservation })
   => { intervals: SlotInterval[]; anomalies: VisitAnomaly[] };
 
 /** Sorts defensively by (countedAt, createdAt, id) — callers needn't pre-order. */
 export const intervalsForMachine: (visits: readonly VisitObservation[])
-  => { intervals: SlotInterval[]; anomalies: VisitAnomaly[] };
+  => { intervals: SlotInterval[]; removals: SlotRemoval[]; anomalies: VisitAnomaly[] };
 ```
 
 ```ts
@@ -213,21 +289,61 @@ export const buildCostBasis: (lines: readonly CostBasisLine[]) => Map<string, Un
 /** sold × sumCost / sumUnits, Math.round ONCE at the end. */
 export const cogsForUnits: (units: number, basis: UnitCost | undefined) => …;
 /** FOR DISPLAY ONLY ("about $0.49 each"). Never multiply this by a count. */
-export const displayUnitCostCents: (basis: UnitCost) => Cents | null;
+export const unitCostCentsForDisplay: (basis: UnitCost) => Cents | null;
 ```
 
 ```ts
 // pnl/pnl.ts
 export interface PnlTotals {
   readonly revenueCents: Cents;
-  readonly cogsCents: Cents | null;        // null if ANY row unknown — never partial
+  readonly cogsCents: Cents | null;        // SOLD units only; null if ANY row unknown
+  /** revenue − cogs. Operating performance, ignoring waste. */
+  readonly grossProfitCents: Cents | null;
+  /** Write-offs at cost: expired / damaged / recalled. */
+  readonly writeOffCents: Cents | null;
+  readonly writeOffUnits: number;
+  /**
+   * destocked / transferred. Units only, deliberately with NO cost figure —
+   * the type refuses to let a transfer be added to a loss.
+   */
+  readonly returnedToStockUnits: number;
+  /** revenue − cogs − writeOff. The honest bottom line. */
   readonly netProfitCents: Cents | null;
   readonly unknownSoldRows: number;
   readonly unknownCostRows: number;
+  readonly unknownRemovalReasonRows: number;
 }
-export const buildIntervalPnl: (intervals, costBasis) => { rows; anomalies };
-export const summarizePnl: (rows) => { totals: PnlTotals; anomalies: VisitAnomaly[] };
+/**
+ * Discriminated on disposition so a returned-to-stock row has NO cost field at
+ * all — not a zero, and not a nullable. There is nothing to accidentally add to
+ * a loss total, which is what actually enforces PnlTotals' promise above.
+ */
+export type RemovalPnlRow =
+  | { readonly removal: SlotRemoval; readonly disposition: "written-off";
+      readonly costCents: Cents | null }        // null = unknown cost
+  | { readonly removal: SlotRemoval; readonly disposition: "returned-to-stock" };
+
+export const buildIntervalPnl: (intervals, removals, costBasis) => { rows; anomalies };
+/** No anomalies come out here: nothing becomes knowable at summary time that
+ *  buildIntervalPnl hasn't already reported, and the unknown*Rows counts carry
+ *  what a UI needs to explain a null. */
+export const buildPnlTotals: (rows: PnlRows) => PnlTotals;
 ```
+
+**"P&L" here is product-level profitability, not a business P&L.** No operating
+expenses exist in v1 — no fuel, labour, depreciation, and commission is explicitly cut.
+So `netProfitCents` means *net of the goods you lost*, not net of running the route.
+That's the question you have standing at a machine ("is this slot worth the space?"),
+and it's the one visit data can answer honestly.
+
+Worked examples with real numbers carried end to end — including a product
+replacement recorded both correctly and carelessly — live in
+`docs/diagrams/visit-calculations.md`.
+
+Both profit figures are exposed because folding write-offs silently into COGS hides the one
+number you'd act on, and omitting them entirely makes profit optimistic. Each null-propagates
+independently, so an unknown-cost write-off can leave `netProfitCents` null while
+`grossProfitCents` stays real.
 
 ```ts
 // visits/anomalies.ts
@@ -237,6 +353,8 @@ export type VisitAnomaly =
   | { kind: "product-changed"; slotCode; productId; unaccountedUnits }
   | { kind: "slot-not-counted"; slotCode; productId }
   | { kind: "over-par"; slotCode; productId; level; par }
+  | { kind: "over-removed"; slotCode; productId; remaining; removedUnits }
+  | { kind: "unknown-removal-reason"; slotCode; productId; units }
   | { kind: "unknown-cost"; productId };
 ```
 `out-of-order` stays out of the pure engine — it's about insertion, not arithmetic.
@@ -254,6 +372,14 @@ invent-revenue guard); slot first appearing at visit 3 → `first-visit` not
 → identical output; `countedAt` tie → deterministic; over-par warns but still computes;
 zero-line visit mid-sequence invents nothing.
 
+Removals — **the expiry case:** `{rem 2, add 8}` → `{rem 6, removed 3, add 7}` sells **4**,
+*and* the following interval draws from 10 not 13 (counting before binning gets this interval
+right and the next one wrong; counting after invents revenue immediately — the test asserts
+both intervals); a swap that counts the outgoing product out (`removedUnits = remaining`) →
+a real sold figure and **no** `product-changed`; `levelAfter === 0` then key absent → position
+closed, no anomaly; `removedUnits > remaining` → `over-removed`, still computes;
+`removedUnits > 0` with a null reason → `unknown-removal-reason`.
+
 `unitCost.test.ts` — **round-once:** units 7, sumCost 100, sumUnits 3 → `round(700/3)=233`
 (naive `round(100/3)×7=231`, off by 2¢); **the identity test:** 30@1499 + 10@699, sell all 40
 → exactly 2198 (buying all of it costs what you paid; also proves weighted not arithmetic
@@ -265,6 +391,10 @@ knowledge (`PurchaseServiceImpl` already expanded them).
 `pnl.test.ts` — hand-computed happy path; **the honesty test:** one unknown-cost product →
 `cogsCents === null`, `netProfitCents === null`, `unknownCostRows === 1`, but `revenueCents`
 still real; one unknown-sold row excluded from totals; zero visits → no throw.
+
+Write-offs — an `expired` removal reduces `netProfitCents` but **not** `grossProfitCents`;
+a `destocked` removal changes neither, and contributes units with no cost figure; an
+unknown-cost write-off leaves `netProfitCents` null while `grossProfitCents` stays real.
 
 ## Phase 2 — iOS scaffold, Clerk, and the face grid (no networking)
 
@@ -343,8 +473,8 @@ test on an exported `toVisit`, as `toCommission` is tested in `LocationRepositor
 
 Model fields: `orgId`, `machineId`, `locationId`, `planogramId` (null), `countedAt`,
 `recordedByUserId`, `lines[]`, `notes`, `clientRequestId`, `deletedAt`, `{timestamps:true}`.
-Line sub-schema (`_id: false`): `slotCode`, `productId`, `remaining`, `added`, `priceCents`,
-`par` (null).
+Line sub-schema (`_id: false`): `slotCode`, `productId`, `remaining`, `added`,
+`removedUnits` (default 0), `removedReason` (null), `priceCents`, `par` (null).
 
 ```
 { orgId: 1, machineId: 1, countedAt: -1 }   // engine workhorse + per-machine history
@@ -394,11 +524,21 @@ the `packages/platform/src/index.ts` contract barrel.
 const visitLineInput = z.object({
   slotCode: z.string().min(1).max(8),
   productId: z.string().min(1),
-  remaining: z.number().int().min(0).max(999),   // BEFORE refilling
+  // BEFORE refilling AND before pulling anything out
+  remaining: z.number().int().min(0).max(999),
   added: z.number().int().min(0).max(999),
+  removedUnits: z.number().int().min(0).max(999).default(0),
+  removedReason: z.enum([
+    "expired", "damaged", "recalled", "destocked", "transferred",
+  ]).nullable().default(null),
   priceCents: z.number().int().min(0).max(100_000),
   par: z.number().int().min(0).max(999).nullable().default(null),
-});
+})
+  // A reason is REQUIRED once units are removed — it decides loss vs. transfer,
+  // and defaulting either way would overstate or hide the write-off.
+  .refine((l) => l.removedUnits === 0 || l.removedReason !== null, {
+    message: "removedReason is required when removedUnits > 0",
+  });
 
 const visitInput = z.object({
   machineId: z.string().min(1),
