@@ -28,11 +28,11 @@ const purchaseSchema = new Schema(
     receiptTotalCents: { type: Number, default: null },
     notes: { type: String, default: null, trim: true },
     /**
-     * Client-minted idempotency key. NULLABLE here, unlike on Visit: the web
-     * form predates it and submits none, and backfilling one onto historical
-     * purchases would invent a guarantee those rows never had.
+     * Client-minted idempotency key, REQUIRED. A client that times out mid
+     * submit cannot tell "succeeded, response lost" from "failed", so it
+     * retries; the unique index below is what makes that retry free.
      */
-    clientRequestId: { type: String, default: null },
+    clientRequestId: { type: String, required: true },
     deletedAt: { type: Date, default: null },
   },
   { timestamps: true },
@@ -46,14 +46,9 @@ purchaseSchema.index({ orgId: 1, purchasedAt: -1 });
 // sort and falls back to a blocking SORT over the whole org on every page.
 purchaseSchema.index({ orgId: 1, purchasedAt: -1, _id: -1 });
 purchaseSchema.index({ orgId: 1, updatedAt: -1 });
-// partialFilterExpression is NOT optional here. clientRequestId is nullable, and
-// a plain unique index treats every null as the same value — so it accepts the
-// first purchase without a key and rejects the second with E11000. Restricting
-// the index to documents where the field is a string leaves the nulls out of it
-// entirely, so only real keys are ever compared.
-purchaseSchema.index(
-  { orgId: 1, clientRequestId: 1 },
-  { unique: true, partialFilterExpression: { clientRequestId: { $type: "string" } } },
-);
+// Plain unique is safe because clientRequestId is required. Were it nullable
+// this would need a partialFilterExpression — a plain unique index treats every
+// null as the same value and would reject the second keyless document.
+purchaseSchema.index({ orgId: 1, clientRequestId: 1 }, { unique: true });
 
 export const PurchaseModel = model("Purchase", purchaseSchema);

@@ -20,6 +20,7 @@ import { decodePurchaseCursor, encodePurchaseCursor } from "./cursor.ts";
 import {
   DEFAULT_PURCHASE_PAGE_SIZE,
   type PurchaseDraft,
+  type PurchaseEditDraft,
   type PurchaseListOptions,
   type PurchaseListPage,
   type PurchasePackLine,
@@ -84,26 +85,20 @@ export class PurchaseServiceImpl implements PurchaseService {
   }
 
   async create(orgId: string, draft: PurchaseDraft): Promise<Purchase> {
+    const stored = await this.buildStored(orgId, draft);
     return this.purchases.create(orgId, {
-      ...(await this.buildStored(orgId, draft)),
-      clientRequestId: draft.clientRequestId ?? null,
+      ...stored,
+      clientRequestId: draft.clientRequestId,
     });
   }
 
   async update(
     orgId: string,
     id: string,
-    draft: PurchaseDraft,
+    draft: PurchaseEditDraft,
   ): Promise<Purchase> {
-    // clientRequestId is deliberately absent from what an edit writes — the
-    // PurchaseUpdate type is what enforces that. Rewriting it would strand the
-    // key the submitting client still retries under, and that retry would then
-    // create a SECOND purchase instead of getting this one back.
-    const updated = await this.purchases.update(
-      orgId,
-      id,
-      await this.buildStored(orgId, draft),
-    );
+    const stored = await this.buildStored(orgId, draft);
+    const updated = await this.purchases.update(orgId, id, stored);
     if (!updated) {
       throw new ServiceError("NOT_FOUND", "Purchase not found");
     }
@@ -121,7 +116,7 @@ export class PurchaseServiceImpl implements PurchaseService {
    */
   private async buildStored(
     orgId: string,
-    draft: PurchaseDraft,
+    draft: PurchaseEditDraft,
   ): Promise<PurchaseUpdate> {
     const direct: PurchaseLine[] = draft.lines.map((line) => ({
       productId: line.productId,

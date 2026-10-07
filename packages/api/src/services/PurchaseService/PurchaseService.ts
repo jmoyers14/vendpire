@@ -44,13 +44,17 @@ export interface PurchaseDraft {
   packLines?: PurchasePackLine[];
   receiptTotalCents?: number | null;
   notes: string | null;
-  /**
-   * Client-minted idempotency key. Optional: the web form submits none, and a
-   * keyless purchase is stored with null. Only honored on create — an edit
-   * cannot change it, or a retry under the old key would double-post.
-   */
-  clientRequestId?: string | null;
+  /** Client-minted idempotency key, minted once per form/draft. */
+  clientRequestId: string;
 }
+
+/**
+ * What an edit submits — everything except the key. An edit cannot change it:
+ * rewriting the key would strand the one the submitting client still retries
+ * under, and that retry would create a second purchase instead of getting this
+ * one back.
+ */
+export type PurchaseEditDraft = Omit<PurchaseDraft, "clientRequestId">;
 
 /**
  * Page size when the caller doesn't say. There is deliberately no maximum:
@@ -78,6 +82,6 @@ export interface PurchaseService {
   list(orgId: string, options: PurchaseListOptions): Promise<PurchaseListPage>;
   get(orgId: string, id: string): Promise<Purchase | null>;
   create(orgId: string, draft: PurchaseDraft): Promise<Purchase>;
-  update(orgId: string, id: string, draft: PurchaseDraft): Promise<Purchase>;
+  update(orgId: string, id: string, draft: PurchaseEditDraft): Promise<Purchase>;
   remove(orgId: string, id: string): Promise<void>;
 }

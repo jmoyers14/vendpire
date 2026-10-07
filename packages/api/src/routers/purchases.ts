@@ -31,7 +31,15 @@ const purchaseInput = z.object({
     .default([]),
   receiptTotalCents: z.number().int().min(0).nullable().default(null),
   notes: z.string().nullable().default(null),
+  // Minted by the client, once per draft, so a double submit can't double-post.
+  clientRequestId: z.string().min(8).max(64),
 });
+
+// An edit cannot carry a key — see PurchaseEditDraft. Omitting it here means a
+// client never has to invent a meaningless one to edit a purchase.
+const purchaseEditInput = purchaseInput
+  .omit({ clientRequestId: true })
+  .extend({ id: z.string().min(1) });
 
 // Cursor pagination over (purchasedAt desc, _id desc) plus an optional date
 // window. Two things are load-bearing here:
@@ -83,7 +91,7 @@ export const purchasesRouter = router({
     }),
 
   update: orgProtectedProcedure
-    .input(purchaseInput.extend({ id: z.string().min(1) }))
+    .input(purchaseEditInput)
     .mutation(({ ctx, input }) => {
       const { id, ...data } = input;
       return ctx.services.purchaseService.update(ctx.auth.orgId, id, data);

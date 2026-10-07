@@ -82,6 +82,13 @@ const toProductOption = (product: ApiProduct): ProductOption => ({
 export function PurchaseFormScreen({ purchaseId }: { purchaseId?: string }) {
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
+  /**
+   * Minted once when the form opens, not at submit time. A lazy initializer is
+   * what makes it survive re-renders, so double-clicking Save sends the SAME
+   * key twice and the server returns the first purchase instead of writing a
+   * second one.
+   */
+  const [clientRequestId] = useState(() => crypto.randomUUID());
   const [date, setDate] = useState(toDateInput(new Date().toISOString()));
   const [vendor, setVendor] = useState(DEFAULT_VENDOR);
   const [notes, setNotes] = useState("");
@@ -286,9 +293,11 @@ export function PurchaseFormScreen({ purchaseId }: { purchaseId?: string }) {
       notes: notes.trim() || null,
     };
     if (purchaseId) {
+      // No key on an edit — it would strand the one the purchase was created
+      // under. The router's input omits the field entirely.
       update.mutate({ id: purchaseId, ...data });
     } else {
-      create.mutate(data);
+      create.mutate({ ...data, clientRequestId });
     }
   };
 

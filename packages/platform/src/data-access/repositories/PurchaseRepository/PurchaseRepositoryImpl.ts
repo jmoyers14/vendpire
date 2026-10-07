@@ -21,7 +21,7 @@ type PurchaseDoc = {
   }[];
   receiptTotalCents?: number | null;
   notes?: string | null;
-  clientRequestId?: string | null;
+  clientRequestId: string;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -102,9 +102,6 @@ export class PurchaseRepositoryImpl implements PurchaseRepository {
     orgId: string,
     clientRequestId: string,
   ): Promise<Purchase | null> {
-    // Deliberately NOT filtered on deletedAt: a soft-deleted purchase still
-    // owns its key under the unique index, so hiding it here would turn a
-    // retry into a create that can only fail on E11000.
     const doc = await PurchaseModel.findOne({
       orgId,
       clientRequestId,
@@ -151,7 +148,7 @@ function toPurchase(doc: PurchaseDoc): Purchase {
     })),
     receiptTotalCents: doc.receiptTotalCents ?? null,
     notes: doc.notes ?? null,
-    clientRequestId: doc.clientRequestId ?? null,
+    clientRequestId: doc.clientRequestId,
     createdAt: doc.createdAt.toISOString(),
     updatedAt: doc.updatedAt.toISOString(),
   };

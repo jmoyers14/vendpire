@@ -42,12 +42,14 @@ describe.skipIf(!ENABLED)("PurchaseRepositoryImpl against MongoDB", () => {
     await PurchaseModel.deleteMany({});
   });
 
+  let keySeq = 0;
   const seed = async (purchasedAt: Date): Promise<string> => {
     const doc = await PurchaseModel.create({
       orgId: ORG,
       purchasedAt,
       vendor: "Costco",
       lines: [{ productId: "p1", units: 1, totalCostCents: 100 }],
+      clientRequestId: `seed_${(keySeq += 1)}`,
     });
     return String(doc._id);
   };
@@ -117,6 +119,7 @@ describe.skipIf(!ENABLED)("PurchaseRepositoryImpl against MongoDB", () => {
       purchasedAt: SHARED,
       vendor: "Sam's",
       lines: [{ productId: "p1", units: 1, totalCostCents: 100 }],
+      clientRequestId: "other_org",
     });
     const kept = await seed(OLDER);
     const page = await repo.findPageByOrg(ORG, { limit: 10 });
@@ -136,31 +139,20 @@ describe.skipIf(!ENABLED)("PurchaseRepositoryImpl against MongoDB", () => {
   });
 
   /**
-   * The partialFilterExpression on {orgId, clientRequestId}. This is the one
-   * claim in the whole slice that unit tests cannot touch and that fails on the
-   * SECOND row rather than the first — a plain unique index treats every null
-   * as the same value, so the web's keyless purchases would start colliding the
-   * moment somebody recorded a second one.
+   * The unique {orgId, clientRequestId} index. A plain unique index is only
+   * safe because the field is required — see the model.
    */
-  describe("the clientRequestId partial unique index", () => {
-    it("accepts any number of purchases with no key", async () => {
-      await seed(SHARED);
-      await seed(OLDER);
-      await seed(OLDER);
-      expect(
-        await PurchaseModel.countDocuments({ orgId: ORG, clientRequestId: null }),
-      ).toBe(3);
-    });
+  describe("the clientRequestId unique index", () => {
+    const withKey = (clientRequestId: string) =>
+      PurchaseModel.create({
+        orgId: ORG,
+        purchasedAt: SHARED,
+        vendor: "Costco",
+        lines: [{ productId: "p1", units: 1, totalCostCents: 100 }],
+        clientRequestId,
+      });
 
-    it("still rejects a duplicate key when one is given", async () => {
-      const withKey = (clientRequestId: string) =>
-        PurchaseModel.create({
-          orgId: ORG,
-          purchasedAt: SHARED,
-          vendor: "Costco",
-          lines: [{ productId: "p1", units: 1, totalCostCents: 100 }],
-          clientRequestId,
-        });
+    it("rejects a second purchase with the same key in the org", async () => {
       await withKey("req_1");
       let code: number | undefined;
       try {
@@ -169,19 +161,49 @@ describe.skipIf(!ENABLED)("PurchaseRepositoryImpl against MongoDB", () => {
         code = (error as { code?: number }).code;
       }
       expect(code).toBe(11000);
+      expect(await PurchaseModel.countDocuments({ orgId: ORG })).toBe(1);
     });
 
-    it("finds a purchase by its key, and nothing by a null one", async () => {
+    // The index is org-scoped, so two tenants minting the same uuid don't collide.
+    it("allows the same key in a different org", async () => {
+      await withKey("req_1");
       await PurchaseModel.create({
-        orgId: ORG,
+        orgId: "org_2",
         purchasedAt: SHARED,
-        vendor: "Costco",
+        vendor: "Sam's",
         lines: [{ productId: "p1", units: 1, totalCostCents: 100 }],
         clientRequestId: "req_1",
       });
+      expect(await PurchaseModel.countDocuments({ clientRequestId: "req_1" })).toBe(2);
+    });
+
+    // Required means required — the schema is the backstop if a caller skips
+    // validation, because a keyless row would make every retry a duplicate.
+    it("refuses a purchase with no key at all", async () => {
+      await expect(
+        PurchaseModel.create({
+          orgId: ORG,
+          purchasedAt: SHARED,
+          vendor: "Costco",
+          lines: [{ productId: "p1", units: 1, totalCostCents: 100 }],
+        }),
+      ).rejects.toThrow(/clientRequestId/);
+    });
+
+    it("finds a purchase by its key", async () => {
+      await withKey("req_1");
       await seed(OLDER);
       expect((await repo.findByClientRequestId(ORG, "req_1"))?.vendor).toBe("Costco");
       expect(await repo.findByClientRequestId(ORG, "nope")).toBeNull();
+    });
+
+    it("returns a soft-deleted purchase by key, so a retry cannot re-create it", async () => {
+      const created = await withKey("req_1");
+      await repo.softDelete(ORG, String(created._id));
+      expect(await repo.findById(ORG, String(created._id))).toBeNull();
+      expect((await repo.findByClientRequestId(ORG, "req_1"))?.id).toBe(
+        String(created._id),
+      );
     });
 
     // An edit must not be able to strand the key its submitter still retries

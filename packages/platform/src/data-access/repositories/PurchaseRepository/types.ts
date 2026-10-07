@@ -19,12 +19,8 @@ export interface Purchase {
   /** What the receipt says you paid, when recorded. Null when not entered. */
   receiptTotalCents: number | null;
   notes: string | null;
-  /**
-   * Client-minted idempotency key, or null for a purchase recorded on the web
-   * (and for every purchase written before the field existed). Unique per org
-   * among the non-null values.
-   */
-  clientRequestId: string | null;
+  /** Client-minted idempotency key. Required, and unique per org. */
+  clientRequestId: string;
   createdAt: string;
   updatedAt: string;
 }
