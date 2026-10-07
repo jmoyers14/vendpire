@@ -10,6 +10,9 @@ export default defineConfig({
   // Every worker boots its own isolated stack (in-memory Mongo + api + web),
   // so tests are free to run fully parallel — nothing is shared across workers.
   fullyParallel: true,
+  // Unbounded parallelism assumes a dev machine's core count. A GitHub runner
+  // has 2 cores, and one whole stack per worker thrashes it into timeouts.
+  workers: process.env.CI ? 2 : undefined,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   reporter: process.env.CI ? [["list"], ["html", { open: "never" }]] : "list",
