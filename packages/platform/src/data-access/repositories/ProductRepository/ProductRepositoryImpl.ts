@@ -64,8 +64,6 @@ export class ProductRepositoryImpl implements ProductRepository {
     if (ids.length === 0) {
       return new Set();
     }
-    // No deletedAt predicate, on purpose — see the port's doc comment. The org
-    // scope is still enforced, so this is not a tenant-boundary hole.
     const docs = await ProductModel.find(
       { _id: { $in: ids }, orgId },
       { _id: 1 },

@@ -60,7 +60,6 @@ export class LocationRepositoryImpl implements LocationRepository {
     orgId: string,
     id: string,
   ): Promise<Location | null> {
-    // No deletedAt predicate, on purpose — see the port. Still org-scoped.
     const doc = await LocationModel.findOne({
       _id: id,
       orgId,

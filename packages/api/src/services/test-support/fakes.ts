@@ -66,8 +66,6 @@ export class FakeLocationRepository implements LocationRepository {
       null
     );
   }
-  // Genuinely tolerant of the soft delete, so a test asserting that a visit
-  // against a deleted location is still accepted actually proves something.
   async findByIdIncludingDeleted(
     orgId: string,
     id: string,
@@ -399,8 +397,6 @@ export class FakePurchaseRepository implements PurchaseRepository {
     orgId: string,
     clientRequestId: string,
   ): Promise<Purchase | null> {
-    // Not filtered on `deleted`, mirroring the impl: a soft-deleted purchase
-    // still owns its key, so a retry must find it rather than re-create.
     return (
       this.rows.find(
         (r) => r.orgId === orgId && r.clientRequestId === clientRequestId,

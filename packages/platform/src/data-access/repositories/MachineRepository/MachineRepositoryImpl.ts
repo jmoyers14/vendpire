@@ -45,7 +45,6 @@ export class MachineRepositoryImpl implements MachineRepository {
     orgId: string,
     id: string,
   ): Promise<Machine | null> {
-    // No deletedAt predicate, on purpose — see the port. Still org-scoped.
     const doc = await MachineModel.findOne({
       _id: id,
       orgId,
