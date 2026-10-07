@@ -1,0 +1,637 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		996FC5CD3075A1D200BBCD42 /* ClerkKit in Frameworks */ = {isa = PBXBuildFile; productRef = 996FC5CC3075A1D200BBCD42 /* ClerkKit */; };
+		996FC5CF3075A1D200BBCD42 /* ClerkKitUI in Frameworks */ = {isa = PBXBuildFile; productRef = 996FC5CE3075A1D200BBCD42 /* ClerkKitUI */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		99128E1230758C6A00630E2F /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 99128DFC30758C6800630E2F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 99128E0330758C6800630E2F;
+			remoteInfo = Vendpire;
+		};
+		99128E1C30758C6A00630E2F /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 99128DFC30758C6800630E2F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 99128E0330758C6800630E2F;
+			remoteInfo = Vendpire;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		99128E0430758C6800630E2F /* Vendpire.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Vendpire.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		99128E1130758C6A00630E2F /* VendpireTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = VendpireTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		99128E1B30758C6A00630E2F /* VendpireUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = VendpireUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		AA0000000000000000000002 /* Debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Debug.xcconfig; sourceTree = "<group>"; };
+		AA0000000000000000000003 /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Release.xcconfig; sourceTree = "<group>"; };
+		AA0000000000000000000004 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		99128E0630758C6800630E2F /* Vendpire */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Vendpire;
+			sourceTree = "<group>";
+		};
+		99128E1430758C6A00630E2F /* VendpireTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = VendpireTests;
+			sourceTree = "<group>";
+		};
+		99128E1E30758C6A00630E2F /* VendpireUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = VendpireUITests;
+			sourceTree = "<group>";
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		99128E0130758C6800630E2F /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				996FC5CD3075A1D200BBCD42 /* ClerkKit in Frameworks */,
+				996FC5CF3075A1D200BBCD42 /* ClerkKitUI in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		99128E0E30758C6A00630E2F /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		99128E1830758C6A00630E2F /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		99128DFB30758C6800630E2F = {
+			isa = PBXGroup;
+			children = (
+				AA0000000000000000000001 /* Config */,
+				99128E0630758C6800630E2F /* Vendpire */,
+				99128E1430758C6A00630E2F /* VendpireTests */,
+				99128E1E30758C6A00630E2F /* VendpireUITests */,
+				99128E0530758C6800630E2F /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		99128E0530758C6800630E2F /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				99128E0430758C6800630E2F /* Vendpire.app */,
+				99128E1130758C6A00630E2F /* VendpireTests.xctest */,
+				99128E1B30758C6A00630E2F /* VendpireUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		AA0000000000000000000001 /* Config */ = {
+			isa = PBXGroup;
+			children = (
+				AA0000000000000000000002 /* Debug.xcconfig */,
+				AA0000000000000000000003 /* Release.xcconfig */,
+				AA0000000000000000000004 /* Info.plist */,
+			);
+			path = Config;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		99128E0330758C6800630E2F /* Vendpire */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 99128E2530758C6A00630E2F /* Build configuration list for PBXNativeTarget "Vendpire" */;
+			buildPhases = (
+				99128E0030758C6800630E2F /* Sources */,
+				99128E0130758C6800630E2F /* Frameworks */,
+				99128E0230758C6800630E2F /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				99128E0630758C6800630E2F /* Vendpire */,
+			);
+			name = Vendpire;
+			packageProductDependencies = (
+				996FC5CC3075A1D200BBCD42 /* ClerkKit */,
+				996FC5CE3075A1D200BBCD42 /* ClerkKitUI */,
+			);
+			productName = Vendpire;
+			productReference = 99128E0430758C6800630E2F /* Vendpire.app */;
+			productType = "com.apple.product-type.application";
+		};
+		99128E1030758C6A00630E2F /* VendpireTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 99128E2830758C6A00630E2F /* Build configuration list for PBXNativeTarget "VendpireTests" */;
+			buildPhases = (
+				99128E0D30758C6A00630E2F /* Sources */,
+				99128E0E30758C6A00630E2F /* Frameworks */,
+				99128E0F30758C6A00630E2F /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				99128E1330758C6A00630E2F /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				99128E1430758C6A00630E2F /* VendpireTests */,
+			);
+			name = VendpireTests;
+			packageProductDependencies = (
+			);
+			productName = VendpireTests;
+			productReference = 99128E1130758C6A00630E2F /* VendpireTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		99128E1A30758C6A00630E2F /* VendpireUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 99128E2B30758C6A00630E2F /* Build configuration list for PBXNativeTarget "VendpireUITests" */;
+			buildPhases = (
+				99128E1730758C6A00630E2F /* Sources */,
+				99128E1830758C6A00630E2F /* Frameworks */,
+				99128E1930758C6A00630E2F /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				99128E1D30758C6A00630E2F /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				99128E1E30758C6A00630E2F /* VendpireUITests */,
+			);
+			name = VendpireUITests;
+			packageProductDependencies = (
+			);
+			productName = VendpireUITests;
+			productReference = 99128E1B30758C6A00630E2F /* VendpireUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		99128DFC30758C6800630E2F /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2610;
+				LastUpgradeCheck = 2610;
+				TargetAttributes = {
+					99128E0330758C6800630E2F = {
+						CreatedOnToolsVersion = 26.1;
+					};
+					99128E1030758C6A00630E2F = {
+						CreatedOnToolsVersion = 26.1;
+						TestTargetID = 99128E0330758C6800630E2F;
+					};
+					99128E1A30758C6A00630E2F = {
+						CreatedOnToolsVersion = 26.1;
+						TestTargetID = 99128E0330758C6800630E2F;
+					};
+				};
+			};
+			buildConfigurationList = 99128DFF30758C6800630E2F /* Build configuration list for PBXProject "Vendpire" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 99128DFB30758C6800630E2F;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				996FC5CB3075A1D200BBCD42 /* XCRemoteSwiftPackageReference "clerk-ios" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 99128E0530758C6800630E2F /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				99128E0330758C6800630E2F /* Vendpire */,
+				99128E1030758C6A00630E2F /* VendpireTests */,
+				99128E1A30758C6A00630E2F /* VendpireUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		99128E0230758C6800630E2F /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		99128E0F30758C6A00630E2F /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		99128E1930758C6A00630E2F /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		99128E0030758C6800630E2F /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		99128E0D30758C6A00630E2F /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		99128E1730758C6A00630E2F /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		99128E1330758C6A00630E2F /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 99128E0330758C6800630E2F /* Vendpire */;
+			targetProxy = 99128E1230758C6A00630E2F /* PBXContainerItemProxy */;
+		};
+		99128E1D30758C6A00630E2F /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 99128E0330758C6800630E2F /* Vendpire */;
+			targetProxy = 99128E1C30758C6A00630E2F /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		99128E2330758C6A00630E2F /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = AA0000000000000000000002 /* Debug.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = DTM57W4DZJ;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		99128E2430758C6A00630E2F /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = AA0000000000000000000003 /* Release.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = DTM57W4DZJ;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		99128E2630758C6A00630E2F /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = DTM57W4DZJ;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Config/Info.plist;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.dogbeach.dev.Vendpire;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 6.2;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		99128E2730758C6A00630E2F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = DTM57W4DZJ;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Config/Info.plist;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.dogbeach.dev.Vendpire;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 6.2;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		99128E2930758C6A00630E2F /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = DTM57W4DZJ;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.dogbeach.dev.VendpireTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 6.2;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Vendpire.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Vendpire";
+			};
+			name = Debug;
+		};
+		99128E2A30758C6A00630E2F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = DTM57W4DZJ;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.dogbeach.dev.VendpireTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 6.2;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Vendpire.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Vendpire";
+			};
+			name = Release;
+		};
+		99128E2C30758C6A00630E2F /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = DTM57W4DZJ;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.dogbeach.dev.VendpireUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 6.2;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = Vendpire;
+			};
+			name = Debug;
+		};
+		99128E2D30758C6A00630E2F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = DTM57W4DZJ;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.dogbeach.dev.VendpireUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 6.2;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = Vendpire;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		99128DFF30758C6800630E2F /* Build configuration list for PBXProject "Vendpire" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				99128E2330758C6A00630E2F /* Debug */,
+				99128E2430758C6A00630E2F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		99128E2530758C6A00630E2F /* Build configuration list for PBXNativeTarget "Vendpire" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				99128E2630758C6A00630E2F /* Debug */,
+				99128E2730758C6A00630E2F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		99128E2830758C6A00630E2F /* Build configuration list for PBXNativeTarget "VendpireTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				99128E2930758C6A00630E2F /* Debug */,
+				99128E2A30758C6A00630E2F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		99128E2B30758C6A00630E2F /* Build configuration list for PBXNativeTarget "VendpireUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				99128E2C30758C6A00630E2F /* Debug */,
+				99128E2D30758C6A00630E2F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		996FC5CB3075A1D200BBCD42 /* XCRemoteSwiftPackageReference "clerk-ios" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/clerk/clerk-ios";
+			requirement = {
+				kind = exactVersion;
+				version = 1.5.8;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		996FC5CC3075A1D200BBCD42 /* ClerkKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 996FC5CB3075A1D200BBCD42 /* XCRemoteSwiftPackageReference "clerk-ios" */;
+			productName = ClerkKit;
+		};
+		996FC5CE3075A1D200BBCD42 /* ClerkKitUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 996FC5CB3075A1D200BBCD42 /* XCRemoteSwiftPackageReference "clerk-ios" */;
+			productName = ClerkKitUI;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 99128DFC30758C6800630E2F /* Project object */;
+}
