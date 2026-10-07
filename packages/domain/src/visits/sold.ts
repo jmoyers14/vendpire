@@ -56,7 +56,7 @@ export interface SlotRemoval {
  * "filled to 10" without re-deriving it.
  */
 export const levelAfter = (line: VisitLine): number =>
-  line.remaining - line.removedUnits + line.added;
+  line.remaining - line.removed + line.added;
 
 /** NUL-joined so no slot code or product id can forge another key. */
 const keyOf = (line: VisitLine): string =>
@@ -200,13 +200,13 @@ const observationsOf = (
   const anomalies: VisitAnomaly[] = [];
 
   for (const line of visit.lines) {
-    if (line.removedUnits > 0) {
+    if (line.removed > 0) {
       removals.push({
         slotCode: line.slotCode,
         productId: line.productId,
         visitId: visit.id,
         countedAt: visit.countedAt,
-        units: line.removedUnits,
+        units: line.removed,
         reason: line.removedReason,
       });
 
@@ -215,16 +215,16 @@ const observationsOf = (
           kind: "unknown-removal-reason",
           slotCode: line.slotCode,
           productId: line.productId,
-          units: line.removedUnits,
+          units: line.removed,
         });
       }
-      if (line.removedUnits > line.remaining) {
+      if (line.removed > line.remaining) {
         anomalies.push({
           kind: "over-removed",
           slotCode: line.slotCode,
           productId: line.productId,
           remaining: line.remaining,
-          removedUnits: line.removedUnits,
+          removed: line.removed,
         });
       }
     }

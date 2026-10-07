@@ -10,6 +10,7 @@ export const MACHINE_TEMPLATE_REPOSITORY_TOKEN = "MachineTemplateRepository";
 export const PRODUCT_REPOSITORY_TOKEN = "ProductRepository";
 export const PLANOGRAM_REPOSITORY_TOKEN = "PlanogramRepository";
 export const PURCHASE_REPOSITORY_TOKEN = "PurchaseRepository";
+export const VISIT_REPOSITORY_TOKEN = "VisitRepository";
 export const PACK_REPOSITORY_TOKEN = "PackRepository";
 
 // Platform-infrastructure records, not tenant data: the raw webhook audit trail

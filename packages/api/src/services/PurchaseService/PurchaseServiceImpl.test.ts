@@ -26,11 +26,14 @@ describe("PurchaseService", () => {
     fritosId = products.seed(ORG, productInput({ name: "Fritos 1oz" })).id;
   });
 
+  // A fresh key per draft, so two drafts in one test are two purchases.
+  let keySeq = 0;
   const draft = (over: Record<string, unknown> = {}) => ({
     purchasedAt: "2026-09-20T00:00:00.000Z",
     vendor: " Costco ",
     lines: [{ productId: cokeId, units: 30, totalCostCents: 1499 }],
     notes: null,
+    clientRequestId: `req_${(keySeq += 1)}`,
     ...over,
   });
 

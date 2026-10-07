@@ -86,3 +86,33 @@ If you can't describe what a function does in one sentence, the design is probab
 3. Does the grammar match the side effects (noun vs. verb)?
 4. Are positional booleans, or confusable same-type arguments, hidden behind labels or an options object?
 5. Does it match existing names for the same concept elsewhere in the codebase?
+
+# Readability
+
+Naming is most of clarity, but not all of it. These are the non-naming habits
+worth holding the line on.
+
+## Name the intermediate value
+
+**Don't `await` inside an expression that also destructures, spreads, or
+indexes the result.** Give the awaited value a name on its own line, then use
+it. One line saved is not worth a reader having to unpick what is being awaited
+from what is being done to it, and a named value is what a debugger, a stack
+trace, and a reviewer all need.
+
+```typescript
+// Good
+const stored = await this.buildStored(orgId, draft);
+return this.purchases.create(orgId, { ...stored, clientRequestId });
+
+// Avoid
+return this.purchases.create(orgId, {
+  ...(await this.buildStored(orgId, draft)),
+  clientRequestId,
+});
+```
+
+The same applies to `(await fetchTrip(id)).host`, `[...(await loadRows())]`, and
+`(await getConfig()).timeoutMs` — name it first. A bare `await` as a whole
+argument (`create(orgId, await buildInput(draft))`) is fine; it is the
+*combination* with a spread or member access that hurts.

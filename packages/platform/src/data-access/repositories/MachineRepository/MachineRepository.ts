@@ -9,6 +9,7 @@ export * from "./types.ts";
 export interface MachineRepository {
   findByOrg(orgId: string): Promise<Machine[]>;
   findById(orgId: string, id: string): Promise<Machine | null>;
+  findByIdIncludingDeleted(orgId: string, id: string): Promise<Machine | null>;
   findByTagCode(orgId: string, tagCode: string): Promise<Machine | null>;
   countByLocation(orgId: string, locationId: string): Promise<number>;
   create(orgId: string, data: MachineInput): Promise<Machine>;

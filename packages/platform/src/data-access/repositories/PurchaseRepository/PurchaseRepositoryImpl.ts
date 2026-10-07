@@ -6,6 +6,7 @@ import type {
   PurchaseListQuery,
   PurchasePage,
   PurchaseRepository,
+  PurchaseUpdate,
 } from "./PurchaseRepository.ts";
 
 type PurchaseDoc = {
@@ -20,6 +21,7 @@ type PurchaseDoc = {
   }[];
   receiptTotalCents?: number | null;
   notes?: string | null;
+  clientRequestId: string;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -96,6 +98,17 @@ export class PurchaseRepositoryImpl implements PurchaseRepository {
     return doc ? toPurchase(doc) : null;
   }
 
+  async findByClientRequestId(
+    orgId: string,
+    clientRequestId: string,
+  ): Promise<Purchase | null> {
+    const doc = await PurchaseModel.findOne({
+      orgId,
+      clientRequestId,
+    }).lean<PurchaseDoc | null>();
+    return doc ? toPurchase(doc) : null;
+  }
+
   async create(orgId: string, data: PurchaseInput): Promise<Purchase> {
     const doc = await PurchaseModel.create({ orgId, ...data });
     return toPurchase(doc.toObject() as PurchaseDoc);
@@ -104,7 +117,7 @@ export class PurchaseRepositoryImpl implements PurchaseRepository {
   async update(
     orgId: string,
     id: string,
-    data: PurchaseInput,
+    data: PurchaseUpdate,
   ): Promise<Purchase | null> {
     const doc = await PurchaseModel.findOneAndUpdate(
       { _id: id, orgId, deletedAt: null },
@@ -135,6 +148,7 @@ function toPurchase(doc: PurchaseDoc): Purchase {
     })),
     receiptTotalCents: doc.receiptTotalCents ?? null,
     notes: doc.notes ?? null,
+    clientRequestId: doc.clientRequestId,
     createdAt: doc.createdAt.toISOString(),
     updatedAt: doc.updatedAt.toISOString(),
   };

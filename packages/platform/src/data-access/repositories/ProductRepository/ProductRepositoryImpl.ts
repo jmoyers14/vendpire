@@ -57,6 +57,20 @@ export class ProductRepositoryImpl implements ProductRepository {
     return new Set(docs.map((doc) => String(doc._id)));
   }
 
+  async findExistingIdsIncludingDeleted(
+    orgId: string,
+    ids: string[],
+  ): Promise<Set<string>> {
+    if (ids.length === 0) {
+      return new Set();
+    }
+    const docs = await ProductModel.find(
+      { _id: { $in: ids }, orgId },
+      { _id: 1 },
+    ).lean<{ _id: unknown }[]>();
+    return new Set(docs.map((doc) => String(doc._id)));
+  }
+
   async create(orgId: string, data: ProductInput): Promise<Product> {
     const doc = await ProductModel.create({ orgId, ...data });
     return toProduct(doc.toObject() as ProductDoc);

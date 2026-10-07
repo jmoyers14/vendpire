@@ -27,6 +27,12 @@ const purchaseSchema = new Schema(
     // reports can flag purchases whose lines don't sum to this.
     receiptTotalCents: { type: Number, default: null },
     notes: { type: String, default: null, trim: true },
+    /**
+     * Client-minted idempotency key, REQUIRED. A client that times out mid
+     * submit cannot tell "succeeded, response lost" from "failed", so it
+     * retries; the unique index below is what makes that retry free.
+     */
+    clientRequestId: { type: String, required: true },
     deletedAt: { type: Date, default: null },
   },
   { timestamps: true },
@@ -40,5 +46,9 @@ purchaseSchema.index({ orgId: 1, purchasedAt: -1 });
 // sort and falls back to a blocking SORT over the whole org on every page.
 purchaseSchema.index({ orgId: 1, purchasedAt: -1, _id: -1 });
 purchaseSchema.index({ orgId: 1, updatedAt: -1 });
+// Plain unique is safe because clientRequestId is required. Were it nullable
+// this would need a partialFilterExpression — a plain unique index treats every
+// null as the same value and would reject the second keyless document.
+purchaseSchema.index({ orgId: 1, clientRequestId: 1 }, { unique: true });
 
 export const PurchaseModel = model("Purchase", purchaseSchema);

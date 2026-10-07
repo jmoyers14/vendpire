@@ -41,6 +41,17 @@ export class MachineRepositoryImpl implements MachineRepository {
     return doc ? toMachine(doc) : null;
   }
 
+  async findByIdIncludingDeleted(
+    orgId: string,
+    id: string,
+  ): Promise<Machine | null> {
+    const doc = await MachineModel.findOne({
+      _id: id,
+      orgId,
+    }).lean<MachineDoc | null>();
+    return doc ? toMachine(doc) : null;
+  }
+
   async findByTagCode(orgId: string, tagCode: string): Promise<Machine | null> {
     const doc = await MachineModel.findOne({
       orgId,

@@ -23,7 +23,7 @@ const line = (
   productId,
   remaining,
   added,
-  removedUnits: removal?.units ?? 0,
+  removed: removal?.units ?? 0,
   removedReason: removal?.reason ?? null,
   priceCents,
   par,

@@ -13,12 +13,14 @@ import type {
   PurchaseInput,
   PurchaseLine,
   PurchaseRepository,
+  PurchaseUpdate,
 } from "@vendpire/platform";
 import { ServiceError } from "../errors.ts";
 import { decodePurchaseCursor, encodePurchaseCursor } from "./cursor.ts";
 import {
   DEFAULT_PURCHASE_PAGE_SIZE,
   type PurchaseDraft,
+  type PurchaseEditDraft,
   type PurchaseListOptions,
   type PurchaseListPage,
   type PurchasePackLine,
@@ -83,19 +85,20 @@ export class PurchaseServiceImpl implements PurchaseService {
   }
 
   async create(orgId: string, draft: PurchaseDraft): Promise<Purchase> {
-    return this.purchases.create(orgId, await this.buildInput(orgId, draft));
+    const stored = await this.buildStored(orgId, draft);
+    return this.purchases.create(orgId, {
+      ...stored,
+      clientRequestId: draft.clientRequestId,
+    });
   }
 
   async update(
     orgId: string,
     id: string,
-    draft: PurchaseDraft,
+    draft: PurchaseEditDraft,
   ): Promise<Purchase> {
-    const updated = await this.purchases.update(
-      orgId,
-      id,
-      await this.buildInput(orgId, draft),
-    );
+    const stored = await this.buildStored(orgId, draft);
+    const updated = await this.purchases.update(orgId, id, stored);
     if (!updated) {
       throw new ServiceError("NOT_FOUND", "Purchase not found");
     }
@@ -106,11 +109,15 @@ export class PurchaseServiceImpl implements PurchaseService {
     await this.purchases.softDelete(orgId, id);
   }
 
-  /** Turn a client draft into the stored shape: all lines, per product. */
-  private async buildInput(
+  /**
+   * Turn a client draft into the stored shape: all lines, per product. Returns
+   * the fields an edit may write, so `create` is the only caller that adds
+   * `clientRequestId`.
+   */
+  private async buildStored(
     orgId: string,
-    draft: PurchaseDraft,
-  ): Promise<PurchaseInput> {
+    draft: PurchaseEditDraft,
+  ): Promise<PurchaseUpdate> {
     const direct: PurchaseLine[] = draft.lines.map((line) => ({
       productId: line.productId,
       units: line.units,

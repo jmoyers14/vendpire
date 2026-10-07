@@ -12,6 +12,10 @@ export interface ProductRepository {
   findByUpc(orgId: string, upc: string): Promise<Product | null>;
   /** Which of `ids` exist (and aren't deleted) — for validating references. */
   findExistingIds(orgId: string, ids: string[]): Promise<Set<string>>;
+  findExistingIdsIncludingDeleted(
+    orgId: string,
+    ids: string[],
+  ): Promise<Set<string>>;
   create(orgId: string, data: ProductInput): Promise<Product>;
   update(orgId: string, id: string, data: ProductInput): Promise<Product | null>;
   softDelete(orgId: string, id: string): Promise<void>;

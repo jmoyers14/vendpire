@@ -53,12 +53,12 @@ divide exactly once, at the end.
 For a given **(slotCode, productId)** key:
 
 ```
-levelAfter(visit) = visit.remaining − visit.removedUnits + visit.added
+levelAfter(visit) = visit.remaining − visit.removed + visit.added
 sold (prev → cur) = levelAfter(prev) − cur.remaining
 ```
 
 `remaining` is what was physically in the slot on arrival — **before refilling and
-before pulling anything out**. `added` and `removedUnits` belong to the *previous*
+before pulling anything out**. `added` and `removed` belong to the *previous*
 visit in the formula: they are things you did at that servicing, and together they
 set the level the next interval draws down from.
 
@@ -124,9 +124,9 @@ normally, two bags of chips go out of date, and the protein bar is a dud you pul
 { id: "v1", machineId: "m1",
   countedAt: "2026-10-05T17:02:00Z", createdAt: "2026-10-05T17:04:11Z",
   lines: [
-    { slotCode: "A1", productId: "coke",  remaining: 2, added: 8, removedUnits: 0, removedReason: null, priceCents: 150, par: 10 },
-    { slotCode: "A2", productId: "chips", remaining: 1, added: 7, removedUnits: 0, removedReason: null, priceCents: 175, par: 8  },
-    { slotCode: "A3", productId: "bar",   remaining: 4, added: 2, removedUnits: 0, removedReason: null, priceCents: 250, par: 6  },
+    { slotCode: "A1", productId: "coke",  remaining: 2, added: 8, removed: 0, removedReason: null, priceCents: 150, par: 10 },
+    { slotCode: "A2", productId: "chips", remaining: 1, added: 7, removed: 0, removedReason: null, priceCents: 175, par: 8  },
+    { slotCode: "A3", productId: "bar",   remaining: 4, added: 2, removed: 0, removedReason: null, priceCents: 250, par: 6  },
   ] }
 
 // Oct 12 — counted at 4:48pm in the gym, submitted at 10:10pm from home.
@@ -134,9 +134,9 @@ normally, two bags of chips go out of date, and the protein bar is a dud you pul
 { id: "v2", machineId: "m1",
   countedAt: "2026-10-12T16:48:00Z", createdAt: "2026-10-12T22:10:03Z",
   lines: [
-    { slotCode: "A1", productId: "coke",  remaining: 3, added: 7, removedUnits: 0, removedReason: null,        priceCents: 175, par: 10 },
-    { slotCode: "A2", productId: "chips", remaining: 5, added: 5, removedUnits: 2, removedReason: "expired",   priceCents: 175, par: 8  },
-    { slotCode: "A3", productId: "bar",   remaining: 4, added: 0, removedUnits: 4, removedReason: "destocked", priceCents: 250, par: 6  },
+    { slotCode: "A1", productId: "coke",  remaining: 3, added: 7, removed: 0, removedReason: null,        priceCents: 175, par: 10 },
+    { slotCode: "A2", productId: "chips", remaining: 5, added: 5, removed: 2, removedReason: "expired",   priceCents: 175, par: 8  },
+    { slotCode: "A3", productId: "bar",   remaining: 4, added: 0, removed: 4, removedReason: "destocked", priceCents: 250, par: 6  },
   ] }
 ```
 
@@ -288,7 +288,7 @@ State carried out of Oct 12:
 ```mermaid
 flowchart TD
     Slot["slot A2 at the Oct 19 visit"]
-    Out["line 1 — (A2, chips)<br/>remaining 3, removedUnits 3,<br/>reason destocked, added 0"]
+    Out["line 1 — (A2, chips)<br/>remaining 3, removed 3,<br/>reason destocked, added 0"]
     In["line 2 — (A2, pretzels)<br/>remaining 0, added 8"]
 
     Slot -->|"counts the outgoing product OUT"| Out
@@ -308,14 +308,14 @@ change to support replacement.
 { id: "v3", machineId: "m1",
   countedAt: "2026-10-19T16:30:00Z", createdAt: "2026-10-19T16:33:40Z",
   lines: [
-    { slotCode: "A1", productId: "coke",     remaining: 4, added: 6, removedUnits: 0, removedReason: null,        priceCents: 175, par: 10 },
+    { slotCode: "A1", productId: "coke",     remaining: 4, added: 6, removed: 0, removedReason: null,        priceCents: 175, par: 10 },
 
     // A2 — the swap
-    { slotCode: "A2", productId: "chips",    remaining: 3, added: 0, removedUnits: 3, removedReason: "destocked", priceCents: 175, par: 8  },
-    { slotCode: "A2", productId: "pretzels", remaining: 0, added: 8, removedUnits: 0, removedReason: null,        priceCents: 200, par: 8  },
+    { slotCode: "A2", productId: "chips",    remaining: 3, added: 0, removed: 3, removedReason: "destocked", priceCents: 175, par: 8  },
+    { slotCode: "A2", productId: "pretzels", remaining: 0, added: 8, removed: 0, removedReason: null,        priceCents: 200, par: 8  },
 
     // A3 — the bar was already at 0, so only the new product needs a line
-    { slotCode: "A3", productId: "gatorade", remaining: 0, added: 6, removedUnits: 0, removedReason: null,        priceCents: 225, par: 6  },
+    { slotCode: "A3", productId: "gatorade", remaining: 0, added: 6, removed: 0, removedReason: null,        priceCents: 225, par: 6  },
   ] }
 ```
 
@@ -403,7 +403,7 @@ two columns is whether a second line got recorded. So the capture screens must n
 depend on the operator remembering.
 
 **"Replacing this product?" should be a first-class action on a cell that emits both
-lines** — pre-filling `removedUnits` with the count just entered and defaulting the
+lines** — pre-filling `removed` with the count just entered and defaulting the
 reason to `destocked`. One tap produces the left column; leaving it to memory produces
 the right one. Phases 5 and 8 own this.
 
@@ -446,7 +446,7 @@ slot should not blank the other 29, and this package cannot reach the api packag
 |---|---|---|
 | `no-baseline` | no predecessor to diff against | nothing — normal for a new product |
 | `slot-not-counted` | the slot was missing from the later visit | count it next time |
-| `product-changed` | slot changed product without the old one counted out | record `removedUnits` next time |
+| `product-changed` | slot changed product without the old one counted out | record `removed` next time |
 | `unknown-cost` | no purchase history for the product | enter the receipt |
 | `unknown-removal-reason` | units removed, no reason recorded | should be impossible — the API requires one |
 
