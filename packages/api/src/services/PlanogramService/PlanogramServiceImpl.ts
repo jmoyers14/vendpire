@@ -39,6 +39,10 @@ export class PlanogramServiceImpl implements PlanogramService {
     return this.planograms.findCurrentByMachine(orgId, machineId);
   }
 
+  listCurrentByOrg(orgId: string): Promise<Planogram[]> {
+    return this.planograms.findCurrentByOrg(orgId);
+  }
+
   async create(orgId: string, input: PlanogramInput): Promise<Planogram> {
     const machine = await this.machines.findById(orgId, input.machineId);
     if (!machine) {
