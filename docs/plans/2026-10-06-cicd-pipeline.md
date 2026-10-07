@@ -1,7 +1,8 @@
 # CI/CD and Release Strategy
 
 **Date:** 2026-10-06
-**Status:** Implemented 2026-10-07. iOS CI deferred — see Follow-up.
+**Status:** Implemented 2026-10-07. Targets staging — see Environments.
+iOS CI deferred — see Follow-up.
 
 ## Context
 
@@ -437,6 +438,113 @@ runbook must say so explicitly. Add to `DEPLOY.md`.
    proving the OIDC guard survived.
 7. Practice one rollback on `vendpire-web` and confirm the footer version reverts.
 
+## Environments
+
+**There is one environment, and it is staging.** This was decided after the rest
+of the spec, when it turned out the deployed stack was serving Clerk
+*development* keys.
+
+### What was wrong
+
+`deploy.sh` set `ENVIRONMENT=production`, but the stack it deployed was running
+`pk_test_` / `sk_test_` against `dynamic-kit-6657.clerk.accounts.dev` — verified
+by pulling the deployed bundle:
+
+```sh
+curl -s https://vendpire-web-…run.app/assets/index-….js | grep -oE 'pk_(test|live)_.{8}'
+# pk_test_ZHluYW1p
+```
+
+`ios/Config/Release.xcconfig` already admitted this in a comment: *"Still the dev
+Clerk instance: there is no production Clerk instance yet."*
+
+### Why this is not a key swap
+
+```mermaid
+graph TD
+    A["Clerk production instance"]
+    B["Requires a domain you own<br/>DNS records for clerk.yourdomain.com"]
+    C["No domain yet"]
+
+    A --> B --> C
+
+    D["Separate user pool<br/>per instance"]
+    E["Mongo mirrors clerkUserId<br/>from the DEV instance"]
+    F["Switching instances orphans<br/>every mirrored user"]
+
+    A --> D --> E --> F
+
+    style A fill:#1a365d,stroke:#63b3ed,color:#fff
+    style C fill:#742a2a,stroke:#fc8181,color:#fff
+    style F fill:#742a2a,stroke:#fc8181,color:#fff
+```
+
+1. **Clerk production instances require a domain.** Hard Clerk requirement — they
+   need DNS records and cannot run against `*.run.app`. We do not own one yet, so
+   production Clerk is blocked on buying a domain.
+2. **Dev instances are deliberately permissive.** Relaxed origin checks (which is
+   *why* `*.run.app` works today), bot protection effectively off, lower limits.
+   Not suitable for real traffic.
+3. **Users do not transfer between instances.** The Mongo mirror holds
+   `clerkUserId` / `clerkOrgId` values minted by the dev instance. Pointing at a
+   production instance orphans all of them. Free now while it is all test data;
+   a migration after launch.
+
+Point 3 is the argument for naming this correctly now rather than later.
+
+### What changed
+
+`deploy.sh` pins `DEPLOY_ENVIRONMENT="staging"` next to the other constants, and
+both services read it. This is **labeling only** — every environment check in the
+codebase is `=== "local"` or `!== "local"`
+(`registerWebhookCore.ts`, `registerTaskQueue.ts`, `InlineTaskQueue.ts`), so
+nothing distinguishes staging from production behaviorally. `Environment` in
+`appConfig.ts` already included `"staging"`, so no type or schema change was
+needed. The win is that `/system.version`, the app footer, logs, and PostHog
+events stop claiming to be production.
+
+`deploy.yml` targets the GitHub `staging` environment for the same reason.
+
+### Deliberately not renamed
+
+The Cloud Run services stay `vendpire-api` / `-web` / `-worker`. Renaming them to
+`-staging` would mint new `*.run.app` URLs, which means re-pointing Clerk's
+allowed origins and the Clerk webhook endpoint — real disruption for zero
+functional gain. When a production stack exists it gets its own service names.
+
+### A correction to the earlier cost reasoning
+
+While choosing prod-only, staging+prod was described as "roughly doubling infra
+cost." That is wrong and should not stand, because the cost constraint fed the
+decision:
+
+- Cloud Run passes no `--min-instances`, so a second service set scales to zero.
+- Atlas M0 is one cluster, but a second *database* inside it is free.
+- Clerk's free plan includes a development *and* a production instance.
+
+Two environments is close to $0. The real cost is operational — two secret sets,
+two Clerk instances, two webhook endpoints — not dollars. Prod-only remains the
+right call for *simplicity*, but not for the reason originally given.
+
+### Adding production later
+
+Ordered, because each step blocks the next:
+
+1. Buy a domain. This is the gate, and DNS plus Clerk domain verification is the
+   slow part.
+2. Create the Clerk production instance; add its DNS records.
+3. Map the domain to Cloud Run for `web` and `api`.
+4. New secret values: `sk_live_` for the api, the prod instance's `whsec_` for the
+   worker, `pk_live_` baked into the web bundle.
+5. Register the webhook endpoint on the production instance and re-subscribe the
+   seven events listed in `DEPLOY.md`.
+6. Swap `CLERK_PUBLISHABLE_KEY` in `ios/Config/Release.xcconfig` — currently the
+   dev key, with a comment saying so.
+7. Decide then whether staging survives. If it does, `deploy.sh` needs
+   parameterizing by environment and `deploy.yml` needs a second target.
+
+Accept that existing dev-instance users are orphaned, or recreate them.
+
 ## Follow-up: iOS CI
 
 The `ios/` app landed on `main` after this spec was approved, so it is not
@@ -459,6 +567,7 @@ Notes for when we pick it up:
 
 ## Explicitly out of scope
 
-No staging environment, no path-filtered selective deploys, no per-package
-versions, no PR preview environments. Each is a real option if the project's
-shape changes. None earns its complexity today.
+No production environment (blocked on a domain — see Environments), no
+path-filtered selective deploys, no per-package versions, no PR preview
+environments. Each is a real option if the project's shape changes. None earns
+its complexity today.

@@ -4,6 +4,11 @@ name: deploy
 # release-please creates when you merge its release PR, which is the only human
 # decision point in the pipeline.
 #
+# Target is STAGING, which is the only environment that exists. It runs on
+# *.run.app against a Clerk development instance, because a Clerk production
+# instance requires a domain we do not own yet. See the Environments section of
+# docs/plans/2026-10-06-cicd-pipeline.md before adding a production target.
+#
 # Why all three and not just what changed: packages/web imports @vendpire/domain
 # for its tRPC types, and api + worker share Mongo schemas through
 # @vendpire/platform, so a one-line domain edit fans out to all three. Shipping
@@ -32,11 +37,11 @@ permissions:
 
 jobs:
   deploy:
-    name: build and deploy
+    name: build and deploy to staging
     runs-on: ubuntu-latest
     # Gives a deployment record and history in the GitHub UI. No protection
     # rules by default; add required reviewers here if you ever want a gate.
-    environment: production
+    environment: staging
     steps:
       # Depth 1 is enough: deploy.sh only needs `git rev-parse --short HEAD`.
       - uses: actions/checkout@v4

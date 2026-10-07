@@ -3,6 +3,21 @@
 Three Cloud Run services on the **personal** Google account, isolated from the
 work account via a dedicated gcloud *configuration* (same pattern as landscape).
 
+> **This stack is staging, not production.** It runs on `*.run.app` against a
+> Clerk **development** instance (`dynamic-kit-6657.clerk.accounts.dev`), because
+> a Clerk production instance requires a domain we do not own yet. `deploy.sh`
+> pins `DEPLOY_ENVIRONMENT="staging"` accordingly, so `/system.version`, the app
+> footer, logs, and PostHog events all say `staging`.
+>
+> Nothing in the codebase branches on staging vs production — every check is
+> `=== "local"` — so this is a labeling choice, not a behavioral one. The ordered
+> steps for adding a real production environment are in the Environments section
+> of `docs/plans/2026-10-06-cicd-pipeline.md`. Step one is buying a domain; it
+> gates everything else.
+>
+> `ios/Config/Release.xcconfig` ships the same dev publishable key, and says so
+> in a comment. It has to change at the same time.
+
 - `vendpire-api` — Bun tRPC server (port 8080)
 - `vendpire-web` — React build served by nginx (port 8080)
 - `vendpire-worker` — Clerk webhook ingestion + background jobs (port 8080)
@@ -143,10 +158,10 @@ you rolled back to. A mismatch between services means the rollback is half-done.
 
 | Secret Manager name | Contents |
 |---|---|
-| `clerk-secret-key` | Clerk `sk_...` (sourced from `packages/api/.env` on first run) |
+| `clerk-secret-key` | Clerk `sk_test_...` — **dev instance**, see the staging note above |
 | `mongodb-uri` | Atlas connection string (from `MONGODB_URI` env on first run) |
 | `google-maps-api-key` | Places key (optional — address autocomplete) |
-| `clerk-webhook-signing-secret` | Clerk `whsec_...` (sourced from `packages/worker/.env` on first run) |
+| `clerk-webhook-signing-secret` | Clerk `whsec_...` for the **dev** instance's endpoint |
 
 To rotate one: `gcloud secrets versions add <name> --data-file=-`, then
 redeploy (Cloud Run resolves `:latest` at deploy time).

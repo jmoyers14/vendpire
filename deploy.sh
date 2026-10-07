@@ -15,6 +15,16 @@ PROJECT="vendpire-128694"          # personal GCP project ID
 ACCOUNT="jmoyers14@gmail.com" # personal Google account email
 REGION="us-central1"
 
+# What this stack IS. Not "production": it runs on *.run.app with a Clerk
+# DEVELOPMENT instance, because a Clerk production instance requires a domain we
+# do not own yet. Calling it production put dev-instance keys behind the word
+# "production" and mislabeled every PostHog event and log line.
+#
+# Nothing branches on staging vs production — every check in the codebase is
+# `=== "local"` — so this is labeling only. When a real production stack exists
+# it gets its own services and its own value here.
+DEPLOY_ENVIRONMENT="staging"
+
 REPO="vendpire"               # Artifact Registry repository name
 REGISTRY="$REGION-docker.pkg.dev/$PROJECT/$REPO"
 API_SERVICE="vendpire-api"
@@ -213,7 +223,7 @@ gcloud run deploy "$API_SERVICE" \
   --project "$PROJECT" \
   --region "$REGION" \
   --allow-unauthenticated \
-  --set-env-vars "ENVIRONMENT=production,WEB_URL=$API_WEB_URL$API_ENV_EXTRA" \
+  --set-env-vars "ENVIRONMENT=$DEPLOY_ENVIRONMENT,WEB_URL=$API_WEB_URL$API_ENV_EXTRA" \
   --set-secrets "$API_SECRETS"
 
 API_URL=$(gcloud run services describe "$API_SERVICE" \
@@ -360,7 +370,7 @@ gcloud run deploy "$WORKER_SERVICE" \
   --project "$PROJECT" \
   --region "$REGION" \
   --allow-unauthenticated \
-  --set-env-vars ENVIRONMENT=production \
+  --set-env-vars ENVIRONMENT="$DEPLOY_ENVIRONMENT" \
   --set-env-vars GCP_PROJECT_ID="$PROJECT" \
   --set-env-vars GCP_LOCATION="$REGION" \
   --set-env-vars WORKER_URL="$WORKER_SELF_URL" \
