@@ -1,0 +1,76 @@
+name: deploy
+
+# Deploys all three Cloud Run services at one version. Fires on the tag that
+# release-please creates when you merge its release PR, which is the only human
+# decision point in the pipeline.
+#
+# Why all three and not just what changed: packages/web imports @vendpire/domain
+# for its tRPC types, and api + worker share Mongo schemas through
+# @vendpire/platform, so a one-line domain edit fans out to all three. Shipping
+# them together keeps one version number meaningful and avoids owning an API
+# compatibility window. See docs/plans/2026-10-06-cicd-pipeline.md.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Tag or SHA to deploy (defaults to the dispatched ref)"
+        required: false
+        type: string
+
+# Serialized, and deliberately NOT cancel-in-progress. Two concurrent deploys
+# race on Cloud Run revisions and on deploy.sh's WORKER_URL correction step, and
+# a half-cancelled deploy leaves prod in a worse state than a queued one.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write # required to mint the OIDC token WIF exchanges
+
+jobs:
+  deploy:
+    name: build and deploy
+    runs-on: ubuntu-latest
+    # Gives a deployment record and history in the GitHub UI. No protection
+    # rules by default; add required reviewers here if you ever want a gate.
+    environment: production
+    steps:
+      # Depth 1 is enough: deploy.sh only needs `git rev-parse --short HEAD`.
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+
+      # No service account key exists. GitHub mints a short-lived OIDC token and
+      # GCP trades it for credentials good for about an hour. The provider's
+      # attribute condition pins it to this repo, so the (non-secret) provider
+      # name is useless to anyone else. Created by scripts/setup-ci-auth.sh.
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.WIF_PROVIDER }}
+          service_account: ${{ vars.WIF_SERVICE_ACCOUNT }}
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      # deploy.sh runs `gcloud auth configure-docker` itself, so there is no
+      # separate Docker login step here.
+      #
+      # GitHub sets CI=true, which is what makes deploy.sh skip the local
+      # gcloud-configuration guard and trust the WIF identity instead.
+      #
+      # The Clerk pk_ and PostHog keys are public values, but deploy.sh hard
+      # fails without the Clerk one, and silently ships WITHOUT analytics if the
+      # PostHog ones are missing — so all of them must be set here or this
+      # pipeline quietly regresses what laptop deploys were doing.
+      - name: Deploy
+        run: ./deploy.sh
+        env:
+          VITE_CLERK_PUBLISHABLE_KEY: ${{ secrets.VITE_CLERK_PUBLISHABLE_KEY }}
+          POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
+          POSTHOG_HOST: ${{ secrets.POSTHOG_HOST }}
+          VITE_POSTHOG_KEY: ${{ secrets.VITE_POSTHOG_KEY }}
+          VITE_POSTHOG_HOST: ${{ secrets.VITE_POSTHOG_HOST }}

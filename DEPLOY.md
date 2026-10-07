@@ -56,7 +56,90 @@ Manager, and the Clerk publishable key is read from `packages/web/.env.local`.
    then `job succeeded`. `curl -X POST <worker-url>/tasks/syncUser -d "{}"`
    must answer **403** — that proves the OIDC guard is closed.
 
-## Secrets
+## Continuous deployment
+
+Deploys run from GitHub Actions on the tag `release-please` creates. The full
+design, and why all three services ship together rather than only what changed,
+is in `docs/plans/2026-10-06-cicd-pipeline.md`.
+
+```
+PR ──> ci.yml (lint · typecheck · test · e2e)
+   ──> merge to main
+   ──> release-please opens a standing release PR
+   ──> you merge it  ──> tag vX.Y.Z  ──> deploy.yml  ──> ./deploy.sh
+```
+
+Merging the release PR is the only human decision point. `deploy.yml` then runs
+this same `deploy.sh`, so there is exactly one deploy path to reason about.
+
+### One-time CI setup
+
+```sh
+./scripts/setup-ci-auth.sh
+```
+
+Run it locally as project owner. It creates the Workload Identity Federation
+pool, provider, and `github-deployer` service account, applies the Artifact
+Registry cleanup policy, and sets the two repo variables `deploy.yml` reads. It
+is idempotent — re-run it after changing any role.
+
+No service account key is ever created. GitHub mints a short-lived OIDC token
+that GCP trades for ~1h credentials, and the provider's attribute condition pins
+it to `jmoyers14/vendpire`, so no other repository can use it.
+
+### GitHub secrets
+
+| Secret | Used by | Sensitive? |
+|---|---|---|
+| `VITE_CLERK_PUBLISHABLE_KEY` | deploy | No — `pk_` is public |
+| `POSTHOG_API_KEY`, `POSTHOG_HOST` | deploy | No — write-only ingestion |
+| `VITE_POSTHOG_KEY`, `VITE_POSTHOG_HOST` | deploy | No |
+| `CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY` | e2e — Clerk **dev** instance | Yes, dev only |
+| `E2E_CLERK_USER_EMAIL`, `E2E_CLERK_USER_PASSWORD` | e2e test user | Yes, dev only |
+
+No production secrets live in GitHub. The Atlas URI, the production Clerk `sk_`,
+and the webhook signing secret stay in Secret Manager.
+
+**The PostHog keys are a trap.** `deploy.sh` treats them as optional and ships
+without analytics if they are missing, printing a line nobody reads. Laptop
+deploys get them from `.env`; CI will not unless you set them above.
+
+### Remaining manual steps
+
+- Branch-protect `main`, requiring the `check` and `e2e` status checks. A
+  workflow file cannot do this; it is a repository setting.
+- Actions settings → require approval for all external contributors. The repo is
+  public, so anyone can open a PR.
+
+### Deploying by hand
+
+`deploy.sh` still works unchanged from your laptop — the CI branch only skips
+the gcloud-configuration guard, which has no meaning on a runner. To re-deploy
+an existing tag without a new release, use the `deploy` workflow's
+`workflow_dispatch` with a `ref`.
+
+## Rollback
+
+Cloud Run retains revisions, so rolling back is traffic-shifting — no rebuild,
+no new image:
+
+```sh
+gcloud run revisions list --service vendpire-api --region us-central1
+gcloud run services update-traffic vendpire-api \
+  --to-revisions=<prior-revision>=100 --region us-central1
+```
+
+**Roll back all three services together.** They ship as one version, so a
+partial rollback recreates exactly the skew the single-version design exists to
+avoid. Repeat for `vendpire-web` and `vendpire-worker`.
+
+This works even after the Artifact Registry cleanup policy has pruned an old
+image: revisions are retained independently of image tags.
+
+Then confirm `<api-url>/system.version` and the app footer agree on the version
+you rolled back to. A mismatch between services means the rollback is half-done.
+
+## Secrets (Secret Manager)
 
 | Secret Manager name | Contents |
 |---|---|
@@ -73,7 +156,8 @@ redeploy (Cloud Run resolves `:latest` at deploy time).
 - Images are tagged `:latest` *and* `:<git-sha>`; the deploy refuses nothing on
   a dirty tree but stamps `-dirty` so it's visible in the footer.
 - PostHog keys are optional; the deploy prints whether analytics is wired.
-- The e2e suite is not part of deploy — run `bun run test:e2e` before deploying.
+- The e2e suite is not part of `deploy.sh` — `ci.yml` runs it on every PR
+  instead. Run `bun run test:e2e` locally before a hand deploy that skipped CI.
 - The worker image deliberately **runs from TypeScript source**, not a bundle:
   `@google-cloud/tasks` loads JSON config via a runtime `require` that
   `bun build` doesn't emit. That's why the worker has no `build` script.

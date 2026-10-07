@@ -38,26 +38,38 @@ ORG_MEMBERSHIP_SYNC_QUEUE="org-membership-sync-queue"
 TASKS_INVOKER_SA="cloud-tasks-invoker@${PROJECT}.iam.gserviceaccount.com"
 
 # ── Safety guard ─────────────────────────────────────────────────────────────
-# Activate the personal configuration and refuse to proceed unless the active
-# account + project match exactly. This is what makes mis-deploys impossible.
+# Locally: activate the personal configuration and refuse to proceed unless the
+# active account + project match exactly. This is what makes mis-deploys
+# impossible on a machine that also holds work credentials.
+#
+# In CI there is no such risk and no such configuration — the identity arrives
+# from Workload Identity Federation as a service account, so the account check
+# would compare against the wrong thing and the `configurations activate` would
+# fail outright. Pin the project explicitly instead.
 if [ "$PROJECT" = "REPLACE_ME" ]; then
   echo "ERROR: Set PROJECT at the top of deploy.sh first." >&2
   exit 1
 fi
 
-echo "Activating gcloud configuration: $CONFIG"
-gcloud config configurations activate "$CONFIG" >/dev/null
+if [ -n "${CI:-}" ]; then
+  gcloud config set project "$PROJECT" --quiet >/dev/null
+  ACTIVE_ACCOUNT=$(gcloud config get-value account 2>/dev/null)
+  echo "Deploying from CI as $ACTIVE_ACCOUNT to $PROJECT ($REGION)"
+else
+  echo "Activating gcloud configuration: $CONFIG"
+  gcloud config configurations activate "$CONFIG" >/dev/null
 
-ACTIVE_ACCOUNT=$(gcloud config get-value account 2>/dev/null)
-ACTIVE_PROJECT=$(gcloud config get-value project 2>/dev/null)
-if [ "$ACTIVE_ACCOUNT" != "$ACCOUNT" ] || [ "$ACTIVE_PROJECT" != "$PROJECT" ]; then
-  echo "ERROR: Active account/project does not match the personal target." >&2
-  echo "  expected: $ACCOUNT / $PROJECT" >&2
-  echo "  active:   $ACTIVE_ACCOUNT / $ACTIVE_PROJECT" >&2
-  echo "Run the one-time setup in DEPLOY.md, then retry." >&2
-  exit 1
+  ACTIVE_ACCOUNT=$(gcloud config get-value account 2>/dev/null)
+  ACTIVE_PROJECT=$(gcloud config get-value project 2>/dev/null)
+  if [ "$ACTIVE_ACCOUNT" != "$ACCOUNT" ] || [ "$ACTIVE_PROJECT" != "$PROJECT" ]; then
+    echo "ERROR: Active account/project does not match the personal target." >&2
+    echo "  expected: $ACCOUNT / $PROJECT" >&2
+    echo "  active:   $ACTIVE_ACCOUNT / $ACTIVE_PROJECT" >&2
+    echo "Run the one-time setup in DEPLOY.md, then retry." >&2
+    exit 1
+  fi
+  echo "Deploying as $ACTIVE_ACCOUNT to $ACTIVE_PROJECT ($REGION)"
 fi
-echo "Deploying as $ACTIVE_ACCOUNT to $ACTIVE_PROJECT ($REGION)"
 
 # Ensure docker can push to Artifact Registry, and the repo exists (idempotent)
 gcloud auth configure-docker "$REGION-docker.pkg.dev" --quiet >/dev/null
