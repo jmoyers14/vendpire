@@ -12,3 +12,6 @@ playwright-report/
 
 # Claude Code local state
 .claude/
+
+# Visual brainstorming companion scratch
+.superpowers/
