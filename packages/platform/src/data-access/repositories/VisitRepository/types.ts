@@ -19,8 +19,8 @@ export interface VisitLine {
   /** Units loaded in during this servicing. */
   added: number;
   /** Units pulled out during this servicing — not sold, so not revenue. */
-  removedUnits: number;
-  /** Always set when `removedUnits > 0`; decides write-off vs. transfer. */
+  removed: number;
+  /** Always set when `removed > 0`; decides write-off vs. transfer. */
   removedReason: RemovalReason | null;
   /** Snapshotted, so a later planogram edit cannot rewrite past revenue. */
   priceCents: number;

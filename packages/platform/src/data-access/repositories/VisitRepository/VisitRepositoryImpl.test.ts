@@ -27,7 +27,7 @@ const doc = (overrides: Partial<VisitDoc> = {}): VisitDoc =>
         productId: "p_1",
         remaining: 4,
         added: 6,
-        removedUnits: 2,
+        removed: 2,
         removedReason: "expired",
         priceCents: 175,
         par: 10,
@@ -42,7 +42,7 @@ const doc = (overrides: Partial<VisitDoc> = {}): VisitDoc =>
 /**
  * The mapper is tested without a database, the way `toCommission` is in
  * LocationRepositoryImpl.test.ts. Its defaults are the point: an absent
- * `removedUnits` reaching the engine as `undefined` turns every sold figure,
+ * `removed` reaching the engine as `undefined` turns every sold figure,
  * revenue total and profit line into NaN without raising anything.
  */
 describe("toVisit", () => {
@@ -60,7 +60,7 @@ describe("toVisit", () => {
           productId: "p_1",
           remaining: 4,
           added: 6,
-          removedUnits: 2,
+          removed: 2,
           removedReason: "expired",
           priceCents: 175,
           par: 10,
@@ -73,8 +73,8 @@ describe("toVisit", () => {
     });
   });
 
-  // The NaN guard. A line written before removedUnits existed has no field.
-  it("defaults an absent removedUnits to 0, never undefined", () => {
+  // The NaN guard. A line written before removed existed has no field.
+  it("defaults an absent removed to 0, never undefined", () => {
     const line = {
       slotCode: "A1",
       productId: "p_1",
@@ -83,7 +83,7 @@ describe("toVisit", () => {
       priceCents: 175,
     };
     const [mapped] = toVisit(doc({ lines: [line] })).lines;
-    expect(mapped?.removedUnits).toBe(0);
+    expect(mapped?.removed).toBe(0);
     expect(mapped?.removedReason).toBeNull();
     expect(mapped?.par).toBeNull();
   });

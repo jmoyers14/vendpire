@@ -16,7 +16,7 @@ export interface VisitLine {
   /**
    * What was physically in the slot when you walked up — BEFORE refilling and
    * BEFORE pulling anything out. Expired units you are about to bin still
-   * count here; `removedUnits` is what takes them back out.
+   * count here; `removed` is what takes them back out.
    *
    * NOTHING DOWNSTREAM CAN DETECT A POST-FILL COUNT. Record the count after
    * refilling and every sold figure, every revenue number and every profit
@@ -31,8 +31,8 @@ export interface VisitLine {
    * Without this the arithmetic assumes a customer paid for them and invents
    * revenue, the same family of bug as treating a missing line as zero.
    */
-  readonly removedUnits: number;
-  /** Required whenever `removedUnits > 0`; it decides loss vs. transfer. */
+  readonly removed: number;
+  /** Required whenever `removed > 0`; it decides loss vs. transfer. */
   readonly removedReason: RemovalReason | null;
   /** Snapshotted, so a later planogram edit cannot rewrite past revenue. */
   readonly priceCents: Cents;

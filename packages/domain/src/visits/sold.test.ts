@@ -14,7 +14,7 @@ const line = (
   productId,
   remaining,
   added,
-  removedUnits: 0,
+  removed: 0,
   removedReason: null,
   priceCents: 150,
   par: null,
@@ -45,7 +45,7 @@ const soldUnits = (interval: SlotInterval): number | null =>
 
 describe("levelAfter", () => {
   it("is remaining minus removed plus added", () => {
-    expect(levelAfter(line("A1", "coke", 5, 7, { removedUnits: 2 }))).toBe(10);
+    expect(levelAfter(line("A1", "coke", 5, 7, { removed: 2 }))).toBe(10);
   });
 });
 
@@ -170,7 +170,7 @@ describe("diffVisits", () => {
     ]);
     const v2 = visit("v2", "2026-10-19T17:00:00Z", [
       line("A2", "chips", 3, 0, {
-        removedUnits: 3,
+        removed: 3,
         removedReason: "destocked",
         priceCents: 175,
         par: 8,
@@ -211,7 +211,7 @@ describe("diffVisits", () => {
 
   it("closes a position silently once its level reaches zero", () => {
     const v1 = visit("v1", "2026-10-05T17:00:00Z", [
-      line("A3", "bar", 4, 0, { removedUnits: 4, removedReason: "destocked" }),
+      line("A3", "bar", 4, 0, { removed: 4, removedReason: "destocked" }),
     ]);
     const v2 = visit("v2", "2026-10-12T17:00:00Z", [line("A3", "gatorade", 0, 6)]);
 
@@ -240,7 +240,7 @@ describe("diffVisits — removals", () => {
     // Found 6 chips, binned 2 expired, filled back to 8. Four actually sold.
     const v1 = visit("v1", "2026-10-05T17:00:00Z", [line("A2", "chips", 2, 8)]);
     const v2 = visit("v2", "2026-10-12T17:00:00Z", [
-      line("A2", "chips", 6, 4, { removedUnits: 2, removedReason: "expired" }),
+      line("A2", "chips", 6, 4, { removed: 2, removedReason: "expired" }),
     ]);
     const v3 = visit("v3", "2026-10-19T17:00:00Z", [line("A2", "chips", 2, 8)]);
 
@@ -341,8 +341,8 @@ describe("intervalsForMachine", () => {
   it("collects removals with the visit that made them", () => {
     const visits = [
       visit("v1", "2026-10-05T17:00:00Z", [
-        line("A2", "chips", 2, 4, { removedUnits: 2, removedReason: "expired" }),
-        line("A3", "bar", 4, 0, { removedUnits: 4, removedReason: "destocked" }),
+        line("A2", "chips", 2, 4, { removed: 2, removedReason: "expired" }),
+        line("A3", "bar", 4, 0, { removed: 4, removedReason: "destocked" }),
       ]),
     ];
 
@@ -397,7 +397,7 @@ describe("intervalsForMachine", () => {
     const visits = [
       visit("v1", "2026-10-05T17:00:00Z", [
         line("A2", "chips", 5, 5, {
-          removedUnits: 2,
+          removed: 2,
           removedReason: "expired",
           par: 8,
         }),
@@ -410,7 +410,7 @@ describe("intervalsForMachine", () => {
   it("warns when more was removed than was found, and still computes", () => {
     const visits = [
       visit("v1", "2026-10-05T17:00:00Z", [
-        line("A2", "chips", 2, 0, { removedUnits: 5, removedReason: "expired" }),
+        line("A2", "chips", 2, 0, { removed: 5, removedReason: "expired" }),
       ]),
     ];
 
@@ -421,14 +421,14 @@ describe("intervalsForMachine", () => {
       slotCode: "A2",
       productId: "chips",
       remaining: 2,
-      removedUnits: 5,
+      removed: 5,
     });
     expect(removals[0].units).toBe(5);
   });
 
   it("flags removed units with no reason recorded", () => {
     const visits = [
-      visit("v1", "2026-10-05T17:00:00Z", [line("A2", "chips", 4, 0, { removedUnits: 2 })]),
+      visit("v1", "2026-10-05T17:00:00Z", [line("A2", "chips", 4, 0, { removed: 2 })]),
     ];
 
     expect(intervalsForMachine(visits).anomalies).toContainEqual({

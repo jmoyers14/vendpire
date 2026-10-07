@@ -55,7 +55,7 @@ describe.skipIf(!ENABLED)("VisitRepositoryImpl against MongoDB", () => {
         productId: "p_1",
         remaining: 4,
         added: 6,
-        removedUnits: 0,
+        removed: 0,
         removedReason: null,
         priceCents: 175,
         par: 10,
@@ -186,18 +186,18 @@ describe.skipIf(!ENABLED)("VisitRepositoryImpl against MongoDB", () => {
     });
   });
 
-  it("stores removals as given, with removedUnits defaulting to 0", async () => {
+  it("stores removals as given, with removed defaulting to 0", async () => {
     const created = await repo.create(
       ORG,
       input({
         lines: [
-          { slotCode: "A1", productId: "p_1", remaining: 6, added: 7, removedUnits: 3, removedReason: "expired", priceCents: 175, par: 10 },
-          { slotCode: "A2", productId: "p_2", remaining: 2, added: 8, removedUnits: 0, removedReason: null, priceCents: 150, par: 10 },
+          { slotCode: "A1", productId: "p_1", remaining: 6, added: 7, removed: 3, removedReason: "expired", priceCents: 175, par: 10 },
+          { slotCode: "A2", productId: "p_2", remaining: 2, added: 8, removed: 0, removedReason: null, priceCents: 150, par: 10 },
         ],
       }),
     );
-    expect(created.lines[0]).toMatchObject({ removedUnits: 3, removedReason: "expired" });
-    expect(created.lines[1]).toMatchObject({ removedUnits: 0, removedReason: null });
+    expect(created.lines[0]).toMatchObject({ removed: 3, removedReason: "expired" });
+    expect(created.lines[1]).toMatchObject({ removed: 0, removedReason: null });
   });
 
   // The schema enum is the last line of defence if a caller skips validation.
@@ -205,7 +205,7 @@ describe.skipIf(!ENABLED)("VisitRepositoryImpl against MongoDB", () => {
     const bad = input({
       lines: [
         // Not a RemovalReason — the cast is what lets the schema do the rejecting.
-        { slotCode: "A1", productId: "p_1", remaining: 1, added: 0, removedUnits: 1, removedReason: "stolen" as unknown as RemovalReason, priceCents: 175, par: null },
+        { slotCode: "A1", productId: "p_1", remaining: 1, added: 0, removed: 1, removedReason: "stolen" as unknown as RemovalReason, priceCents: 175, par: null },
       ],
     });
     await expect(repo.create(ORG, bad)).rejects.toThrow();

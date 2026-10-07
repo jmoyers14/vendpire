@@ -18,7 +18,7 @@ const visitLineSchema = new Schema(
     /**
      * WHAT WAS PHYSICALLY IN THE SLOT WHEN YOU WALKED UP — before refilling
      * AND before pulling anything out. Expired units you are about to bin
-     * still count here; `removedUnits` is what takes them back out.
+     * still count here; `removed` is what takes them back out.
      *
      * NOTHING DOWNSTREAM CAN DETECT A POST-FILL COUNT. Store the count taken
      * after refilling and every sold figure, every revenue number and every
@@ -33,9 +33,9 @@ const visitLineSchema = new Schema(
      * Omit these and the arithmetic assumes a customer paid for them, which
      * invents revenue: the same family of bug as treating a missing line as 0.
      */
-    removedUnits: { type: Number, default: 0 },
+    removed: { type: Number, default: 0 },
     /**
-     * Required whenever `removedUnits > 0` — it decides write-off vs. transfer.
+     * Required whenever `removed > 0` — it decides write-off vs. transfer.
      * Stored as the raw reason; `@vendpire/domain` → `visits/removals.ts` owns
      * the one reason → disposition mapping, so the model never has a policy.
      */

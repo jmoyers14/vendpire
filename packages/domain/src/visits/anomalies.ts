@@ -33,7 +33,7 @@ export type VisitAnomaly =
    * and the rest went to the van, and nothing recorded says which.
    *
    * Avoidable — record a line for the outgoing product with
-   * `removedUnits = remaining` and the interval computes normally.
+   * `removed = remaining` and the interval computes normally.
    */
   | {
       readonly kind: "product-changed";
@@ -65,7 +65,7 @@ export type VisitAnomaly =
       readonly slotCode: string;
       readonly productId: string;
       readonly remaining: number;
-      readonly removedUnits: number;
+      readonly removed: number;
     }
   /**
    * Units were removed with no reason recorded, so loss-vs-transfer is

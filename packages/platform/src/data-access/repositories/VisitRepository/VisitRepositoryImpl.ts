@@ -21,7 +21,7 @@ type VisitDoc = {
     productId: string;
     remaining: number;
     added: number;
-    removedUnits?: number | null;
+    removed?: number | null;
     removedReason?: RemovalReason | null;
     priceCents: number;
     par?: number | null;
@@ -189,9 +189,6 @@ export class VisitRepositoryImpl implements VisitRepository {
     orgId: string,
     clientRequestId: string,
   ): Promise<Visit | null> {
-    // Deliberately NOT filtered on deletedAt. A soft-deleted visit still owns
-    // its clientRequestId — the unique index says so — so hiding it here would
-    // make a retry attempt a create that can only fail on E11000.
     const doc = await VisitModel.findOne({
       orgId,
       clientRequestId,
@@ -214,7 +211,7 @@ export class VisitRepositoryImpl implements VisitRepository {
 
 /**
  * Document → entity. Exported and tested directly because the defaults it
- * applies are load-bearing: a line written before `removedUnits` existed has
+ * applies are load-bearing: a line written before `removed` existed has
  * no such field, and `undefined` reaching the engine makes every arithmetic
  * result NaN rather than raising anything.
  */
@@ -231,7 +228,7 @@ export function toVisit(doc: VisitDoc): Visit {
       productId: line.productId,
       remaining: line.remaining,
       added: line.added,
-      removedUnits: line.removedUnits ?? 0,
+      removed: line.removed ?? 0,
       removedReason: line.removedReason ?? null,
       priceCents: line.priceCents,
       par: line.par ?? null,

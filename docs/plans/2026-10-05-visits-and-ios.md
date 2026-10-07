@@ -4,7 +4,7 @@
 > hold; **Stage C is explicitly revisable** — re-read it before starting rather than treating
 > it as settled.
 >
-> **Amended 2026-10-05:** visit lines gained `removedUnits` + `removedReason`. Walking
+> **Amended 2026-10-05:** visit lines gained `removed` + `removedReason`. Walking
 > through planogram re-organization and expired stock found a hole that invents revenue —
 > units can leave a slot without being sold, and the original schema had no way to say so.
 > See "Units that leave a slot without being sold" below.
@@ -130,7 +130,7 @@ the next read returns. Cost: reports scan N visits — hundreds of documents a m
 For a given **(slotCode, productId)** key:
 
 ```
-levelAfter(visit)  = visit.remaining − visit.removedUnits + visit.added
+levelAfter(visit)  = visit.remaining − visit.removed + visit.added
 sold (prev → cur)  = levelAfter(prev) − cur.remaining
 ```
 
@@ -139,7 +139,7 @@ pulling anything out**. Keying by (slotCode, productId) rather than slotCode alo
 makes mixed spirals record per-flavor counts, and what lets one slot carry both its outgoing
 and incoming product on a re-planogram visit.
 
-`added` and `removedUnits` both belong to the **previous** visit in the formula: they are
+`added` and `removed` both belong to the **previous** visit in the formula: they are
 things you did at that servicing, and together they set the level the next interval draws
 down from.
 
@@ -151,7 +151,7 @@ as treating a missing line as zero. There is no way to record it with counts alo
 before you bin expired stock gets this interval right and the next one wrong; counting after
 invents revenue immediately. Either way you lose exactly the units you binned.
 
-So each line carries `removedUnits` and a `removedReason`, and the reason decides whether
+So each line carries `removed` and a `removedReason`, and the reason decides whether
 it's a loss:
 
 | reason | disposition | P&L effect |
@@ -168,7 +168,7 @@ reason to disposition, so the engine never branches on a reason and adding one l
 Two consequences worth having:
 
 - **A product swap becomes recoverable.** Record the outgoing product with
-  `removedUnits = remaining` alongside the incoming product's line — legal already, since a
+  `removed = remaining` alongside the incoming product's line — legal already, since a
   duplicate `slotCode` with a different `productId` is the mixed-spiral case — and the
   closing interval computes normally instead of reporting `product-changed`.
 - **`levelAfter === 0` with the key absent next visit means the position closed
@@ -206,7 +206,7 @@ error worth surfacing.
    sold. `unknownCostRows` lets the UI say "profit unavailable: 3 products lack purchase
    history."
 7. **Units removed from a slot were not sold.** Expired, damaged, or destocked stock leaves
-   via `removedUnits`, and `removedReason` decides whether it's a write-off or a transfer.
+   via `removed`, and `removedReason` decides whether it's a write-off or a transfer.
    Omit the field and the engine books a customer purchase that never happened.
 8. **Idempotency returns 200 with the original document, never 409.** A client that timed
    out can't distinguish "succeeded, response lost" from "failed"; a 409 makes the outbox
@@ -353,7 +353,7 @@ export type VisitAnomaly =
   | { kind: "product-changed"; slotCode; productId; unaccountedUnits }
   | { kind: "slot-not-counted"; slotCode; productId }
   | { kind: "over-par"; slotCode; productId; level; par }
-  | { kind: "over-removed"; slotCode; productId; remaining; removedUnits }
+  | { kind: "over-removed"; slotCode; productId; remaining; removed }
   | { kind: "unknown-removal-reason"; slotCode; productId; units }
   | { kind: "unknown-cost"; productId };
 ```
@@ -375,10 +375,10 @@ zero-line visit mid-sequence invents nothing.
 Removals — **the expiry case:** `{rem 2, add 8}` → `{rem 6, removed 3, add 7}` sells **4**,
 *and* the following interval draws from 10 not 13 (counting before binning gets this interval
 right and the next one wrong; counting after invents revenue immediately — the test asserts
-both intervals); a swap that counts the outgoing product out (`removedUnits = remaining`) →
+both intervals); a swap that counts the outgoing product out (`removed = remaining`) →
 a real sold figure and **no** `product-changed`; `levelAfter === 0` then key absent → position
-closed, no anomaly; `removedUnits > remaining` → `over-removed`, still computes;
-`removedUnits > 0` with a null reason → `unknown-removal-reason`.
+closed, no anomaly; `removed > remaining` → `over-removed`, still computes;
+`removed > 0` with a null reason → `unknown-removal-reason`.
 
 `unitCost.test.ts` — **round-once:** units 7, sumCost 100, sumUnits 3 → `round(700/3)=233`
 (naive `round(100/3)×7=231`, off by 2¢); **the identity test:** 30@1499 + 10@699, sell all 40
@@ -474,7 +474,7 @@ test on an exported `toVisit`, as `toCommission` is tested in `LocationRepositor
 Model fields: `orgId`, `machineId`, `locationId`, `planogramId` (null), `countedAt`,
 `recordedByUserId`, `lines[]`, `notes`, `clientRequestId`, `deletedAt`, `{timestamps:true}`.
 Line sub-schema (`_id: false`): `slotCode`, `productId`, `remaining`, `added`,
-`removedUnits` (default 0), `removedReason` (null), `priceCents`, `par` (null).
+`removed` (default 0), `removedReason` (null), `priceCents`, `par` (null).
 
 ```
 { orgId: 1, machineId: 1, countedAt: -1 }   // engine workhorse + per-machine history
@@ -527,7 +527,7 @@ const visitLineInput = z.object({
   // BEFORE refilling AND before pulling anything out
   remaining: z.number().int().min(0).max(999),
   added: z.number().int().min(0).max(999),
-  removedUnits: z.number().int().min(0).max(999).default(0),
+  removed: z.number().int().min(0).max(999).default(0),
   removedReason: z.enum([
     "expired", "damaged", "recalled", "destocked", "transferred",
   ]).nullable().default(null),
@@ -536,8 +536,8 @@ const visitLineInput = z.object({
 })
   // A reason is REQUIRED once units are removed — it decides loss vs. transfer,
   // and defaulting either way would overstate or hide the write-off.
-  .refine((l) => l.removedUnits === 0 || l.removedReason !== null, {
-    message: "removedReason is required when removedUnits > 0",
+  .refine((l) => l.removed === 0 || l.removedReason !== null, {
+    message: "removedReason is required when removed > 0",
   });
 
 const visitInput = z.object({
