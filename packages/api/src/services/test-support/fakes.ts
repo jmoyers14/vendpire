@@ -1,3 +1,4 @@
+import type { CostBasisLine } from "@vendpire/domain";
 import type {
   Location,
   LocationInput,
@@ -23,6 +24,11 @@ import type {
   Pack,
   PackInput,
   PackRepository,
+  Visit,
+  VisitInput,
+  VisitListFilter,
+  VisitRange,
+  VisitRepository,
 } from "@vendpire/platform";
 
 /**
@@ -393,6 +399,17 @@ export class FakePurchaseRepository implements PurchaseRepository {
       null
     );
   }
+  async findCostBasisLines(orgId: string): Promise<CostBasisLine[]> {
+    return this.rows
+      .filter((r) => r.orgId === orgId && !r.deleted)
+      .flatMap((r) =>
+        r.lines.map((line) => ({
+          productId: line.productId,
+          units: line.units,
+          totalCostCents: line.totalCostCents,
+        })),
+      );
+  }
   async findByClientRequestId(
     orgId: string,
     clientRequestId: string,
@@ -536,3 +553,155 @@ export class FakePackRepository implements PackRepository {
     }
   }
 }
+
+/**
+ * Total order by (countedAt, createdAt, id) ascending — what the real compound
+ * index gives. Compared as INSTANTS: the contract accepts any ISO-8601 offset,
+ * and "02:00-08:00" sorts before "09:00+00:00" while falling an hour after it.
+ */
+const byVisitOrder = (a: Visit, b: Visit): number =>
+  Date.parse(a.countedAt) - Date.parse(b.countedAt) ||
+  Date.parse(a.createdAt) - Date.parse(b.createdAt) ||
+  a.id.localeCompare(b.id);
+
+export class FakeVisitRepository implements VisitRepository {
+  rows: Stored<Visit>[] = [];
+
+  seed(orgId: string, input: VisitInput): Visit {
+    const clash = this.rows.find(
+      (r) => r.orgId === orgId && r.clientRequestId === input.clientRequestId,
+    );
+    // The unique index IS the idempotency guarantee, so the fake raises the same
+    // E11000 the service's create/catch/re-read path exists to handle.
+    if (clash) {
+      throw Object.assign(new Error("E11000 duplicate key error"), {
+        code: 11000,
+      });
+    }
+    const row: Stored<Visit> = {
+      ...input,
+      id: newId(),
+      createdAt: now(),
+      updatedAt: now(),
+      orgId,
+      deleted: false,
+    };
+    this.rows.push(row);
+    return row;
+  }
+
+  private live(orgId: string): Stored<Visit>[] {
+    return this.rows.filter((r) => r.orgId === orgId && !r.deleted);
+  }
+
+  async findByOrg(orgId: string, filter: VisitListFilter = {}): Promise<Visit[]> {
+    const matching = this.live(orgId)
+      .filter((r) => (filter.machineId ? r.machineId === filter.machineId : true))
+      .filter((r) =>
+        filter.from ? Date.parse(r.countedAt) >= Date.parse(filter.from) : true,
+      )
+      .filter((r) =>
+        filter.to ? Date.parse(r.countedAt) <= Date.parse(filter.to) : true,
+      )
+      .sort((a, b) => byVisitOrder(b, a));
+    return filter.limit ? matching.slice(0, filter.limit) : matching;
+  }
+
+  async findByMachineAscending(
+    orgId: string,
+    machineId: string,
+    range: VisitRange = {},
+  ): Promise<Visit[]> {
+    const ofMachine = this.live(orgId)
+      .filter((r) => r.machineId === machineId)
+      .sort(byVisitOrder);
+    const window = ofMachine
+      .filter((r) =>
+        range.from ? Date.parse(r.countedAt) >= Date.parse(range.from) : true,
+      )
+      .filter((r) =>
+        range.to ? Date.parse(r.countedAt) <= Date.parse(range.to) : true,
+      );
+
+    if (!range.from) {
+      return window;
+    }
+    // STRICTLY before, so a visit stamped exactly at `from` is not returned
+    // twice and paired against itself for a zero-length interval.
+    const predecessor = ofMachine
+      .filter((r) => Date.parse(r.countedAt) < Date.parse(range.from as string))
+      .at(-1);
+    return predecessor ? [predecessor, ...window] : window;
+  }
+
+  async findLatestByOrg(orgId: string): Promise<Visit[]> {
+    const byMachine = new Map<string, Visit>();
+    for (const row of this.live(orgId).sort(byVisitOrder)) {
+      byMachine.set(row.machineId, row);
+    }
+    return [...byMachine.values()];
+  }
+
+  async findLatestByMachine(
+    orgId: string,
+    machineId: string,
+  ): Promise<Visit | null> {
+    return (
+      this.live(orgId)
+        .filter((r) => r.machineId === machineId)
+        .sort(byVisitOrder)
+        .at(-1) ?? null
+    );
+  }
+
+  async findById(orgId: string, id: string): Promise<Visit | null> {
+    return this.live(orgId).find((r) => r.id === id) ?? null;
+  }
+
+  async findByClientRequestId(
+    orgId: string,
+    clientRequestId: string,
+  ): Promise<Visit | null> {
+    // Soft-deleted rows included, matching the real read: a retry whose visit
+    // was since deleted must get it back, not create a second one.
+    return (
+      this.rows.find(
+        (r) => r.orgId === orgId && r.clientRequestId === clientRequestId,
+      ) ?? null
+    );
+  }
+
+  async create(orgId: string, data: VisitInput): Promise<Visit> {
+    return this.seed(orgId, data);
+  }
+
+  async softDelete(orgId: string, id: string): Promise<void> {
+    const row = this.rows.find((r) => r.orgId === orgId && r.id === id);
+    if (row) {
+      row.deleted = true;
+    }
+  }
+}
+
+export const visitInput = (over: Partial<VisitInput> = {}): VisitInput => ({
+  machineId: "mach-1",
+  locationId: "loc-1",
+  planogramId: null,
+  countedAt: "2026-09-20T17:00:00.000Z",
+  recordedByUserId: "user_1",
+  lines: [
+    {
+      slotCode: "A1",
+      productId: "prod-1",
+      remaining: 4,
+      added: 6,
+      removed: 0,
+      removedReason: null,
+      priceCents: 175,
+      par: 10,
+    },
+  ],
+  notes: null,
+  clientRequestId: "req_1",
+  ...over,
+});

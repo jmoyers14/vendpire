@@ -11,6 +11,7 @@ import {
   BARCODE_RESOLVER_SERVICE_TOKEN,
   PLANOGRAM_SERVICE_TOKEN,
   PURCHASE_SERVICE_TOKEN,
+  VISIT_SERVICE_TOKEN,
   PACK_SERVICE_TOKEN,
 } from "./services/index.ts";
 import {
@@ -29,6 +30,7 @@ import type { ProductDataService } from "./services/ProductDataService/ProductDa
 import type { BarcodeResolverService } from "./services/BarcodeResolverService/BarcodeResolverService.ts";
 import type { PlanogramService } from "./services/PlanogramService/PlanogramService.ts";
 import type { PurchaseService } from "./services/PurchaseService/PurchaseService.ts";
+import type { VisitService } from "./services/VisitService/VisitService.ts";
 import type { PackService } from "./services/PackService/PackService.ts";
 import type { Context } from "./context.ts";
 
@@ -72,6 +74,7 @@ export async function createContext(
       ),
       planogramService: container.resolve<PlanogramService>(PLANOGRAM_SERVICE_TOKEN),
       purchaseService: container.resolve<PurchaseService>(PURCHASE_SERVICE_TOKEN),
+      visitService: container.resolve<VisitService>(VISIT_SERVICE_TOKEN),
       packService: container.resolve<PackService>(PACK_SERVICE_TOKEN),
     },
   };

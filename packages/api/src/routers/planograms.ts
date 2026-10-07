@@ -42,6 +42,10 @@ export const planogramsRouter = router({
       ctx.services.planogramService.getCurrent(ctx.auth.orgId, input.machineId),
     ),
 
+  listCurrentByOrg: orgProtectedProcedure.query(({ ctx }) =>
+    ctx.services.planogramService.listCurrentByOrg(ctx.auth.orgId),
+  ),
+
   // Immutable versions: no update/remove. A layout change is a new create.
   create: orgProtectedProcedure
     .input(planogramInput)

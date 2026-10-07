@@ -1,4 +1,5 @@
 import { injectable } from "tsyringe";
+import type { CostBasisLine } from "@vendpire/domain";
 import { PurchaseModel } from "../../models/Purchase.ts";
 import type {
   Purchase,
@@ -96,6 +97,24 @@ export class PurchaseRepositoryImpl implements PurchaseRepository {
       deletedAt: null,
     }).lean<PurchaseDoc | null>();
     return doc ? toPurchase(doc) : null;
+  }
+
+  async findCostBasisLines(orgId: string): Promise<CostBasisLine[]> {
+    // Projected to `lines` alone: the vendor, notes and receipt total are of no
+    // interest to the engine, and leaving them out is what keeps an all-time
+    // read affordable as the purchase history grows.
+    const docs = await PurchaseModel.find(
+      { orgId, deletedAt: null },
+      { lines: 1, _id: 0 },
+    ).lean<{ lines: PurchaseDoc["lines"] }[]>();
+
+    return docs.flatMap((doc) =>
+      doc.lines.map((line) => ({
+        productId: line.productId,
+        units: line.units,
+        totalCostCents: line.totalCostCents,
+      })),
+    );
   }
 
   async findByClientRequestId(

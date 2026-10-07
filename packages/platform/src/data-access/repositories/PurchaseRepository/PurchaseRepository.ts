@@ -1,3 +1,4 @@
+import type { CostBasisLine } from "@vendpire/domain";
 import type {
   Purchase,
   PurchaseInput,
@@ -20,6 +21,15 @@ export interface PurchaseRepository {
    */
   findPageByOrg(orgId: string, query: PurchaseListQuery): Promise<PurchasePage>;
   findById(orgId: string, id: string): Promise<Purchase | null>;
+  /**
+   * Every line of every live purchase in the org, flattened — the P&L engine's
+   * cost-basis input. Projected to the three fields it reads.
+   *
+   * Unpaginated and unwindowed on purpose: the weighted average is ALL-TIME per
+   * product, so a page would cost goods against part of their history and a
+   * date window would stop a late receipt correcting what it should.
+   */
+  findCostBasisLines(orgId: string): Promise<CostBasisLine[]>;
   /**
    * The idempotency read, for clients that submit a key (the phone). Returns
    * null for the web's keyless purchases — a null key matches nothing.

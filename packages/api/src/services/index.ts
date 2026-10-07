@@ -16,6 +16,7 @@ import {
   BARCODE_RESOLVER_SERVICE_TOKEN,
   PLANOGRAM_SERVICE_TOKEN,
   PURCHASE_SERVICE_TOKEN,
+  VISIT_SERVICE_TOKEN,
   PACK_SERVICE_TOKEN,
 } from "./tokens.ts";
 import { AuthServiceImpl } from "./AuthService/AuthServiceImpl.ts";
@@ -28,6 +29,7 @@ import { ProductDataServiceImpl } from "./ProductDataService/ProductDataServiceI
 import { BarcodeResolverServiceImpl } from "./BarcodeResolverService/BarcodeResolverServiceImpl.ts";
 import { PlanogramServiceImpl } from "./PlanogramService/PlanogramServiceImpl.ts";
 import { PurchaseServiceImpl } from "./PurchaseService/PurchaseServiceImpl.ts";
+import { VisitServiceImpl } from "./VisitService/VisitServiceImpl.ts";
 import { PackServiceImpl } from "./PackService/PackServiceImpl.ts";
 
 // This entrypoint's composition root. Registrations go on a *child* container
@@ -64,6 +66,7 @@ container.registerSingleton(
 );
 container.registerSingleton(PLANOGRAM_SERVICE_TOKEN, PlanogramServiceImpl);
 container.registerSingleton(PURCHASE_SERVICE_TOKEN, PurchaseServiceImpl);
+container.registerSingleton(VISIT_SERVICE_TOKEN, VisitServiceImpl);
 container.registerSingleton(PACK_SERVICE_TOKEN, PackServiceImpl);
 
 export { container };

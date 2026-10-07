@@ -192,8 +192,16 @@ export const diffVisits = ({
   return { intervals, anomalies };
 };
 
-/** Checks that need only one visit: what left the slot, and what looks wrong. */
-const observationsOf = (
+/**
+ * Checks that need only one visit: what left the slot, and what looks wrong.
+ *
+ * Exported so the write path can report the same anomalies at submit time that
+ * a later read will compute. The service must not re-derive "over par" from the
+ * submitted lines — the level to compare against is `levelAfter`, not
+ * `remaining + added`, and a second copy of that is a second chance to get it
+ * wrong.
+ */
+export const observationsForVisit = (
   visit: VisitObservation,
 ): { removals: SlotRemoval[]; anomalies: VisitAnomaly[] } => {
   const removals: SlotRemoval[] = [];
@@ -313,7 +321,7 @@ export const intervalsForMachine = (
     intervals.push(...diff.intervals);
     anomalies.push(...diff.anomalies);
 
-    const observed = observationsOf(visit);
+    const observed = observationsForVisit(visit);
     removals.push(...observed.removals);
     anomalies.push(...observed.anomalies);
   });
