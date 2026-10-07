@@ -13,6 +13,7 @@ import type { ProductDataService } from "./services/ProductDataService/ProductDa
 import type { BarcodeResolverService } from "./services/BarcodeResolverService/BarcodeResolverService.ts";
 import type { PlanogramService } from "./services/PlanogramService/PlanogramService.ts";
 import type { PurchaseService } from "./services/PurchaseService/PurchaseService.ts";
+import type { VisitService } from "./services/VisitService/VisitService.ts";
 import type { PackService } from "./services/PackService/PackService.ts";
 
 /**
@@ -55,6 +56,7 @@ export interface Context {
     barcodeResolverService: BarcodeResolverService;
     planogramService: PlanogramService;
     purchaseService: PurchaseService;
+    visitService: VisitService;
     packService: PackService;
   };
 }

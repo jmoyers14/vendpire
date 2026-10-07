@@ -13,4 +13,5 @@ export const PRODUCT_DATA_SERVICE_TOKEN = "ProductDataService";
 export const BARCODE_RESOLVER_SERVICE_TOKEN = "BarcodeResolverService";
 export const PLANOGRAM_SERVICE_TOKEN = "PlanogramService";
 export const PURCHASE_SERVICE_TOKEN = "PurchaseService";
+export const VISIT_SERVICE_TOKEN = "VisitService";
 export const PACK_SERVICE_TOKEN = "PackService";

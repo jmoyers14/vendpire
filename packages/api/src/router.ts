@@ -9,6 +9,7 @@ import { machineTemplatesRouter } from "./routers/machineTemplates.ts";
 import { productsRouter } from "./routers/products.ts";
 import { planogramsRouter } from "./routers/planograms.ts";
 import { purchasesRouter } from "./routers/purchases.ts";
+import { visitsRouter } from "./routers/visits.ts";
 import { packsRouter } from "./routers/packs.ts";
 
 export const appRouter = router({
@@ -22,6 +23,7 @@ export const appRouter = router({
   products: productsRouter,
   planograms: planogramsRouter,
   purchases: purchasesRouter,
+  visits: visitsRouter,
   packs: packsRouter,
 });
 
