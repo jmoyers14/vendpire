@@ -9,6 +9,10 @@
 > requirements it didn't have: a cell renderer driven by per-slot capture state, and
 > auto-scroll to a focused cell.
 
+**Mockups:** <https://claude.ai/code/artifact/a1d57622-a360-4e74-bf09-d6896f7aae75> — the four
+questions, the frames that settled each, and the rejected options with the reason. Reference
+only; this spec is authoritative where the two disagree.
+
 ## Context
 
 Servicing a machine means standing in front of it, counting what's left in each slot, and
@@ -92,6 +96,10 @@ units that physically left the slot.
 
 ## The capture screen
 
+**Header** — the machine name, and a counted-of-total count (`13/48`) with a progress bar
+beneath it. These are the whole-machine state when the face itself is clipped by scrolling, so
+they are not decoration. The bar turns amber once `Next` starts hunting gaps.
+
 **Grid** — walks `machine.slots` exactly as authored, one row per shelf. Never infer layout
 from slot codes.
 
@@ -100,9 +108,11 @@ disclosure, and the two fields — `LEFT IN SLOT` and `ADDING` — with the focu
 Each carries a subtitle: last visit's count under Left, and `fills to par 10` / `8 of par 10 —
 short` under Adding.
 
-**Keypad** — 0–9, a toggle key, and `Next`. The toggle shows the *other* field and its current
-value (`ADDING 4` when Left has focus, `‹ LEFT 6` when Adding does), so the default is legible
-without reading the strip. `0` in Adding means "couldn't fill it at all" — no separate key.
+**Keypad** — a 3-wide grid: `1`–`9` on the first three rows, then `[0] [toggle] [Next]`. The
+toggle sits in the middle, under the thumb, because it's the only key whose target changes. It
+shows the *other* field and its current value (`ADDING 4` when Left has focus, `‹ LEFT 6` when
+Adding does), so the default is legible without reading the strip. `0` in Adding means
+"couldn't fill it at all" — no separate key.
 
 **Hold a shelf label** and that shelf expands in place into a list — full product names, both
 numbers, same keypad — until you let go. This is the only way to read a product name for a slot
