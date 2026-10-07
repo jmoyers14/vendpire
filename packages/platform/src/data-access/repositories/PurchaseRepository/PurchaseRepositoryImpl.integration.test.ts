@@ -229,6 +229,60 @@ describe.skipIf(!ENABLED)("PurchaseRepositoryImpl against MongoDB", () => {
     });
   });
 
+  // The cost basis is the one read whose correctness is entirely in the
+  // projection: `{lines: 1, _id: 0}` plus a flatMap. Unit tests can't tell a
+  // working projection from one that silently returns empty subdocuments.
+  describe("findCostBasisLines", () => {
+    it("flattens every live purchase's lines and drops the rest of the document", async () => {
+      await PurchaseModel.create({
+        orgId: ORG,
+        purchasedAt: SHARED,
+        vendor: "Costco",
+        lines: [
+          { productId: "p1", units: 30, totalCostCents: 1499 },
+          { productId: "p2", units: 12, totalCostCents: 699 },
+        ],
+        clientRequestId: "basis_1",
+      });
+      await PurchaseModel.create({
+        orgId: ORG,
+        purchasedAt: OLDER,
+        vendor: "Sam's",
+        lines: [{ productId: "p1", units: 10, totalCostCents: 550 }],
+        clientRequestId: "basis_2",
+      });
+
+      const lines = await repo.findCostBasisLines(ORG);
+
+      expect(lines).toHaveLength(3);
+      expect(lines).toContainEqual({
+        productId: "p1",
+        units: 30,
+        totalCostCents: 1499,
+      });
+      // Exactly the three fields the engine reads — a stray `packId` or `_id`
+      // riding along would mean the projection isn't doing anything.
+      expect(Object.keys(lines[0] as object).sort()).toEqual([
+        "productId",
+        "totalCostCents",
+        "units",
+      ]);
+    });
+
+    // A deleted receipt was entered in error, so its units never existed. Leave
+    // them in and the weighted average is wrong for that product forever.
+    it("excludes a soft-deleted purchase's lines", async () => {
+      const id = await seed(SHARED);
+      await repo.softDelete(ORG, id);
+      expect(await repo.findCostBasisLines(ORG)).toEqual([]);
+    });
+
+    it("never reaches across the org boundary", async () => {
+      await seed(SHARED);
+      expect(await repo.findCostBasisLines("org_2")).toEqual([]);
+    });
+  });
+
   // The only way to catch a future index regression: without {orgId,
   // purchasedAt, _id} the planner has to insert a blocking SORT over the whole
   // org's purchases on every page.

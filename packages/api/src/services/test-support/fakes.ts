@@ -1,3 +1,4 @@
+import type { CostBasisLine } from "@vendpire/domain";
 import type {
   Location,
   LocationInput,
@@ -392,6 +393,17 @@ export class FakePurchaseRepository implements PurchaseRepository {
       this.rows.find((r) => r.orgId === orgId && r.id === id && !r.deleted) ??
       null
     );
+  }
+  async findCostBasisLines(orgId: string): Promise<CostBasisLine[]> {
+    return this.rows
+      .filter((r) => r.orgId === orgId && !r.deleted)
+      .flatMap((r) =>
+        r.lines.map((line) => ({
+          productId: line.productId,
+          units: line.units,
+          totalCostCents: line.totalCostCents,
+        })),
+      );
   }
   async findByClientRequestId(
     orgId: string,
