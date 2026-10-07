@@ -556,10 +556,8 @@ export class FakePackRepository implements PackRepository {
 
 /**
  * Total order by (countedAt, createdAt, id) ascending — what the real compound
- * index gives and what the engine requires. countedAt is compared as an INSTANT
- * rather than a string: the write contract accepts any ISO-8601 offset, and
- * "02:00-08:00" sorts before "09:00+00:00" lexicographically while falling an
- * hour after it in real time.
+ * index gives. Compared as INSTANTS: the contract accepts any ISO-8601 offset,
+ * and "02:00-08:00" sorts before "09:00+00:00" while falling an hour after it.
  */
 const byVisitOrder = (a: Visit, b: Visit): number =>
   Date.parse(a.countedAt) - Date.parse(b.countedAt) ||
@@ -573,9 +571,8 @@ export class FakeVisitRepository implements VisitRepository {
     const clash = this.rows.find(
       (r) => r.orgId === orgId && r.clientRequestId === input.clientRequestId,
     );
-    // The unique index is the whole idempotency guarantee, so the fake raises
-    // the same E11000 the service's create/catch/re-read path exists to handle.
-    // Without this the race branch is untestable and silently rots.
+    // The unique index IS the idempotency guarantee, so the fake raises the same
+    // E11000 the service's create/catch/re-read path exists to handle.
     if (clash) {
       throw Object.assign(new Error("E11000 duplicate key error"), {
         code: 11000,
@@ -629,8 +626,8 @@ export class FakeVisitRepository implements VisitRepository {
     if (!range.from) {
       return window;
     }
-    // STRICTLY before the window, so a visit stamped exactly at `from` is not
-    // returned twice and paired against itself for a zero-length interval.
+    // STRICTLY before, so a visit stamped exactly at `from` is not returned
+    // twice and paired against itself for a zero-length interval.
     const predecessor = ofMachine
       .filter((r) => Date.parse(r.countedAt) < Date.parse(range.from as string))
       .at(-1);
@@ -665,9 +662,8 @@ export class FakeVisitRepository implements VisitRepository {
     orgId: string,
     clientRequestId: string,
   ): Promise<Visit | null> {
-    // Soft-deleted rows included, matching the real read: a retry of a submit
-    // whose visit was since deleted must get that visit back, not create a
-    // second one the unique index would reject anyway.
+    // Soft-deleted rows included, matching the real read: a retry whose visit
+    // was since deleted must get it back, not create a second one.
     return (
       this.rows.find(
         (r) => r.orgId === orgId && r.clientRequestId === clientRequestId,

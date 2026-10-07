@@ -38,12 +38,8 @@ import {
   type VisitSubmission,
 } from "./VisitService.ts";
 
-/**
- * How far ahead of the server's clock a count may be stamped. Phone clocks drift
- * and timezones get mishandled, so a little slack is kinder than a rejection.
- * Beyond it, a visit stamped in the future becomes the predecessor of every real
- * visit after it and poisons their baselines until somebody notices.
- */
+/** Slack for drifting phone clocks. Beyond it, a future-stamped visit becomes
+ *  the predecessor of every real visit after it and poisons their baselines. */
 const MAX_FUTURE_MS = 2 * 60 * 60 * 1000;
 
 /** Mongo's duplicate-key error, recognized without importing a driver type. */
@@ -53,23 +49,16 @@ const isDuplicateKey = (error: unknown): boolean =>
   (error as { code?: unknown }).code === 11000;
 
 /**
- * Visit business rules.
+ * Visit business rules. Two shapes run through all of them:
  *
- * Two shapes run through every one of them. References are validated
- * DELETED-TOLERANTLY: if the phone's store has product P, someone retires P in
- * the dashboard, and the outbox submits a line for P hours later, a live-only
- * existence check would 400 permanently and the day's counts would be gone. The
- * question is "is this a document in this org", not "is it still in the catalog".
+ * - References are checked DELETED-TOLERANTLY. A line for a product retired
+ *   after the count would 400 forever, and the day's counts would be gone.
+ * - Anything that merely looks wrong is REPORTED, never rejected. A 400 on a
+ *   submitted count destroys data no retry can recover.
  *
- * And anything that merely looks wrong is REPORTED, never rejected. A visit
- * records what happened in the field; a 400 on a submitted count destroys data
- * no retry can recover.
- *
- * Explicitly NOT a rule: requiring each line's (slotCode, productId) to match a
- * planogram slot. A planogram says what a slot is supposed to hold; a visit
- * records what was actually in it. The obvious validation here is the wrong one,
- * and it would reject exactly the re-planogram and mixed-spiral counts that
- * matter most.
+ * NOT a rule: matching each line against a planogram slot. A planogram says what
+ * a slot should hold; a visit records what was in it. That check would reject
+ * exactly the re-planogram and mixed-spiral counts that matter most.
  */
 @injectable()
 export class VisitServiceImpl implements VisitService {
@@ -107,12 +96,9 @@ export class VisitServiceImpl implements VisitService {
     orgId: string,
     { draft, recordedByUserId }: VisitSubmission,
   ): Promise<VisitCreation> {
-    // The replay, checked FIRST and returned verbatim: no re-validation, no
-    // update. A client whose request timed out cannot tell "succeeded, response
-    // lost" from "failed", so it retries, and 200 with the original is the only
-    // answer it can act on. A 409 would make an outbox either drop the draft or
-    // retry forever, and re-validating risks rejecting a visit that is already
-    // stored because a product has since been retired.
+    // Checked FIRST and returned verbatim — no re-validation. A retrying client
+    // can only act on 200 with the original; re-validating would reject an
+    // already-stored visit whose product has since been retired.
     const replay = await this.visits.findByClientRequestId(
       orgId,
       draft.clientRequestId,
@@ -185,34 +171,32 @@ export class VisitServiceImpl implements VisitService {
     const engine = intervalsForMachine(visits);
 
     // findByMachineAscending prepends the visit strictly BEFORE the window, so
-    // the window's first interval has something to measure against. That visit
-    // belongs to the previous period, and everything it contributes has to come
-    // back out or a month report opens by declaring the whole machine face
-    // uncounted.
+    // the first interval has a baseline. That visit belongs to the previous
+    // period, so everything it contributes has to come back out.
     const baseline = this.baselineOf(visits, range);
     const opensAfter = baseline ? Date.parse(baseline.countedAt) : null;
 
     const intervals =
       opensAfter === null
         ? engine.intervals
-        : // Filtered on `to`, never on `from === to`: a product introduced
-          // mid-period is also from === to, and dropping those would hide the
-          // new products a period report exists to mention.
-          engine.intervals.filter((row) => Date.parse(row.to) > opensAfter);
+        : // On `to`, never on `from === to` — a product introduced mid-period
+          // is also from === to, and those are worth reporting.
+          engine.intervals.filter(
+            (interval) => Date.parse(interval.to) > opensAfter,
+          );
     const removals =
       opensAfter === null
         ? engine.removals
         : engine.removals.filter(
-            (row) => Date.parse(row.countedAt) > opensAfter,
+            (removal) => Date.parse(removal.countedAt) > opensAfter,
           );
     const anomalies =
       baseline === null
         ? engine.anomalies
         : withoutAnomaliesOf(engine.anomalies, baseline);
 
-    // All-time and org-wide, every call. The weighted average IS all-time, so
-    // there is nothing to window, and a receipt entered three weeks late has to
-    // be able to correct the COGS of a visit that predates it.
+    // All-time and org-wide: the weighted average IS all-time, so a receipt
+    // entered three weeks late still corrects a visit that predates it.
     const costLines = await this.purchases.findCostBasisLines(orgId);
     const priced = buildIntervalPnl(
       intervals,
@@ -230,11 +214,8 @@ export class VisitServiceImpl implements VisitService {
     };
   }
 
-  /**
-   * The out-of-window baseline, when there is one. Identified by its timestamp
-   * rather than its position: with no `from` there is no baseline at all, and the
-   * window's own first visit must not be mistaken for one.
-   */
+  /** The out-of-window baseline, by timestamp and not position — the window's
+   *  own first visit must not be mistaken for one. */
   private baselineOf(visits: Visit[], range: VisitRange): Visit | null {
     const first = visits[0];
     if (!range.from || !first) {
@@ -243,10 +224,8 @@ export class VisitServiceImpl implements VisitService {
     return Date.parse(first.countedAt) < Date.parse(range.from) ? first : null;
   }
 
-  /**
-   * Every reference check, plus the normalized lines to store. Throws on what
-   * makes a visit unstorable; returns what merely deserves mentioning.
-   */
+  /** Throws on what makes a visit unstorable, returns what merely deserves
+   *  mentioning, plus the normalized lines to store. */
   private async validate(
     orgId: string,
     draft: VisitDraft,
@@ -263,10 +242,9 @@ export class VisitServiceImpl implements VisitService {
       throw new ServiceError("BAD_REQUEST", "Machine does not exist");
     }
 
-    // Stored slot codes are trimmed and uppercased (see `normalizeSlots`), so
-    // incoming ones must be too. A visit stored as "a1" would not merely fail
-    // the check below: it would never key-match the same slot counted as "A1",
-    // and the engine would report both as uncounted forever.
+    // Matching `normalizeSlots`. A visit stored as "a1" would never key-match
+    // the same slot counted as "A1", so the engine would report both as
+    // uncounted forever.
     const lines = draft.lines.map((line) => ({
       ...line,
       slotCode: line.slotCode.trim().toUpperCase(),
@@ -281,10 +259,9 @@ export class VisitServiceImpl implements VisitService {
           `Machine has no slot ${line.slotCode}`,
         );
       }
-      // The PAIR, not the slot code. A repeated slotCode with a different
-      // product is legal and load-bearing: it is how a mixed spiral records
-      // per-flavor counts, and how a re-planogram visit counts the outgoing
-      // product out alongside the incoming one.
+      // The PAIR, not the slot code. One slot with two products is how a mixed
+      // spiral records per-flavor counts, and how a re-planogram visit counts
+      // the outgoing product out.
       const key = `${line.slotCode} ${line.productId}`;
       if (seen.has(key)) {
         throw new ServiceError(
@@ -317,9 +294,8 @@ export class VisitServiceImpl implements VisitService {
     if (!location) {
       throw new ServiceError("BAD_REQUEST", "Location does not exist");
     }
-    // The client's snapshot wins. The phone counted at 9am where the machine
-    // then stood, someone moved it at 2pm, the outbox submits at 5pm: reading
-    // machine.locationId here would file the count at the new location.
+    // The client's snapshot wins: counted at 9am, machine moved at 2pm, synced
+    // at 5pm — reading machine.locationId would file it at the new location.
     if (location.id !== machine.locationId) {
       notices.push({
         kind: "machine-moved",
@@ -340,9 +316,8 @@ export class VisitServiceImpl implements VisitService {
           "Planogram does not exist for this machine",
         );
       }
-      // Provenance only: the engine never reads a planogram, because price and
-      // par are copied onto the line. Filling against a superseded version is a
-      // real event, so it is noted and stored rather than refused.
+      // Provenance only — price and par are copied onto the line, so the engine
+      // never reads a planogram. A fill against a superseded version is real.
       const current = versions[0];
       if (current && current.id !== draft.planogramId) {
         notices.push({
@@ -358,18 +333,13 @@ export class VisitServiceImpl implements VisitService {
 }
 
 /**
- * The full run's anomalies, less the ones the baseline visit contributes.
+ * The full run's anomalies, less the baseline visit's own.
  *
- * Anomalies carry no timestamp, so unlike intervals and removals they cannot be
- * filtered by date. Running the engine over the baseline ALONE reproduces exactly
- * what it contributes as index 0 of the full sequence — a `no-baseline` per line
- * plus its own single-visit checks — so subtracting that multiset drops them
- * without re-deriving any of the arithmetic here.
- *
- * Keyed by JSON because both lists are built by the same code from the same
- * fields, so key order is identical. A multiset and not a set: two slots can
- * legitimately raise the same anomaly, and only as many copies as the baseline
- * actually produced may come out.
+ * Anomalies carry no timestamp, so they cannot be date-filtered like intervals
+ * and removals. Running the engine over the baseline ALONE reproduces exactly
+ * what it contributes as index 0 of the full sequence, so subtracting that
+ * multiset re-derives no arithmetic. A multiset and not a set — two slots can
+ * legitimately raise the same anomaly.
  */
 const withoutAnomaliesOf = (
   all: VisitAnomaly[],

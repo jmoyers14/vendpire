@@ -2,18 +2,12 @@ import { clerk, setupClerkTestingToken } from "@clerk/testing/playwright";
 import { test, expect, requireTestUser } from "../fixtures.ts";
 
 /**
- * The claim the whole offline story rests on: a client that cannot tell
- * "succeeded, response lost" from "failed" retries its submit, and the second
- * POST must return the FIRST visit rather than create a second one.
+ * The claim the offline story rests on: a retried submit must return the FIRST
+ * visit, not create a second one. The repository test proves the unique index
+ * and the service test proves the re-read path; only this one proves the two
+ * HTTP requests a phone actually sends come back as one document.
  *
- * The repository integration test proves the unique index rejects a duplicate
- * key; the service unit test proves the create/catch/re-read path. Only this
- * spec proves the two HTTP requests a phone actually sends come back as one
- * document.
- *
- * Drives a real Clerk session because every visit procedure is
- * `orgProtectedProcedure` — there is no way to exercise the HTTP surface without
- * a token carrying an org claim.
+ * Needs a real Clerk session — every visit procedure is `orgProtectedProcedure`.
  */
 requireTestUser();
 

@@ -22,14 +22,12 @@ export interface PurchaseRepository {
   findPageByOrg(orgId: string, query: PurchaseListQuery): Promise<PurchasePage>;
   findById(orgId: string, id: string): Promise<Purchase | null>;
   /**
-   * Every line of every live purchase in the org, flattened — the cost-basis
-   * input the P&L engine needs.
+   * Every line of every live purchase in the org, flattened — the P&L engine's
+   * cost-basis input. Projected to the three fields it reads.
    *
-   * Deliberately unpaginated and unwindowed. The weighted-average unit cost is
-   * ALL-TIME per product, so a page would silently cost goods against part of
-   * their purchase history, and a date window would make a receipt entered late
-   * stop correcting the COGS it is supposed to correct. Only the three fields
-   * the engine reads come back, so the payload is a fraction of the documents.
+   * Unpaginated and unwindowed on purpose: the weighted average is ALL-TIME per
+   * product, so a page would cost goods against part of their history and a
+   * date window would stop a late receipt correcting what it should.
    */
   findCostBasisLines(orgId: string): Promise<CostBasisLine[]>;
   /**
