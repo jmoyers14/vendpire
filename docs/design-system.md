@@ -157,10 +157,32 @@ query/mutation failures and renders nothing when `message` is null.
 
 ### Layout — `<Page>`, `<PageTitle>`, `<PageSubtitle>`, `<Card>`, `<CardTitle>`, `<TableScroll>`, `<EmptyState>`
 
-### Form controls — `inputClass`, `labelClass`, `hintClass`, `checkboxClass`
+### Form controls — `inputClass`, `countInputClass`, `labelClass`, `hintClass`, `checkboxClass`
 
 `checkboxClass` applies `accent-primary-600` so native checkboxes stop rendering in the
 browser's default blue.
+
+`countInputClass` is the variant for fields filled in standing at a machine: 16px text
+(iOS Safari zooms the whole page when a focused input's text is smaller) plus
+`tabular-nums` so counts line up down a column. Both it and `inputClass` are composed
+from one shared base, because two font-size utilities on one element leaves the winner up
+to stylesheet order. Use it with `inputMode="numeric"` for count fields.
+
+### Machine face — `<SlotFaceGrid shelves renderCell onSelect selectedCode>`
+
+One strip of cells per shelf, cells spanning equal width, on a `bg-gray-100 rounded-md`
+tray. Every screen that shows a machine layout renders through this — the machine form
+(bare codes), the planogram screen, and the visit screens — so a slot looks and behaves
+the same wherever it appears.
+
+Consumers supply a cell's content and `state`; the grid owns all the chrome, including
+selection. States carry meaning rather than color: `assigned` (white), `empty` (dashed),
+`done` (green — counted, filled, complete), `attention` (amber — worth a look, never a
+block). Selection uses primary, because it's an interaction and not a status. Cells
+become buttons only when `onSelect` is passed.
+
+Cells have a `min-w-14` floor and the tray scrolls horizontally, so a wide shelf on a
+phone scrolls instead of crushing eight cells into slivers.
 
 ### List controls — `<SearchInput>`, `<LoadMore>`
 

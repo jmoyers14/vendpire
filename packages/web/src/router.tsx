@@ -19,6 +19,8 @@ import { ProductsScreen } from "./screens/products/ProductsScreen.tsx";
 import { PurchaseFormScreen } from "./screens/purchases/PurchaseFormScreen.tsx";
 import { PurchasesScreen } from "./screens/purchases/PurchasesScreen.tsx";
 import { RootLayout } from "./screens/root-layout/RootLayout.tsx";
+import { MachineVisitsScreen } from "./screens/visits/MachineVisitsScreen.tsx";
+import { VisitEntryScreen } from "./screens/visits/VisitEntryScreen.tsx";
 
 const rootRoute = createRootRoute({ component: RootLayout });
 
@@ -109,6 +111,26 @@ const machinePlanogramsRoute = createRoute({
   },
 });
 
+const machineVisitsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/machines/$machineId/visits",
+  component: function MachineVisits() {
+    const { machineId } = machineVisitsRoute.useParams();
+    return <MachineVisitsScreen machineId={machineId} />;
+  },
+});
+
+// Static "new" outscores nothing here — its parent segment is already dynamic —
+// so this sits beside the list route rather than under it.
+const newVisitRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/machines/$machineId/visits/new",
+  component: function NewVisit() {
+    const { machineId } = newVisitRoute.useParams();
+    return <VisitEntryScreen machineId={machineId} />;
+  },
+});
+
 const productsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/products",
@@ -185,6 +207,8 @@ const routeTree = rootRoute.addChildren([
   editMachineTemplateRoute,
   editMachineRoute,
   machinePlanogramsRoute,
+  machineVisitsRoute,
+  newVisitRoute,
   productsRoute,
   newProductRoute,
   editProductRoute,

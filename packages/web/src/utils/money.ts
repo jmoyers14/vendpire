@@ -15,6 +15,20 @@ export const formatCents = (cents: number): string =>
   });
 
 /**
+ * Render integer cents with an explicit sign, for a figure that can go either
+ * way — profit, margin, a variance. Uses a true minus sign (U+2212) rather
+ * than a hyphen, which is what the design system's money rule asks for.
+ *
+ * Zero gets no sign: "+$0.00" reads as a gain that didn't happen.
+ */
+export const formatSignedCents = (cents: number): string => {
+  if (cents === 0) {
+    return formatCents(0);
+  }
+  return `${cents > 0 ? "+" : "\u2212"}${formatCents(Math.abs(cents))}`;
+};
+
+/**
  * Render integer cents as the bare dollars string a text input holds ("1.75").
  * Unlike formatCents there's no symbol or grouping — those would not survive a
  * round trip back through parseDollarsToCents.

@@ -83,6 +83,13 @@ export function MachinesScreen() {
                   </td>
                   <td className="space-x-3 px-4 py-2 text-right">
                     <Link
+                      to="/machines/$machineId/visits"
+                      params={{ machineId: machine.id }}
+                      className="text-primary-600 hover:text-primary-500"
+                    >
+                      Visits
+                    </Link>
+                    <Link
                       to="/machines/$machineId/planograms"
                       params={{ machineId: machine.id }}
                       className="text-primary-600 hover:text-primary-500"
