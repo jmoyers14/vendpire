@@ -54,10 +54,18 @@ five. Design 2 also reshapes `added` from a number to a list, which is
 load-bearing in `levelAfter` (`sold.ts:58`) and therefore in every revenue and
 COGS figure, before anyone has typed a single date into any version.
 
-**Revisit trigger:** after real route days, if reading a bag per slot proves
-annoying enough to skip, build dated add-lines. It is a strictly additive
-upgrade — `added` becomes a list, the single date becomes derived, and the
-report's shape does not change.
+**Revisit trigger — already half-tripped.** The route's other operator wants to
+enter a date for every product added, which *is* the dated add-lines design. We
+are trying one-date-per-slot first anyway, because it is a tenth of the work and
+nobody has used either version yet — but this is a deliberate trial against a
+stated preference, not an open question nobody has an opinion on. Expect to
+revisit it, and treat "the operator keeps wanting to record what she just
+loaded" as the signal rather than waiting for a complaint about reading bags.
+
+The upgrade is strictly additive when it comes: `added` becomes a list of
+`{units, bestBy}`, the single per-slot date becomes derived from the oldest
+undrained lot, and the report's shape does not change. Nothing built now has to
+be unbuilt.
 
 ## Decisions
 
@@ -233,6 +241,11 @@ readonly tracksExpiration: boolean;
 - `buildVisitLines` rejects a malformed date with the established
   slot-prefixed message: `` `Slot ${row.slotCode}: "Best by" must be a date like 2026-12-15` ``.
   A blank is **not** an error — it sends `null`.
+- `buildVisitLines` also sends `null` when `levelAfter(row) === 0`: a date on a
+  slot with nothing in it describes stock that is not there. Matches the
+  neighbouring rule for removal reasons — *"a reason without a removal is
+  leftover UI state, not a fact"* — and keeps a carried-forward date from
+  outliving the stock it was read from.
 - `warningsFor(row, { asOf })` gains `"expired"` and `"expiring-soon"`. Both
   non-blocking, consistent with `over-par` / `over-removed`: the engine records
   what happened in the field and reports oddities rather than rejecting them.
