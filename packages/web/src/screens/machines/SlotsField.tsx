@@ -1,6 +1,5 @@
-import { SlotFacePreview } from "./SlotFacePreview.tsx";
 import { SlotGridEditor } from "./SlotGridEditor.tsx";
-import { inputClass } from "../../ui.tsx";
+import { inputClass, SlotFaceGrid } from "../../ui.tsx";
 import {
   parseSlotLines,
   type SlotsValue,
@@ -47,7 +46,7 @@ export function SlotsField({
             value={value.codesText}
             onChange={(e) => onChange({ ...value, codesText: e.target.value })}
           />
-          <SlotFacePreview shelves={shelves} />
+          <SlotFaceGrid shelves={shelves} />
           <p className="text-xs text-gray-500">{shelves.flat().length} slot(s)</p>
         </div>
       )}

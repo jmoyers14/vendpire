@@ -4,6 +4,7 @@ import {
   centsToInput,
   formatBps,
   formatCents,
+  formatSignedCents,
   parseDollarsToCents,
   parsePercentToBps,
 } from "./money.ts";
@@ -78,5 +79,20 @@ describe("parsePercentToBps", () => {
     expect(parsePercentToBps("0")).toBeNull();
     expect(parsePercentToBps("-5")).toBeNull();
     expect(parsePercentToBps("101")).toBeNull();
+  });
+});
+
+describe("formatSignedCents", () => {
+  it("marks a gain with a plus", () => {
+    expect(formatSignedCents(17100)).toBe("+$171.00");
+  });
+
+  // A true minus sign (U+2212), not a hyphen — the design system's money rule.
+  it("marks a loss with a minus sign", () => {
+    expect(formatSignedCents(-3600)).toBe("−$36.00");
+  });
+
+  it("leaves zero unsigned, since +$0.00 reads as a gain", () => {
+    expect(formatSignedCents(0)).toBe("$0.00");
   });
 });

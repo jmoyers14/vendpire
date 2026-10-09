@@ -1,7 +1,14 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Button, ErrorNote, inputClass, Page, PageTitle, SlotRow } from "../../ui.tsx";
+import {
+  Button,
+  ErrorNote,
+  inputClass,
+  Page,
+  PageTitle,
+  SlotFaceGrid,
+} from "../../ui.tsx";
 import type { ApiProduct } from "../../apiTypes.ts";
 import {
   centsToInput,
@@ -116,46 +123,37 @@ export function MachinePlanogramsScreen({ machineId }: { machineId: string }) {
       {editing ? (
         <div className="space-y-3">
           {/* The machine face — click a cell to edit that slot. */}
-          <div className="space-y-1.5 overflow-x-auto rounded-md bg-gray-100 p-2">
-            {machine.data?.slots.map((shelf, shelfIndex) => (
-              <div key={shelfIndex} className="flex gap-1">
-                {shelf.map((slotCode) => {
-                  const row = rows.find((r) => r.slotCode === slotCode);
-                  const isSelected = selected === slotCode;
-                  return (
-                    <button
-                      type="button"
-                      key={slotCode}
-                      onClick={() => setSelected(slotCode)}
-                      className={`min-w-0 flex-1 rounded border px-1 py-1.5 text-center transition-shadow ${
-                        isSelected
-                          ? "border-primary-500 bg-white ring-2 ring-primary-300"
-                          : row?.productId
-                            ? "border-gray-300 bg-white hover:border-primary-300"
-                            : "border-dashed border-gray-300 bg-gray-50 hover:border-primary-300"
-                      }`}
-                    >
-                      <div className="font-mono text-[10px] text-gray-500">
-                        {slotCode}
-                      </div>
-                      {row?.productId ? (
-                        <>
-                          <div className="truncate text-xs font-medium text-gray-800">
-                            {productName(row.productId)}
-                          </div>
-                          <div className="text-[10px] text-gray-600">
-                            {row.price ? `$${row.price}` : "—"} · par {row.par || "—"}
-                          </div>
-                        </>
-                      ) : (
-                        <div className="text-[10px] text-gray-400">empty</div>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            ))}
-          </div>
+          <SlotFaceGrid
+            shelves={machine.data?.slots ?? []}
+            selectedCode={selected}
+            onSelect={setSelected}
+            renderCell={(slotCode) => {
+              const row = rows.find((r) => r.slotCode === slotCode);
+              return {
+                state: row?.productId ? "assigned" : "empty",
+                content: (
+                  <>
+                    <div className="font-mono text-[10px] text-muted">
+                      {slotCode}
+                    </div>
+                    {row?.productId ? (
+                      <>
+                        <div className="truncate text-xs font-medium text-gray-800">
+                          {productName(row.productId)}
+                        </div>
+                        <div className="text-[10px] text-gray-600">
+                          {row.price ? `$${row.price}` : "—"} · par{" "}
+                          {row.par || "—"}
+                        </div>
+                      </>
+                    ) : (
+                      <div className="text-[10px] text-gray-400">empty</div>
+                    )}
+                  </>
+                ),
+              };
+            }}
+          />
 
           {/* Edit panel for the selected slot. */}
           {selected ? (
@@ -213,48 +211,37 @@ export function MachinePlanogramsScreen({ machineId }: { machineId: string }) {
           </div>
 
           {current && machine.data ? (
-            <div className="space-y-1.5 overflow-x-auto rounded-md bg-gray-100 p-2">
-              {machine.data.slots.map((shelf, shelfIndex) => (
-                <div key={shelfIndex} className="flex gap-1">
-                  {shelf.map((slotCode) => {
-                    const slot = current.slots.find(
-                      (s) => s.slotCode === slotCode,
-                    );
-                    return (
-                      <div
-                        key={slotCode}
-                        title={
-                          slot
-                            ? `${slotCode}: ${productName(slot.productId)} — par ${slot.par} @ ${formatCents(slot.priceCents)}`
-                            : `${slotCode}: empty`
-                        }
-                        className={`min-w-0 flex-1 rounded border px-1 py-1.5 text-center ${
-                          slot
-                            ? "border-gray-300 bg-white"
-                            : "border-dashed border-gray-300 bg-gray-50"
-                        }`}
-                      >
-                        <div className="font-mono text-[10px] text-gray-500">
-                          {slotCode}
-                        </div>
-                        {slot ? (
-                          <>
-                            <div className="truncate text-xs font-medium text-gray-800">
-                              {productName(slot.productId)}
-                            </div>
-                            <div className="text-[10px] text-gray-600">
-                              {formatCents(slot.priceCents)} · par {slot.par}
-                            </div>
-                          </>
-                        ) : (
-                          <div className="text-[10px] text-gray-400">—</div>
-                        )}
+            <SlotFaceGrid
+              shelves={machine.data.slots}
+              renderCell={(slotCode) => {
+                const slot = current.slots.find((s) => s.slotCode === slotCode);
+                return {
+                  state: slot ? "assigned" : "empty",
+                  title: slot
+                    ? `${slotCode}: ${productName(slot.productId)} — par ${slot.par} @ ${formatCents(slot.priceCents)}`
+                    : `${slotCode}: empty`,
+                  content: (
+                    <>
+                      <div className="font-mono text-[10px] text-muted">
+                        {slotCode}
                       </div>
-                    );
-                  })}
-                </div>
-              ))}
-            </div>
+                      {slot ? (
+                        <>
+                          <div className="truncate text-xs font-medium text-gray-800">
+                            {productName(slot.productId)}
+                          </div>
+                          <div className="text-[10px] text-gray-600">
+                            {formatCents(slot.priceCents)} · par {slot.par}
+                          </div>
+                        </>
+                      ) : (
+                        <div className="text-[10px] text-gray-400">—</div>
+                      )}
+                    </>
+                  ),
+                };
+              }}
+            />
           ) : null}
 
           {versions.data && versions.data.length > 1 ? (

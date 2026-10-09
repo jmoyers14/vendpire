@@ -29,4 +29,8 @@ export type ApiPackContent = ApiPack["contents"][number];
 export type ApiPurchase = NonNullable<Outputs["purchases"]["get"]>;
 export type ApiLocation = Outputs["locations"]["list"][number];
 export type ApiBarcodeResolution = Outputs["barcodes"]["resolve"];
+export type ApiVisit = Outputs["visits"]["list"][number];
+export type ApiVisitLine = ApiVisit["lines"][number];
+export type ApiVisitPnl = Outputs["visits"]["pnl"];
+export type ApiPlanogram = NonNullable<Outputs["planograms"]["getCurrent"]>;
 
