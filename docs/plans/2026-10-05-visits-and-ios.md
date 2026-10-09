@@ -9,7 +9,15 @@
 > units can leave a slot without being sold, and the original schema had no way to say so.
 > See "Units that leave a slot without being sold" below.
 >
-> Task board: shuffleboard project `Vendpire`, nine phase tasks mirroring the phases below.
+> **Amended 2026-10-06, re-scoped 2026-10-07:** added the forced-update path. A build that
+> can't be told it's too old can never be told, so the client half lands in the Phase 2
+> scaffold and stays inert behind a server floor defaulting to 0. It touches Phases 2/6/7/8,
+> so rather than four amendments it gets **one card of its own** plus
+> `docs/diagrams/forced-update.md` for the mechanism. The phase sections below carry pointers,
+> not detail.
+>
+> Task board: shuffleboard project `Vendpire`, nine phase tasks mirroring the phases below,
+> plus one cross-cutting card ("Forced update — the version floor and the update wall").
 > Subtasks prefixed `DECIDE:` mark the open questions, deliberately left to be answered at
 > the phase that reaches them rather than up front.
 
@@ -446,10 +454,12 @@ ios/Vendpire/
   Store/Model/Stored{Location,Machine,Product,Pack,Planogram}.swift   # SwiftData @Model
   Store/FixtureLoader.swift           # seeds the store from the bundled fixture
   Domain/Gtin.swift                   # ported normalizeGtin
-  Features/{SignIn,LocationList,MachineList,MachineFace}/
+  Support/ClientSupport.swift         # @Observable update gate; Debug-set until Phase 7
+  Features/{SignIn,LocationList,MachineList,MachineFace,UpdateRequired}/
   Fixtures/sample-org.json            # exported from local Mongo
 ios/VendpireTests/
   GtinTests.swift                     # reads the SHARED vectors.json
+  ClientSupportTests.swift            # build comparison + gate transitions
 ```
 
 ### What this phase delivers
@@ -479,6 +489,21 @@ ios/VendpireTests/
 8. **`normalizeGtin` ported to Swift**, with `GtinTests` reading the same `vectors.json`
    extracted in Phase 1 as a bundle resource — otherwise the two implementations drift the
    first time someone fixes a UPC-E edge case.
+9. **The update wall** — `Support/ClientSupport.swift` (an `@Observable` gate holding
+   `.none | .recommended | .required`) and `Features/UpdateRequired/UpdateRequiredView.swift`.
+   No networking: the gate is set from a Debug menu here, and renders from state like every
+   other screen in this phase. See below for why it lands now.
+
+### The update wall
+
+Deliverable 9 is the un-networked half of the forced-update path: a build that can't be told
+it's too old can never be told, so the client machinery has to ship in the scaffold. It needs
+no networking here — the gate is Debug-driven and the wall renders from state like every other
+fixture-backed screen — so this phase's no-API-calls rule still holds.
+
+**The mechanism end to end lives in `docs/diagrams/forced-update.md`**, and the work is
+tracked on the shuffleboard card "Forced update — the version floor and the update wall",
+which spans Phases 2/6/7/8. Don't duplicate the design here.
 
 ### Rules established here
 
@@ -671,15 +696,22 @@ Current plan of record, not a commitment. Re-read after Stage B ships and real v
 
 Per `README.md:13-14`. tRPC stays web-only; the phone talks `/api/v1`.
 
-Only the ~9 procedures the phone needs get exposed — not the whole router:
+Only the ~10 procedures the phone needs get exposed — not the whole router:
 
 ```
 GET  /api/v1/locations           GET  /api/v1/machines
 GET  /api/v1/products            GET  /api/v1/packs
 GET  /api/v1/planograms/current  GET  /api/v1/visits/latest
 POST /api/v1/visits              POST /api/v1/purchases
-GET  /api/v1/me
+GET  /api/v1/me                  GET  /api/v1/client-support
 ```
+
+**`client-support` is tracked on its own card** — see `docs/diagrams/forced-update.md` and
+the "Forced update" shuffleboard card. Two things from it constrain *this* phase: it is the
+only unauthenticated route on the surface, so `protect: true` can't be blanket-applied across
+all ten; and the `426` backstop may not be expressible as a tRPC procedure at all, which would
+push that check into the HTTP handler in `index.ts`, upstream of the router. The nine
+procedures below are this phase's scope.
 
 **Two union types dodged, deliberately.** `swift-openapi-generator` fights hardest with
 `oneOf`/discriminator shapes, and both of ours drop out: the Location output schema **omits
@@ -732,6 +764,14 @@ a draft on a 401.
   filename in the `@Model` — blobs bloat SwiftData and complicate migration. `imageUrl` is a
   remote OpenFoodFacts hotlink with no `imageUpdatedAt`, so the policy is "download once,
   keep forever, refetch if missing." Server-side image hosting is the real fix, out of scope.
+
+### Wiring up the update wall
+
+`ClientSupportMiddleware` belongs at the one protocol seam `ARCHITECTURE.md` already
+establishes: it stamps `X-Vendpire-Client` outbound and intercepts the too-old status inbound,
+so nothing above the seam learns about versioning. Tracked on the "Forced update" card;
+mechanism in `docs/diagrams/forced-update.md`. `client-support` is not mirror data, so
+`MirrorRefresher` still covers nine endpoints.
 
 ## Phase 8 — iOS visit capture + outbox
 
@@ -801,6 +841,10 @@ there is a strict improvement.
 - Committed-spec-is-current test (fresh generation vs `openapi/vendpire.yaml`).
 - A REST e2e spec covering the nine endpoints, including the idempotent re-POST.
 - iOS → XCTest only, no network in unit tests; mock the generated `APIProtocol`.
+- **The update wall, verified before it's needed.** An untested forced-update path, discovered
+  broken on the day you need it, is identical to not having one — and it's the one path whose
+  trigger never occurs in normal development, so it has to be forced deliberately. The checks
+  are enumerated in `docs/diagrams/forced-update.md` and tracked on the "Forced update" card.
 - **Offline drill** (keep as a written manual script): sign in online → full refresh →
   airplane mode → capture 2 visits at different machines + 1 purchase → force-quit →
   relaunch (assert the store renders, assert all 3 outbox rows survive) → network on →

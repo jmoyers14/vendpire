@@ -11,6 +11,7 @@ which a checked-in SVG or PNG can't do.
 | `barcode-resolution.md` | How a scanned barcode resolves to a product or pack. |
 | `webhook-ingestion.md` | How a Clerk webhook becomes a local user / org / membership row. |
 | `visit-calculations.md` | How two visit counts become sold units, revenue, COGS, and profit — with worked numbers. |
+| `forced-update.md` | How an unsupported iOS build gets told to upgrade, and how the version floor is raised. |
 
 ## Authoring
 
