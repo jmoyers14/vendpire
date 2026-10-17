@@ -133,6 +133,63 @@ the gcloud-configuration guard, which has no meaning on a runner. To re-deploy
 an existing tag without a new release, use the `deploy` workflow's
 `workflow_dispatch` with a `ref`.
 
+## Adding a new configuration value
+
+Which path depends on **when the value is needed**, not on how sensitive it is.
+`vendpire-web` is static files served by nginx — there is no server process to
+read an env var — so anything the browser needs must be compiled into the bundle
+at build time, and therefore can never be secret.
+
+### A. Backend secret (sensitive, read at runtime)
+
+1. `deploy.sh` — add a `*_SECRET_NAME` constant alongside the others.
+2. `deploy.sh` — `ensure_secret "$NEW_SECRET_NAME" NEW_ENV_VAR`. Creates it on
+   first run and grants the runtime service account access. Idempotent after.
+3. `deploy.sh` — append to `API_SECRETS` (or the worker's `--set-secrets`).
+4. Code — a zod config slice modelled on
+   `packages/platform/src/integrations/auth/clerkConfig.ts`, registered in the
+   container.
+5. `packages/api/.env` (or `packages/worker/.env`) for local dev.
+6. First deploy only: `NEW_ENV_VAR="..." ./deploy.sh`. Afterwards plain
+   `./deploy.sh` — the value lives in Secret Manager.
+
+### B. Frontend value (build time, public by definition)
+
+Seven places. Miss any and it fails silently.
+
+1. `packages/web/Dockerfile` — `ARG VITE_FOO` + `ENV VITE_FOO=$VITE_FOO`,
+   **above** `RUN bun run --cwd packages/web build`.
+2. `deploy.sh` — read it env-first with a `.env.local` fallback, matching
+   `CLERK_PUBLISHABLE_KEY`.
+3. `deploy.sh` — `--build-arg VITE_FOO="$FOO"` on the web `docker build`.
+4. `packages/web/src/vite-env.d.ts` — add the field to `ImportMetaEnv`.
+5. `gh secret set VITE_FOO --repo jmoyers14/vendpire`.
+6. `.github/workflows/deploy.yml` — add to the Deploy step's `env:` block.
+7. `packages/web/.env.local` for local dev.
+
+Step 6 is the one that gets forgotten: set locally, absent in CI, and the
+deployed bundle quietly ships without it.
+
+### C. Backend non-secret (runtime)
+
+Add it to the service's `--set-env-vars`, add a zod slice, add it to the local
+`.env`, redeploy.
+
+Note the two styles already in `deploy.sh`: the API passes one comma-joined
+string, the worker repeats the flag. Both work. What matters is `--set-env-vars`
+**replaces** the whole env block while `--update-env-vars` merges — which is why
+the `WORKER_URL` correction uses the latter.
+
+### Why backend mistakes are cheaper than frontend ones
+
+`parseConfig` exits the process on a schema violation, so a missing required
+backend value kills the container at startup and Cloud Run refuses to serve the
+revision. You find out at once.
+
+A missing `VITE_*` is just `undefined` in the bundle — no error, no crash, the
+feature silently does nothing. Prefer required zod fields on the backend, and
+treat the frontend checklist above as the real safeguard.
+
 ## Rollback
 
 Cloud Run retains revisions, so rolling back is traffic-shifting — no rebuild,
@@ -164,7 +221,23 @@ you rolled back to. A mismatch between services means the rollback is half-done.
 | `clerk-webhook-signing-secret` | Clerk `whsec_...` for the **dev** instance's endpoint |
 
 To rotate one: `gcloud secrets versions add <name> --data-file=-`, then
-redeploy (Cloud Run resolves `:latest` at deploy time).
+redeploy.
+
+**When the value is actually read:** not at deploy time. `--set-secrets` only
+records a *reference* (`CLERK_SECRET_KEY=clerk-secret-key:latest`) on the
+revision. Cloud Run resolves it at **instance startup**, via the runtime service
+account — if retrieval fails the instance does not start. The deploy pipeline
+never handles these values; `github-deployer` wires up the pointer and grants
+access, and the runtime SA does the reading.
+
+That means rotation has a window: instances already warm keep the old value until
+they are replaced, and because services scale to zero a rotated `:latest` can get
+picked up by the next cold start with no redeploy at all. Redeploy to make the
+cutover deterministic rather than whenever an instance happens to recycle.
+
+Google recommends pinning a version rather than `:latest` for environment-variable
+secrets, for exactly this reason. All four here use `:latest` — a known gap, not
+an oversight.
 
 ## Notes
 

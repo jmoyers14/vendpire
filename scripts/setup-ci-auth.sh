@@ -6,7 +6,8 @@
 # re-run is safe and is the right move after changing any role below.
 #
 # What it creates:
-#   1. A Workload Identity Pool + OIDC provider that trusts GitHub's token
+#   1. A Workload Identity Federation (WIF) pool + OIDC provider that trusts
+#      GitHub's token
 #      issuer, pinned by attribute condition to this one repository.
 #   2. A `github-deployer` service account with the roles deploy.sh needs.
 #   3. The binding that lets the repo impersonate that service account.

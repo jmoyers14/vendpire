@@ -243,7 +243,11 @@ any realistic rollback window.
 
 ---
 
-## Authentication: Workload Identity Federation
+## Authentication: Workload Identity Federation (WIF)
+
+*Workload* = a non-human caller (a CI job), as opposed to a user account.
+*Federation* = GCP accepting an identity vouched for by someone else's
+system — here, GitHub asserting which repo a workflow run belongs to.
 
 No long-lived credential is stored anywhere. GitHub mints a short-lived OIDC
 token; GCP trades it for scoped, temporary credentials.

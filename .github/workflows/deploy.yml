@@ -33,7 +33,9 @@ concurrency:
 
 permissions:
   contents: read
-  id-token: write # required to mint the OIDC token WIF exchanges
+  # Lets GitHub mint the OIDC token that Workload Identity Federation (WIF)
+  # exchanges for short-lived GCP credentials. Without it, auth fails.
+  id-token: write
 
 jobs:
   deploy:
