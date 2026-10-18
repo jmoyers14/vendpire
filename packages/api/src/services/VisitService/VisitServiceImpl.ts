@@ -29,10 +29,7 @@ import type {
   VisitRepository,
 } from "@vendpire/platform";
 import { ServiceError } from "../errors.ts";
-import {
-  buildExpiringReport,
-  type PopulatedVisit,
-} from "./expiringReport.ts";
+import { buildExpiringReport, type PopulatedVisit } from "./expiringReport.ts";
 import {
   DEFAULT_VISIT_LIST_LIMIT,
   type ExpiringReport,
@@ -48,6 +45,13 @@ import {
 /** Slack for drifting phone clocks. Beyond it, a future-stamped visit becomes
  *  the predecessor of every real visit after it and poisons their baselines. */
 const MAX_FUTURE_MS = 2 * 60 * 60 * 1000;
+
+/** Every product these visits reference, each id once. */
+const productIdsIn = (visits: readonly Visit[]): string[] => [
+  ...new Set(
+    visits.flatMap((visit) => visit.lines.map((line) => line.productId)),
+  ),
+];
 
 /** Mongo's duplicate-key error, recognized without importing a driver type. */
 const isDuplicateKey = (error: unknown): boolean =>
@@ -236,16 +240,6 @@ export class VisitServiceImpl implements VisitService {
     });
   }
 
-  /**
-   * The most recent visit of every machine, with the machine, location and
-   * products each one references already resolved.
-   *
-   * A visit whose machine has since been deleted is DROPPED: a retired machine
-   * is off the route, so its stock is not something to act on before a trip.
-   * Location and products stay nullable instead, because stock in a live
-   * machine is worth reporting even if its location was deleted or its product
-   * was pulled from the catalog.
-   */
   private async loadLatestVisitPerMachine(
     orgId: string,
   ): Promise<PopulatedVisit[]> {
@@ -254,19 +248,13 @@ export class VisitServiceImpl implements VisitService {
       return [];
     }
 
-    const productIds = [
-      ...new Set(
-        latestVisits.flatMap((visit) =>
-          visit.lines.map((line) => line.productId),
-        ),
-      ),
-    ];
     const [machines, locations, products] = await Promise.all([
       this.machines.findByOrg(orgId),
       this.locations.findByOrg(orgId),
-      // Deleted-tolerant: a retired product still sitting in a machine is
-      // exactly the stock most likely to go bad.
-      this.products.findByIdsIncludingDeleted(orgId, productIds),
+      this.products.findByIdsIncludingDeleted(
+        orgId,
+        productIdsIn(latestVisits),
+      ),
     ]);
 
     const machineById = new Map(
