@@ -19,10 +19,17 @@ const MS_PER_DAY = 86_400_000;
 const atUtcMidnight = (date: CalendarDate): number =>
   Date.parse(`${date}T00:00:00Z`);
 
+/** The calendar date an instant falls on, in UTC. */
+export const calendarDateOf = (instant: Date): CalendarDate =>
+  instant.toISOString().slice(0, 10);
+
+/** Reads the wall clock. Callers that need a deterministic day pass one in. */
+export const today = (): CalendarDate => calendarDateOf(new Date());
+
 export const dateAfter = (date: CalendarDate, days: number): CalendarDate => {
   const at = new Date(atUtcMidnight(date));
   at.setUTCDate(at.getUTCDate() + days);
-  return at.toISOString().slice(0, 10);
+  return calendarDateOf(at);
 };
 
 /** Negative once the date has passed. */

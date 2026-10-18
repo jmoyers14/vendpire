@@ -7,9 +7,10 @@ import {
   daysUntil,
   expirationsForVisit,
   intervalsForMachine,
+  today,
   observationsForVisit,
 } from "@vendpire/domain";
-import type { CalendarDate, VisitAnomaly } from "@vendpire/domain";
+import type { VisitAnomaly } from "@vendpire/domain";
 import {
   LOCATION_REPOSITORY_TOKEN,
   MACHINE_REPOSITORY_TOKEN,
@@ -35,6 +36,7 @@ import {
   DEFAULT_VISIT_LIST_LIMIT,
   type ExpiringReport,
   type ExpiringSlot,
+  type ExpiringSoonOptions,
   type VisitCreation,
   type VisitDraft,
   type VisitNotice,
@@ -121,7 +123,10 @@ export class VisitServiceImpl implements VisitService {
     const { lines, notices } = await this.validate(orgId, draft);
     const stored = { ...draft, lines, recordedByUserId };
 
-    const latest = await this.visits.findLatestByMachine(orgId, draft.machineId);
+    const latest = await this.visits.findLatestByMachine(
+      orgId,
+      draft.machineId,
+    );
     const isOutOfOrder =
       latest !== null &&
       Date.parse(latest.countedAt) > Date.parse(draft.countedAt);
@@ -221,15 +226,12 @@ export class VisitServiceImpl implements VisitService {
 
   async expiringSoon(
     orgId: string,
-    options: { withinDays: number; asOf?: CalendarDate },
+    options: ExpiringSoonOptions,
   ): Promise<ExpiringReport> {
     const { withinDays } = options;
-    // Defaulted here rather than in the signature so a caller can pin the day
-    // — the tests do, and a report that silently reads the wall clock is one
-    // nobody can write a deterministic test for.
-    const asOf = options.asOf ?? new Date().toISOString().slice(0, 10);
+    const asOf = options.asOf ?? today();
 
-    const latest = await this.visits.findLatestByOrg(orgId);
+    const latestVisits = await this.visits.findLatestByOrg(orgId);
     const empty: ExpiringReport = {
       asOf,
       withinDays,
@@ -237,7 +239,7 @@ export class VisitServiceImpl implements VisitService {
       expiringSoon: [],
       missingDates: [],
     };
-    if (latest.length === 0) {
+    if (latestVisits.length === 0) {
       return empty;
     }
 
@@ -249,7 +251,11 @@ export class VisitServiceImpl implements VisitService {
     const locationById = new Map(locations.map((l) => [l.id, l]));
 
     const productIds = [
-      ...new Set(latest.flatMap((v) => v.lines.map((line) => line.productId))),
+      ...new Set(
+        latestVisits.flatMap((visit) =>
+          visit.lines.map((line) => line.productId),
+        ),
+      ),
     ];
     // Deleted-tolerant: a retired product still sitting in a machine is
     // exactly the stock most likely to go bad.
@@ -262,7 +268,7 @@ export class VisitServiceImpl implements VisitService {
     const cutoff = dateAfter(asOf, withinDays);
     const report: ExpiringReport = { ...empty };
 
-    for (const visit of latest) {
+    for (const visit of latestVisits) {
       const machine = machineById.get(visit.machineId);
       // A machine retired since its last visit is off the route; its stock is
       // no longer sellable, so it is not something to act on before a trip.
@@ -339,7 +345,10 @@ export class VisitServiceImpl implements VisitService {
     draft: VisitDraft,
   ): Promise<{ lines: VisitLine[]; notices: VisitNotice[] }> {
     if (Date.parse(draft.countedAt) > Date.now() + MAX_FUTURE_MS) {
-      throw new ServiceError("BAD_REQUEST", "countedAt is too far in the future");
+      throw new ServiceError(
+        "BAD_REQUEST",
+        "countedAt is too far in the future",
+      );
     }
 
     const machine = await this.machines.findByIdIncludingDeleted(

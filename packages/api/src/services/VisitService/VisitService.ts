@@ -101,6 +101,12 @@ export interface ExpiringReport {
   missingDates: ExpiringSlot[];
 }
 
+export interface ExpiringSoonOptions {
+  withinDays: number;
+  /** Defaults to today. Pinned by callers that need a deterministic day. */
+  asOf?: CalendarDate;
+}
+
 /** Default warning window. Fixed until there is a reason to move it. */
 export const DEFAULT_EXPIRY_WINDOW_DAYS = 14;
 
@@ -126,6 +132,6 @@ export interface VisitService {
    */
   expiringSoon(
     orgId: string,
-    options: { withinDays: number; asOf?: CalendarDate },
+    options: ExpiringSoonOptions,
   ): Promise<ExpiringReport>;
 }
