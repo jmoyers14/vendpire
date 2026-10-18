@@ -64,6 +64,7 @@ describe("toVisit", () => {
           removedReason: "expired",
           priceCents: 175,
           par: 10,
+          bestBy: null,
         },
       ],
       notes: null,
@@ -86,6 +87,31 @@ describe("toVisit", () => {
     expect(mapped?.removed).toBe(0);
     expect(mapped?.removedReason).toBeNull();
     expect(mapped?.par).toBeNull();
+  });
+
+  it("round-trips bestBy", () => {
+    const line = {
+      slotCode: "A1",
+      productId: "p_1",
+      remaining: 4,
+      added: 6,
+      priceCents: 175,
+      bestBy: "2026-12-15",
+    };
+    expect(toVisit(doc({ lines: [line] })).lines[0]?.bestBy).toBe("2026-12-15");
+  });
+
+  it("defaults a line written before the field existed to null", () => {
+    // No `bestBy` key at all — not null, absent. `undefined` reaching the
+    // engine is a different value from null to every consumer downstream.
+    const line = {
+      slotCode: "A1",
+      productId: "p_1",
+      remaining: 4,
+      added: 6,
+      priceCents: 175,
+    };
+    expect(toVisit(doc({ lines: [line] })).lines[0]?.bestBy).toBeNull();
   });
 
   it("preserves a zero remaining rather than nulling it", () => {
