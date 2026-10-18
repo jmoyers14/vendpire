@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Page, PageTitle } from "../../ui.tsx";
 import { trpc } from "../../trpc.ts";
+import { ExpiringSoonCard } from "./ExpiringSoonCard.tsx";
 
 /**
  * Phase 1 placeholder. Proves the full wiring — Clerk session → tRPC
@@ -28,6 +29,10 @@ export function DashboardScreen() {
           machines, and reports arrive in the next phases.
         </p>
       )}
+
+      <div className="mt-6">
+        <ExpiringSoonCard />
+      </div>
     </Page>
   );
 }
