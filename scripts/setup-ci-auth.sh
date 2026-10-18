@@ -123,6 +123,29 @@ fi
 # splitting bootstrap out of deploy.sh, which would mean two divergent deploy
 # paths that drift — a worse trade for a single-purpose personal project with no
 # key to steal. Revisit if this project ever holds anything but vendpire.
+# A just-created service account is not immediately visible to the IAM policy
+# API, so the first binding after `service-accounts create` can fail with
+# "Service account ... does not exist" even though it plainly does. deploy.sh
+# already works around the same eventual consistency for the Cloud Tasks service
+# agent; this mirrors that loop rather than making you re-run the script.
+retryBinding() {
+  local description="$1"
+  shift
+  local attempt
+  for attempt in 1 2 3 4 5 6; do
+    if "$@" >/dev/null 2>&1; then
+      return 0
+    fi
+    if [ "$attempt" = "6" ]; then
+      echo "ERROR: $description did not succeed after 6 attempts." >&2
+      echo "Re-run this script — it is idempotent and will resume." >&2
+      return 1
+    fi
+    echo "    not visible yet; retrying ($attempt/6)..."
+    sleep 5
+  done
+}
+
 echo "Granting roles to $DEPLOYER_SA..."
 for role in \
   roles/run.admin \
@@ -135,9 +158,10 @@ for role in \
   roles/browser
 do
   echo "  $role"
-  gcloud projects add-iam-policy-binding "$PROJECT" \
-    --member "serviceAccount:$DEPLOYER_SA" \
-    --role "$role" --quiet >/dev/null
+  retryBinding "granting $role" \
+    gcloud projects add-iam-policy-binding "$PROJECT" \
+      --member "serviceAccount:$DEPLOYER_SA" \
+      --role "$role" --quiet
 done
 
 # ── Let the repo impersonate the deployer ────────────────────────────────────
@@ -145,10 +169,11 @@ done
 # every identity in the pool.
 PRINCIPAL="principalSet://iam.googleapis.com/projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/${POOL}/attribute.repository/${GITHUB_REPO}"
 echo "Binding $GITHUB_REPO to $DEPLOYER_SA..."
-gcloud iam service-accounts add-iam-policy-binding "$DEPLOYER_SA" \
-  --project "$PROJECT" \
-  --member "$PRINCIPAL" \
-  --role roles/iam.workloadIdentityUser --quiet >/dev/null
+retryBinding "binding $GITHUB_REPO to the deployer" \
+  gcloud iam service-accounts add-iam-policy-binding "$DEPLOYER_SA" \
+    --project "$PROJECT" \
+    --member "$PRINCIPAL" \
+    --role roles/iam.workloadIdentityUser --quiet
 
 # ── Artifact Registry: the one real cost leak ────────────────────────────────
 # deploy.sh tags every image :latest AND :<git-sha>. The SHA tags pin old layers
