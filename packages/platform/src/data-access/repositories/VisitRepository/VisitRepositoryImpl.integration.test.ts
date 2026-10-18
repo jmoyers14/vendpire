@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "bun:test";
 import mongoose from "mongoose";
 import { MongoMemoryServer } from "mongodb-memory-server";
+import { oidHex } from "../../../test-support/ids.ts";
 import { VisitModel } from "../../models/Visit.ts";
 import { VisitRepositoryImpl } from "./VisitRepositoryImpl.ts";
 import type { VisitInput } from "./VisitRepository.ts";
@@ -19,7 +20,7 @@ import type { RemovalReason } from "@vendpire/domain";
 const ENABLED = process.env.VENDPIRE_INTEGRATION === "1";
 
 const ORG = "org_1";
-const MACHINE = "m_1";
+const MACHINE = oidHex("m_1");
 
 describe.skipIf(!ENABLED)("VisitRepositoryImpl against MongoDB", () => {
   let mongo: MongoMemoryServer;
@@ -45,14 +46,14 @@ describe.skipIf(!ENABLED)("VisitRepositoryImpl against MongoDB", () => {
 
   const input = (over: Partial<VisitInput> = {}): VisitInput => ({
     machineId: MACHINE,
-    locationId: "loc_1",
+    locationId: oidHex("loc_1"),
     planogramId: null,
     countedAt: "2026-09-20T17:00:00.000Z",
     recordedByUserId: "user_1",
     lines: [
       {
         slotCode: "A1",
-        productId: "p_1",
+        productId: oidHex("p_1"),
         remaining: 4,
         added: 6,
         removed: 0,
@@ -159,7 +160,7 @@ describe.skipIf(!ENABLED)("VisitRepositoryImpl against MongoDB", () => {
     });
 
     it("never crosses to another machine for the predecessor", async () => {
-      await repo.create(ORG, input({ machineId: "m_2", countedAt: EARLIER, clientRequestId: "other" }));
+      await repo.create(ORG, input({ machineId: oidHex("m_2"), countedAt: EARLIER, clientRequestId: "other" }));
       await repo.create(ORG, input({ countedAt: INSIDE, clientRequestId: "inside" }));
       const visits = await repo.findByMachineAscending(ORG, MACHINE, { from: OPENS });
       expect(visits.map((v) => v.clientRequestId)).toEqual(["inside"]);
@@ -170,7 +171,7 @@ describe.skipIf(!ENABLED)("VisitRepositoryImpl against MongoDB", () => {
     it("returns the newest visit of every machine, one each", async () => {
       await repo.create(ORG, input({ countedAt: "2026-09-10T17:00:00.000Z", clientRequestId: "m1-old" }));
       await repo.create(ORG, input({ countedAt: "2026-09-30T17:00:00.000Z", clientRequestId: "m1-new" }));
-      await repo.create(ORG, input({ machineId: "m_2", countedAt: "2026-09-12T17:00:00.000Z", clientRequestId: "m2-only" }));
+      await repo.create(ORG, input({ machineId: oidHex("m_2"), countedAt: "2026-09-12T17:00:00.000Z", clientRequestId: "m2-only" }));
       const latest = await repo.findLatestByOrg(ORG);
       expect(latest.map((v) => v.clientRequestId).sort()).toEqual(["m1-new", "m2-only"]);
     });
@@ -192,8 +193,8 @@ describe.skipIf(!ENABLED)("VisitRepositoryImpl against MongoDB", () => {
       ORG,
       input({
         lines: [
-          { slotCode: "A1", productId: "p_1", remaining: 6, added: 7, removed: 3, removedReason: "expired", priceCents: 175, par: 10, bestBy: null },
-          { slotCode: "A2", productId: "p_2", remaining: 2, added: 8, removed: 0, removedReason: null, priceCents: 150, par: 10, bestBy: null },
+          { slotCode: "A1", productId: oidHex("p_1"), remaining: 6, added: 7, removed: 3, removedReason: "expired", priceCents: 175, par: 10, bestBy: null },
+          { slotCode: "A2", productId: oidHex("p_2"), remaining: 2, added: 8, removed: 0, removedReason: null, priceCents: 150, par: 10, bestBy: null },
         ],
       }),
     );
@@ -206,7 +207,7 @@ describe.skipIf(!ENABLED)("VisitRepositoryImpl against MongoDB", () => {
     const bad = input({
       lines: [
         // Not a RemovalReason — the cast is what lets the schema do the rejecting.
-        { slotCode: "A1", productId: "p_1", remaining: 1, added: 0, removed: 1, removedReason: "stolen" as unknown as RemovalReason, priceCents: 175, par: null, bestBy: null },
+        { slotCode: "A1", productId: oidHex("p_1"), remaining: 1, added: 0, removed: 1, removedReason: "stolen" as unknown as RemovalReason, priceCents: 175, par: null, bestBy: null },
       ],
     });
     await expect(repo.create(ORG, bad)).rejects.toThrow();

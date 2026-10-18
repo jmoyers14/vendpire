@@ -14,7 +14,7 @@ import { Schema, model } from "mongoose";
 const visitLineSchema = new Schema(
   {
     slotCode: { type: String, required: true, trim: true },
-    productId: { type: String, required: true },
+    productId: { type: Schema.Types.ObjectId, ref: "Product", required: true },
     /**
      * WHAT WAS PHYSICALLY IN THE SLOT WHEN YOU WALKED UP — before refilling
      * AND before pulling anything out. Expired units you are about to bin
@@ -58,16 +58,21 @@ const visitLineSchema = new Schema(
 const visitSchema = new Schema(
   {
     orgId: { type: String, required: true, index: true },
-    machineId: { type: String, required: true, index: true },
+    machineId: {
+      type: Schema.Types.ObjectId,
+      ref: "Machine",
+      required: true,
+      index: true,
+    },
     /**
      * Where the machine stood when counted — a SNAPSHOT from the client, not
      * `machine.locationId`. The phone counts at 9am, someone moves the machine
      * at 2pm, the outbox submits at 5pm; resolving this server-side would
      * stamp the new location onto a visit that happened at the old one.
      */
-    locationId: { type: String, required: true },
+    locationId: { type: Schema.Types.ObjectId, ref: "Location", required: true },
     /** Provenance only — the engine never reads a planogram. */
-    planogramId: { type: String, default: null },
+    planogramId: { type: Schema.Types.ObjectId, ref: "Planogram", default: null },
     /**
      * When you stood at the machine. Everything orders by THIS, never by
      * createdAt: an offline visit counted at 9am can reach the server after

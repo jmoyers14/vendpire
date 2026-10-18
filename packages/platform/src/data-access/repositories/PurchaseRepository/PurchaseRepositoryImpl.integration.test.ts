@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "bun:test";
 import mongoose from "mongoose";
 import { MongoMemoryServer } from "mongodb-memory-server";
+import { oidHex } from "../../../test-support/ids.ts";
 import { PurchaseModel } from "../../models/Purchase.ts";
 import { PurchaseRepositoryImpl } from "./PurchaseRepositoryImpl.ts";
 
@@ -48,7 +49,7 @@ describe.skipIf(!ENABLED)("PurchaseRepositoryImpl against MongoDB", () => {
       orgId: ORG,
       purchasedAt,
       vendor: "Costco",
-      lines: [{ productId: "p1", units: 1, totalCostCents: 100 }],
+      lines: [{ productId: oidHex("p1"), units: 1, totalCostCents: 100 }],
       clientRequestId: `seed_${(keySeq += 1)}`,
     });
     return String(doc._id);
@@ -118,7 +119,7 @@ describe.skipIf(!ENABLED)("PurchaseRepositoryImpl against MongoDB", () => {
       orgId: "org_2",
       purchasedAt: SHARED,
       vendor: "Sam's",
-      lines: [{ productId: "p1", units: 1, totalCostCents: 100 }],
+      lines: [{ productId: oidHex("p1"), units: 1, totalCostCents: 100 }],
       clientRequestId: "other_org",
     });
     const kept = await seed(OLDER);
@@ -148,7 +149,7 @@ describe.skipIf(!ENABLED)("PurchaseRepositoryImpl against MongoDB", () => {
         orgId: ORG,
         purchasedAt: SHARED,
         vendor: "Costco",
-        lines: [{ productId: "p1", units: 1, totalCostCents: 100 }],
+        lines: [{ productId: oidHex("p1"), units: 1, totalCostCents: 100 }],
         clientRequestId,
       });
 
@@ -171,7 +172,7 @@ describe.skipIf(!ENABLED)("PurchaseRepositoryImpl against MongoDB", () => {
         orgId: "org_2",
         purchasedAt: SHARED,
         vendor: "Sam's",
-        lines: [{ productId: "p1", units: 1, totalCostCents: 100 }],
+        lines: [{ productId: oidHex("p1"), units: 1, totalCostCents: 100 }],
         clientRequestId: "req_1",
       });
       expect(await PurchaseModel.countDocuments({ clientRequestId: "req_1" })).toBe(2);
@@ -185,7 +186,7 @@ describe.skipIf(!ENABLED)("PurchaseRepositoryImpl against MongoDB", () => {
           orgId: ORG,
           purchasedAt: SHARED,
           vendor: "Costco",
-          lines: [{ productId: "p1", units: 1, totalCostCents: 100 }],
+          lines: [{ productId: oidHex("p1"), units: 1, totalCostCents: 100 }],
         }),
       ).rejects.toThrow(/clientRequestId/);
     });
@@ -212,7 +213,7 @@ describe.skipIf(!ENABLED)("PurchaseRepositoryImpl against MongoDB", () => {
       const created = await repo.create(ORG, {
         purchasedAt: SHARED.toISOString(),
         vendor: "Costco",
-        lines: [{ productId: "p1", units: 1, totalCostCents: 100, packId: null }],
+        lines: [{ productId: oidHex("p1"), units: 1, totalCostCents: 100, packId: null }],
         receiptTotalCents: null,
         notes: null,
         clientRequestId: "req_1",
@@ -220,7 +221,7 @@ describe.skipIf(!ENABLED)("PurchaseRepositoryImpl against MongoDB", () => {
       const updated = await repo.update(ORG, created.id, {
         purchasedAt: SHARED.toISOString(),
         vendor: "Sam's",
-        lines: [{ productId: "p1", units: 2, totalCostCents: 200, packId: null }],
+        lines: [{ productId: oidHex("p1"), units: 2, totalCostCents: 200, packId: null }],
         receiptTotalCents: null,
         notes: null,
       });
@@ -239,8 +240,8 @@ describe.skipIf(!ENABLED)("PurchaseRepositoryImpl against MongoDB", () => {
         purchasedAt: SHARED,
         vendor: "Costco",
         lines: [
-          { productId: "p1", units: 30, totalCostCents: 1499 },
-          { productId: "p2", units: 12, totalCostCents: 699 },
+          { productId: oidHex("p1"), units: 30, totalCostCents: 1499 },
+          { productId: oidHex("p2"), units: 12, totalCostCents: 699 },
         ],
         clientRequestId: "basis_1",
       });
@@ -248,7 +249,7 @@ describe.skipIf(!ENABLED)("PurchaseRepositoryImpl against MongoDB", () => {
         orgId: ORG,
         purchasedAt: OLDER,
         vendor: "Sam's",
-        lines: [{ productId: "p1", units: 10, totalCostCents: 550 }],
+        lines: [{ productId: oidHex("p1"), units: 10, totalCostCents: 550 }],
         clientRequestId: "basis_2",
       });
 
@@ -256,7 +257,7 @@ describe.skipIf(!ENABLED)("PurchaseRepositoryImpl against MongoDB", () => {
 
       expect(lines).toHaveLength(3);
       expect(lines).toContainEqual({
-        productId: "p1",
+        productId: oidHex("p1"),
         units: 30,
         totalCostCents: 1499,
       });

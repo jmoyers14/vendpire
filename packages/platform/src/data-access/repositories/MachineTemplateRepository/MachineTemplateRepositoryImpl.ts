@@ -1,5 +1,7 @@
 import { injectable } from "tsyringe";
+import type { Types } from "mongoose";
 import { MachineTemplateModel } from "../../models/MachineTemplate.ts";
+import { toId } from "../ids.ts";
 import type {
   MachineTemplate,
   MachineTemplateInput,
@@ -7,7 +9,7 @@ import type {
 } from "./MachineTemplateRepository.ts";
 
 type MachineTemplateDoc = {
-  _id: unknown;
+  _id: Types.ObjectId;
   name: string;
   kind: "snack" | "drink" | "combo";
   make?: string | null;
@@ -66,7 +68,7 @@ export class MachineTemplateRepositoryImpl implements MachineTemplateRepository 
 
 function toMachineTemplate(doc: MachineTemplateDoc): MachineTemplate {
   return {
-    id: String(doc._id),
+    id: toId(doc._id),
     name: doc.name,
     kind: doc.kind,
     make: doc.make ?? null,

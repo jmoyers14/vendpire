@@ -1,5 +1,7 @@
 import { injectable } from "tsyringe";
+import type { Types } from "mongoose";
 import { LocationModel } from "../../models/Location.ts";
+import { toId } from "../ids.ts";
 import type {
   Location,
   LocationCommission,
@@ -8,7 +10,7 @@ import type {
 } from "./LocationRepository.ts";
 
 type LocationDoc = {
-  _id: unknown;
+  _id: Types.ObjectId;
   name: string;
   address?: {
     line1?: string | null;
@@ -118,7 +120,7 @@ export function toCommission(
 
 function toLocation(doc: LocationDoc): Location {
   return {
-    id: String(doc._id),
+    id: toId(doc._id),
     name: doc.name,
     address: {
       line1: doc.address?.line1 ?? null,

@@ -7,12 +7,12 @@ import { Schema, model } from "mongoose";
  */
 const purchaseLineSchema = new Schema(
   {
-    productId: { type: String, required: true },
+    productId: { type: Schema.Types.ObjectId, ref: "Product", required: true },
     units: { type: Number, required: true },
     totalCostCents: { type: Number, required: true },
     // Set when the line came from expanding a pack — provenance only; the
     // stored units/cost are the facts the cost engine reads.
-    packId: { type: String, default: null },
+    packId: { type: Schema.Types.ObjectId, ref: "Pack", default: null },
   },
   { _id: false },
 );

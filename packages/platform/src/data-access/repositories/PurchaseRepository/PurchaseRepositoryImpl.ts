@@ -1,6 +1,8 @@
 import { injectable } from "tsyringe";
+import type { Types } from "mongoose";
 import type { CostBasisLine } from "@vendpire/domain";
 import { PurchaseModel } from "../../models/Purchase.ts";
+import { toId } from "../ids.ts";
 import type {
   Purchase,
   PurchaseInput,
@@ -11,14 +13,14 @@ import type {
 } from "./PurchaseRepository.ts";
 
 type PurchaseDoc = {
-  _id: unknown;
+  _id: Types.ObjectId;
   purchasedAt: Date;
   vendor: string;
   lines: {
-    productId: string;
+    productId: Types.ObjectId;
     units: number;
     totalCostCents: number;
-    packId?: string | null;
+    packId?: Types.ObjectId | null;
   }[];
   receiptTotalCents?: number | null;
   notes?: string | null;
@@ -110,7 +112,7 @@ export class PurchaseRepositoryImpl implements PurchaseRepository {
 
     return docs.flatMap((doc) =>
       doc.lines.map((line) => ({
-        productId: line.productId,
+        productId: toId(line.productId),
         units: line.units,
         totalCostCents: line.totalCostCents,
       })),
@@ -156,14 +158,14 @@ export class PurchaseRepositoryImpl implements PurchaseRepository {
 
 function toPurchase(doc: PurchaseDoc): Purchase {
   return {
-    id: String(doc._id),
+    id: toId(doc._id),
     purchasedAt: doc.purchasedAt.toISOString(),
     vendor: doc.vendor,
     lines: doc.lines.map((line) => ({
-      productId: line.productId,
+      productId: toId(line.productId),
       units: line.units,
       totalCostCents: line.totalCostCents,
-      packId: line.packId ?? null,
+      packId: toId(line.packId),
     })),
     receiptTotalCents: doc.receiptTotalCents ?? null,
     notes: doc.notes ?? null,

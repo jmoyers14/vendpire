@@ -8,7 +8,12 @@ import { Schema, model } from "mongoose";
 const machineSchema = new Schema(
   {
     orgId: { type: String, required: true, index: true },
-    locationId: { type: String, required: true, index: true },
+    locationId: {
+      type: Schema.Types.ObjectId,
+      ref: "Location",
+      required: true,
+      index: true,
+    },
     name: { type: String, required: true, trim: true },
     kind: { type: String, enum: ["snack", "drink", "combo"], required: true },
     make: { type: String, default: null, trim: true },
@@ -16,7 +21,11 @@ const machineSchema = new Schema(
     serial: { type: String, default: null, trim: true },
     tagCode: { type: String, default: null, trim: true },
     // Layout lineage only — slots below is this machine's own snapshot.
-    templateId: { type: String, default: null },
+    templateId: {
+      type: Schema.Types.ObjectId,
+      ref: "MachineTemplate",
+      default: null,
+    },
     // The machine face: one array per shelf, slot codes in walking order.
     // Stored structurally (not flat) so grids render exactly as authored —
     // no letter-prefix inference anywhere downstream.

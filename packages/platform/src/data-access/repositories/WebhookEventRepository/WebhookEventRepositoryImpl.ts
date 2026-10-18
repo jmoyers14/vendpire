@@ -1,5 +1,7 @@
 import { injectable } from "tsyringe";
+import type { Types } from "mongoose";
 import { WebhookEventModel } from "../../models/WebhookEvent.ts";
+import { toId } from "../ids.ts";
 import type {
   RecordedWebhookEvent,
   WebhookEvent,
@@ -9,7 +11,7 @@ import type {
 } from "./WebhookEventRepository.ts";
 
 type WebhookEventDoc = {
-  _id: unknown;
+  _id: Types.ObjectId;
   source: string;
   sourceEventId: string;
   type: string;
@@ -55,7 +57,7 @@ export class WebhookEventRepositoryImpl implements WebhookEventRepository {
 
 export function toWebhookEvent(doc: WebhookEventDoc): WebhookEvent {
   return {
-    id: String(doc._id),
+    id: toId(doc._id),
     source: doc.source as WebhookSource,
     sourceEventId: doc.sourceEventId,
     type: doc.type,

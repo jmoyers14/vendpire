@@ -1,5 +1,7 @@
 import { injectable } from "tsyringe";
+import type { Types } from "mongoose";
 import { PlanogramModel } from "../../models/Planogram.ts";
+import { toId } from "../ids.ts";
 import type {
   Planogram,
   PlanogramInput,
@@ -7,12 +9,12 @@ import type {
 } from "./PlanogramRepository.ts";
 
 type PlanogramDoc = {
-  _id: unknown;
-  machineId: string;
+  _id: Types.ObjectId;
+  machineId: Types.ObjectId;
   effectiveFrom: Date;
   slots: {
     slotCode: string;
-    productId: string;
+    productId: Types.ObjectId;
     par: number;
     priceCents: number;
   }[];
@@ -62,12 +64,12 @@ export class PlanogramRepositoryImpl implements PlanogramRepository {
 
 function toPlanogram(doc: PlanogramDoc): Planogram {
   return {
-    id: String(doc._id),
-    machineId: doc.machineId,
+    id: toId(doc._id),
+    machineId: toId(doc.machineId),
     effectiveFrom: doc.effectiveFrom.toISOString(),
     slots: doc.slots.map((slot) => ({
       slotCode: slot.slotCode,
-      productId: slot.productId,
+      productId: toId(slot.productId),
       par: slot.par,
       priceCents: slot.priceCents,
     })),

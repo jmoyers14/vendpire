@@ -8,7 +8,7 @@ import { Schema, model } from "mongoose";
  */
 const packContentSchema = new Schema(
   {
-    productId: { type: String, required: true },
+    productId: { type: Schema.Types.ObjectId, ref: "Product", required: true },
     units: { type: Number, required: true },
   },
   { _id: false },

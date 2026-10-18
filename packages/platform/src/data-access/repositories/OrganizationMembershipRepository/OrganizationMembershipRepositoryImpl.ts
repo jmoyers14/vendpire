@@ -1,5 +1,7 @@
 import { injectable } from "tsyringe";
+import type { Types } from "mongoose";
 import { OrganizationMembershipModel } from "../../models/OrganizationMembership.ts";
+import { toId } from "../ids.ts";
 import type {
   OrganizationMembership,
   OrganizationMembershipInput,
@@ -7,7 +9,7 @@ import type {
 } from "./OrganizationMembershipRepository.ts";
 
 type OrganizationMembershipDoc = {
-  _id: unknown;
+  _id: Types.ObjectId;
   orgId: string;
   authUserId: string;
   role: string;
@@ -70,7 +72,7 @@ export function toOrganizationMembership(
   doc: OrganizationMembershipDoc,
 ): OrganizationMembership {
   return {
-    id: String(doc._id),
+    id: toId(doc._id),
     orgId: doc.orgId,
     authUserId: doc.authUserId,
     role: doc.role,
