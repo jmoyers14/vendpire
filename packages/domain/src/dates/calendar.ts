@@ -1,15 +1,7 @@
 /**
- * Calendar-date arithmetic, shared across the app.
- *
- * A calendar date is "YYYY-MM-DD" and NOT an instant: a date like a best-by or
- * a service-due day has no time and no zone, and storing it as one shifts the
- * day for anyone reading it from a different offset than the device that
- * captured it. Because the spelling is zero-padded and big-endian,
- * lexicographic order IS chronological order, so callers can compare and sort
- * with plain string operators and never parse.
- *
- * Everything here is fixed to UTC. Local-zone arithmetic shifts a date by a day
- * across a DST boundary.
+ * Calendar-date arithmetic, fixed to UTC — local-zone arithmetic shifts a date
+ * by a day across a DST boundary. "YYYY-MM-DD" sorts chronologically as-is, so
+ * callers compare with plain string operators rather than parsing.
  */
 
 export type CalendarDate = string;

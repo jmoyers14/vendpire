@@ -7,11 +7,8 @@ import {
 import type { Location, Machine, Product, Visit } from "@vendpire/platform";
 import type { ExpiringReport, ExpiringSlot } from "./VisitService.ts";
 
-/**
- * One machine's most recent visit with everything it references resolved.
- * `location` is nullable and `products` may be missing an id: both are
- * references a visit snapshotted, and either can be deleted afterwards.
- */
+/** `location` and `productById` entries are nullable: a visit snapshots both
+ *  as references, and either can be deleted afterwards. */
 export interface PopulatedVisit {
   visit: Visit;
   machine: Machine;
@@ -22,14 +19,8 @@ export interface PopulatedVisit {
 const bySoonest = (a: ExpiringSlot, b: ExpiringSlot): number =>
   a.bestBy === b.bestBy ? 0 : (a.bestBy ?? "") < (b.bestBy ?? "") ? -1 : 1;
 
-/**
- * Buckets every stocked slot across the given visits into expired /
- * expiring-soon / no-date-recorded.
- *
- * Takes every visit at once rather than one at a time because the sort is
- * cross-visit: the operator wants the soonest date on the route first, not the
- * soonest date per machine.
- */
+/** Takes every visit at once because the sort is cross-visit: soonest on the
+ *  route first, not soonest per machine. */
 export const buildExpiringReport = (
   visits: readonly PopulatedVisit[],
   { asOf, withinDays }: { asOf: CalendarDate; withinDays: number },
@@ -65,15 +56,11 @@ export const buildExpiringReport = (
       };
 
       if (slot.bestBy === null) {
-        // An untracked product has no gap to report — that null is the answer,
-        // not a hole in it.
         if (product.tracksExpiration) {
           report.missingDates.push(row);
         }
         continue;
       }
-      // String comparison, not Date parsing: "YYYY-MM-DD" sorts
-      // chronologically by construction.
       if (slot.bestBy < asOf) {
         report.expired.push(row);
         continue;

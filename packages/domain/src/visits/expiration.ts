@@ -12,16 +12,11 @@ export interface SlotExpiration {
 }
 
 /**
- * Every STOCKED slot from one visit, dated or not.
+ * Every STOCKED slot from one visit. Undated rows are RETURNED, not filtered —
+ * they are the sole source for the report's `missingDates` bucket.
  *
  * Lives here rather than in the service because "what is in the slot now" is
- * `levelAfter` — the same arithmetic the P&L runs on — and putting the
- * skip-empty-slots rule anywhere else would let two places disagree about what
- * "stocked" means. The service keeps everything this cannot know: the product
- * join, `tracksExpiration`, the date window, and the sort.
- *
- * Undated rows are RETURNED, not filtered: they are the sole source for the
- * report's `missingDates` bucket.
+ * `levelAfter`, the same arithmetic the P&L runs on.
  */
 export const expirationsForVisit = (
   visit: VisitObservation,

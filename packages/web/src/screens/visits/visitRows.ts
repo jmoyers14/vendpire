@@ -45,16 +45,12 @@ export interface VisitRow {
   /** The previous visit's walk-away level — the "filled to 10 last time"
    *  hint. Null when this slot has no history. */
   readonly previousLevel: number | null;
-  /**
-   * The front unit's date — the one that SELLS NEXT, not the stock you just
-   * loaded behind it. `""` means NOT RECORDED and is sent as null, for the
-   * same reason `left: ""` is never coerced to 0: a guessed date in a report
-   * whose job is "never sell expired food" is worse than an admitted gap.
-   */
+  /** The FRONT unit's date — the one that sells next, not the stock loaded
+   *  behind it. `""` means NOT RECORDED and is sent as null, never coerced. */
   readonly bestBy: string;
   /** Last visit's date for this slot, for the hint. Null with no history. */
   readonly previousBestBy: string | null;
-  /** From the product. False hides the field entirely. */
+  /** False hides the date field entirely. */
   readonly tracksExpiration: boolean;
 }
 
@@ -110,8 +106,7 @@ const parseCount = (text: string): number | null => {
   return Number.parseInt(trimmed, 10);
 };
 
-/** The one accepted spelling. Rejects an ISO instant, which drags a zone in,
- *  and a non-padded date, which breaks lexicographic ordering. */
+/** Rejects an ISO instant and a non-padded date — both break the ordering. */
 const CALENDAR_DATE = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
 
 /** Matches the server's default window, so the slot row and the pre-trip
@@ -181,8 +176,6 @@ export const rowWithAdded = (row: VisitRow, added: string): VisitRow => ({
   isAddedEdited: true,
 });
 
-/** No `isEdited` latch, unlike `added`: nothing recomputes this, so there is
- *  no default to retire. */
 export const rowWithBestBy = (row: VisitRow, bestBy: string): VisitRow => ({
   ...row,
   bestBy,
@@ -292,8 +285,7 @@ export const buildVisitLines = (rows: readonly VisitRow[]): VisitLinesResult => 
       removed,
       // A reason without a removal is leftover UI state, not a fact.
       removedReason: removed > 0 ? row.removedReason : null,
-      // A date on a slot with nothing in it describes stock that is not there
-      // — leftover UI state, not a fact. Same rule as the reason above.
+      // A date on an emptied slot describes stock that is not there.
       bestBy:
         bestBy === "" || remaining - removed + added === 0 ? null : bestBy,
     });
@@ -330,8 +322,7 @@ export const warningsFor = (
   if (level !== null && row.par !== null && level > row.par) {
     warnings.push("over-par");
   }
-  // Against the level AFTER the fill: an emptied slot has nothing left to go
-  // bad, however old the date on screen is.
+  // Against the level AFTER the fill: an emptied slot has nothing to go bad.
   const bestBy = row.bestBy.trim();
   if (bestBy !== "" && CALENDAR_DATE.test(bestBy) && (level ?? 0) > 0) {
     const days = calendarDaysUntil(bestBy, asOf);

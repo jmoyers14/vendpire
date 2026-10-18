@@ -48,18 +48,8 @@ const visitLineSchema = new Schema(
     priceCents: { type: Number, required: true },
     /** Fill target in effect at this servicing. Never used in the P&L. */
     par: { type: Number, default: null },
-    /**
-     * The date on the unit that SELLS NEXT — the front one, which is both the
-     * oldest in the slot (coils load from the back) and the only one readable
-     * without unloading it. A calendar date, "YYYY-MM-DD".
-     *
-     * A STRING, NOT A DATE. "Best by Dec 15" has no time and no zone; stored as
-     * an instant it acquires both, and a visit captured at UTC-8 then read in
-     * UTC reports the day before. The spelling sorts chronologically as-is.
-     *
-     * Null means NO DATE WAS RECORDED, never "does not expire" — that is what
-     * `Product.tracksExpiration` carries.
-     */
+    /** The FRONT unit's date, "YYYY-MM-DD". String, not Date: a best-by has
+     *  no zone, and an instant reports the wrong day read from another one. */
     bestBy: { type: String, default: null },
   },
   { _id: false },

@@ -17,16 +17,7 @@ const productSchema = new Schema(
     imageUrl: { type: String, default: null, trim: true },
     defaultPriceCents: { type: Number, required: true },
     active: { type: Boolean, default: true },
-    /**
-     * Whether slot lines for this product are expected to carry a `bestBy`.
-     * False for gum, bulk candy, and non-food — things with no useful printed
-     * date. Policy lives here so the engine never branches on a category.
-     *
-     * Required-with-default rather than nullable: "we have not decided" is not
-     * a meaningful third state, and a null would have to be guessed at every
-     * read. Existing rows are handled by
-     * `scripts/backfillProductTracksExpiration.ts`.
-     */
+    /** False for gum, bulk candy and non-food — no useful printed date. */
     tracksExpiration: { type: Boolean, required: true, default: true },
     deletedAt: { type: Date, default: null },
   },
