@@ -73,11 +73,16 @@ jobs:
       - run: bun install --frozen-lockfile
 
       # mongodb-memory-server downloads a Mongo binary on first use. Uncached,
-      # every run pays for it.
+      # every run re-fetches ~82MB.
+      #
+      # The path is the HOME cache, not node_modules: MMS resolves with
+      # preferGlobal, which its debug output confirms resolves to
+      # ~/.cache/mongodb-binaries. Pointed at node_modules this silently never
+      # cached anything — the save step just skipped a path that never existed.
       - name: Cache Mongo binaries
         uses: actions/cache@v4
         with:
-          path: node_modules/.cache/mongodb-memory-server
+          path: ~/.cache/mongodb-binaries
           key: mongo-${{ runner.os }}-${{ hashFiles('bun.lock') }}
           restore-keys: mongo-${{ runner.os }}-
 

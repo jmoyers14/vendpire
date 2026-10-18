@@ -53,7 +53,11 @@ const freePort = (): Promise<number> =>
     });
   });
 
-const waitForHttp = async (url: string, timeoutMs: number): Promise<void> => {
+const waitForHttp = async (
+  url: string,
+  timeoutMs: number,
+  failureDetail?: () => string,
+): Promise<void> => {
   const deadline = Date.now() + timeoutMs;
   let lastError: unknown = null;
   while (Date.now() < deadline) {
@@ -68,7 +72,57 @@ const waitForHttp = async (url: string, timeoutMs: number): Promise<void> => {
     }
     await new Promise((r) => setTimeout(r, 250));
   }
-  throw new Error(`Timed out waiting for ${url}: ${String(lastError)}`);
+  const detail = failureDetail?.() ?? "";
+  throw new Error(
+    `Timed out waiting for ${url}: ${String(lastError)}${detail}`,
+  );
+};
+
+/**
+ * Spawn a stack process, keeping its stderr and exit status for the error
+ * message if it never comes up.
+ *
+ * A process that dies during boot is the most common way these fixtures fail,
+ * and it fails identically to one that is merely slow: waitForHttp burns its
+ * whole budget and reports a timeout. Discarding the child's output turns every
+ * such failure into a guess — which is exactly what happened when this suite
+ * first ran in CI, where the api exited at startup and three runs were spent
+ * proving it was not MongoDB.
+ */
+const spawnCaptured = (
+  command: string,
+  args: string[],
+  options: Parameters<typeof spawn>[2],
+): { child: ChildProcess; failureDetail: () => string } => {
+  const child = spawn(command, args, {
+    ...options,
+    stdio: ["ignore", "ignore", "pipe"],
+  });
+
+  // Capped so a chatty process can't grow this without bound; the boot error is
+  // what matters and it arrives early.
+  let stderr = "";
+  child.stderr?.on("data", (chunk: Buffer | string) => {
+    stderr = (stderr + String(chunk)).slice(-8192);
+  });
+
+  let exit: string | null = null;
+  child.on("exit", (code, signal) => {
+    exit = signal ? `signal ${signal}` : `exit code ${code}`;
+  });
+
+  const failureDetail = (): string => {
+    const lines = [];
+    if (exit !== null) {
+      lines.push(`process already exited (${exit})`);
+    }
+    if (stderr.trim()) {
+      lines.push(`--- stderr ---\n${stderr.trim()}`);
+    }
+    return lines.length ? `\n${lines.join("\n")}` : "";
+  };
+
+  return { child, failureDetail };
 };
 
 /** Kill the process group (vite/bun spawn children of their own). */
@@ -96,10 +150,9 @@ export const test = base.extend<Record<never, never>, WorkerFixtures>({
       const port = await freePort();
       const apiUrl = `http://localhost:${port}`;
 
-      const api = spawn("bun", ["src/index.ts"], {
+      const { child: api, failureDetail } = spawnCaptured("bun", ["src/index.ts"], {
         cwd: path.join(repoRoot, "packages/api"),
         detached: true,
-        stdio: "ignore",
         env: {
           ...process.env,
           ENVIRONMENT: "local",
@@ -114,7 +167,7 @@ export const test = base.extend<Record<never, never>, WorkerFixtures>({
       });
 
       try {
-        await waitForHttp(`${apiUrl}/system.version`, 30_000);
+        await waitForHttp(`${apiUrl}/system.version`, 30_000, failureDetail);
         await use({ apiUrl, mongoUri: mongo.getUri("vendpire-e2e") });
       } finally {
         stop(api);
@@ -135,10 +188,9 @@ export const test = base.extend<Record<never, never>, WorkerFixtures>({
         "an-e2e-signing-secret-32-bytes!!",
       ).toString("base64");
 
-      const worker = spawn("bun", ["src/index.ts"], {
+      const { child: worker, failureDetail } = spawnCaptured("bun", ["src/index.ts"], {
         cwd: path.join(repoRoot, "packages/worker"),
         detached: true,
-        stdio: "ignore",
         env: {
           ...process.env,
           ENVIRONMENT: "local",
@@ -151,7 +203,7 @@ export const test = base.extend<Record<never, never>, WorkerFixtures>({
       });
 
       try {
-        await waitForHttp(`${workerUrl}/health`, 30_000);
+        await waitForHttp(`${workerUrl}/health`, 30_000, failureDetail);
         await use({ workerUrl, signingSecret });
       } finally {
         stop(worker);
@@ -165,13 +217,12 @@ export const test = base.extend<Record<never, never>, WorkerFixtures>({
       const port = await freePort();
       const webUrl = `http://localhost:${port}`;
 
-      const web = spawn(
+      const { child: web, failureDetail } = spawnCaptured(
         "bun",
         ["x", "vite", "dev", "--port", String(port), "--strictPort"],
         {
           cwd: path.join(repoRoot, "packages/web"),
           detached: true,
-          stdio: "ignore",
           env: {
             ...process.env,
             VITE_API_URL: apiStack.apiUrl,
@@ -182,7 +233,7 @@ export const test = base.extend<Record<never, never>, WorkerFixtures>({
       );
 
       try {
-        await waitForHttp(webUrl, 30_000);
+        await waitForHttp(webUrl, 30_000, failureDetail);
         await use({ webUrl });
       } finally {
         stop(web);
