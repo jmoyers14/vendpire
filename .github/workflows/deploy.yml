@@ -14,15 +14,30 @@ name: deploy
 # @vendpire/platform, so a one-line domain edit fans out to all three. Shipping
 # them together keeps one version number meaningful and avoids owning an API
 # compatibility window. See docs/plans/2026-10-06-cicd-pipeline.md.
+#
+# Invoked by release-please.yml rather than by its own tag push. GitHub
+# suppresses workflow runs for events created with GITHUB_TOKEN — recursion
+# prevention — so the tag release-please pushes can NEVER fire `push: tags`.
+# workflow_call sidesteps that without a stored PAT: the deploy runs as part of
+# the release workflow's own run, so no new event is needed.
+#
+# `push: tags` is kept for a tag pushed by a human, which is a real event and
+# does trigger. It just cannot be the path release-please takes.
 on:
-  push:
-    tags: ["v*"]
+  workflow_call:
+    inputs:
+      ref:
+        description: "Tag or SHA to deploy"
+        required: false
+        type: string
   workflow_dispatch:
     inputs:
       ref:
         description: "Tag or SHA to deploy (defaults to the dispatched ref)"
         required: false
         type: string
+  push:
+    tags: ["v*"]
 
 # Serialized, and deliberately NOT cancel-in-progress. Two concurrent deploys
 # race on Cloud Run revisions and on deploy.sh's WORKER_URL correction step, and

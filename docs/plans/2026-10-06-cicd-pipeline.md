@@ -346,7 +346,25 @@ load-bearing are worth preserving verbatim.
 Note: `git tag` is currently empty, so release-please has never cut a tag in
 this repo. The first run exercises that path for real.
 
-### `deploy.yml` — on `push: tags: ['v*']` plus `workflow_dispatch`
+### `deploy.yml` — called by `release-please.yml`
+
+**Corrected 2026-10-18 after v0.2.0.** The original design triggered deploy on
+`push: tags: ['v*']`. That can never fire: GitHub suppresses workflow runs for
+events created with `GITHUB_TOKEN` (recursion prevention), and release-please
+pushes the tag as `github-actions[bot]`. v0.2.0 demonstrated it — the tag was
+cut and `deploy.yml` did not run, having never run at all.
+
+`workflow_dispatch` and `repository_dispatch` are the only exceptions. The fix
+is `workflow_call`: `release-please.yml` gains a `deploy` job that `uses:
+./.github/workflows/deploy.yml`, guarded on its `releases_created` output and
+passing `tag_name` as the ref. No new event is needed, because the deploy
+becomes another job in the same run — and crucially no PAT, which would have
+reintroduced exactly the long-lived credential WIF exists to avoid.
+
+`push: tags` is retained for a human-pushed tag, which is a genuine event and
+does trigger.
+
+### Original trigger design (superseded)
 
 ```mermaid
 flowchart LR
