@@ -37,8 +37,35 @@ permissions:
 jobs:
   release-please:
     runs-on: ubuntu-latest
+    outputs:
+      releases_created: ${{ steps.release.outputs.releases_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
     steps:
       - uses: googleapis/release-please-action@v4
+        id: release
         with:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
+
+  # Deploy is CALLED from here rather than triggered by the tag.
+  #
+  # GitHub suppresses workflow runs for events created with GITHUB_TOKEN, so the
+  # tag this job pushes can never fire deploy.yml's `push: tags`. v0.2.0 proved
+  # it: the tag was cut, and deploy.yml did not run. A PAT would work but means
+  # storing a long-lived credential, which is exactly what Workload Identity
+  # Federation was adopted to avoid. workflow_call needs no token at all — the
+  # deploy becomes another job in this same run.
+  #
+  # Guarded on releases_created, which is only true on the run where merging the
+  # release PR actually cut a release — not on the runs that merely open or
+  # update it.
+  deploy:
+    needs: release-please
+    if: needs.release-please.outputs.releases_created == 'true'
+    uses: ./.github/workflows/deploy.yml
+    with:
+      ref: ${{ needs.release-please.outputs.tag_name }}
+    permissions:
+      contents: read
+      id-token: write
+    secrets: inherit
