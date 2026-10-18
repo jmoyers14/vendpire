@@ -102,6 +102,9 @@ jobs:
         working-directory: packages/e2e
         run: bun run test
         env:
+          # Surfaces mongod's own stdout/stderr. Without it a failed start is
+          # silent and presents only as a Playwright fixture timeout.
+          MONGOMS_DEBUG: "1"
           CLERK_PUBLISHABLE_KEY: ${{ secrets.CLERK_PUBLISHABLE_KEY }}
           CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
           E2E_CLERK_USER_EMAIL: ${{ secrets.E2E_CLERK_USER_EMAIL }}
