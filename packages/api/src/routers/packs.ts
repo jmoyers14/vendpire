@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { orgProtectedProcedure, router } from "../trpc.ts";
 import { ANALYTICS_EVENTS } from "../analytics/events.ts";
+import { objectId } from "./validators.ts";
 
 const packInput = z.object({
   name: z.string().min(1),
@@ -8,7 +9,7 @@ const packInput = z.object({
   contents: z
     .array(
       z.object({
-        productId: z.string().min(1),
+        productId: objectId(),
         units: z.number().int().min(1),
       }),
     )
@@ -22,7 +23,7 @@ export const packsRouter = router({
   ),
 
   get: orgProtectedProcedure
-    .input(z.object({ id: z.string().min(1) }))
+    .input(z.object({ id: objectId() }))
     .query(({ ctx, input }) =>
       ctx.services.packService.get(ctx.auth.orgId, input.id),
     ),
@@ -41,14 +42,14 @@ export const packsRouter = router({
     }),
 
   update: orgProtectedProcedure
-    .input(packInput.extend({ id: z.string().min(1) }))
+    .input(packInput.extend({ id: objectId() }))
     .mutation(({ ctx, input }) => {
       const { id, ...data } = input;
       return ctx.services.packService.update(ctx.auth.orgId, id, data);
     }),
 
   remove: orgProtectedProcedure
-    .input(z.object({ id: z.string().min(1) }))
+    .input(z.object({ id: objectId() }))
     .mutation(({ ctx, input }) =>
       ctx.services.packService.remove(ctx.auth.orgId, input.id),
     ),

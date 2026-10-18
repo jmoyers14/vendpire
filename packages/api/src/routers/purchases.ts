@@ -2,6 +2,7 @@ import { z } from "zod";
 import { orgProtectedProcedure, router } from "../trpc.ts";
 import { ANALYTICS_EVENTS } from "../analytics/events.ts";
 import { DEFAULT_PURCHASE_PAGE_SIZE } from "../services/PurchaseService/PurchaseService.ts";
+import { objectId } from "./validators.ts";
 
 const purchaseInput = z.object({
   purchasedAt: z.string().datetime(),
@@ -11,10 +12,10 @@ const purchaseInput = z.object({
   lines: z
     .array(
       z.object({
-        productId: z.string().min(1),
+        productId: objectId(),
         units: z.number().int().min(1),
         totalCostCents: z.number().int().min(0),
-        packId: z.string().nullable().default(null),
+        packId: objectId().nullable().default(null),
       }),
     )
     .default([]),
@@ -23,7 +24,7 @@ const purchaseInput = z.object({
   packLines: z
     .array(
       z.object({
-        packId: z.string().min(1),
+        packId: objectId(),
         qty: z.number().int().min(1),
         totalCostCents: z.number().int().min(0),
       }),
@@ -39,7 +40,7 @@ const purchaseInput = z.object({
 // client never has to invent a meaningless one to edit a purchase.
 const purchaseEditInput = purchaseInput
   .omit({ clientRequestId: true })
-  .extend({ id: z.string().min(1) });
+  .extend({ id: objectId() });
 
 // Cursor pagination over (purchasedAt desc, _id desc) plus an optional date
 // window. Two things are load-bearing here:
@@ -65,7 +66,7 @@ export const purchasesRouter = router({
     ),
 
   get: orgProtectedProcedure
-    .input(z.object({ id: z.string().min(1) }))
+    .input(z.object({ id: objectId() }))
     .query(({ ctx, input }) =>
       ctx.services.purchaseService.get(ctx.auth.orgId, input.id),
     ),
@@ -98,7 +99,7 @@ export const purchasesRouter = router({
     }),
 
   remove: orgProtectedProcedure
-    .input(z.object({ id: z.string().min(1) }))
+    .input(z.object({ id: objectId() }))
     .mutation(({ ctx, input }) =>
       ctx.services.purchaseService.remove(ctx.auth.orgId, input.id),
     ),
