@@ -1,6 +1,6 @@
 import {
-  dateAfter,
-  daysUntil,
+  calendarDateAfter,
+  calendarDaysUntil,
   levelAfter,
   type RemovalReason,
   type VisitLine,
@@ -334,10 +334,10 @@ export const warningsFor = (
   // bad, however old the date on screen is.
   const bestBy = row.bestBy.trim();
   if (bestBy !== "" && CALENDAR_DATE.test(bestBy) && (level ?? 0) > 0) {
-    const days = daysUntil(bestBy, asOf);
+    const days = calendarDaysUntil(bestBy, asOf);
     if (days < 0) {
       warnings.push("expired");
-    } else if (bestBy <= dateAfter(asOf, EXPIRY_WINDOW_DAYS)) {
+    } else if (bestBy <= calendarDateAfter(asOf, EXPIRY_WINDOW_DAYS)) {
       warnings.push("expiring-soon");
     }
   }

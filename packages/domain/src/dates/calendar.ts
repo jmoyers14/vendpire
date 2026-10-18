@@ -24,14 +24,21 @@ export const calendarDateOf = (instant: Date): CalendarDate =>
   instant.toISOString().slice(0, 10);
 
 /** Reads the wall clock. Callers that need a deterministic day pass one in. */
-export const today = (): CalendarDate => calendarDateOf(new Date());
+export const calendarDateToday = (): CalendarDate =>
+  calendarDateOf(new Date());
 
-export const dateAfter = (date: CalendarDate, days: number): CalendarDate => {
+export const calendarDateAfter = (
+  date: CalendarDate,
+  days: number,
+): CalendarDate => {
   const at = new Date(atUtcMidnight(date));
   at.setUTCDate(at.getUTCDate() + days);
   return calendarDateOf(at);
 };
 
 /** Negative once the date has passed. */
-export const daysUntil = (bestBy: CalendarDate, asOf: CalendarDate): number =>
+export const calendarDaysUntil = (
+  bestBy: CalendarDate,
+  asOf: CalendarDate,
+): number =>
   Math.round((atUtcMidnight(bestBy) - atUtcMidnight(asOf)) / MS_PER_DAY);

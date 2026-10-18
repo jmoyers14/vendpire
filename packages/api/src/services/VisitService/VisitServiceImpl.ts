@@ -3,11 +3,11 @@ import {
   buildCostBasis,
   buildIntervalPnl,
   buildPnlTotals,
-  dateAfter,
-  daysUntil,
+  calendarDateAfter,
+  calendarDateToday,
+  calendarDaysUntil,
   expirationsForVisit,
   intervalsForMachine,
-  today,
   observationsForVisit,
 } from "@vendpire/domain";
 import type { VisitAnomaly } from "@vendpire/domain";
@@ -229,7 +229,7 @@ export class VisitServiceImpl implements VisitService {
     options: ExpiringSoonOptions,
   ): Promise<ExpiringReport> {
     const { withinDays } = options;
-    const asOf = options.asOf ?? today();
+    const asOf = options.asOf ?? calendarDateToday();
 
     const latestVisits = await this.visits.findLatestByOrg(orgId);
     const empty: ExpiringReport = {
@@ -265,7 +265,7 @@ export class VisitServiceImpl implements VisitService {
     );
     const productById = new Map(stocked.map((p) => [p.id, p]));
 
-    const cutoff = dateAfter(asOf, withinDays);
+    const cutoff = calendarDateAfter(asOf, withinDays);
     const report: ExpiringReport = { ...empty };
 
     for (const visit of latestVisits) {
@@ -293,7 +293,10 @@ export class VisitServiceImpl implements VisitService {
           productName: product.name,
           units: slot.units,
           bestBy: slot.bestBy,
-          daysUntil: slot.bestBy === null ? null : daysUntil(slot.bestBy, asOf),
+          daysUntil:
+            slot.bestBy === null
+              ? null
+              : calendarDaysUntil(slot.bestBy, asOf),
         };
 
         if (slot.bestBy === null) {
