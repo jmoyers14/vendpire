@@ -1,0 +1,124 @@
+name: ci
+
+# Gates every pull request and every push to main on lint, typecheck, unit
+# tests, and the Playwright suite. Make `check` and `e2e` required status
+# checks on main in branch protection — this file alone enforces nothing.
+#
+# Deliberately `pull_request`, never `pull_request_target`. The repo is public,
+# so anyone can open a PR; `pull_request_target` would run that PR's code with
+# access to the secrets below, which is the standard exfiltration hole. On the
+# `pull_request` trigger GitHub withholds secrets from fork PRs, and the e2e
+# suite is built to tolerate that: global-setup.ts returns early without Clerk
+# keys and the browser specs skip themselves, so a fork still gets full
+# lint/typecheck/test plus the api-only specs.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# A newer push makes the in-flight run worthless, so cancel it. Note this is the
+# opposite of deploy.yml, where a cancelled run would leave prod half-updated.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # Pinned rather than "latest" on purpose: bson >= 7.3 crashes Bun 1.3.x, which
+  # is why the root package.json overrides mongodb/bson to 7.2.0. An unpinned
+  # Bun bump could surface that as an unrelated-looking CI failure.
+  BUN_VERSION: 1.3.5
+
+jobs:
+  check:
+    name: lint · typecheck · test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - run: bun install --frozen-lockfile
+
+      # Run all three even if an earlier one fails — one CI round-trip should
+      # tell you everything that's wrong, not just the first thing.
+      - name: Lint
+        id: lint
+        run: bun run lint
+
+      - name: Typecheck
+        id: typecheck
+        if: ${{ !cancelled() }}
+        run: bun run typecheck
+
+      - name: Test
+        id: test
+        if: ${{ !cancelled() }}
+        run: bun run test
+
+  e2e:
+    name: e2e
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - run: bun install --frozen-lockfile
+
+      # mongodb-memory-server downloads a Mongo binary on first use. Uncached,
+      # every run re-fetches ~82MB.
+      #
+      # The path is the HOME cache, not node_modules: MMS resolves with
+      # preferGlobal, which its debug output confirms resolves to
+      # ~/.cache/mongodb-binaries. Pointed at node_modules this silently never
+      # cached anything — the save step just skipped a path that never existed.
+      - name: Cache Mongo binaries
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/mongodb-binaries
+          key: mongo-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: mongo-${{ runner.os }}-
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+
+      # --with-deps pulls the system libraries Chromium needs on a bare runner,
+      # which the packages/e2e `install-browsers` script omits (a dev machine
+      # already has them). Always run it: even on a cache hit the OS-level deps
+      # are not part of ~/.cache/ms-playwright.
+      - name: Install Chromium
+        working-directory: packages/e2e
+        run: bunx playwright install --with-deps chromium
+
+      # Fork PRs get empty strings here. That is intended and handled: the suite
+      # degrades to its api-only specs rather than failing.
+      - name: Run Playwright
+        working-directory: packages/e2e
+        run: bun run test
+        env:
+          # Surfaces mongod's own stdout/stderr. Without it a failed start is
+          # silent and presents only as a Playwright fixture timeout.
+          MONGOMS_DEBUG: "1"
+          CLERK_PUBLISHABLE_KEY: ${{ secrets.CLERK_PUBLISHABLE_KEY }}
+          CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
+          E2E_CLERK_USER_EMAIL: ${{ secrets.E2E_CLERK_USER_EMAIL }}
+          E2E_CLERK_USER_PASSWORD: ${{ secrets.E2E_CLERK_USER_PASSWORD }}
+
+      - name: Upload report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: packages/e2e/playwright-report/
+          retention-days: 7
