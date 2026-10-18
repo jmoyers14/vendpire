@@ -1,4 +1,5 @@
 import { clerk, setupClerkTestingToken } from "@clerk/testing/playwright";
+import type { Page } from "@playwright/test";
 import { test, expect, requireTestUser } from "../fixtures.ts";
 
 /**
@@ -56,10 +57,11 @@ const dataOf = async <T>(response: Response): Promise<T> => {
   return body.result.data as T;
 };
 
-test("a repeated submit of one draft stores exactly one visit", async ({
-  page,
-  apiStack,
-}) => {
+/**
+ * Signs the test user in and returns a session token. Every visit procedure is
+ * `orgProtectedProcedure`, so there is no useful request to make without one.
+ */
+const signIn = async (page: Page, apiUrl: string): Promise<string> => {
   await setupClerkTestingToken({ page });
   await page.goto("/");
   await clerk.loaded({ page });
@@ -87,11 +89,19 @@ test("a repeated submit of one draft stores exactly one visit", async ({
   // Every data procedure needs an org claim. A fresh test user has no business
   // yet, and creating one here would leave a tenant behind in a shared Clerk
   // instance — so skip rather than fabricate.
-  const probe = await query(apiStack.apiUrl, token!, "machines.list");
+  const probe = await query(apiUrl, token!, "machines.list");
   test.skip(
     probe.status === 403,
     "The E2E Clerk user needs an active organization",
   );
+  return token!;
+};
+
+test("a repeated submit of one draft stores exactly one visit", async ({
+  page,
+  apiStack,
+}) => {
+  const token = await signIn(page, apiStack.apiUrl);
 
   const location = await dataOf<{ id: string }>(
     await mutate(apiStack.apiUrl, token!, "locations.create", {
@@ -159,4 +169,86 @@ test("a repeated submit of one draft stores exactly one visit", async ({
   // No cleanup: this worker's stack runs on its own in-memory MongoDB, which
   // goes away with the worker. Only the Clerk organization is shared, and
   // nothing here touches it.
+});
+/**
+ * The expiry report's one job is to be trusted, so this proves the whole path
+ * a date travels: typed at a machine, stored, and read back as something to
+ * act on before the next trip. The service test proves the bucketing; only
+ * this proves the wire carries `bestBy` at all.
+ */
+test("a visit's best-by date comes back on the expiry report", async ({
+  page,
+  apiStack,
+}) => {
+  const token = await signIn(page, apiStack.apiUrl);
+
+  const location = await dataOf<{ id: string }>(
+    await mutate(apiStack.apiUrl, token, "locations.create", {
+      name: `E2E expiry ${Date.now()}`,
+      address: { line1: null, city: null, state: null, zip: null, geo: null },
+      contact: { name: null, phone: null, email: null },
+      commission: { type: "none" },
+    }),
+  );
+  const machine = await dataOf<{ id: string }>(
+    await mutate(apiStack.apiUrl, token, "machines.create", {
+      locationId: location.id,
+      name: "E2E expiry machine",
+      kind: "snack",
+      slots: [["A1"]],
+    }),
+  );
+  const product = await dataOf<{ id: string }>(
+    await mutate(apiStack.apiUrl, token, "products.create", {
+      name: "E2E Doritos",
+      category: "chips",
+      defaultPriceCents: 175,
+    }),
+  );
+
+  // Dated in the past, so it lands in `expired` regardless of when the suite
+  // runs — a date relative to "today" would make this test age out.
+  await dataOf<{ id: string }>(
+    await mutate(apiStack.apiUrl, token, "visits.create", {
+      machineId: machine.id,
+      locationId: location.id,
+      countedAt: new Date().toISOString(),
+      lines: [
+        {
+          slotCode: "A1",
+          productId: product.id,
+          remaining: 0,
+          added: 4,
+          priceCents: 175,
+          par: 4,
+          bestBy: "2020-01-15",
+        },
+      ],
+      clientRequestId: `e2e-${crypto.randomUUID()}`,
+    }),
+  );
+
+  const report = await dataOf<{
+    expired: {
+      machineId: string;
+      slotCode: string;
+      units: number;
+      bestBy: string;
+      daysUntil: number;
+    }[];
+    missingDates: unknown[];
+  }>(
+    await query(apiStack.apiUrl, token, "visits.expiringSoon", {
+      withinDays: 14,
+    }),
+  );
+
+  // Scoped to this machine: the report is org-wide, and a worker may have run
+  // the idempotency test against the same in-memory stack.
+  const row = report.expired.find((slot) => slot.machineId === machine.id);
+  expect(row).toBeDefined();
+  expect(row?.slotCode).toBe("A1");
+  expect(row?.bestBy).toBe("2020-01-15");
+  expect(row?.units).toBe(4);
+  expect(row?.daysUntil).toBeLessThan(0);
 });
