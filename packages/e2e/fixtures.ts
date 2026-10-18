@@ -79,7 +79,7 @@ const waitForHttp = async (
 };
 
 /**
- * Spawn a stack process, keeping its stderr and exit status for the error
+ * Spawn a stack process, keeping its output and exit status for the error
  * message if it never comes up.
  *
  * A process that dies during boot is the most common way these fixtures fail,
@@ -94,17 +94,22 @@ const spawnCaptured = (
   args: string[],
   options: Parameters<typeof spawn>[2],
 ): { child: ChildProcess; failureDetail: () => string } => {
+  // BOTH streams, deliberately: pino writes to stdout, so capturing only stderr
+  // misses every structured log the services emit — including the one
+  // parseConfig prints before it exits(1).
   const child = spawn(command, args, {
     ...options,
-    stdio: ["ignore", "ignore", "pipe"],
+    stdio: ["ignore", "pipe", "pipe"],
   });
 
   // Capped so a chatty process can't grow this without bound; the boot error is
   // what matters and it arrives early.
-  let stderr = "";
-  child.stderr?.on("data", (chunk: Buffer | string) => {
-    stderr = (stderr + String(chunk)).slice(-8192);
-  });
+  let output = "";
+  const capture = (chunk: Buffer | string): void => {
+    output = (output + String(chunk)).slice(-8192);
+  };
+  child.stdout?.on("data", capture);
+  child.stderr?.on("data", capture);
 
   let exit: string | null = null;
   child.on("exit", (code, signal) => {
@@ -116,8 +121,8 @@ const spawnCaptured = (
     if (exit !== null) {
       lines.push(`process already exited (${exit})`);
     }
-    if (stderr.trim()) {
-      lines.push(`--- stderr ---\n${stderr.trim()}`);
+    if (output.trim()) {
+      lines.push(`--- output ---\n${output.trim()}`);
     }
     return lines.length ? `\n${lines.join("\n")}` : "";
   };
