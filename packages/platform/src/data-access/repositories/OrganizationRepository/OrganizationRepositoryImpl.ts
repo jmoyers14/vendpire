@@ -1,5 +1,7 @@
 import { injectable } from "tsyringe";
+import type { Types } from "mongoose";
 import { OrganizationModel } from "../../models/Organization.ts";
+import { toId } from "../ids.ts";
 import type {
   Organization,
   OrganizationInput,
@@ -7,7 +9,7 @@ import type {
 } from "./OrganizationRepository.ts";
 
 type OrganizationDoc = {
-  _id: unknown;
+  _id: Types.ObjectId;
   orgId: string;
   name: string;
   slug: string | null;
@@ -56,7 +58,7 @@ export class OrganizationRepositoryImpl implements OrganizationRepository {
 
 export function toOrganization(doc: OrganizationDoc): Organization {
   return {
-    id: String(doc._id),
+    id: toId(doc._id),
     orgId: doc.orgId,
     name: doc.name,
     slug: doc.slug ?? null,

@@ -9,7 +9,7 @@ import { Schema, model } from "mongoose";
 const slotSchema = new Schema(
   {
     slotCode: { type: String, required: true, trim: true },
-    productId: { type: String, required: true },
+    productId: { type: Schema.Types.ObjectId, ref: "Product", required: true },
     // How many units the slot holds when full — the refill target.
     par: { type: Number, required: true },
     priceCents: { type: Number, required: true },
@@ -20,7 +20,12 @@ const slotSchema = new Schema(
 const planogramSchema = new Schema(
   {
     orgId: { type: String, required: true, index: true },
-    machineId: { type: String, required: true, index: true },
+    machineId: {
+      type: Schema.Types.ObjectId,
+      ref: "Machine",
+      required: true,
+      index: true,
+    },
     effectiveFrom: { type: Date, required: true },
     slots: { type: [slotSchema], required: true },
     deletedAt: { type: Date, default: null },

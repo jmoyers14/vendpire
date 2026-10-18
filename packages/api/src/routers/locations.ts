@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { orgProtectedProcedure, router } from "../trpc.ts";
 import { ANALYTICS_EVENTS } from "../analytics/events.ts";
+import { objectId } from "./validators.ts";
 
 // Each arm carries only its own payload — the shape the entity now uses, so
 // the parsed input reaches the service needing no reshaping. Unknown keys are
@@ -46,7 +47,7 @@ export const locationsRouter = router({
   ),
 
   get: orgProtectedProcedure
-    .input(z.object({ id: z.string().min(1) }))
+    .input(z.object({ id: objectId() }))
     .query(({ ctx, input }) =>
       ctx.services.locationService.get(ctx.auth.orgId, input.id),
     ),
@@ -68,14 +69,14 @@ export const locationsRouter = router({
     }),
 
   update: orgProtectedProcedure
-    .input(locationInput.extend({ id: z.string().min(1) }))
+    .input(locationInput.extend({ id: objectId() }))
     .mutation(({ ctx, input }) => {
       const { id, ...data } = input;
       return ctx.services.locationService.update(ctx.auth.orgId, id, data);
     }),
 
   remove: orgProtectedProcedure
-    .input(z.object({ id: z.string().min(1) }))
+    .input(z.object({ id: objectId() }))
     .mutation(({ ctx, input }) =>
       ctx.services.locationService.remove(ctx.auth.orgId, input.id),
     ),

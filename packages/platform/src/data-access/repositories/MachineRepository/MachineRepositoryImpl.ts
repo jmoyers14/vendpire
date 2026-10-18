@@ -1,5 +1,7 @@
 import { injectable } from "tsyringe";
+import type { Types } from "mongoose";
 import { MachineModel } from "../../models/Machine.ts";
+import { toId } from "../ids.ts";
 import type {
   Machine,
   MachineInput,
@@ -7,15 +9,15 @@ import type {
 } from "./MachineRepository.ts";
 
 type MachineDoc = {
-  _id: unknown;
-  locationId: string;
+  _id: Types.ObjectId;
+  locationId: Types.ObjectId;
   name: string;
   kind: "snack" | "drink" | "combo";
   make?: string | null;
   model?: string | null;
   serial?: string | null;
   tagCode?: string | null;
-  templateId?: string | null;
+  templateId?: Types.ObjectId | null;
   slots?: string[][];
   cardReader?: { provider: "nayax" | "cantaloupe"; deviceId: string } | null;
   active: boolean;
@@ -93,15 +95,15 @@ export class MachineRepositoryImpl implements MachineRepository {
 
 function toMachine(doc: MachineDoc): Machine {
   return {
-    id: String(doc._id),
-    locationId: doc.locationId,
+    id: toId(doc._id),
+    locationId: toId(doc.locationId),
     name: doc.name,
     kind: doc.kind,
     make: doc.make ?? null,
     model: doc.model ?? null,
     serial: doc.serial ?? null,
     tagCode: doc.tagCode ?? null,
-    templateId: doc.templateId ?? null,
+    templateId: toId(doc.templateId),
     slots: (doc.slots ?? []).map((shelf) => [...shelf]),
     cardReader: doc.cardReader
       ? { provider: doc.cardReader.provider, deviceId: doc.cardReader.deviceId }

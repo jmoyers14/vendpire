@@ -5,11 +5,12 @@ import {
   DEFAULT_EXPIRY_WINDOW_DAYS,
   DEFAULT_VISIT_LIST_LIMIT,
 } from "../services/VisitService/VisitService.ts";
+import { objectId } from "./validators.ts";
 
 export const visitLineInput = z
   .object({
     slotCode: z.string().min(1).max(8),
-    productId: z.string().min(1),
+    productId: objectId(),
     remaining: z.number().int().min(0).max(999),
     added: z.number().int().min(0).max(999),
     removed: z.number().int().min(0).max(999).default(0),
@@ -32,11 +33,11 @@ export const visitLineInput = z
   });
 
 const visitInput = z.object({
-  machineId: z.string().min(1),
+  machineId: objectId(),
   // A client snapshot, never re-derived: if the machine moved between the count
   // and the submit, the server's idea of its location is the wrong answer.
-  locationId: z.string().min(1),
-  planogramId: z.string().min(1).nullable().default(null),
+  locationId: objectId(),
+  planogramId: objectId().nullable().default(null),
   // offset:true — zod's default {offset:false} REJECTS "+00:00", which an
   // ISO-8601 formatter may well emit.
   countedAt: z.string().datetime({ offset: true }),
@@ -49,7 +50,7 @@ const visitInput = z.object({
 
 // No cursor — visits are bounded by machines times route frequency.
 const visitListInput = z.object({
-  machineId: z.string().min(1).optional(),
+  machineId: objectId().optional(),
   from: z.string().datetime({ offset: true }).optional(),
   to: z.string().datetime({ offset: true }).optional(),
   limit: z.number().int().positive().default(DEFAULT_VISIT_LIST_LIMIT),
@@ -67,7 +68,7 @@ export const visitsRouter = router({
   ),
 
   get: orgProtectedProcedure
-    .input(z.object({ id: z.string().min(1) }))
+    .input(z.object({ id: objectId() }))
     .query(({ ctx, input }) =>
       ctx.services.visitService.get(ctx.auth.orgId, input.id),
     ),
@@ -75,7 +76,7 @@ export const visitsRouter = router({
   pnl: orgProtectedProcedure
     .input(
       z.object({
-        machineId: z.string().min(1),
+        machineId: objectId(),
         from: z.string().datetime({ offset: true }).optional(),
         to: z.string().datetime({ offset: true }).optional(),
       }),
@@ -168,7 +169,7 @@ export const visitsRouter = router({
     }),
 
   remove: orgProtectedProcedure
-    .input(z.object({ id: z.string().min(1) }))
+    .input(z.object({ id: objectId() }))
     .mutation(({ ctx, input }) =>
       ctx.services.visitService.remove(ctx.auth.orgId, input.id),
     ),

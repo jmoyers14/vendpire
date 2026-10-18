@@ -1,9 +1,10 @@
 import { z } from "zod";
 import { orgProtectedProcedure, router } from "../trpc.ts";
 import { ANALYTICS_EVENTS } from "../analytics/events.ts";
+import { objectId } from "./validators.ts";
 
 const planogramInput = z.object({
-  machineId: z.string().min(1),
+  machineId: objectId(),
   // Defaults to "now": most new versions take effect the moment you save them.
   effectiveFrom: z
     .string()
@@ -13,7 +14,7 @@ const planogramInput = z.object({
     .array(
       z.object({
         slotCode: z.string().min(1),
-        productId: z.string().min(1),
+        productId: objectId(),
         par: z.number().int().min(1),
         // min(1): products created mid-purchase can carry a $0 placeholder
         // price; a slot is where that becomes real money, so it must be set.
@@ -28,7 +29,7 @@ const planogramInput = z.object({
 
 export const planogramsRouter = router({
   listByMachine: orgProtectedProcedure
-    .input(z.object({ machineId: z.string().min(1) }))
+    .input(z.object({ machineId: objectId() }))
     .query(({ ctx, input }) =>
       ctx.services.planogramService.listByMachine(
         ctx.auth.orgId,
@@ -37,7 +38,7 @@ export const planogramsRouter = router({
     ),
 
   getCurrent: orgProtectedProcedure
-    .input(z.object({ machineId: z.string().min(1) }))
+    .input(z.object({ machineId: objectId() }))
     .query(({ ctx, input }) =>
       ctx.services.planogramService.getCurrent(ctx.auth.orgId, input.machineId),
     ),

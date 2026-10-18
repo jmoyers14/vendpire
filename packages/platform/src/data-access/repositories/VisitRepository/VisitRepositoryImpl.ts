@@ -1,6 +1,8 @@
 import { injectable } from "tsyringe";
+import type { Types } from "mongoose";
 import type { RemovalReason } from "@vendpire/domain";
 import { VisitModel } from "../../models/Visit.ts";
+import { toId } from "../ids.ts";
 import type {
   Visit,
   VisitInput,
@@ -10,15 +12,15 @@ import type {
 } from "./VisitRepository.ts";
 
 type VisitDoc = {
-  _id: unknown;
-  machineId: string;
-  locationId: string;
-  planogramId?: string | null;
+  _id: Types.ObjectId;
+  machineId: Types.ObjectId;
+  locationId: Types.ObjectId;
+  planogramId?: Types.ObjectId | null;
   countedAt: Date;
   recordedByUserId: string;
   lines: {
     slotCode: string;
-    productId: string;
+    productId: Types.ObjectId;
     remaining: number;
     added: number;
     removed?: number | null;
@@ -220,15 +222,15 @@ export class VisitRepositoryImpl implements VisitRepository {
  */
 export function toVisit(doc: VisitDoc): Visit {
   return {
-    id: String(doc._id),
-    machineId: doc.machineId,
-    locationId: doc.locationId,
-    planogramId: doc.planogramId ?? null,
+    id: toId(doc._id),
+    machineId: toId(doc.machineId),
+    locationId: toId(doc.locationId),
+    planogramId: toId(doc.planogramId),
     countedAt: doc.countedAt.toISOString(),
     recordedByUserId: doc.recordedByUserId,
     lines: doc.lines.map((line) => ({
       slotCode: line.slotCode,
-      productId: line.productId,
+      productId: toId(line.productId),
       remaining: line.remaining,
       added: line.added,
       removed: line.removed ?? 0,

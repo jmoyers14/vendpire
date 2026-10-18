@@ -14,6 +14,11 @@ const organizationSchema = new Schema(
     // The Clerk org id. This IS the app's tenant key — the same string every
     // other collection carries as `orgId` — so it's unique here rather than an
     // ordinary scoping index.
+    //
+    // Deliberately NOT an ObjectId ref, unlike every other cross-document id in
+    // the app. It's Clerk's `org_xxx`, not this document's `_id`, so there is
+    // nothing for $lookup to match against. The same holds for `authUserId` and
+    // `Visit.recordedByUserId`.
     orgId: { type: String, required: true },
     name: { type: String, required: true, trim: true },
     slug: { type: String, default: null, trim: true },

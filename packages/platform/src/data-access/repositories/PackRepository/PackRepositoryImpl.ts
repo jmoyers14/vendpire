@@ -1,12 +1,14 @@
 import { injectable } from "tsyringe";
+import type { Types } from "mongoose";
 import { PackModel } from "../../models/Pack.ts";
+import { toId } from "../ids.ts";
 import type { Pack, PackInput, PackRepository } from "./PackRepository.ts";
 
 type PackDoc = {
-  _id: unknown;
+  _id: Types.ObjectId;
   name: string;
   barcodes?: string[];
-  contents: { productId: string; units: number }[];
+  contents: { productId: Types.ObjectId; units: number }[];
   active: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -71,11 +73,11 @@ export class PackRepositoryImpl implements PackRepository {
 
 function toPack(doc: PackDoc): Pack {
   return {
-    id: String(doc._id),
+    id: toId(doc._id),
     name: doc.name,
     barcodes: doc.barcodes ?? [],
     contents: doc.contents.map((content) => ({
-      productId: content.productId,
+      productId: toId(content.productId),
       units: content.units,
     })),
     active: doc.active,

@@ -4,3 +4,4 @@
  * fixture by accident.
  */
 export * from "./factories.ts";
+export * from "./ids.ts";

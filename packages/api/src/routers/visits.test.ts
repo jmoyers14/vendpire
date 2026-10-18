@@ -3,7 +3,7 @@ import { visitLineInput } from "./visits.ts";
 
 const line = (over: Record<string, unknown> = {}) => ({
   slotCode: "B3",
-  productId: "p1",
+  productId: "507f1f77bcf86cd799439011",
   remaining: 5,
   added: 5,
   priceCents: 150,

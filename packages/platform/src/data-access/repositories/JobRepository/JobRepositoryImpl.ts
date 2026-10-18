@@ -1,5 +1,7 @@
 import { injectable } from "tsyringe";
+import type { Types } from "mongoose";
 import { JobModel } from "../../models/Job.ts";
+import { toId } from "../ids.ts";
 import type {
   Job,
   JobInput,
@@ -8,7 +10,7 @@ import type {
 } from "./JobRepository.ts";
 
 type JobDoc = {
-  _id: unknown;
+  _id: Types.ObjectId;
   jobType: string;
   dedupKey: string;
   orgId: string | null;
@@ -102,7 +104,7 @@ export class JobRepositoryImpl implements JobRepository {
 
 export function toJob(doc: JobDoc): Job {
   return {
-    id: String(doc._id),
+    id: toId(doc._id),
     jobType: doc.jobType,
     dedupKey: doc.dedupKey,
     orgId: doc.orgId ?? null,

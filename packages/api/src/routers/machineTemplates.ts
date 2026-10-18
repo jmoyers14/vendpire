@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { orgProtectedProcedure, router } from "../trpc.ts";
 import { ANALYTICS_EVENTS } from "../analytics/events.ts";
+import { objectId } from "./validators.ts";
 
 const machineTemplateInput = z.object({
   name: z.string().min(1),
@@ -17,7 +18,7 @@ export const machineTemplatesRouter = router({
   ),
 
   get: orgProtectedProcedure
-    .input(z.object({ id: z.string().min(1) }))
+    .input(z.object({ id: objectId() }))
     .query(({ ctx, input }) =>
       ctx.services.machineTemplateService.get(ctx.auth.orgId, input.id),
     ),
@@ -43,7 +44,7 @@ export const machineTemplatesRouter = router({
     }),
 
   update: orgProtectedProcedure
-    .input(machineTemplateInput.extend({ id: z.string().min(1) }))
+    .input(machineTemplateInput.extend({ id: objectId() }))
     .mutation(({ ctx, input }) => {
       const { id, ...data } = input;
       return ctx.services.machineTemplateService.update(
@@ -54,7 +55,7 @@ export const machineTemplatesRouter = router({
     }),
 
   remove: orgProtectedProcedure
-    .input(z.object({ id: z.string().min(1) }))
+    .input(z.object({ id: objectId() }))
     .mutation(({ ctx, input }) =>
       ctx.services.machineTemplateService.remove(ctx.auth.orgId, input.id),
     ),

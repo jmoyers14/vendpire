@@ -1,5 +1,7 @@
 import { injectable } from "tsyringe";
+import type { Types } from "mongoose";
 import { ProductModel } from "../../models/Product.ts";
+import { toId } from "../ids.ts";
 import type {
   Product,
   ProductInput,
@@ -7,7 +9,7 @@ import type {
 } from "./ProductRepository.ts";
 
 type ProductDoc = {
-  _id: unknown;
+  _id: Types.ObjectId;
   name: string;
   upc?: string | null;
   category: string;
@@ -55,8 +57,8 @@ export class ProductRepositoryImpl implements ProductRepository {
     const docs = await ProductModel.find(
       { _id: { $in: ids }, orgId, deletedAt: null },
       { _id: 1 },
-    ).lean<{ _id: unknown }[]>();
-    return new Set(docs.map((doc) => String(doc._id)));
+    ).lean<{ _id: Types.ObjectId }[]>();
+    return new Set(docs.map((doc) => toId(doc._id)));
   }
 
   async findExistingIdsIncludingDeleted(
@@ -69,8 +71,8 @@ export class ProductRepositoryImpl implements ProductRepository {
     const docs = await ProductModel.find(
       { _id: { $in: ids }, orgId },
       { _id: 1 },
-    ).lean<{ _id: unknown }[]>();
-    return new Set(docs.map((doc) => String(doc._id)));
+    ).lean<{ _id: Types.ObjectId }[]>();
+    return new Set(docs.map((doc) => toId(doc._id)));
   }
 
   async findByIdsIncludingDeleted(
@@ -119,7 +121,7 @@ export class ProductRepositoryImpl implements ProductRepository {
 
 function toProduct(doc: ProductDoc): Product {
   return {
-    id: String(doc._id),
+    id: toId(doc._id),
     name: doc.name,
     upc: doc.upc ?? null,
     category: doc.category,

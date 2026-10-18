@@ -1,9 +1,10 @@
 import { z } from "zod";
 import { orgProtectedProcedure, router } from "../trpc.ts";
 import { ANALYTICS_EVENTS } from "../analytics/events.ts";
+import { objectId } from "./validators.ts";
 
 const machineInput = z.object({
-  locationId: z.string().min(1),
+  locationId: objectId(),
   name: z.string().min(1),
   kind: z.enum(["snack", "drink", "combo"]),
   make: z.string().nullable().default(null),
@@ -11,7 +12,7 @@ const machineInput = z.object({
   serial: z.string().nullable().default(null),
   tagCode: z.string().nullable().default(null),
   // Layout lineage — the template this face came from, or was saved off.
-  templateId: z.string().nullable().default(null),
+  templateId: objectId().nullable().default(null),
   // One array per shelf, slot codes in walking order.
   slots: z.array(z.array(z.string().min(1))).default([]),
   cardReader: z
@@ -30,7 +31,7 @@ export const machinesRouter = router({
   ),
 
   get: orgProtectedProcedure
-    .input(z.object({ id: z.string().min(1) }))
+    .input(z.object({ id: objectId() }))
     .query(({ ctx, input }) =>
       ctx.services.machineService.get(ctx.auth.orgId, input.id),
     ),
@@ -59,14 +60,14 @@ export const machinesRouter = router({
     }),
 
   update: orgProtectedProcedure
-    .input(machineInput.extend({ id: z.string().min(1) }))
+    .input(machineInput.extend({ id: objectId() }))
     .mutation(({ ctx, input }) => {
       const { id, ...data } = input;
       return ctx.services.machineService.update(ctx.auth.orgId, id, data);
     }),
 
   remove: orgProtectedProcedure
-    .input(z.object({ id: z.string().min(1) }))
+    .input(z.object({ id: objectId() }))
     .mutation(({ ctx, input }) =>
       ctx.services.machineService.remove(ctx.auth.orgId, input.id),
     ),

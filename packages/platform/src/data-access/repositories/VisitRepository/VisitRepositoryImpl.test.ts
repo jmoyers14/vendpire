@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+import { oid, oidHex } from "../../../test-support/ids.ts";
 import {
   toVisit,
   visitListFilter,
@@ -16,15 +17,15 @@ type VisitDoc = Parameters<typeof toVisit>[0];
 
 const doc = (overrides: Partial<VisitDoc> = {}): VisitDoc =>
   ({
-    _id: "6500a1b2c3d4e5f607182930",
-    machineId: MACHINE,
-    locationId: "loc_1",
+    _id: oid("visit_1"),
+    machineId: oid(MACHINE),
+    locationId: oid("loc_1"),
     countedAt: new Date("2026-09-20T17:04:00.000Z"),
     recordedByUserId: "user_1",
     lines: [
       {
         slotCode: "A1",
-        productId: "p_1",
+        productId: oid("p_1"),
         remaining: 4,
         added: 6,
         removed: 2,
@@ -48,16 +49,16 @@ const doc = (overrides: Partial<VisitDoc> = {}): VisitDoc =>
 describe("toVisit", () => {
   it("maps a full document, with dates as ISO instants", () => {
     expect(toVisit(doc())).toEqual({
-      id: "6500a1b2c3d4e5f607182930",
-      machineId: MACHINE,
-      locationId: "loc_1",
+      id: oidHex("visit_1"),
+      machineId: oidHex(MACHINE),
+      locationId: oidHex("loc_1"),
       planogramId: null,
       countedAt: "2026-09-20T17:04:00.000Z",
       recordedByUserId: "user_1",
       lines: [
         {
           slotCode: "A1",
-          productId: "p_1",
+          productId: oidHex("p_1"),
           remaining: 4,
           added: 6,
           removed: 2,
@@ -78,7 +79,7 @@ describe("toVisit", () => {
   it("defaults an absent removed to 0, never undefined", () => {
     const line = {
       slotCode: "A1",
-      productId: "p_1",
+      productId: oid("p_1"),
       remaining: 4,
       added: 6,
       priceCents: 175,
@@ -92,7 +93,7 @@ describe("toVisit", () => {
   it("round-trips bestBy", () => {
     const line = {
       slotCode: "A1",
-      productId: "p_1",
+      productId: oid("p_1"),
       remaining: 4,
       added: 6,
       priceCents: 175,
@@ -106,7 +107,7 @@ describe("toVisit", () => {
     // engine is a different value from null to every consumer downstream.
     const line = {
       slotCode: "A1",
-      productId: "p_1",
+      productId: oid("p_1"),
       remaining: 4,
       added: 6,
       priceCents: 175,
@@ -117,7 +118,7 @@ describe("toVisit", () => {
   it("preserves a zero remaining rather than nulling it", () => {
     const line = {
       slotCode: "A1",
-      productId: "p_1",
+      productId: oid("p_1"),
       remaining: 0,
       added: 0,
       priceCents: 175,
@@ -126,7 +127,7 @@ describe("toVisit", () => {
   });
 
   it("keeps a free price at 0 rather than coercing it away", () => {
-    const line = { slotCode: "A1", productId: "p_1", remaining: 1, added: 0, priceCents: 0 };
+    const line = { slotCode: "A1", productId: oid("p_1"), remaining: 1, added: 0, priceCents: 0 };
     expect(toVisit(doc({ lines: [line] })).lines[0]?.priceCents).toBe(0);
   });
 
@@ -137,14 +138,14 @@ describe("toVisit", () => {
   });
 
   it("carries planogramId and notes through when present", () => {
-    const visit = toVisit(doc({ planogramId: "pg_1", notes: "coil jammed" }));
-    expect(visit.planogramId).toBe("pg_1");
+    const visit = toVisit(doc({ planogramId: oid("pg_1"), notes: "coil jammed" }));
+    expect(visit.planogramId).toBe(oidHex("pg_1"));
     expect(visit.notes).toBe("coil jammed");
   });
 
-  it("stringifies the ObjectId", () => {
-    const visit = toVisit(doc({ _id: { toString: () => "abc123" } }));
-    expect(visit.id).toBe("abc123");
+  it("renders the ObjectId as its hex string", () => {
+    const visit = toVisit(doc({ _id: oid("visit_7") }));
+    expect(visit.id).toBe(oidHex("visit_7"));
   });
 
   // A re-planogram visit counts the outgoing product out alongside the
@@ -152,8 +153,8 @@ describe("toVisit", () => {
   // not collapse lines by slot.
   it("keeps both lines when one slot carries two products", () => {
     const lines = [
-      { slotCode: "A1", productId: "old", remaining: 3, added: 0, priceCents: 150 },
-      { slotCode: "A1", productId: "new", remaining: 0, added: 10, priceCents: 175 },
+      { slotCode: "A1", productId: oid("old"), remaining: 3, added: 0, priceCents: 150 },
+      { slotCode: "A1", productId: oid("new"), remaining: 0, added: 10, priceCents: 175 },
     ];
     expect(toVisit(doc({ lines })).lines).toHaveLength(2);
   });

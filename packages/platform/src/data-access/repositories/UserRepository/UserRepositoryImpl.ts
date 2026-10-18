@@ -1,9 +1,11 @@
 import { injectable } from "tsyringe";
+import type { Types } from "mongoose";
 import { UserModel } from "../../models/User.ts";
+import { toId } from "../ids.ts";
 import type { User, UserInput, UserRepository } from "./UserRepository.ts";
 
 type UserDoc = {
-  _id: unknown;
+  _id: Types.ObjectId;
   authUserId: string;
   email: string | null;
   firstName: string | null;
@@ -43,7 +45,7 @@ export class UserRepositoryImpl implements UserRepository {
 
 export function toUser(doc: UserDoc): User {
   return {
-    id: String(doc._id),
+    id: toId(doc._id),
     authUserId: doc.authUserId,
     email: doc.email ?? null,
     firstName: doc.firstName ?? null,
