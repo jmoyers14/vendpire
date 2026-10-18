@@ -3,7 +3,7 @@ import { orgProtectedProcedure, router } from "../trpc.ts";
 import { ANALYTICS_EVENTS } from "../analytics/events.ts";
 import { DEFAULT_VISIT_LIST_LIMIT } from "../services/VisitService/VisitService.ts";
 
-const visitLineInput = z
+export const visitLineInput = z
   .object({
     slotCode: z.string().min(1).max(8),
     productId: z.string().min(1),
@@ -16,6 +16,22 @@ const visitLineInput = z
       .default(null),
     priceCents: z.number().int().min(0).max(100_000),
     par: z.number().int().min(0).max(999).nullable().default(null),
+    /**
+     * The front unit's date, "YYYY-MM-DD". Format only — there is deliberately
+     * no "required when the product tracks expiration" refine here: zod cannot
+     * see the product, and `VisitServiceImpl.validate` loads product IDS only.
+     * The operator standing at the slot is the real enforcement, and the
+     * report's `missingDates` bucket is the safety net.
+     *
+     * The regex rejects the two dangerous spellings: an ISO instant (which
+     * drags a zone in) and a non-padded date (which breaks the lexicographic
+     * ordering the report depends on).
+     */
+    bestBy: z
+      .string()
+      .regex(/^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/)
+      .nullable()
+      .default(null),
   })
   // A reason is REQUIRED once units are removed: it decides loss vs. transfer,
   // and defaulting either way would overstate or hide the write-off.

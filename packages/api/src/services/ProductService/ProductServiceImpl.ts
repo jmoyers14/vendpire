@@ -135,5 +135,6 @@ function normalize(input: ProductInput): ProductInput {
     imageUrl: clean(input.imageUrl),
     defaultPriceCents: input.defaultPriceCents,
     active: input.active,
+    tracksExpiration: input.tracksExpiration,
   };
 }

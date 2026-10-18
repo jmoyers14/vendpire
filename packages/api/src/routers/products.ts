@@ -10,6 +10,7 @@ const productInput = z.object({
   imageUrl: z.string().url().nullable().default(null),
   defaultPriceCents: z.number().int().min(0),
   active: z.boolean().default(true),
+  tracksExpiration: z.boolean().default(true),
 });
 
 export const productsRouter = router({

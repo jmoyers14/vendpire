@@ -70,6 +70,7 @@ describe("VisitService", () => {
         removedReason: null,
         priceCents: 175,
         par: 10,
+        bestBy: null,
       },
     ],
     notes: null,
@@ -101,6 +102,7 @@ describe("VisitService", () => {
           removedReason: null,
           priceCents: 175,
           par: 10,
+          bestBy: null,
         },
       ],
     });
@@ -120,6 +122,7 @@ describe("VisitService", () => {
             removedReason: null,
             priceCents: 175,
             par: 10,
+            bestBy: null,
           },
         ],
       }),
@@ -140,6 +143,7 @@ describe("VisitService", () => {
           removedReason: "destocked",
           priceCents: 175,
           par: 10,
+          bestBy: null,
         },
         {
           slotCode: "A1",
@@ -150,6 +154,7 @@ describe("VisitService", () => {
           removedReason: null,
           priceCents: 150,
           par: 10,
+          bestBy: null,
         },
       ],
     });
@@ -169,6 +174,7 @@ describe("VisitService", () => {
             removedReason: null,
             priceCents: 175,
             par: 10,
+            bestBy: null,
           },
           {
             slotCode: "A1",
@@ -179,6 +185,7 @@ describe("VisitService", () => {
             removedReason: null,
             priceCents: 175,
             par: 10,
+            bestBy: null,
           },
         ],
       }),
@@ -198,6 +205,7 @@ describe("VisitService", () => {
             removedReason: null,
             priceCents: 175,
             par: 10,
+            bestBy: null,
           },
         ],
       }),
@@ -331,6 +339,7 @@ describe("VisitService", () => {
           removedReason: null,
           priceCents: 175,
           par: 10,
+          bestBy: null,
         },
       ],
     });
@@ -358,6 +367,7 @@ describe("VisitService", () => {
           removedReason: "expired",
           priceCents: 175,
           par: 10,
+          bestBy: null,
         },
       ],
     });
@@ -441,6 +451,7 @@ describe("VisitService", () => {
             removedReason: null,
             priceCents: 175,
             par: 10,
+            bestBy: null,
           },
         ],
       });
@@ -514,6 +525,7 @@ describe("VisitService", () => {
             removedReason: "expired",
             priceCents: 175,
             par: 10,
+            bestBy: null,
           },
         ],
       });
@@ -542,6 +554,7 @@ describe("VisitService", () => {
             removedReason: "expired",
             priceCents: 175,
             par: 10,
+            bestBy: null,
           },
         ],
       });
@@ -557,6 +570,7 @@ describe("VisitService", () => {
             removedReason: null,
             priceCents: 175,
             par: 10,
+            bestBy: null,
           },
         ],
       });
