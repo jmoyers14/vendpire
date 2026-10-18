@@ -608,4 +608,157 @@ describe("VisitService", () => {
     expect(latest).toHaveLength(2);
     expect(latest.find((v) => v.machineId === machineId)?.id).toBe(newest.visit.id);
   });
+  describe("expiringSoon", () => {
+    const ASOF = "2026-10-17";
+
+    const line = (over: Record<string, unknown> = {}) => ({
+      slotCode: "A1",
+      productId: cokeId,
+      remaining: 0,
+      added: 4,
+      removed: 0,
+      removedReason: null,
+      priceCents: 150,
+      par: 10,
+      bestBy: null,
+      ...over,
+    });
+
+    const record = (lines: ReturnType<typeof line>[], over = {}) =>
+      service.create(ORG, {
+        draft: draft({ lines, ...over } as Partial<VisitDraft>),
+        recordedByUserId: USER,
+      });
+
+    it("buckets expired, expiring-soon, and beyond the window", async () => {
+      const wideId = machines.seed(
+        ORG,
+        machineInput({ locationId, slots: [["A1", "A2", "A3"]] }),
+      ).id;
+      await record(
+        [
+          line({ slotCode: "A1", bestBy: "2026-10-06" }), // expired 11 days ago
+          line({ slotCode: "A2", bestBy: "2026-10-20" }), // 3 days out
+          line({ slotCode: "A3", bestBy: "2026-12-16" }), // 60 days out
+        ],
+        { machineId: wideId },
+      );
+
+      const report = await service.expiringSoon(ORG, {
+        withinDays: 14,
+        asOf: ASOF,
+      });
+
+      expect(report.expired.map((r) => r.slotCode)).toEqual(["A1"]);
+      expect(report.expiringSoon.map((r) => r.slotCode)).toEqual(["A2"]);
+      expect(report.missingDates).toEqual([]);
+      expect(report.asOf).toBe(ASOF);
+    });
+
+    it("includes both window edges", async () => {
+      await record([
+        line({ slotCode: "A1", bestBy: ASOF }),
+        line({ slotCode: "A2", bestBy: "2026-10-31" }),
+      ]);
+
+      const report = await service.expiringSoon(ORG, {
+        withinDays: 14,
+        asOf: ASOF,
+      });
+      expect(report.expiringSoon.map((r) => r.slotCode)).toEqual(["A1", "A2"]);
+    });
+
+    it("orders by bestBy ascending, soonest first", async () => {
+      await record([
+        line({ slotCode: "A1", bestBy: "2026-10-25" }),
+        line({ slotCode: "A2", bestBy: "2026-10-19" }),
+      ]);
+
+      const report = await service.expiringSoon(ORG, {
+        withinDays: 14,
+        asOf: ASOF,
+      });
+      expect(report.expiringSoon.map((r) => r.bestBy)).toEqual([
+        "2026-10-19",
+        "2026-10-25",
+      ]);
+    });
+
+    it("reports a stocked, tracked slot with no date as a gap", async () => {
+      await record([line({ slotCode: "A1", remaining: 4, added: 0 })]);
+
+      const report = await service.expiringSoon(ORG, {
+        withinDays: 14,
+        asOf: ASOF,
+      });
+      expect(report.expired).toEqual([]);
+      expect(report.expiringSoon).toEqual([]);
+      expect(report.missingDates.map((r) => r.slotCode)).toEqual(["A1"]);
+      expect(report.missingDates[0]?.bestBy).toBeNull();
+      expect(report.missingDates[0]?.daysUntil).toBeNull();
+    });
+
+    it("ignores an undated slot whose product does not track expiration", async () => {
+      const gumId = products.seed(
+        ORG,
+        productInput({ name: "Trident", tracksExpiration: false }),
+      ).id;
+      await record([
+        line({ slotCode: "A1", productId: gumId, remaining: 7, added: 3 }),
+      ]);
+
+      const report = await service.expiringSoon(ORG, {
+        withinDays: 14,
+        asOf: ASOF,
+      });
+      expect(report.missingDates).toEqual([]);
+    });
+
+    it("excludes a slot with nothing in it", async () => {
+      await record([
+        line({
+          slotCode: "A1",
+          remaining: 2,
+          added: 0,
+          removed: 2,
+          removedReason: "expired",
+          bestBy: "2026-10-06",
+        }),
+      ]);
+
+      const report = await service.expiringSoon(ORG, {
+        withinDays: 14,
+        asOf: ASOF,
+      });
+      expect(report.expired).toEqual([]);
+    });
+
+    // A product pulled from the catalog but still in a machine is exactly the
+    // stock most likely to go bad.
+    it("still reports a retired product", async () => {
+      const retiredId = products.seed(ORG, productInput({ name: "Zbar" })).id;
+      await record([
+        line({ slotCode: "A1", productId: retiredId, bestBy: "2026-10-06" }),
+      ]);
+      await products.softDelete(ORG, retiredId);
+
+      const report = await service.expiringSoon(ORG, {
+        withinDays: 14,
+        asOf: ASOF,
+      });
+      expect(report.expired.map((r) => r.productName)).toEqual(["Zbar"]);
+    });
+
+    it("returns empty buckets for an org with no visits", async () => {
+      const report = await service.expiringSoon("org_empty", {
+        withinDays: 14,
+        asOf: ASOF,
+      });
+      expect(report).toMatchObject({
+        expired: [],
+        expiringSoon: [],
+        missingDates: [],
+      });
+    });
+  });
 });

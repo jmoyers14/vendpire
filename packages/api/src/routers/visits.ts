@@ -1,7 +1,10 @@
 import { z } from "zod";
 import { orgProtectedProcedure, router } from "../trpc.ts";
 import { ANALYTICS_EVENTS } from "../analytics/events.ts";
-import { DEFAULT_VISIT_LIST_LIMIT } from "../services/VisitService/VisitService.ts";
+import {
+  DEFAULT_EXPIRY_WINDOW_DAYS,
+  DEFAULT_VISIT_LIST_LIMIT,
+} from "../services/VisitService/VisitService.ts";
 
 export const visitLineInput = z
   .object({
@@ -92,6 +95,28 @@ export const visitsRouter = router({
       ctx.services.visitService.pnl(ctx.auth.orgId, input.machineId, {
         from: input.from ?? null,
         to: input.to ?? null,
+      }),
+    ),
+
+  /**
+   * `asOf` is deliberately NOT accepted from a client — the report is about
+   * today, and letting a caller pick the day is a way to produce a reassuring
+   * report by asking the wrong question.
+   */
+  expiringSoon: orgProtectedProcedure
+    .input(
+      z.object({
+        withinDays: z
+          .number()
+          .int()
+          .min(0)
+          .max(365)
+          .default(DEFAULT_EXPIRY_WINDOW_DAYS),
+      }),
+    )
+    .query(({ ctx, input }) =>
+      ctx.services.visitService.expiringSoon(ctx.auth.orgId, {
+        withinDays: input.withinDays,
       }),
     ),
 

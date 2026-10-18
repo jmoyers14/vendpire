@@ -3,10 +3,13 @@ import {
   buildCostBasis,
   buildIntervalPnl,
   buildPnlTotals,
+  dateAfter,
+  daysUntil,
+  expirationsForVisit,
   intervalsForMachine,
   observationsForVisit,
 } from "@vendpire/domain";
-import type { VisitAnomaly } from "@vendpire/domain";
+import type { CalendarDate, VisitAnomaly } from "@vendpire/domain";
 import {
   LOCATION_REPOSITORY_TOKEN,
   MACHINE_REPOSITORY_TOKEN,
@@ -30,6 +33,8 @@ import type {
 import { ServiceError } from "../errors.ts";
 import {
   DEFAULT_VISIT_LIST_LIMIT,
+  type ExpiringReport,
+  type ExpiringSlot,
   type VisitCreation,
   type VisitDraft,
   type VisitNotice,
@@ -212,6 +217,109 @@ export class VisitServiceImpl implements VisitService {
       totals: buildPnlTotals(priced.rows),
       anomalies: [...anomalies, ...priced.anomalies],
     };
+  }
+
+  async expiringSoon(
+    orgId: string,
+    options: { withinDays: number; asOf?: CalendarDate },
+  ): Promise<ExpiringReport> {
+    const { withinDays } = options;
+    // Defaulted here rather than in the signature so a caller can pin the day
+    // — the tests do, and a report that silently reads the wall clock is one
+    // nobody can write a deterministic test for.
+    const asOf = options.asOf ?? new Date().toISOString().slice(0, 10);
+
+    const latest = await this.visits.findLatestByOrg(orgId);
+    const empty: ExpiringReport = {
+      asOf,
+      withinDays,
+      expired: [],
+      expiringSoon: [],
+      missingDates: [],
+    };
+    if (latest.length === 0) {
+      return empty;
+    }
+
+    const [machines, locations] = await Promise.all([
+      this.machines.findByOrg(orgId),
+      this.locations.findByOrg(orgId),
+    ]);
+    const machineById = new Map(machines.map((m) => [m.id, m]));
+    const locationById = new Map(locations.map((l) => [l.id, l]));
+
+    const productIds = [
+      ...new Set(latest.flatMap((v) => v.lines.map((line) => line.productId))),
+    ];
+    // Deleted-tolerant: a retired product still sitting in a machine is
+    // exactly the stock most likely to go bad.
+    const stocked = await this.products.findByIdsIncludingDeleted(
+      orgId,
+      productIds,
+    );
+    const productById = new Map(stocked.map((p) => [p.id, p]));
+
+    const cutoff = dateAfter(asOf, withinDays);
+    const report: ExpiringReport = { ...empty };
+
+    for (const visit of latest) {
+      const machine = machineById.get(visit.machineId);
+      // A machine retired since its last visit is off the route; its stock is
+      // no longer sellable, so it is not something to act on before a trip.
+      if (!machine) {
+        continue;
+      }
+      const location = locationById.get(visit.locationId);
+
+      for (const slot of expirationsForVisit(visit)) {
+        const product = productById.get(slot.productId);
+        if (!product) {
+          continue;
+        }
+
+        const row: ExpiringSlot = {
+          machineId: machine.id,
+          machineName: machine.name,
+          locationId: visit.locationId,
+          locationName: location?.name ?? "Unknown location",
+          slotCode: slot.slotCode,
+          productId: slot.productId,
+          productName: product.name,
+          units: slot.units,
+          bestBy: slot.bestBy,
+          daysUntil: slot.bestBy === null ? null : daysUntil(slot.bestBy, asOf),
+        };
+
+        if (slot.bestBy === null) {
+          // An untracked product has no gap to report — that null is the
+          // answer, not a hole in it.
+          if (product.tracksExpiration) {
+            report.missingDates.push(row);
+          }
+          continue;
+        }
+        // String comparison, not Date parsing: "YYYY-MM-DD" sorts
+        // chronologically by construction.
+        if (slot.bestBy < asOf) {
+          report.expired.push(row);
+          continue;
+        }
+        if (slot.bestBy <= cutoff) {
+          report.expiringSoon.push(row);
+        }
+      }
+    }
+
+    const bySoonest = (a: ExpiringSlot, b: ExpiringSlot): number =>
+      (a.bestBy ?? "") < (b.bestBy ?? "")
+        ? -1
+        : (a.bestBy ?? "") > (b.bestBy ?? "")
+          ? 1
+          : 0;
+    report.expired.sort(bySoonest);
+    report.expiringSoon.sort(bySoonest);
+
+    return report;
   }
 
   /** The out-of-window baseline, by timestamp and not position — the window's
