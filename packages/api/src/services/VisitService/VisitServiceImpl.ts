@@ -17,9 +17,12 @@ import {
   VISIT_REPOSITORY_TOKEN,
 } from "@vendpire/platform";
 import type {
+  Location,
   LocationRepository,
+  Machine,
   MachineRepository,
   PlanogramRepository,
+  Product,
   ProductRepository,
   PurchaseRepository,
   Visit,
@@ -241,24 +244,11 @@ export class VisitServiceImpl implements VisitService {
       return [];
     }
 
-    const [machines, locations, products] = await Promise.all([
-      this.machines.findByOrg(orgId),
-      this.locations.findByOrg(orgId),
-      this.products.findByIdsIncludingDeleted(
-        orgId,
-        this.productIdsIn(latestVisits),
-      ),
+    const [machineById, locationById, productById] = await Promise.all([
+      this.loadMachinesById(orgId),
+      this.loadLocationsById(orgId),
+      this.loadProductsById(orgId, latestVisits),
     ]);
-
-    const machineById = new Map(
-      machines.map((machine) => [machine.id, machine]),
-    );
-    const locationById = new Map(
-      locations.map((location) => [location.id, location]),
-    );
-    const productById = new Map(
-      products.map((product) => [product.id, product]),
-    );
 
     const populated: PopulatedVisit[] = [];
     for (const visit of latestVisits) {
@@ -274,6 +264,35 @@ export class VisitServiceImpl implements VisitService {
       });
     }
     return populated;
+  }
+
+  private async loadMachinesById(
+    orgId: string,
+  ): Promise<Map<string, Machine>> {
+    const machines = await this.machines.findByOrg(orgId);
+    return new Map(machines.map((machine) => [machine.id, machine]));
+  }
+
+  private async loadLocationsById(
+    orgId: string,
+  ): Promise<Map<string, Location>> {
+    const locations = await this.locations.findByOrg(orgId);
+    return new Map(locations.map((location) => [location.id, location]));
+  }
+
+  /**
+   * Deleted-tolerant: a retired product still sitting in a machine is exactly
+   * the stock most likely to go bad, so its row must not vanish.
+   */
+  private async loadProductsById(
+    orgId: string,
+    visits: readonly Visit[],
+  ): Promise<Map<string, Product>> {
+    const products = await this.products.findByIdsIncludingDeleted(
+      orgId,
+      this.productIdsIn(visits),
+    );
+    return new Map(products.map((product) => [product.id, product]));
   }
 
   /** Every product these visits reference, each id once. */
