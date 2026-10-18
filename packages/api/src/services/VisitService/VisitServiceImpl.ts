@@ -3,10 +3,7 @@ import {
   buildCostBasis,
   buildIntervalPnl,
   buildPnlTotals,
-  calendarDateAfter,
   calendarDateToday,
-  calendarDaysUntil,
-  expirationsForVisit,
   intervalsForMachine,
   observationsForVisit,
 } from "@vendpire/domain";
@@ -33,9 +30,12 @@ import type {
 } from "@vendpire/platform";
 import { ServiceError } from "../errors.ts";
 import {
+  buildExpiringReport,
+  type PopulatedVisit,
+} from "./expiringReport.ts";
+import {
   DEFAULT_VISIT_LIST_LIMIT,
   type ExpiringReport,
-  type ExpiringSlot,
   type ExpiringSoonOptions,
   type VisitCreation,
   type VisitDraft,
@@ -228,27 +228,31 @@ export class VisitServiceImpl implements VisitService {
     orgId: string,
     options: ExpiringSoonOptions,
   ): Promise<ExpiringReport> {
-    const { withinDays } = options;
     const asOf = options.asOf ?? calendarDateToday();
-
-    const latestVisits = await this.visits.findLatestByOrg(orgId);
-    const empty: ExpiringReport = {
+    const visits = await this.loadLatestVisitPerMachine(orgId);
+    return buildExpiringReport(visits, {
       asOf,
-      withinDays,
-      expired: [],
-      expiringSoon: [],
-      missingDates: [],
-    };
-    if (latestVisits.length === 0) {
-      return empty;
-    }
+      withinDays: options.withinDays,
+    });
+  }
 
-    const [machines, locations] = await Promise.all([
-      this.machines.findByOrg(orgId),
-      this.locations.findByOrg(orgId),
-    ]);
-    const machineById = new Map(machines.map((m) => [m.id, m]));
-    const locationById = new Map(locations.map((l) => [l.id, l]));
+  /**
+   * The most recent visit of every machine, with the machine, location and
+   * products each one references already resolved.
+   *
+   * A visit whose machine has since been deleted is DROPPED: a retired machine
+   * is off the route, so its stock is not something to act on before a trip.
+   * Location and products stay nullable instead, because stock in a live
+   * machine is worth reporting even if its location was deleted or its product
+   * was pulled from the catalog.
+   */
+  private async loadLatestVisitPerMachine(
+    orgId: string,
+  ): Promise<PopulatedVisit[]> {
+    const latestVisits = await this.visits.findLatestByOrg(orgId);
+    if (latestVisits.length === 0) {
+      return [];
+    }
 
     const productIds = [
       ...new Set(
@@ -257,78 +261,38 @@ export class VisitServiceImpl implements VisitService {
         ),
       ),
     ];
-    // Deleted-tolerant: a retired product still sitting in a machine is
-    // exactly the stock most likely to go bad.
-    const stocked = await this.products.findByIdsIncludingDeleted(
-      orgId,
-      productIds,
+    const [machines, locations, products] = await Promise.all([
+      this.machines.findByOrg(orgId),
+      this.locations.findByOrg(orgId),
+      // Deleted-tolerant: a retired product still sitting in a machine is
+      // exactly the stock most likely to go bad.
+      this.products.findByIdsIncludingDeleted(orgId, productIds),
+    ]);
+
+    const machineById = new Map(
+      machines.map((machine) => [machine.id, machine]),
     );
-    const productById = new Map(stocked.map((p) => [p.id, p]));
+    const locationById = new Map(
+      locations.map((location) => [location.id, location]),
+    );
+    const productById = new Map(
+      products.map((product) => [product.id, product]),
+    );
 
-    const cutoff = calendarDateAfter(asOf, withinDays);
-    const report: ExpiringReport = { ...empty };
-
+    const populated: PopulatedVisit[] = [];
     for (const visit of latestVisits) {
       const machine = machineById.get(visit.machineId);
-      // A machine retired since its last visit is off the route; its stock is
-      // no longer sellable, so it is not something to act on before a trip.
       if (!machine) {
         continue;
       }
-      const location = locationById.get(visit.locationId);
-
-      for (const slot of expirationsForVisit(visit)) {
-        const product = productById.get(slot.productId);
-        if (!product) {
-          continue;
-        }
-
-        const row: ExpiringSlot = {
-          machineId: machine.id,
-          machineName: machine.name,
-          locationId: visit.locationId,
-          locationName: location?.name ?? "Unknown location",
-          slotCode: slot.slotCode,
-          productId: slot.productId,
-          productName: product.name,
-          units: slot.units,
-          bestBy: slot.bestBy,
-          daysUntil:
-            slot.bestBy === null
-              ? null
-              : calendarDaysUntil(slot.bestBy, asOf),
-        };
-
-        if (slot.bestBy === null) {
-          // An untracked product has no gap to report — that null is the
-          // answer, not a hole in it.
-          if (product.tracksExpiration) {
-            report.missingDates.push(row);
-          }
-          continue;
-        }
-        // String comparison, not Date parsing: "YYYY-MM-DD" sorts
-        // chronologically by construction.
-        if (slot.bestBy < asOf) {
-          report.expired.push(row);
-          continue;
-        }
-        if (slot.bestBy <= cutoff) {
-          report.expiringSoon.push(row);
-        }
-      }
+      populated.push({
+        visit,
+        machine,
+        location: locationById.get(visit.locationId) ?? null,
+        productById,
+      });
     }
-
-    const bySoonest = (a: ExpiringSlot, b: ExpiringSlot): number =>
-      (a.bestBy ?? "") < (b.bestBy ?? "")
-        ? -1
-        : (a.bestBy ?? "") > (b.bestBy ?? "")
-          ? 1
-          : 0;
-    report.expired.sort(bySoonest);
-    report.expiringSoon.sort(bySoonest);
-
-    return report;
+    return populated;
   }
 
   /** The out-of-window baseline, by timestamp and not position — the window's
