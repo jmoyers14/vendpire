@@ -46,13 +46,6 @@ import {
  *  the predecessor of every real visit after it and poisons their baselines. */
 const MAX_FUTURE_MS = 2 * 60 * 60 * 1000;
 
-/** Every product these visits reference, each id once. */
-const productIdsIn = (visits: readonly Visit[]): string[] => [
-  ...new Set(
-    visits.flatMap((visit) => visit.lines.map((line) => line.productId)),
-  ),
-];
-
 /** Mongo's duplicate-key error, recognized without importing a driver type. */
 const isDuplicateKey = (error: unknown): boolean =>
   typeof error === "object" &&
@@ -253,7 +246,7 @@ export class VisitServiceImpl implements VisitService {
       this.locations.findByOrg(orgId),
       this.products.findByIdsIncludingDeleted(
         orgId,
-        productIdsIn(latestVisits),
+        this.productIdsIn(latestVisits),
       ),
     ]);
 
@@ -281,6 +274,15 @@ export class VisitServiceImpl implements VisitService {
       });
     }
     return populated;
+  }
+
+  /** Every product these visits reference, each id once. */
+  private productIdsIn(visits: readonly Visit[]): string[] {
+    return [
+      ...new Set(
+        visits.flatMap((visit) => visit.lines.map((line) => line.productId)),
+      ),
+    ];
   }
 
   /** The out-of-window baseline, by timestamp and not position — the window's
