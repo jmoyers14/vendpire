@@ -14,6 +14,7 @@ interface FormState {
   price: string;
   imageUrl: string | null;
   active: boolean;
+  tracksExpiration: boolean;
 }
 
 const EMPTY: FormState = {
@@ -24,6 +25,7 @@ const EMPTY: FormState = {
   price: "",
   imageUrl: null,
   active: true,
+  tracksExpiration: true,
 };
 
 /** Create + edit form: `productId` present means edit. */
@@ -50,6 +52,7 @@ export function ProductFormScreen({ productId }: { productId?: string }) {
       price: centsToInput(product.defaultPriceCents),
       imageUrl: product.imageUrl,
       active: product.active,
+      tracksExpiration: product.tracksExpiration,
     });
   }, [existing.data]);
 
@@ -119,6 +122,7 @@ export function ProductFormScreen({ productId }: { productId?: string }) {
       imageUrl: form.imageUrl,
       defaultPriceCents,
       active: form.active,
+      tracksExpiration: form.tracksExpiration,
     };
     if (productId) {
       update.mutate({ id: productId, ...data });
@@ -223,6 +227,19 @@ export function ProductFormScreen({ productId }: { productId?: string }) {
           />
           Active
         </label>
+        <label className="flex items-center gap-2 text-sm text-gray-700">
+          <input
+            type="checkbox"
+            className={checkboxClass}
+            checked={form.tracksExpiration}
+            onChange={(e) => set({ tracksExpiration: e.target.checked })}
+          />
+          Track expiration dates
+        </label>
+        <p className="text-xs text-gray-500">
+          On for anything with a printed best-by date. Turn it off for gum,
+          bulk candy, and non-food — slot rows then stop asking for a date.
+        </p>
         <Button
           size="sm"
           className="mt-2"
