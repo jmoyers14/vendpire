@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.3.0](https://github.com/jmoyers14/vendpire/compare/v0.2.0...v0.3.0) (2026-10-18)
+
+
+### Features
+
+* expiration date tracking — one best-by date per slot ([55ac0ea](https://github.com/jmoyers14/vendpire/commit/55ac0ea36473335e2e8b015f63f6a7e730caef7e))
+
+
+### Bug Fixes
+
+* **api:** make the expiry report deterministic and stop dropping unknown products ([83edec5](https://github.com/jmoyers14/vendpire/commit/83edec511010c26fcf6cd1128364ae4e61d93e12))
+* **ci:** make the deploy actually reachable and runnable ([#15](https://github.com/jmoyers14/vendpire/issues/15)) ([bfe8a83](https://github.com/jmoyers14/vendpire/commit/bfe8a83ba6f4487c845a44a576dde45f5c2bca10))
+
 ## [0.2.0](https://github.com/jmoyers14/vendpire/compare/v0.1.0...v0.2.0) (2026-10-18)
 
 
