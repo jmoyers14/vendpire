@@ -422,7 +422,23 @@ gcloud run services update-traffic vendpire-api \
 
 Because all three services ship as one version, **roll back all three
 together** — that is the direct consequence of the one-version decision, and the
-runbook must say so explicitly. Add to `DEPLOY.md`.
+runbook says so explicitly.
+
+**Practised 2026-10-18 on `vendpire-web`**, which surfaced two things the
+original write-up missed:
+
+1. A rollback *pins* traffic to a named revision, dropping `latestRevision:
+   True`. While pinned, the next deploy builds, pushes, creates a revision and
+   reports success while receiving **0% of traffic** — green CI, unchanged site.
+   Roll forward with `--to-latest`, not by pinning the new revision.
+2. The drill reproduced the skew live: web served `3e47ae3` (v0.2.0) while the
+   api answered `7c13bc0` (v0.3.0). That is the concrete argument for the
+   one-version decision, not a hypothetical.
+
+Verification matters as much as the command: Vite content-hashes bundle
+filenames, so a changed filename is independent evidence that different bytes
+reach the browser, and the git SHA baked in via `--build-arg VITE_GIT_SHA`
+confirms which build. Full procedure in `DEPLOY.md`.
 
 ---
 

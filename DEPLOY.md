@@ -222,24 +222,88 @@ treat the frontend checklist above as the real safeguard.
 
 ## Rollback
 
-Cloud Run retains revisions, so rolling back is traffic-shifting — no rebuild,
-no new image:
+Cloud Run keeps every revision — an immutable snapshot of image, env vars,
+secret references and resource config — separately from the *traffic
+configuration* that decides which revision serves. Rolling back edits only that
+routing table, so there is no rebuild and no image pull. It takes seconds.
+
+### 1. Check how traffic is currently routed
+
+Do this first. It determines how you roll forward afterwards.
 
 ```sh
-gcloud run revisions list --service vendpire-api --region us-central1
-gcloud run services update-traffic vendpire-api \
-  --to-revisions=<prior-revision>=100 --region us-central1
+gcloud run services describe vendpire-web --region us-central1 \
+  --format 'value(status.traffic)'
+```
+
+Two possible shapes:
+
+```
+follow-latest   {'latestRevision': True, 'percent': 100, 'revisionName': '...-00015-55d'}
+pinned          {'percent': 100, 'revisionName': '...-00014-x4h'}
+```
+
+### 2. Find a target revision, and confirm it is Ready
+
+```sh
+gcloud run revisions list --service vendpire-web --region us-central1 \
+  --format 'value(metadata.name,status.conditions[0].status,metadata.creationTimestamp)'
+```
+
+### 3. Shift traffic
+
+```sh
+gcloud run services update-traffic vendpire-web \
+  --region us-central1 --to-revisions=vendpire-web-00014-x4h=100
 ```
 
 **Roll back all three services together.** They ship as one version, so a
 partial rollback recreates exactly the skew the single-version design exists to
-avoid. Repeat for `vendpire-web` and `vendpire-worker`.
+avoid. A drill on 2026-10-18 produced it live: web served `3e47ae3` (v0.2.0)
+while the api still answered `7c13bc0` (v0.3.0) — an old bundle against a new
+API. Repeat for `vendpire-api` and `vendpire-worker`.
 
 This works even after the Artifact Registry cleanup policy has pruned an old
 image: revisions are retained independently of image tags.
 
-Then confirm `<api-url>/system.version` and the app footer agree on the version
-you rolled back to. A mismatch between services means the rollback is half-done.
+### 4. Roll forward with `--to-latest` — not by pinning the new revision
+
+```sh
+gcloud run services update-traffic vendpire-web --region us-central1 --to-latest
+```
+
+**This is the step that bites.** A rollback *pins* traffic to a named revision,
+dropping `latestRevision: True`. While pinned, the next deploy builds, pushes,
+creates a revision and reports success — and receives **0% of traffic**. The
+deploy looks green and changes nothing, which is a genuinely confusing hour at
+2am.
+
+`--to-latest` restores follow-latest. Pinning the new revision instead
+(`--to-revisions=<new>=100`) fixes today and leaves the trap armed for next
+time.
+
+### 5. Verify what is actually served, not what gcloud reported
+
+"The command succeeded" and "the public URL serves different code" are
+different claims. Check the second:
+
+```sh
+curl -s <api-url>/system.version
+```
+
+All three services must report the same `version` and `commit`, and that commit
+must be the one the target tag points at (`git rev-parse --short vX.Y.Z`). A
+disagreement between services means the rollback is half-done.
+
+For the web bundle specifically, Vite content-hashes filenames, so the name
+changing is independent evidence that different bytes reach the browser:
+
+```sh
+JS=$(curl -s <web-url>/ | grep -oE '/assets/[^"]+\.js' | head -1)
+curl -s "<web-url>$JS" | grep -oE '<expected-git-sha>'
+```
+
+The SHA is there because `deploy.sh` bakes it in with `--build-arg VITE_GIT_SHA`.
 
 ## Secrets (Secret Manager)
 
