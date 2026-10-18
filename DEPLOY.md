@@ -104,6 +104,16 @@ it to `jmoyers14/vendpire`, so no other repository can use it.
 
 ### GitHub secrets
 
+Run `./scripts/set-github-secrets.sh`. It pipes what it can out of your local
+`.env` files straight into `gh secret set` over stdin — values are never
+printed, never passed as argv, never written to a temp file — and prompts for
+the e2e test user, which lives in no local file.
+
+It deliberately **skips** rather than sets empty for anything missing. An empty
+GitHub secret is worse than an absent one: the workflow injects `""`, and
+consuming code sees a present-but-blank variable. That is precisely what broke
+the e2e job — `fixtures.ts` used `??`, which does not treat `""` as missing.
+
 | Secret | Used by | Sensitive? |
 |---|---|---|
 | `VITE_CLERK_PUBLISHABLE_KEY` | deploy | No — `pk_` is public |
@@ -115,9 +125,14 @@ it to `jmoyers14/vendpire`, so no other repository can use it.
 No production secrets live in GitHub. The Atlas URI, the production Clerk `sk_`,
 and the webhook signing secret stay in Secret Manager.
 
-**The PostHog keys are a trap.** `deploy.sh` treats them as optional and ships
-without analytics if they are missing, printing a line nobody reads. Laptop
-deploys get them from `.env`; CI will not unless you set them above.
+**On PostHog:** `deploy.sh` treats these as optional and ships without analytics
+if they are missing. As of 2026-10-18 they are configured nowhere — not in
+`packages/api/.env`, not in `packages/web/.env.local`, not on the deployed api
+(whose env is ENVIRONMENT, WEB_URL, CLERK_SECRET_KEY, MONGODB_URI,
+GOOGLE_MAPS_API_KEY), and no `phc_` key appears in the live web bundle. So there
+is nothing for CI to lose here; analytics has simply never been wired. If you do
+configure it, add it to BOTH the local `.env` and the GitHub secret, or laptop
+and CI deploys will disagree.
 
 ### Remaining manual steps
 
