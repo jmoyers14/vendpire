@@ -306,9 +306,25 @@ fi
 #  2. it may act AS the invoker SA (to stamp that identity onto a task's token);
 #  3. the Cloud Tasks service agent may mint tokens as the invoker SA at delivery.
 echo "Granting Cloud Tasks IAM..."
-gcloud projects add-iam-policy-binding "$PROJECT" \
-  --member "serviceAccount:$RUNTIME_SA" \
-  --role roles/cloudtasks.enqueuer --quiet >/dev/null
+
+# (1) is granted per QUEUE, not on the project.
+#
+# A project-level binding needs resourcemanager.projects.setIamPolicy, which is
+# effectively project-admin — far more than a deployer should hold, and the CI
+# deployer does not have it. Granting on each queue needs only
+# cloudtasks.queues.setIamPolicy, which roles/cloudtasks.admin already carries.
+#
+# It is also the narrower grant: the runtime SA can enqueue into these three
+# queues and nothing else in the project. The original project-wide binding from
+# earlier laptop deploys is now redundant and can be removed with:
+#   gcloud projects remove-iam-policy-binding "$PROJECT" \
+#     --member "serviceAccount:$RUNTIME_SA" --role roles/cloudtasks.enqueuer
+for QUEUE in "$USER_SYNC_QUEUE" "$ORG_SYNC_QUEUE" "$ORG_MEMBERSHIP_SYNC_QUEUE"; do
+  gcloud tasks queues add-iam-policy-binding "$QUEUE" \
+    --location "$REGION" --project "$PROJECT" \
+    --member "serviceAccount:$RUNTIME_SA" \
+    --role roles/cloudtasks.enqueuer --quiet >/dev/null
+done
 
 gcloud iam service-accounts add-iam-policy-binding "$TASKS_INVOKER_SA" \
   --project "$PROJECT" \
