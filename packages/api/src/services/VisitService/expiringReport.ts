@@ -16,8 +16,16 @@ export interface PopulatedVisit {
   productById: Map<string, Product>;
 }
 
+/** Walking order. Also the tiebreaker for equal dates: `findLatestByOrg`
+ *  groups, and `$group` guarantees no document order, so without this two
+ *  reads of unchanged data can come back in different orders. */
+const byRoute = (a: ExpiringSlot, b: ExpiringSlot): number =>
+  a.locationName.localeCompare(b.locationName) ||
+  a.machineName.localeCompare(b.machineName) ||
+  a.slotCode.localeCompare(b.slotCode);
+
 const bySoonest = (a: ExpiringSlot, b: ExpiringSlot): number =>
-  a.bestBy === b.bestBy ? 0 : (a.bestBy ?? "") < (b.bestBy ?? "") ? -1 : 1;
+  (a.bestBy ?? "").localeCompare(b.bestBy ?? "") || byRoute(a, b);
 
 /** Takes every visit at once because the sort is cross-visit: soonest on the
  *  route first, not soonest per machine. */
@@ -37,10 +45,6 @@ export const buildExpiringReport = (
   for (const { visit, machine, location, productById } of visits) {
     for (const slot of expirationsForVisit(visit)) {
       const product = productById.get(slot.productId);
-      if (!product) {
-        continue;
-      }
-
       const row: ExpiringSlot = {
         machineId: machine.id,
         machineName: machine.name,
@@ -48,7 +52,7 @@ export const buildExpiringReport = (
         locationName: location?.name ?? "Unknown location",
         slotCode: slot.slotCode,
         productId: slot.productId,
-        productName: product.name,
+        productName: product?.name ?? "Unknown product",
         units: slot.units,
         bestBy: slot.bestBy,
         daysUntil:
@@ -56,7 +60,9 @@ export const buildExpiringReport = (
       };
 
       if (slot.bestBy === null) {
-        if (product.tracksExpiration) {
+        // Unknown products keep asking: a slot that silently stops wanting a
+        // date is the failure this report exists to prevent.
+        if (product?.tracksExpiration ?? true) {
           report.missingDates.push(row);
         }
         continue;
@@ -73,5 +79,6 @@ export const buildExpiringReport = (
 
   report.expired.sort(bySoonest);
   report.expiringSoon.sort(bySoonest);
+  report.missingDates.sort(byRoute);
   return report;
 };

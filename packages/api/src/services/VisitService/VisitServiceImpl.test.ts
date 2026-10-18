@@ -749,6 +749,67 @@ describe("VisitService", () => {
       expect(report.expired.map((r) => r.productName)).toEqual(["Zbar"]);
     });
 
+    // Only reachable via a hard delete or a corrupt reference — soft-deleted
+    // products still come back from findByIdsIncludingDeleted. Dropping the row
+    // would hide stock that is physically in a machine.
+    it("still reports a slot whose product id resolves to nothing", async () => {
+      const goneId = products.seed(ORG, productInput({ name: "Gone" })).id;
+      await record([
+        line({ slotCode: "A1", productId: goneId, bestBy: "2026-10-06" }),
+      ]);
+      // A HARD delete, unlike softDelete: findByIdsIncludingDeleted still
+      // returns soft-deleted rows, so only this leaves a dangling reference.
+      products.rows = products.rows.filter((row) => row.id !== goneId);
+
+      const report = await service.expiringSoon(ORG, {
+        withinDays: 14,
+        asOf: ASOF,
+      });
+      expect(report.expired.map((r) => r.productName)).toEqual([
+        "Unknown product",
+      ]);
+    });
+
+    it("treats an unknown product as still wanting a date", async () => {
+      const goneId = products.seed(ORG, productInput({ name: "Gone" })).id;
+      await record([
+        line({ slotCode: "A1", productId: goneId, remaining: 4, added: 0 }),
+      ]);
+      products.rows = products.rows.filter((row) => row.id !== goneId);
+
+      const report = await service.expiringSoon(ORG, {
+        withinDays: 14,
+        asOf: ASOF,
+      });
+      expect(report.missingDates.map((r) => r.slotCode)).toEqual(["A1"]);
+    });
+
+    it("orders missingDates by location, machine and slot", async () => {
+      await record([
+        line({ slotCode: "A2", remaining: 4, added: 0 }),
+        line({ slotCode: "A1", remaining: 4, added: 0 }),
+      ]);
+
+      const report = await service.expiringSoon(ORG, {
+        withinDays: 14,
+        asOf: ASOF,
+      });
+      expect(report.missingDates.map((r) => r.slotCode)).toEqual(["A1", "A2"]);
+    });
+
+    it("breaks a date tie by slot rather than leaving it to the driver", async () => {
+      await record([
+        line({ slotCode: "A2", bestBy: "2026-10-20" }),
+        line({ slotCode: "A1", bestBy: "2026-10-20" }),
+      ]);
+
+      const report = await service.expiringSoon(ORG, {
+        withinDays: 14,
+        asOf: ASOF,
+      });
+      expect(report.expiringSoon.map((r) => r.slotCode)).toEqual(["A1", "A2"]);
+    });
+
     it("returns empty buckets for an org with no visits", async () => {
       const report = await service.expiringSoon("org_empty", {
         withinDays: 14,
