@@ -38,6 +38,12 @@ export interface VisitLine {
   readonly priceCents: Cents;
   /** Target fill level in effect at this servicing. Never used in the P&L. */
   readonly par: number | null;
+  /**
+   * The FRONT unit's date — the one that sells next, not the stock loaded
+   * behind it. "YYYY-MM-DD". Null means no date was recorded, never "does not
+   * expire"; that is `Product.tracksExpiration`.
+   */
+  readonly bestBy: string | null;
 }
 
 /**

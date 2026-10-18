@@ -26,6 +26,8 @@ export interface VisitLine {
   priceCents: number;
   /** Fill target in effect at this servicing. Never used in the P&L. */
   par: number | null;
+  /** The front unit's date, "YYYY-MM-DD". Null when none was recorded. */
+  bestBy: string | null;
 }
 
 export interface Visit {

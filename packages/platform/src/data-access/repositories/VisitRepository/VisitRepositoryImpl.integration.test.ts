@@ -59,6 +59,7 @@ describe.skipIf(!ENABLED)("VisitRepositoryImpl against MongoDB", () => {
         removedReason: null,
         priceCents: 175,
         par: 10,
+        bestBy: null,
       },
     ],
     notes: null,
@@ -191,8 +192,8 @@ describe.skipIf(!ENABLED)("VisitRepositoryImpl against MongoDB", () => {
       ORG,
       input({
         lines: [
-          { slotCode: "A1", productId: "p_1", remaining: 6, added: 7, removed: 3, removedReason: "expired", priceCents: 175, par: 10 },
-          { slotCode: "A2", productId: "p_2", remaining: 2, added: 8, removed: 0, removedReason: null, priceCents: 150, par: 10 },
+          { slotCode: "A1", productId: "p_1", remaining: 6, added: 7, removed: 3, removedReason: "expired", priceCents: 175, par: 10, bestBy: null },
+          { slotCode: "A2", productId: "p_2", remaining: 2, added: 8, removed: 0, removedReason: null, priceCents: 150, par: 10, bestBy: null },
         ],
       }),
     );
@@ -205,7 +206,7 @@ describe.skipIf(!ENABLED)("VisitRepositoryImpl against MongoDB", () => {
     const bad = input({
       lines: [
         // Not a RemovalReason — the cast is what lets the schema do the rejecting.
-        { slotCode: "A1", productId: "p_1", remaining: 1, added: 0, removed: 1, removedReason: "stolen" as unknown as RemovalReason, priceCents: 175, par: null },
+        { slotCode: "A1", productId: "p_1", remaining: 1, added: 0, removed: 1, removedReason: "stolen" as unknown as RemovalReason, priceCents: 175, par: null, bestBy: null },
       ],
     });
     await expect(repo.create(ORG, bad)).rejects.toThrow();

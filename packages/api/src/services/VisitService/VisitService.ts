@@ -1,4 +1,9 @@
-import type { PnlRows, PnlTotals, VisitAnomaly } from "@vendpire/domain";
+import type {
+  CalendarDate,
+  PnlRows,
+  PnlTotals,
+  VisitAnomaly,
+} from "@vendpire/domain";
 import type {
   Visit,
   VisitInput,
@@ -63,6 +68,48 @@ export interface VisitPnl {
   anomalies: VisitAnomaly[];
 }
 
+/** One stocked slot the operator may need to act on before the next trip. */
+export interface ExpiringSlot {
+  machineId: string;
+  machineName: string;
+  locationId: string;
+  locationName: string;
+  slotCode: string;
+  productId: string;
+  productName: string;
+  /** What is in the slot now — the level after the last fill. */
+  units: number;
+  /** Null only on a `missingDates` row. */
+  bestBy: CalendarDate | null;
+  /** Negative once expired. Null when there is no date. */
+  daysUntil: number | null;
+}
+
+export interface ExpiringReport {
+  /** Echoed so a caller can label the day the report describes. */
+  asOf: CalendarDate;
+  withinDays: number;
+  /** `bestBy` before today. Pull these. */
+  expired: ExpiringSlot[];
+  /** today <= bestBy <= today + withinDays. Load replacements. */
+  expiringSoon: ExpiringSlot[];
+  /**
+   * Stocked slots on expiration-tracked products with no date on file. The
+   * report's own honesty check: without this bucket an empty `expired` list is
+   * indistinguishable from nobody having recorded anything.
+   */
+  missingDates: ExpiringSlot[];
+}
+
+export interface ExpiringSoonOptions {
+  withinDays: number;
+  /** Defaults to today. Pinned by callers that need a deterministic day. */
+  asOf?: CalendarDate;
+}
+
+/** Default warning window. Fixed until there is a reason to move it. */
+export const DEFAULT_EXPIRY_WINDOW_DAYS = 14;
+
 /** A ceiling on one read, not a page size — there is no cursor here. */
 export const DEFAULT_VISIT_LIST_LIMIT = 100;
 
@@ -78,4 +125,13 @@ export interface VisitService {
    *  baseline, so editing one rewrites the interval after it. */
   remove(orgId: string, id: string): Promise<void>;
   pnl(orgId: string, machineId: string, range?: VisitRange): Promise<VisitPnl>;
+  /**
+   * What is about to go bad, across the whole org. Reads only the LATEST visit
+   * per machine: a best-by is a standing fact about a slot's contents, so the
+   * most recent observation is the whole answer.
+   */
+  expiringSoon(
+    orgId: string,
+    options: ExpiringSoonOptions,
+  ): Promise<ExpiringReport>;
 }

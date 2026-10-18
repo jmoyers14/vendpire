@@ -13,6 +13,8 @@ export interface Product {
   imageUrl: string | null;
   defaultPriceCents: number;
   active: boolean;
+  /** Whether slot lines for this product are expected to carry a best-by. */
+  tracksExpiration: boolean;
   createdAt: string;
   updatedAt: string;
 }

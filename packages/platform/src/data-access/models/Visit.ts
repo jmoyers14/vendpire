@@ -48,6 +48,9 @@ const visitLineSchema = new Schema(
     priceCents: { type: Number, required: true },
     /** Fill target in effect at this servicing. Never used in the P&L. */
     par: { type: Number, default: null },
+    /** The FRONT unit's date, "YYYY-MM-DD". String, not Date: a best-by has
+     *  no zone, and an instant reports the wrong day read from another one. */
+    bestBy: { type: String, default: null },
   },
   { _id: false },
 );

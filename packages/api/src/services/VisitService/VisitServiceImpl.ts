@@ -3,6 +3,7 @@ import {
   buildCostBasis,
   buildIntervalPnl,
   buildPnlTotals,
+  calendarDateToday,
   intervalsForMachine,
   observationsForVisit,
 } from "@vendpire/domain";
@@ -16,9 +17,12 @@ import {
   VISIT_REPOSITORY_TOKEN,
 } from "@vendpire/platform";
 import type {
+  Location,
   LocationRepository,
+  Machine,
   MachineRepository,
   PlanogramRepository,
+  Product,
   ProductRepository,
   PurchaseRepository,
   Visit,
@@ -28,8 +32,11 @@ import type {
   VisitRepository,
 } from "@vendpire/platform";
 import { ServiceError } from "../errors.ts";
+import { buildExpiringReport, type PopulatedVisit } from "./expiringReport.ts";
 import {
   DEFAULT_VISIT_LIST_LIMIT,
+  type ExpiringReport,
+  type ExpiringSoonOptions,
   type VisitCreation,
   type VisitDraft,
   type VisitNotice,
@@ -116,7 +123,10 @@ export class VisitServiceImpl implements VisitService {
     const { lines, notices } = await this.validate(orgId, draft);
     const stored = { ...draft, lines, recordedByUserId };
 
-    const latest = await this.visits.findLatestByMachine(orgId, draft.machineId);
+    const latest = await this.visits.findLatestByMachine(
+      orgId,
+      draft.machineId,
+    );
     const isOutOfOrder =
       latest !== null &&
       Date.parse(latest.countedAt) > Date.parse(draft.countedAt);
@@ -214,6 +224,86 @@ export class VisitServiceImpl implements VisitService {
     };
   }
 
+  async expiringSoon(
+    orgId: string,
+    options: ExpiringSoonOptions,
+  ): Promise<ExpiringReport> {
+    const asOf = options.asOf ?? calendarDateToday();
+    const visits = await this.loadLatestVisitPerMachine(orgId);
+    return buildExpiringReport(visits, {
+      asOf,
+      withinDays: options.withinDays,
+    });
+  }
+
+  private async loadLatestVisitPerMachine(
+    orgId: string,
+  ): Promise<PopulatedVisit[]> {
+    const latestVisits = await this.visits.findLatestByOrg(orgId);
+    if (latestVisits.length === 0) {
+      return [];
+    }
+
+    const [machineById, locationById, productById] = await Promise.all([
+      this.loadMachinesById(orgId),
+      this.loadLocationsById(orgId),
+      this.loadProductsById(orgId, latestVisits),
+    ]);
+
+    const populated: PopulatedVisit[] = [];
+    for (const visit of latestVisits) {
+      const machine = machineById.get(visit.machineId);
+      if (!machine) {
+        continue;
+      }
+      populated.push({
+        visit,
+        machine,
+        location: locationById.get(visit.locationId) ?? null,
+        productById,
+      });
+    }
+    return populated;
+  }
+
+  private async loadMachinesById(
+    orgId: string,
+  ): Promise<Map<string, Machine>> {
+    const machines = await this.machines.findByOrg(orgId);
+    return new Map(machines.map((machine) => [machine.id, machine]));
+  }
+
+  private async loadLocationsById(
+    orgId: string,
+  ): Promise<Map<string, Location>> {
+    const locations = await this.locations.findByOrg(orgId);
+    return new Map(locations.map((location) => [location.id, location]));
+  }
+
+  /**
+   * Deleted-tolerant: a retired product still sitting in a machine is exactly
+   * the stock most likely to go bad, so its row must not vanish.
+   */
+  private async loadProductsById(
+    orgId: string,
+    visits: readonly Visit[],
+  ): Promise<Map<string, Product>> {
+    const products = await this.products.findByIdsIncludingDeleted(
+      orgId,
+      this.productIdsIn(visits),
+    );
+    return new Map(products.map((product) => [product.id, product]));
+  }
+
+  /** Every product these visits reference, each id once. */
+  private productIdsIn(visits: readonly Visit[]): string[] {
+    return [
+      ...new Set(
+        visits.flatMap((visit) => visit.lines.map((line) => line.productId)),
+      ),
+    ];
+  }
+
   /** The out-of-window baseline, by timestamp and not position — the window's
    *  own first visit must not be mistaken for one. */
   private baselineOf(visits: Visit[], range: VisitRange): Visit | null {
@@ -231,7 +321,10 @@ export class VisitServiceImpl implements VisitService {
     draft: VisitDraft,
   ): Promise<{ lines: VisitLine[]; notices: VisitNotice[] }> {
     if (Date.parse(draft.countedAt) > Date.now() + MAX_FUTURE_MS) {
-      throw new ServiceError("BAD_REQUEST", "countedAt is too far in the future");
+      throw new ServiceError(
+        "BAD_REQUEST",
+        "countedAt is too far in the future",
+      );
     }
 
     const machine = await this.machines.findByIdIncludingDeleted(

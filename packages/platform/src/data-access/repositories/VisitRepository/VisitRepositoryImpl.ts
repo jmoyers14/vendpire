@@ -25,6 +25,9 @@ type VisitDoc = {
     removedReason?: RemovalReason | null;
     priceCents: number;
     par?: number | null;
+    /** Optional for the same reason as the fields above: lines written before
+     *  the field existed have no such key. */
+    bestBy?: string | null;
   }[];
   notes?: string | null;
   clientRequestId: string;
@@ -232,6 +235,7 @@ export function toVisit(doc: VisitDoc): Visit {
       removedReason: line.removedReason ?? null,
       priceCents: line.priceCents,
       par: line.par ?? null,
+      bestBy: line.bestBy ?? null,
     })),
     notes: doc.notes ?? null,
     clientRequestId: doc.clientRequestId,

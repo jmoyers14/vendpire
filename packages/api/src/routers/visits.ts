@@ -1,9 +1,12 @@
 import { z } from "zod";
 import { orgProtectedProcedure, router } from "../trpc.ts";
 import { ANALYTICS_EVENTS } from "../analytics/events.ts";
-import { DEFAULT_VISIT_LIST_LIMIT } from "../services/VisitService/VisitService.ts";
+import {
+  DEFAULT_EXPIRY_WINDOW_DAYS,
+  DEFAULT_VISIT_LIST_LIMIT,
+} from "../services/VisitService/VisitService.ts";
 
-const visitLineInput = z
+export const visitLineInput = z
   .object({
     slotCode: z.string().min(1).max(8),
     productId: z.string().min(1),
@@ -16,6 +19,11 @@ const visitLineInput = z
       .default(null),
     priceCents: z.number().int().min(0).max(100_000),
     par: z.number().int().min(0).max(999).nullable().default(null),
+    bestBy: z
+      .string()
+      .regex(/^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/)
+      .nullable()
+      .default(null),
   })
   // A reason is REQUIRED once units are removed: it decides loss vs. transfer,
   // and defaulting either way would overstate or hide the write-off.
@@ -76,6 +84,23 @@ export const visitsRouter = router({
       ctx.services.visitService.pnl(ctx.auth.orgId, input.machineId, {
         from: input.from ?? null,
         to: input.to ?? null,
+      }),
+    ),
+
+  expiringSoon: orgProtectedProcedure
+    .input(
+      z.object({
+        withinDays: z
+          .number()
+          .int()
+          .min(0)
+          .max(365)
+          .default(DEFAULT_EXPIRY_WINDOW_DAYS),
+      }),
+    )
+    .query(({ ctx, input }) =>
+      ctx.services.visitService.expiringSoon(ctx.auth.orgId, {
+        withinDays: input.withinDays,
       }),
     ),
 

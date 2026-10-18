@@ -1,4 +1,10 @@
-import { levelAfter, type RemovalReason, type VisitLine } from "@vendpire/domain";
+import {
+  calendarDateAfter,
+  calendarDaysUntil,
+  levelAfter,
+  type RemovalReason,
+  type VisitLine,
+} from "@vendpire/domain";
 
 /**
  * The visit-entry form's state and its conversion to a submittable draft.
@@ -39,6 +45,13 @@ export interface VisitRow {
   /** The previous visit's walk-away level — the "filled to 10 last time"
    *  hint. Null when this slot has no history. */
   readonly previousLevel: number | null;
+  /** The FRONT unit's date — the one that sells next, not the stock loaded
+   *  behind it. `""` means NOT RECORDED and is sent as null, never coerced. */
+  readonly bestBy: string;
+  /** Last visit's date for this slot, for the hint. Null with no history. */
+  readonly previousBestBy: string | null;
+  /** False hides the date field entirely. */
+  readonly tracksExpiration: boolean;
 }
 
 /** A line as the `visits.create` mutation takes it. */
@@ -51,6 +64,7 @@ export interface VisitLineDraft {
   removedReason: RemovalReason | null;
   priceCents: number;
   par: number | null;
+  bestBy: string | null;
 }
 
 export type VisitLinesResult =
@@ -64,6 +78,13 @@ interface PlanogramSlotLike {
   productId: string;
   par: number;
   priceCents: number;
+}
+
+/** What the product catalogue contributes to a row. Declared here, not
+ *  imported, so this module stays independent of the wire. */
+interface ProductLike {
+  id: string;
+  tracksExpiration: boolean;
 }
 
 interface PreviousVisitLike {
@@ -85,6 +106,13 @@ const parseCount = (text: string): number | null => {
   return Number.parseInt(trimmed, 10);
 };
 
+/** Rejects an ISO instant and a non-padded date — both break the ordering. */
+const CALENDAR_DATE = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
+
+/** Matches the server's default window, so the slot row and the pre-trip
+ *  report cannot disagree about what "soon" means. */
+const EXPIRY_WINDOW_DAYS = 14;
+
 /** A row as a line, with its counts still to be filled in. */
 const toLine = (row: VisitRow): VisitLineDraft => ({
   slotCode: row.slotCode,
@@ -95,6 +123,7 @@ const toLine = (row: VisitRow): VisitLineDraft => ({
   removedReason: row.removedReason,
   priceCents: row.priceCents,
   par: row.par,
+  bestBy: null,
 });
 
 export const isCounted = (row: VisitRow): boolean => row.left.trim() !== "";
@@ -147,6 +176,11 @@ export const rowWithAdded = (row: VisitRow, added: string): VisitRow => ({
   isAddedEdited: true,
 });
 
+export const rowWithBestBy = (row: VisitRow, bestBy: string): VisitRow => ({
+  ...row,
+  bestBy,
+});
+
 export const rowWithRemovedReason = (
   row: VisitRow,
   removedReason: RemovalReason | null,
@@ -161,15 +195,20 @@ export const buildVisitRows = ({
   shelves,
   planogramSlots,
   previousVisit,
+  products,
 }: {
   shelves: readonly string[][];
   planogramSlots: readonly PlanogramSlotLike[];
   previousVisit: PreviousVisitLike | null;
+  products: readonly ProductLike[];
 }): VisitRow[] => {
   const previousByKey = new Map<string, VisitLine>();
   for (const line of previousVisit?.lines ?? []) {
     previousByKey.set(keyOf(line.slotCode, line.productId), line);
   }
+  const tracksExpirationById = new Map(
+    products.map((product) => [product.id, product.tracksExpiration]),
+  );
 
   const rows: VisitRow[] = [];
   for (const slotCode of shelves.flat()) {
@@ -189,6 +228,12 @@ export const buildVisitRows = ({
       removed: "",
       removedReason: null,
       previousLevel: previous ? levelAfter(previous) : null,
+      bestBy: previous?.bestBy ?? "",
+      previousBestBy: previous?.bestBy ?? null,
+      // Defaults to true for a product not in the list: a slot that silently
+      // stops asking for a date is the failure this whole feature exists to
+      // avoid, so the safe default is to keep asking.
+      tracksExpiration: tracksExpirationById.get(slot.productId) ?? true,
     });
   }
   return rows;
@@ -227,6 +272,12 @@ export const buildVisitLines = (rows: readonly VisitRow[]): VisitLinesResult => 
         error: `Slot ${row.slotCode}: choose a reason for the ${removed} unit(s) pulled out`,
       };
     }
+    const bestBy = row.bestBy.trim();
+    if (bestBy !== "" && !CALENDAR_DATE.test(bestBy)) {
+      return {
+        error: `Slot ${row.slotCode}: "Best by" must be a date like 2026-12-15`,
+      };
+    }
     lines.push({
       ...toLine(row),
       remaining,
@@ -234,6 +285,9 @@ export const buildVisitLines = (rows: readonly VisitRow[]): VisitLinesResult => 
       removed,
       // A reason without a removal is leftover UI state, not a fact.
       removedReason: removed > 0 ? row.removedReason : null,
+      // A date on an emptied slot describes stock that is not there.
+      bestBy:
+        bestBy === "" || remaining - removed + added === 0 ? null : bestBy,
     });
   }
 
@@ -248,9 +302,16 @@ export const buildVisitLines = (rows: readonly VisitRow[]): VisitLinesResult => 
  * records what happened in the field and reports oddities rather than
  * rejecting them.
  */
-export type RowWarning = "over-par" | "over-removed";
+export type RowWarning =
+  | "over-par"
+  | "over-removed"
+  | "expired"
+  | "expiring-soon";
 
-export const warningsFor = (row: VisitRow): RowWarning[] => {
+export const warningsFor = (
+  row: VisitRow,
+  { asOf }: { asOf: string },
+): RowWarning[] => {
   const warnings: RowWarning[] = [];
   const remaining = parseCount(row.left);
   const removed = row.removed.trim() === "" ? 0 : parseCount(row.removed);
@@ -260,6 +321,16 @@ export const warningsFor = (row: VisitRow): RowWarning[] => {
   const level = levelOf(row);
   if (level !== null && row.par !== null && level > row.par) {
     warnings.push("over-par");
+  }
+  // Against the level AFTER the fill: an emptied slot has nothing to go bad.
+  const bestBy = row.bestBy.trim();
+  if (bestBy !== "" && CALENDAR_DATE.test(bestBy) && (level ?? 0) > 0) {
+    const days = calendarDaysUntil(bestBy, asOf);
+    if (days < 0) {
+      warnings.push("expired");
+    } else if (bestBy <= calendarDateAfter(asOf, EXPIRY_WINDOW_DAYS)) {
+      warnings.push("expiring-soon");
+    }
   }
   return warnings;
 };

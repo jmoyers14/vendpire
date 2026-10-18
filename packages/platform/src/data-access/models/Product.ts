@@ -17,6 +17,8 @@ const productSchema = new Schema(
     imageUrl: { type: String, default: null, trim: true },
     defaultPriceCents: { type: Number, required: true },
     active: { type: Boolean, default: true },
+    /** False for gum, bulk candy and non-food — no useful printed date. */
+    tracksExpiration: { type: Boolean, required: true, default: true },
     deletedAt: { type: Date, default: null },
   },
   { timestamps: true },

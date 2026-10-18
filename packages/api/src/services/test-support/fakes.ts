@@ -270,6 +270,13 @@ export class FakeProductRepository implements ProductRepository {
       .map((r) => r.id);
     return new Set(existing);
   }
+  /** Soft-delete state is deliberately ignored, as in the real repository. */
+  async findByIdsIncludingDeleted(
+    orgId: string,
+    ids: string[],
+  ): Promise<Product[]> {
+    return this.rows.filter((r) => r.orgId === orgId && ids.includes(r.id));
+  }
   async create(orgId: string, data: ProductInput): Promise<Product> {
     return this.seed(orgId, data);
   }
@@ -490,6 +497,7 @@ export const productInput = (over: Partial<ProductInput> = {}): ProductInput => 
   taxClass: null,
   defaultPriceCents: 175,
   active: true,
+  tracksExpiration: true,
   ...over,
 });
 
@@ -699,6 +707,7 @@ export const visitInput = (over: Partial<VisitInput> = {}): VisitInput => ({
       removedReason: null,
       priceCents: 175,
       par: 10,
+      bestBy: null,
     },
   ],
   notes: null,
