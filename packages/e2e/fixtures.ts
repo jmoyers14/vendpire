@@ -165,7 +165,14 @@ export const test = base.extend<Record<never, never>, WorkerFixtures>({
           MONGODB_URI: mongo.getUri("vendpire-e2e"),
           // A placeholder is fine without keys: the api only calls Clerk when
           // a Bearer token arrives, and browser specs (which do) skip keyless.
-          CLERK_SECRET_KEY: process.env.CLERK_SECRET_KEY ?? "sk_test_placeholder",
+          //
+          // `||`, not `??`: a workflow referencing an unset secret injects an
+          // EMPTY STRING rather than leaving the variable unset, and "" is not
+          // nullish — so `??` would hand the api a blank key, which fails
+          // Clerk's min(1) schema and kills it after it has already bound its
+          // port. The skip checks below and in global-setup.ts have always used
+          // truthiness; this now matches them.
+          CLERK_SECRET_KEY: process.env.CLERK_SECRET_KEY || "sk_test_placeholder",
           WEB_URL: "http://localhost:5173",
           POSTHOG_API_KEY: "",
         },
