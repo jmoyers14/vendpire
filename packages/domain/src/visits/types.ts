@@ -38,6 +38,17 @@ export interface VisitLine {
   readonly priceCents: Cents;
   /** Target fill level in effect at this servicing. Never used in the P&L. */
   readonly par: number | null;
+  /**
+   * The date on the unit that SELLS NEXT — the front one, which is both the
+   * oldest in the slot (coils load from the back) and the only one readable
+   * without unloading it. A calendar date, "YYYY-MM-DD", never an instant.
+   *
+   * Null means NO DATE WAS RECORDED, never "does not expire". That
+   * distinction is what `Product.tracksExpiration` carries, and what keeps an
+   * empty expiry report from reading as "nothing is expiring" when it means
+   * "nobody typed anything".
+   */
+  readonly bestBy: string | null;
 }
 
 /**

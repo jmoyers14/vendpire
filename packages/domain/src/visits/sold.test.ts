@@ -18,6 +18,7 @@ const line = (
   removedReason: null,
   priceCents: 150,
   par: null,
+  bestBy: null,
   ...overrides,
 });
 

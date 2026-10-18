@@ -27,6 +27,7 @@ const line = (
   removedReason: removal?.reason ?? null,
   priceCents,
   par,
+  bestBy: null,
 });
 
 // Oct 5 — the first servicing on record.
