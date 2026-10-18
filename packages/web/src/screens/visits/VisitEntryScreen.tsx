@@ -25,6 +25,7 @@ import {
   isCounted,
   levelOf,
   rowWithAdded,
+  rowWithBestBy,
   rowWithLeft,
   rowWithRemoved,
   rowWithRemovedReason,
@@ -84,6 +85,9 @@ function VisitDraftForm({
   const [error, setError] = useState<string | null>(null);
   const [uncountedWarning, setUncountedWarning] = useState<string | null>(null);
   const [savedLineCount, setSavedLineCount] = useState<number | null>(null);
+  // The day the warnings are judged against. Fixed at form open so a visit
+  // spanning midnight cannot reclassify rows mid-count.
+  const [asOf] = useState(() => new Date().toISOString().slice(0, 10));
 
   const machine = useQuery(trpc.machines.get.queryOptions({ id: machineId }));
   const planogram = useQuery(
@@ -100,13 +104,14 @@ function VisitDraftForm({
     if (isBuilt || !machine.data || !planogram.isSuccess) {
       return;
     }
-    if (!previousVisits.isSuccess) {
+    if (!previousVisits.isSuccess || !products.isSuccess) {
       return;
     }
     const built = buildVisitRows({
       shelves: machine.data.slots,
       planogramSlots: planogram.data?.slots ?? [],
       previousVisit: previousVisits.data[0] ?? null,
+      products: products.data,
     });
     setRows(built);
     setSelected(built[0]?.slotCode ?? null);
@@ -118,6 +123,8 @@ function VisitDraftForm({
     planogram.data,
     previousVisits.isSuccess,
     previousVisits.data,
+    products.isSuccess,
+    products.data,
   ]);
 
   const create = useMutation(
@@ -197,7 +204,7 @@ function VisitDraftForm({
       };
     }
     const counted = isCounted(row);
-    const warnings = warningsFor(row);
+    const warnings = warningsFor(row, { asOf });
     return {
       state: warnings.length > 0 ? "attention" : counted ? "done" : "assigned",
       title: `${slotCode}: ${productName(row.productId)}`,
@@ -299,6 +306,7 @@ function VisitDraftForm({
               key={selectedRow.slotCode}
               row={selectedRow}
               productName={productName(selectedRow.productId)}
+              asOf={asOf}
               onChange={replaceRow}
               onNext={() => {
                 const order = rows.map((row) => row.slotCode);
@@ -383,11 +391,14 @@ function VisitDraftForm({
 function SlotCountPanel({
   row,
   productName,
+  asOf,
   onChange,
   onNext,
 }: {
   row: VisitRow;
   productName: string;
+  /** The day expiry warnings are judged against, fixed at form open. */
+  asOf: string;
   onChange: (next: VisitRow) => void;
   onNext: () => void;
 }) {
@@ -395,7 +406,7 @@ function SlotCountPanel({
     row.removed.trim() !== "" && row.removed !== "0",
   );
   const level = levelOf(row);
-  const warnings = warningsFor(row);
+  const warnings = warningsFor(row, { asOf });
 
   return (
     <Card className="flex flex-col gap-3 border border-primary-200 p-3">
@@ -441,6 +452,23 @@ function SlotCountPanel({
           </span>
         </label>
       </div>
+
+      {row.tracksExpiration ? (
+        <label className="flex flex-col gap-1">
+          <span className={labelClass}>Best by</span>
+          <input
+            type="date"
+            className={inputClass}
+            value={row.bestBy}
+            onChange={(e) => onChange(rowWithBestBy(row, e.target.value))}
+          />
+          <span className={hintClass}>
+            {row.previousBestBy === null
+              ? "The front item — the one that sells next"
+              : `Last visit: ${row.previousBestBy}`}
+          </span>
+        </label>
+      ) : null}
 
       {isRemoving ? (
         <div className="grid gap-2 rounded-xl bg-gray-50 p-2.5 sm:grid-cols-[6rem_1fr]">
@@ -496,9 +524,13 @@ function SlotCountPanel({
         <Alert
           tone="warning"
           title={
-            warnings.includes("over-removed")
-              ? "More removed than was in the slot"
-              : `Filled past par ${row.par}`
+            warnings.includes("expired")
+              ? "Past its best-by date — pull it"
+              : warnings.includes("expiring-soon")
+                ? "Expiring soon"
+                : warnings.includes("over-removed")
+                  ? "More removed than was in the slot"
+                  : `Filled past par ${row.par}`
           }
         >
           Saved as entered — this is a note, not a block.
