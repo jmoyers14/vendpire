@@ -19,17 +19,6 @@ export const visitLineInput = z
       .default(null),
     priceCents: z.number().int().min(0).max(100_000),
     par: z.number().int().min(0).max(999).nullable().default(null),
-    /**
-     * The front unit's date, "YYYY-MM-DD". Format only — there is deliberately
-     * no "required when the product tracks expiration" refine here: zod cannot
-     * see the product, and `VisitServiceImpl.validate` loads product IDS only.
-     * The operator standing at the slot is the real enforcement, and the
-     * report's `missingDates` bucket is the safety net.
-     *
-     * The regex rejects the two dangerous spellings: an ISO instant (which
-     * drags a zone in) and a non-padded date (which breaks the lexicographic
-     * ordering the report depends on).
-     */
     bestBy: z
       .string()
       .regex(/^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/)
@@ -98,11 +87,6 @@ export const visitsRouter = router({
       }),
     ),
 
-  /**
-   * `asOf` is deliberately NOT accepted from a client — the report is about
-   * today, and letting a caller pick the day is a way to produce a reassuring
-   * report by asking the wrong question.
-   */
   expiringSoon: orgProtectedProcedure
     .input(
       z.object({

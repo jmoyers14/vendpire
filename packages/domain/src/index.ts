@@ -12,6 +12,7 @@
 export * from "./types/index.ts";
 export * from "./gtin/gtin.ts";
 export * from "./money/allocate.ts";
+export * from "./dates/calendar.ts";
 export * from "./machines/slots.ts";
 export * from "./visits/types.ts";
 export * from "./visits/removals.ts";
