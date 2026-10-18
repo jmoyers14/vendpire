@@ -24,18 +24,27 @@ const PLANOGRAM_SLOTS = [
   // B1 is deliberately unassigned.
 ];
 
+const PRODUCTS = [
+  { id: "coke", tracksExpiration: true },
+  { id: "doritos", tracksExpiration: true },
+];
+
 /** A counted row, ready to be perturbed by one test at a time. */
 const row = (patch: Partial<VisitRow> = {}): VisitRow => ({
   slotCode: "A1",
   productId: "coke",
   priceCents: 175,
   par: 10,
+  bestBy: null,
   left: "",
   added: "",
   isAddedEdited: false,
   removed: "",
   removedReason: null,
   previousLevel: null,
+  bestBy: "",
+  previousBestBy: null,
+  tracksExpiration: true,
   ...patch,
 });
 
@@ -45,6 +54,7 @@ describe("buildVisitRows", () => {
       shelves: SHELVES,
       planogramSlots: PLANOGRAM_SLOTS,
       previousVisit: null,
+      products: PRODUCTS,
     });
     expect(rows.map((r) => r.slotCode)).toEqual(["A1", "A2"]);
   });
@@ -56,6 +66,7 @@ describe("buildVisitRows", () => {
       shelves: SHELVES,
       planogramSlots: PLANOGRAM_SLOTS,
       previousVisit: null,
+      products: PRODUCTS,
     });
     expect(rows.some((r) => r.slotCode === "B1")).toBe(false);
   });
@@ -65,6 +76,7 @@ describe("buildVisitRows", () => {
       shelves: SHELVES,
       planogramSlots: PLANOGRAM_SLOTS,
       previousVisit: null,
+      products: PRODUCTS,
     });
     expect(first).toMatchObject({ par: 10, priceCents: 175 });
   });
@@ -74,6 +86,7 @@ describe("buildVisitRows", () => {
       shelves: SHELVES,
       planogramSlots: PLANOGRAM_SLOTS,
       previousVisit: null,
+      products: PRODUCTS,
     });
     expect(rows.every((r) => !isCounted(r))).toBe(true);
   });
@@ -94,9 +107,11 @@ describe("buildVisitRows", () => {
             removedReason: "expired",
             priceCents: 175,
             par: 10,
+            bestBy: null,
           },
         ],
       },
+      products: PRODUCTS,
     });
     expect(first?.previousLevel).toBe(10);
   });
@@ -118,9 +133,11 @@ describe("buildVisitRows", () => {
             removedReason: null,
             priceCents: 175,
             par: 10,
+            bestBy: null,
           },
         ],
       },
+      products: PRODUCTS,
     });
     expect(first?.previousLevel).toBeNull();
   });
@@ -200,6 +217,7 @@ describe("buildVisitLines", () => {
     expect("lines" in result && result.lines[0]).toMatchObject({
       priceCents: 175,
       par: 10,
+      bestBy: null,
     });
   });
 
@@ -248,16 +266,149 @@ describe("buildVisitLines", () => {
 
 describe("warningsFor", () => {
   it("flags a fill past par", () => {
-    expect(warningsFor(row({ left: "4", added: "9" }))).toContain("over-par");
+    expect(warningsFor(row({ left: "4", added: "9" }), { asOf: "2026-10-17" })).toContain("over-par");
   });
 
   it("flags removing more than was found", () => {
-    expect(warningsFor(row({ left: "2", removed: "5" }))).toContain(
+    expect(warningsFor(row({ left: "2", removed: "5" }), { asOf: "2026-10-17" })).toContain(
       "over-removed",
     );
   });
 
   it("stays quiet on an ordinary fill to par", () => {
-    expect(warningsFor(row({ left: "4", added: "6" }))).toEqual([]);
+    expect(warningsFor(row({ left: "4", added: "6" }), { asOf: "2026-10-17" })).toEqual([]);
+  });
+});
+
+describe("bestBy pre-fill", () => {
+  it("carries the previous visit's date for a matching slot and product", () => {
+    const rows = buildVisitRows({
+      shelves: [["A1"]],
+      planogramSlots: PLANOGRAM_SLOTS,
+      previousVisit: {
+        lines: [
+          {
+            slotCode: "A1",
+            productId: "coke",
+            remaining: 4,
+            added: 6,
+            removed: 0,
+            removedReason: null,
+            priceCents: 175,
+            par: 10,
+            bestBy: "2026-12-15",
+          },
+        ],
+      },
+      products: PRODUCTS,
+    });
+    expect(rows[0]?.bestBy).toBe("2026-12-15");
+    expect(rows[0]?.previousBestBy).toBe("2026-12-15");
+  });
+
+  it("leaves the date blank when the slot has no history", () => {
+    const rows = buildVisitRows({
+      shelves: [["A1"]],
+      planogramSlots: PLANOGRAM_SLOTS,
+      previousVisit: null,
+      products: PRODUCTS,
+    });
+    expect(rows[0]?.bestBy).toBe("");
+    expect(rows[0]?.previousBestBy).toBeNull();
+  });
+
+  it("carries the product's tracking flag onto the row", () => {
+    const rows = buildVisitRows({
+      shelves: [["A2"]],
+      planogramSlots: PLANOGRAM_SLOTS,
+      previousVisit: null,
+      products: [{ id: "doritos", tracksExpiration: false }],
+    });
+    expect(rows[0]?.tracksExpiration).toBe(false);
+  });
+});
+
+describe("buildVisitLines bestBy", () => {
+  it("sends a typed date through", () => {
+    const result = buildVisitLines([
+      row({ left: "5", added: "5", bestBy: "2026-12-15" }),
+    ]);
+    expect("lines" in result && result.lines[0]).toMatchObject({
+      bestBy: "2026-12-15",
+    });
+  });
+
+  it("sends a blank date as null, never a guessed value", () => {
+    const result = buildVisitLines([row({ left: "5", added: "5", bestBy: "" })]);
+    expect("lines" in result && result.lines[0]).toMatchObject({
+      bestBy: null,
+    });
+  });
+
+  it("rejects a malformed date with a slot-prefixed message", () => {
+    const result = buildVisitLines([
+      row({ slotCode: "B3", left: "5", added: "5", bestBy: "Dec 15" }),
+    ]);
+    expect(result).toEqual({
+      error: 'Slot B3: "Best by" must be a date like 2026-12-15',
+    });
+  });
+
+  // A date on a slot with nothing in it describes stock that is not there.
+  it("sends null when the slot ends up empty", () => {
+    const result = buildVisitLines([
+      row({
+        left: "2",
+        added: "0",
+        removed: "2",
+        removedReason: "expired",
+        bestBy: "2026-10-06",
+      }),
+    ]);
+    expect("lines" in result && result.lines[0]).toMatchObject({
+      bestBy: null,
+    });
+  });
+});
+
+describe("warningsFor expiry", () => {
+  const ASOF = "2026-10-17";
+
+  it("flags an expired slot", () => {
+    expect(
+      warningsFor(row({ left: "3", added: "0", bestBy: "2026-10-06" }), {
+        asOf: ASOF,
+      }),
+    ).toContain("expired");
+  });
+
+  it("flags a slot inside the window", () => {
+    expect(
+      warningsFor(row({ left: "3", added: "0", bestBy: "2026-10-20" }), {
+        asOf: ASOF,
+      }),
+    ).toContain("expiring-soon");
+  });
+
+  it("stays quiet beyond the window", () => {
+    expect(
+      warningsFor(row({ left: "3", added: "0", bestBy: "2026-12-16" }), {
+        asOf: ASOF,
+      }),
+    ).toEqual([]);
+  });
+
+  it("stays quiet on an empty slot, nothing in there to go bad", () => {
+    expect(
+      warningsFor(row({ left: "0", added: "0", bestBy: "2026-10-06" }), {
+        asOf: ASOF,
+      }),
+    ).toEqual([]);
+  });
+
+  it("stays quiet with no date recorded", () => {
+    expect(
+      warningsFor(row({ left: "3", added: "0", bestBy: "" }), { asOf: ASOF }),
+    ).toEqual([]);
   });
 });
