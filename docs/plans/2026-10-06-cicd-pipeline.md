@@ -530,6 +530,23 @@ Two environments is close to $0. The real cost is operational — two secret set
 two Clerk instances, two webhook endpoints — not dollars. Prod-only remains the
 right call for *simplicity*, but not for the reason originally given.
 
+### Secret scoping, decided ahead of the split
+
+Deploy secrets are set on the GitHub *environment* `staging`, not on the
+repository; the e2e secrets stay repository-level.
+
+Repository secrets are inherited as defaults by every environment. Left there, a
+`production` environment added later would silently fall back to the staging
+values and ship production built against the dev Clerk instance — a wrong value,
+not an error. Scoped per environment, a missing production override arrives as
+`""` and `deploy.sh` refuses to start on a blank publishable key.
+
+The e2e secrets stay repository-level because `ci.yml`'s e2e job declares no
+`environment:`, and such a job cannot read environment secrets at all.
+
+This is the mechanism that lets secret names stay identical across environments
+rather than being suffixed, which was the naming principle settled above.
+
 ### Adding production later
 
 Ordered, because each step blocks the next:
@@ -539,7 +556,9 @@ Ordered, because each step blocks the next:
 2. Create the Clerk production instance; add its DNS records.
 3. Map the domain to Cloud Run for `web` and `api`.
 4. New secret values: `sk_live_` for the api, the prod instance's `whsec_` for the
-   worker, `pk_live_` baked into the web bundle.
+   worker, `pk_live_` baked into the web bundle. On the GitHub side that is
+   `DEPLOY_ENV=production ./scripts/set-github-secrets.sh` — same names, and a
+   `production` environment whose values override nothing from staging.
 5. Register the webhook endpoint on the production instance and re-subscribe the
    seven events listed in `DEPLOY.md`.
 6. Swap `CLERK_PUBLISHABLE_KEY` in `ios/Config/Release.xcconfig` — currently the

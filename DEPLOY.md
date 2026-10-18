@@ -114,13 +114,28 @@ GitHub secret is worse than an absent one: the workflow injects `""`, and
 consuming code sees a present-but-blank variable. That is precisely what broke
 the e2e job — `fixtures.ts` used `??`, which does not treat `""` as missing.
 
-| Secret | Used by | Sensitive? |
-|---|---|---|
-| `VITE_CLERK_PUBLISHABLE_KEY` | deploy | No — `pk_` is public |
-| `POSTHOG_API_KEY`, `POSTHOG_HOST` | deploy | No — write-only ingestion |
-| `VITE_POSTHOG_KEY`, `VITE_POSTHOG_HOST` | deploy | No |
-| `CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY` | e2e — Clerk **dev** instance | Yes, dev only |
-| `E2E_CLERK_USER_EMAIL`, `E2E_CLERK_USER_PASSWORD` | e2e test user | Yes, dev only |
+**Scoping matters for the future production split.** Deploy secrets go to the
+GitHub *environment* `staging`, not the repository; e2e secrets stay
+repository-level.
+
+That is not cosmetic. Repository secrets are inherited as defaults by every
+environment, so a `production` environment added later would silently fall back
+to the staging values and ship production built against the **dev** Clerk
+instance, with no error anywhere. Scoped per environment, a missing production
+override arrives as `""` and `deploy.sh` refuses to start. Adding production is
+then `DEPLOY_ENV=production ./scripts/set-github-secrets.sh` — same secret
+names, different values, which is the whole point of not suffixing names.
+
+The e2e secrets stay repository-level because `ci.yml`'s e2e job declares no
+`environment:`, and a job without one cannot read environment secrets at all.
+
+| Secret | Used by | Scope | Sensitive? |
+|---|---|---|---|
+| `VITE_CLERK_PUBLISHABLE_KEY` | deploy | env `staging` | No — `pk_` is public |
+| `POSTHOG_API_KEY`, `POSTHOG_HOST` | deploy | env `staging` | No — write-only ingestion |
+| `VITE_POSTHOG_KEY`, `VITE_POSTHOG_HOST` | deploy | env `staging` | No |
+| `CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY` | e2e — Clerk **dev** instance | repository | Yes, dev only |
+| `E2E_CLERK_USER_EMAIL`, `E2E_CLERK_USER_PASSWORD` | e2e test user | repository | Yes, dev only |
 
 No production secrets live in GitHub. The Atlas URI, the production Clerk `sk_`,
 and the webhook signing secret stay in Secret Manager.
