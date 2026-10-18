@@ -15,6 +15,8 @@ type ProductDoc = {
   imageUrl?: string | null;
   defaultPriceCents: number;
   active: boolean;
+  /** Optional: rows written before the field became required have no key. */
+  tracksExpiration?: boolean;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -71,6 +73,24 @@ export class ProductRepositoryImpl implements ProductRepository {
     return new Set(docs.map((doc) => String(doc._id)));
   }
 
+  async findByIdsIncludingDeleted(
+    orgId: string,
+    ids: string[],
+  ): Promise<Product[]> {
+    // Guarded because `$in: []` matches nothing but still costs a round trip,
+    // and every caller here can legitimately have no ids.
+    if (ids.length === 0) {
+      return [];
+    }
+    // Note the deliberate absence of `deletedAt: null` — that omission is the
+    // whole point of the method.
+    const docs = await ProductModel.find({
+      _id: { $in: ids },
+      orgId,
+    }).lean<ProductDoc[]>();
+    return docs.map(toProduct);
+  }
+
   async create(orgId: string, data: ProductInput): Promise<Product> {
     const doc = await ProductModel.create({ orgId, ...data });
     return toProduct(doc.toObject() as ProductDoc);
@@ -107,6 +127,9 @@ function toProduct(doc: ProductDoc): Product {
     imageUrl: doc.imageUrl ?? null,
     defaultPriceCents: doc.defaultPriceCents,
     active: doc.active,
+    // Covers rows read between deploy and backfill. Matches the schema
+    // default so the two cannot disagree.
+    tracksExpiration: doc.tracksExpiration ?? true,
     createdAt: doc.createdAt.toISOString(),
     updatedAt: doc.updatedAt.toISOString(),
   };
