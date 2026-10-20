@@ -1,12 +1,13 @@
-import cors from "cors";
 import { createHTTPServer } from "@trpc/server/adapters/standalone";
 import { appRouter } from "./router.ts";
 import { createContext } from "./createContext.ts";
-import { container } from "./services/index.ts";
+import {
+  container,
+  MOBILE_CLIENT_SUPPORT_SERVICE_TOKEN,
+} from "./services/index.ts";
 import { SERVER_CONFIG_TOKEN, type ServerConfig } from "./config/serverConfig.ts";
-import { MOBILE_CLIENT_SUPPORT_SERVICE_TOKEN } from "./services/index.ts";
 import type { MobileClientSupportService } from "./services/MobileClientSupportService/MobileClientSupportService.ts";
-import { buildClientSupportGate } from "./clientSupportGate.ts";
+import { buildHttpMiddleware } from "./middleware/index.ts";
 import { ANALYTICS_CLIENT_TOKEN } from "@vendpire/platform";
 import type { AnalyticsClient } from "@vendpire/platform";
 import {
@@ -26,11 +27,6 @@ const main = async (): Promise<void> => {
   const clientSupport = container.resolve<MobileClientSupportService>(
     MOBILE_CLIENT_SUPPORT_SERVICE_TOKEN,
   );
-
-  // The adapter takes one middleware; CORS runs first so a refusal still
-  // carries the headers a browser needs.
-  const allowOrigin = cors({ origin: webUrl, credentials: true });
-  const refuseUnsupportedClients = buildClientSupportGate(clientSupport);
 
   await connectDatabase(uri);
   rootLogger.info("connected to MongoDB");
@@ -54,15 +50,7 @@ const main = async (): Promise<void> => {
         log.warn({ path, code: error.code }, "request error");
       }
     },
-    middleware: (req, res, next) => {
-      allowOrigin(req, res, (err?: unknown) => {
-        if (err !== undefined && err !== null) {
-          next(err);
-          return;
-        }
-        refuseUnsupportedClients(req, res, next);
-      });
-    },
+    middleware: buildHttpMiddleware({ webUrl, clientSupport }),
   });
 
   server.listen(port);

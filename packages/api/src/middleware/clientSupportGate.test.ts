@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { buildClientSupportGate } from "./clientSupportGate.ts";
-import type { MobileClientSupportService } from "./services/MobileClientSupportService/MobileClientSupportService.ts";
+import type { MobileClientSupportService } from "../services/MobileClientSupportService/MobileClientSupportService.ts";
 
 const UPDATE_URL = "https://testflight.apple.com/join/abc123";
 

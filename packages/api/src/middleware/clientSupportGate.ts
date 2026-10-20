@@ -1,23 +1,5 @@
-import type { MobileClientSupportService } from "./services/MobileClientSupportService/MobileClientSupportService.ts";
-
-/** Only the parts of a request the gate reads — the `cors` and Bun typings disagree about `IncomingMessage`. */
-interface GateRequest {
-  url?: string | undefined;
-  headers: Record<string, string | string[] | undefined>;
-}
-
-interface GateResponse {
-  statusCode: number;
-  setHeader(name: string, value: string): unknown;
-  end(body?: string): unknown;
-}
-
-/** Connect-style middleware, the shape the tRPC standalone adapter accepts. */
-type Gate = (
-  req: GateRequest,
-  res: GateResponse,
-  next: (err?: unknown) => void,
-) => void;
+import type { MobileClientSupportService } from "../services/MobileClientSupportService/MobileClientSupportService.ts";
+import type { HttpMiddleware } from "./types.ts";
 
 /**
  * Refuses a build below the floor with `426`, the backstop for when the launch
@@ -26,7 +8,7 @@ type Gate = (
  */
 export function buildClientSupportGate(
   clientSupport: MobileClientSupportService,
-): Gate {
+): HttpMiddleware {
   return (req, res, next) => {
     const blocked = clientSupport.isUnsupportedRequest({
       header: req.headers["x-vendpire-client"],
