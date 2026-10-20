@@ -21,11 +21,11 @@ export type UpdateRequirement = "none" | "recommended" | "required";
 const IOS_CLIENT = /^ios\/(\d+)$/;
 
 /**
- * Paths that stay reachable to a client the floor has already refused — the
- * verdict it needs to render the wall, and the build stamp used for health
+ * Procedures that stay reachable to a client the floor has already refused —
+ * the verdict it needs to render the wall, and the build stamp used for health
  * checks.
  */
-const UNGATED_PREFIX = "/system.";
+const UNGATED_PREFIX = "system.";
 
 export interface ClientBuild {
   platform: "ios";
@@ -54,6 +54,26 @@ export function updateRequirementFor({
     return "recommended";
   }
   return "none";
+}
+
+/**
+ * Whether every procedure this request carries is one we leave reachable.
+ *
+ * tRPC's `httpBatchLink` serializes a batch as the comma-joined procedure
+ * names, so this path can be a list — `system.version,visits.create` — and a
+ * prefix match would wave the whole batch through on the strength of its first
+ * entry. One gated procedure anywhere in the batch gates all of it, because
+ * tRPC runs them together and the response is all-or-nothing.
+ *
+ * The query string is dropped before splitting: a batch carries its inputs as
+ * JSON, which is itself full of commas, and treating those as procedure names
+ * would gate `system.clientSupport` — making the wall unreachable for exactly
+ * the clients it exists for.
+ */
+function isEntirelyUngated(path: string): boolean {
+  const [withoutQuery = ""] = path.split("?");
+  const procedures = withoutQuery.replace(/^\//, "").split(",");
+  return procedures.every((procedure) => procedure.startsWith(UNGATED_PREFIX));
 }
 
 /** Returns null for an absent, foreign, or malformed stamp. */
@@ -87,7 +107,7 @@ export function isUnsupportedClient({
   header: string | string[] | undefined;
   path: string;
 }): boolean {
-  if (path.startsWith(UNGATED_PREFIX)) {
+  if (isEntirelyUngated(path)) {
     return false;
   }
   const client = parseClientHeader(header);

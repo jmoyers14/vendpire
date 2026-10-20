@@ -146,3 +146,61 @@ describe("isUnsupportedClient", () => {
     ).toBe(false);
   });
 });
+
+// tRPC's httpBatchLink serializes a batch as the comma-joined procedure names
+// (`batchOps.map((op) => op.path).join(",")`), so the gate's path is a *list*,
+// not a single procedure. Prefix-matching it lets any procedure ride through
+// the wall behind a leading `system.` call.
+describe("isUnsupportedClient — batched requests", () => {
+  const FLOOR = { minimumBuild: 43, recommendedBuild: 50 };
+
+  it("refuses a batch that smuggles a gated procedure behind a system call", () => {
+    expect(
+      isUnsupportedClient({
+        header: "ios/42",
+        path: "/system.version,visits.create",
+        ...FLOOR,
+      }),
+    ).toBe(true);
+  });
+
+  it("refuses a batch whose gated procedure comes first", () => {
+    expect(
+      isUnsupportedClient({
+        header: "ios/42",
+        path: "/visits.create,system.version",
+        ...FLOOR,
+      }),
+    ).toBe(true);
+  });
+
+  it("serves a batch made up entirely of system calls", () => {
+    expect(
+      isUnsupportedClient({
+        header: "ios/42",
+        path: "/system.clientSupport,system.version",
+        ...FLOOR,
+      }),
+    ).toBe(false);
+  });
+
+  // The batched input is JSON in the query string, and that JSON is full of
+  // commas. Splitting the raw URL instead of the path alone turns those into
+  // bogus "procedures", every() goes false, and the wall's own endpoint gets
+  // gated — the one failure that makes the wall unreachable.
+  it("ignores the query string, whose batched input contains commas", () => {
+    expect(
+      isUnsupportedClient({
+        header: "ios/42",
+        path: '/system.clientSupport,system.version?batch=1&input={"0":{"platform":"ios","build":42},"1":{}}',
+        ...FLOOR,
+      }),
+    ).toBe(false);
+  });
+
+  it("still refuses a plain single gated procedure", () => {
+    expect(
+      isUnsupportedClient({ header: "ios/42", path: "/visits.create", ...FLOOR }),
+    ).toBe(true);
+  });
+});
