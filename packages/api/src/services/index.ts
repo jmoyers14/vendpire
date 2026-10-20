@@ -5,6 +5,8 @@ import {
   SERVER_CONFIG_TOKEN,
   loadServerConfig,
 } from "../config/serverConfig.ts";
+import { MOBILE_CONFIG_TOKEN } from "../config/mobileConfig.ts";
+import { loadMobileConfig } from "../config/loadMobileConfig.ts";
 import {
   AUTH_SERVICE_TOKEN,
   ADDRESS_SERVICE_TOKEN,
@@ -48,6 +50,12 @@ registerServerCore(container);
 // the booting server resolves it.
 container.register(SERVER_CONFIG_TOKEN, {
   useFactory: instanceCachingFactory(() => loadServerConfig()),
+});
+
+// The iOS support floor — policy this entrypoint enforces, so it registers
+// alongside the server config rather than in the shared core.
+container.register(MOBILE_CONFIG_TOKEN, {
+  useFactory: instanceCachingFactory(() => loadMobileConfig()),
 });
 
 container.registerSingleton(AUTH_SERVICE_TOKEN, AuthServiceImpl);

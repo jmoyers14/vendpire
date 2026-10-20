@@ -4,6 +4,8 @@ import { appRouter } from "./router.ts";
 import { createContext } from "./createContext.ts";
 import { container } from "./services/index.ts";
 import { SERVER_CONFIG_TOKEN, type ServerConfig } from "./config/serverConfig.ts";
+import { MOBILE_CONFIG_TOKEN, type MobileConfig } from "./config/mobileConfig.ts";
+import { buildClientSupportGate } from "./clientSupport/clientSupportGate.ts";
 import { ANALYTICS_CLIENT_TOKEN } from "@vendpire/platform";
 import type { AnalyticsClient } from "@vendpire/platform";
 import {
@@ -20,6 +22,12 @@ installGlobalErrorHandlers();
 const main = async (): Promise<void> => {
   const { port, webUrl } = container.resolve<ServerConfig>(SERVER_CONFIG_TOKEN);
   const { uri } = container.resolve<DatabaseConfig>(DATABASE_CONFIG_TOKEN);
+  const mobileConfig = container.resolve<MobileConfig>(MOBILE_CONFIG_TOKEN);
+
+  // The adapter takes a single middleware, so the two are composed by hand.
+  // CORS runs first so even a refusal carries the headers a browser needs.
+  const allowOrigin = cors({ origin: webUrl, credentials: true });
+  const refuseUnsupportedClients = buildClientSupportGate(mobileConfig);
 
   await connectDatabase(uri);
   rootLogger.info("connected to MongoDB");
@@ -43,7 +51,15 @@ const main = async (): Promise<void> => {
         log.warn({ path, code: error.code }, "request error");
       }
     },
-    middleware: cors({ origin: webUrl, credentials: true }),
+    middleware: (req, res, next) => {
+      allowOrigin(req, res, (err?: unknown) => {
+        if (err !== undefined && err !== null) {
+          next(err);
+          return;
+        }
+        refuseUnsupportedClients(req, res, next);
+      });
+    },
   });
 
   server.listen(port);

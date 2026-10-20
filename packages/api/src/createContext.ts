@@ -33,6 +33,7 @@ import type { PurchaseService } from "./services/PurchaseService/PurchaseService
 import type { VisitService } from "./services/VisitService/VisitService.ts";
 import type { PackService } from "./services/PackService/PackService.ts";
 import type { Context } from "./context.ts";
+import { MOBILE_CONFIG_TOKEN, type MobileConfig } from "./config/mobileConfig.ts";
 
 /**
  * Runs per request. Authenticates the caller via AuthService and resolves the
@@ -58,6 +59,7 @@ export async function createContext(
     log,
     analytics: container.resolve<AnalyticsClient>(ANALYTICS_CLIENT_TOKEN),
     appConfig: container.resolve<AppConfig>(APP_CONFIG_TOKEN),
+    mobileConfig: container.resolve<MobileConfig>(MOBILE_CONFIG_TOKEN),
     services: {
       addressService: container.resolve<AddressService>(ADDRESS_SERVICE_TOKEN),
       locationService: container.resolve<LocationService>(LOCATION_SERVICE_TOKEN),

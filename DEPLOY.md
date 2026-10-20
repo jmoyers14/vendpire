@@ -269,6 +269,58 @@ Google recommends pinning a version rather than `:latest` for environment-variab
 secrets, for exactly this reason. All four here use `:latest` — a known gap, not
 an oversight.
 
+## The iOS support floor
+
+Plain env vars on the **api** — not secrets. They decide which iOS builds are
+still served. The app never learns these numbers; it reports its own
+`CFBundleVersion` and obeys the verdict, which is what lets the floor move
+without shipping an app. Mechanism: `docs/diagrams/forced-update.md`.
+
+| Env var | Default | Effect |
+|---|---|---|
+| `IOS_MINIMUM_BUILD` | `0` | Builds below this get a non-dismissible update wall, and `426` on every write |
+| `IOS_RECOMMENDED_BUILD` | `0` | Builds below this get a dismissible nudge |
+| `IOS_UPDATE_URL` | App Store listing | Where the wall sends people — repoint at TestFlight without a release |
+
+**Both default to `0`, which supports every build.** Leave them unset and the
+whole mechanism is inert. Raising either one is a deliberate act and takes only
+an api redeploy.
+
+### Raising the floor without stranding anyone
+
+Never raise `IOS_MINIMUM_BUILD` first. The order exists because the users it
+targets are exactly the ones who don't install updates.
+
+1. Ship the new build (say, 50) to the App Store.
+2. Set `IOS_RECOMMENDED_BUILD=50` and redeploy. Older builds now get a
+   dismissible nudge — nobody is blocked.
+3. **Watch the `stale_client.detected` count in PostHog fall.** Filter on the
+   `build` property. This is the only thing that tells you how many users a
+   bump would strand.
+4. Once it's near zero, set `IOS_MINIMUM_BUILD=50` and redeploy. Stragglers get
+   the wall.
+
+No app release happens in steps 2–4. `IOS_UPDATE_URL` must point somewhere real
+before step 4, or the wall has nowhere to send people.
+
+Verify after a change — the endpoint is public, so this needs no token:
+
+```sh
+curl -G <api-url>/system.clientSupport \
+  --data-urlencode 'input={"platform":"ios","build":42}'
+# -> {"result":{"data":{"updateRequirement":"required","updateUrl":"..."}}}
+```
+
+To check the backstop, send the header at a normal route and expect **426**:
+
+```sh
+curl -i -X POST <api-url>/visits.create \
+  -H 'x-vendpire-client: ios/42' -H 'content-type: application/json' -d '{}'
+```
+
+A build at or above the floor gets `401` there instead — it cleared the gate
+and fell through to auth, which is the correct outcome.
+
 ## Notes
 
 - Images are tagged `:latest` *and* `:<git-sha>`; the deploy refuses nothing on
