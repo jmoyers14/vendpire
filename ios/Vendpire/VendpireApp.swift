@@ -5,6 +5,7 @@ import SwiftUI
 @main
 struct VendpireApp: App {
     @State private var session = ClerkSession()
+    @State private var clientSupport = ClientSupport()
     private let container = VendpireStore.makeContainer()
 
     init() {
@@ -14,10 +15,15 @@ struct VendpireApp: App {
     var body: some Scene {
         WindowGroup {
             LocationListView()
+                .updateWall(clientSupport)
                 .environment(session)
+                .environment(clientSupport)
                 .modelContainer(container)
                 .task {
                     seedStore()
+                    #if DEBUG
+                    clientSupport.applyLaunchArgumentOverride()
+                    #endif
                     // Clerk rehydrates a persisted session itself; this only
                     // reads the result. It must never gate what is shown —
                     // a cold offline launch is expected to fail here.
