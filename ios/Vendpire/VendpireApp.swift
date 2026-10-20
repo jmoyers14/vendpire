@@ -13,7 +13,7 @@ struct VendpireApp: App {
 
     var body: some Scene {
         WindowGroup {
-            AccountView()
+            LocationListView()
                 .environment(session)
                 .modelContainer(container)
                 .task {
