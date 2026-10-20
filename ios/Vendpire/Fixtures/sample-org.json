@@ -1,0 +1,788 @@
+{
+  "orgId": "org_3KCN5Mql3NLnO2aIvsnYKkTDsQv",
+  "exportedAt": "2026-10-20T22:57:32.080Z",
+  "locations": [
+    {
+      "id": "6ac1c5e40bfb1cd4c63d3017",
+      "name": "Right-On Studios",
+      "address": {
+        "line1": "5741 Palmer Way",
+        "city": "Carlsbad",
+        "state": "CA",
+        "zip": "92010",
+        "geo": {
+          "lat": 33.1379089,
+          "lng": -117.27324290000001
+        }
+      },
+      "contact": {
+        "name": null,
+        "phone": null,
+        "email": null
+      },
+      "commission": {
+        "type": "none"
+      },
+      "notes": null,
+      "active": true,
+      "createdAt": "2026-10-04T03:20:04.397Z",
+      "updatedAt": "2026-10-04T03:20:04.397Z"
+    }
+  ],
+  "machines": [
+    {
+      "id": "6ac1c6c40bfb1cd4c63d3019",
+      "locationId": "6ac1c5e40bfb1cd4c63d3017",
+      "name": "National 148 Snack Machine",
+      "kind": "snack",
+      "make": "National",
+      "model": "148",
+      "serial": null,
+      "tagCode": null,
+      "templateId": "6ac1c6c40bfb1cd4c63d3018",
+      "slots": [
+        [
+          "A0",
+          "A2",
+          "A4",
+          "A6"
+        ],
+        [
+          "B0",
+          "B2",
+          "B4",
+          "B6"
+        ],
+        [
+          "C0",
+          "C2",
+          "C4",
+          "C6"
+        ],
+        [
+          "D1",
+          "D2",
+          "D3",
+          "D4",
+          "D5",
+          "D6",
+          "D7"
+        ],
+        [
+          "E1",
+          "E2",
+          "E3",
+          "E4",
+          "E5",
+          "E6",
+          "E7"
+        ],
+        [
+          "F0",
+          "F2",
+          "F4",
+          "F6"
+        ]
+      ],
+      "cardReader": null,
+      "active": true,
+      "createdAt": "2026-10-04T03:23:48.422Z",
+      "updatedAt": "2026-10-04T03:23:48.422Z"
+    },
+    {
+      "id": "6ac7f7d3f02aa8530f1978a5",
+      "locationId": "6ac1c5e40bfb1cd4c63d3017",
+      "name": "Small Machine",
+      "kind": "snack",
+      "make": null,
+      "model": null,
+      "serial": null,
+      "tagCode": null,
+      "templateId": null,
+      "slots": [
+        [
+          "A1",
+          "A2"
+        ],
+        [
+          "B1",
+          "B2"
+        ]
+      ],
+      "cardReader": null,
+      "active": true,
+      "createdAt": "2026-10-08T20:06:43.925Z",
+      "updatedAt": "2026-10-08T20:06:43.925Z"
+    }
+  ],
+  "products": [
+    {
+      "id": "6ac15fccadd3eb010d071ba2",
+      "name": "Big Texas Cinnamon Roll 4 oz",
+      "upc": "00085264043703",
+      "category": "snacks",
+      "taxClass": null,
+      "imageUrl": null,
+      "defaultPriceCents": 500,
+      "active": true,
+      "tracksExpiration": true,
+      "createdAt": "2026-10-03T20:04:28.675Z",
+      "updatedAt": "2026-10-03T20:04:28.675Z"
+    },
+    {
+      "id": "6ac15fcbadd3eb010d071b9c",
+      "name": "Corn Nuts Original 1.7 oz",
+      "upc": "00071159001330",
+      "category": "snacks",
+      "taxClass": null,
+      "imageUrl": null,
+      "defaultPriceCents": 325,
+      "active": true,
+      "tracksExpiration": true,
+      "createdAt": "2026-10-03T20:04:27.297Z",
+      "updatedAt": "2026-10-03T20:04:27.297Z"
+    },
+    {
+      "id": "6ac15fc8add3eb010d071b86",
+      "name": "Doritos Cool Ranch Tortilla Chips 1.75 oz",
+      "upc": "00028400070546",
+      "category": "chips",
+      "taxClass": null,
+      "imageUrl": "https://images.openfoodfacts.org/images/products/002/840/007/0546/front_en.36.400.jpg",
+      "defaultPriceCents": 200,
+      "active": true,
+      "tracksExpiration": true,
+      "createdAt": "2026-10-03T20:04:24.801Z",
+      "updatedAt": "2026-10-03T20:04:24.801Z"
+    },
+    {
+      "id": "6ac15fc8add3eb010d071b84",
+      "name": "Doritos Nacho Cheese Tortilla Chips 1.75 oz",
+      "upc": "00028400070560",
+      "category": "chips",
+      "taxClass": null,
+      "imageUrl": "https://images.openfoodfacts.org/images/products/002/840/007/0560/front_en.87.400.jpg",
+      "defaultPriceCents": 200,
+      "active": true,
+      "tracksExpiration": true,
+      "createdAt": "2026-10-03T20:04:24.567Z",
+      "updatedAt": "2026-10-03T20:04:24.567Z"
+    },
+    {
+      "id": "6ac15fccadd3eb010d071ba0",
+      "name": "Famous Amos Chocolate Chip Cookies 2 oz",
+      "upc": null,
+      "category": "snacks",
+      "taxClass": null,
+      "imageUrl": "https://images.openfoodfacts.org/images/products/007/667/715/7200/front_en.3.400.jpg",
+      "defaultPriceCents": 150,
+      "active": true,
+      "tracksExpiration": true,
+      "createdAt": "2026-10-03T20:04:28.473Z",
+      "updatedAt": "2026-10-03T20:04:28.473Z"
+    },
+    {
+      "id": "6ac15fc9add3eb010d071b8a",
+      "name": "Fritos Original Corn Chips 2 oz",
+      "upc": "00028400047937",
+      "category": "chips",
+      "taxClass": null,
+      "imageUrl": "https://images.openfoodfacts.org/images/products/002/840/004/7937/front_en.16.400.jpg",
+      "defaultPriceCents": 200,
+      "active": true,
+      "tracksExpiration": true,
+      "createdAt": "2026-10-03T20:04:25.323Z",
+      "updatedAt": "2026-10-03T20:04:25.323Z"
+    },
+    {
+      "id": "6ac15fcaadd3eb010d071b98",
+      "name": "Kit Kat Milk Chocolate Wafer Bar 1.5 oz",
+      "upc": "00034000002467",
+      "category": "candy",
+      "taxClass": null,
+      "imageUrl": null,
+      "defaultPriceCents": 400,
+      "active": true,
+      "tracksExpiration": true,
+      "createdAt": "2026-10-03T20:04:26.898Z",
+      "updatedAt": "2026-10-03T20:04:26.898Z"
+    },
+    {
+      "id": "6ac15fc8add3eb010d071b82",
+      "name": "Lay's Classic Potato Chips 1.5 oz",
+      "upc": "00028400091565",
+      "category": "chips",
+      "taxClass": null,
+      "imageUrl": "https://images.openfoodfacts.org/images/products/002/840/009/1565/front_en.46.400.jpg",
+      "defaultPriceCents": 175,
+      "active": true,
+      "tracksExpiration": true,
+      "createdAt": "2026-10-03T20:04:24.349Z",
+      "updatedAt": "2026-10-03T20:04:24.349Z"
+    },
+    {
+      "id": "6ac15fc9add3eb010d071b88",
+      "name": "Lay's Sour Cream & Onion Potato Chips 1.5 oz",
+      "upc": "00028400001748",
+      "category": "chips",
+      "taxClass": null,
+      "imageUrl": "https://images.openfoodfacts.org/images/products/002/840/000/1748/front_en.29.400.jpg",
+      "defaultPriceCents": 200,
+      "active": true,
+      "tracksExpiration": true,
+      "createdAt": "2026-10-03T20:04:25.017Z",
+      "updatedAt": "2026-10-03T20:04:25.017Z"
+    },
+    {
+      "id": "6ac15fcaadd3eb010d071b90",
+      "name": "Munchies Cheese Fix Snack Mix 1.75 oz",
+      "upc": "00028400025287",
+      "category": "snacks",
+      "taxClass": null,
+      "imageUrl": "https://images.openfoodfacts.org/images/products/002/840/002/5287/front_en.24.400.jpg",
+      "defaultPriceCents": 200,
+      "active": true,
+      "tracksExpiration": true,
+      "createdAt": "2026-10-03T20:04:26.023Z",
+      "updatedAt": "2026-10-03T20:04:26.023Z"
+    },
+    {
+      "id": "6ac15fcbadd3eb010d071b9e",
+      "name": "Pop-Tarts Frosted Strawberry (2 ct) 3.3 oz",
+      "upc": "00038000317316",
+      "category": "snacks",
+      "taxClass": null,
+      "imageUrl": null,
+      "defaultPriceCents": 175,
+      "active": true,
+      "tracksExpiration": true,
+      "createdAt": "2026-10-03T20:04:27.498Z",
+      "updatedAt": "2026-10-03T20:04:27.498Z"
+    },
+    {
+      "id": "6ac15fcaadd3eb010d071b92",
+      "name": "Reese's Peanut Butter Cups 1.5 oz",
+      "upc": "00034000004409",
+      "category": "candy",
+      "taxClass": null,
+      "imageUrl": null,
+      "defaultPriceCents": 325,
+      "active": true,
+      "tracksExpiration": true,
+      "createdAt": "2026-10-03T20:04:26.222Z",
+      "updatedAt": "2026-10-03T20:04:26.222Z"
+    },
+    {
+      "id": "6ac15fc8add3eb010d071b80",
+      "name": "Ruffles Cheddar & Sour Cream Potato Chips 1.5 oz",
+      "upc": "00028400753647",
+      "category": "chips",
+      "taxClass": null,
+      "imageUrl": "https://images.openfoodfacts.org/images/products/002/840/075/3647/front_en.3.400.jpg",
+      "defaultPriceCents": 200,
+      "active": true,
+      "tracksExpiration": true,
+      "createdAt": "2026-10-03T20:04:24.124Z",
+      "updatedAt": "2026-10-03T20:04:24.124Z"
+    },
+    {
+      "id": "6ac15fcaadd3eb010d071b94",
+      "name": "Skittles Original 2.17 oz",
+      "upc": "00040000001607",
+      "category": "candy",
+      "taxClass": null,
+      "imageUrl": null,
+      "defaultPriceCents": 300,
+      "active": true,
+      "tracksExpiration": true,
+      "createdAt": "2026-10-03T20:04:26.430Z",
+      "updatedAt": "2026-10-03T20:04:26.430Z"
+    },
+    {
+      "id": "6ac15fcbadd3eb010d071b9a",
+      "name": "Snickers Bar 1.86 oz",
+      "upc": "00040000424314",
+      "category": "candy",
+      "taxClass": null,
+      "imageUrl": null,
+      "defaultPriceCents": 275,
+      "active": true,
+      "tracksExpiration": true,
+      "createdAt": "2026-10-03T20:04:27.104Z",
+      "updatedAt": "2026-10-03T20:04:27.104Z"
+    },
+    {
+      "id": "6ac15fc9add3eb010d071b8e",
+      "name": "SunChips Garden Salsa 1.5 oz",
+      "upc": "00028400753623",
+      "category": "chips",
+      "taxClass": null,
+      "imageUrl": "https://images.openfoodfacts.org/images/products/002/840/075/3623/front_en.6.400.jpg",
+      "defaultPriceCents": 200,
+      "active": true,
+      "tracksExpiration": true,
+      "createdAt": "2026-10-03T20:04:25.743Z",
+      "updatedAt": "2026-10-03T20:04:25.743Z"
+    },
+    {
+      "id": "6ac15fc9add3eb010d071b8c",
+      "name": "SunChips Harvest Cheddar 1.5 oz",
+      "upc": "00028400073264",
+      "category": "chips",
+      "taxClass": null,
+      "imageUrl": "https://images.openfoodfacts.org/images/products/002/840/007/3264/front_en.73.400.jpg",
+      "defaultPriceCents": 200,
+      "active": true,
+      "tracksExpiration": true,
+      "createdAt": "2026-10-03T20:04:25.536Z",
+      "updatedAt": "2026-10-03T20:04:25.536Z"
+    },
+    {
+      "id": "6ac15fcaadd3eb010d071b96",
+      "name": "Twix Caramel Cookie Bar 1.79 oz",
+      "upc": "00040000004356",
+      "category": "candy",
+      "taxClass": null,
+      "imageUrl": null,
+      "defaultPriceCents": 275,
+      "active": true,
+      "tracksExpiration": true,
+      "createdAt": "2026-10-03T20:04:26.637Z",
+      "updatedAt": "2026-10-03T20:04:26.637Z"
+    }
+  ],
+  "packs": [
+    {
+      "id": "6ac15fccadd3eb010d071ba3",
+      "name": "Big Texas Cinnamon Roll 4 oz — case (12)",
+      "barcodes": [
+        "00085264790027"
+      ],
+      "contents": [
+        {
+          "productId": "6ac15fccadd3eb010d071ba2",
+          "units": 12
+        }
+      ],
+      "active": true,
+      "createdAt": "2026-10-03T20:04:28.695Z",
+      "updatedAt": "2026-10-03T20:04:28.695Z"
+    },
+    {
+      "id": "6ac15fcbadd3eb010d071b9d",
+      "name": "Corn Nuts Original 1.7 oz — case (18)",
+      "barcodes": [
+        "00071159021338"
+      ],
+      "contents": [
+        {
+          "productId": "6ac15fcbadd3eb010d071b9c",
+          "units": 18
+        }
+      ],
+      "active": true,
+      "createdAt": "2026-10-03T20:04:27.310Z",
+      "updatedAt": "2026-10-03T20:04:27.310Z"
+    },
+    {
+      "id": "6ac15fc8add3eb010d071b87",
+      "name": "Doritos Cool Ranch Tortilla Chips 1.75 oz — case (64)",
+      "barcodes": [
+        "00028400443746"
+      ],
+      "contents": [
+        {
+          "productId": "6ac15fc8add3eb010d071b86",
+          "units": 64
+        }
+      ],
+      "active": true,
+      "createdAt": "2026-10-03T20:04:24.821Z",
+      "updatedAt": "2026-10-03T20:04:24.821Z"
+    },
+    {
+      "id": "6ac15fc8add3eb010d071b85",
+      "name": "Doritos Nacho Cheese Tortilla Chips 1.75 oz — case (64)",
+      "barcodes": [
+        "00028400443753"
+      ],
+      "contents": [
+        {
+          "productId": "6ac15fc8add3eb010d071b84",
+          "units": 64
+        }
+      ],
+      "active": true,
+      "createdAt": "2026-10-03T20:04:24.583Z",
+      "updatedAt": "2026-10-03T20:04:24.583Z"
+    },
+    {
+      "id": "6ac15fccadd3eb010d071ba1",
+      "name": "Famous Amos Chocolate Chip Cookies 2 oz — case (60)",
+      "barcodes": [
+        "10076677980164"
+      ],
+      "contents": [
+        {
+          "productId": "6ac15fccadd3eb010d071ba0",
+          "units": 60
+        }
+      ],
+      "active": true,
+      "createdAt": "2026-10-03T20:04:28.484Z",
+      "updatedAt": "2026-10-03T20:04:28.484Z"
+    },
+    {
+      "id": "6ac15fc9add3eb010d071b8b",
+      "name": "Fritos Original Corn Chips 2 oz — case (64)",
+      "barcodes": [
+        "00028400443555"
+      ],
+      "contents": [
+        {
+          "productId": "6ac15fc9add3eb010d071b8a",
+          "units": 64
+        }
+      ],
+      "active": true,
+      "createdAt": "2026-10-03T20:04:25.337Z",
+      "updatedAt": "2026-10-03T20:04:25.337Z"
+    },
+    {
+      "id": "6ac15fcaadd3eb010d071b99",
+      "name": "Kit Kat Milk Chocolate Wafer Bar 1.5 oz — case (36)",
+      "barcodes": [
+        "00034000246007"
+      ],
+      "contents": [
+        {
+          "productId": "6ac15fcaadd3eb010d071b98",
+          "units": 36
+        }
+      ],
+      "active": true,
+      "createdAt": "2026-10-03T20:04:26.915Z",
+      "updatedAt": "2026-10-03T20:04:26.915Z"
+    },
+    {
+      "id": "6ac15fc8add3eb010d071b83",
+      "name": "Lay's Classic Potato Chips 1.5 oz — case (64)",
+      "barcodes": [
+        "00028400443593"
+      ],
+      "contents": [
+        {
+          "productId": "6ac15fc8add3eb010d071b82",
+          "units": 64
+        }
+      ],
+      "active": true,
+      "createdAt": "2026-10-03T20:04:24.368Z",
+      "updatedAt": "2026-10-03T20:04:24.368Z"
+    },
+    {
+      "id": "6ac15fc9add3eb010d071b89",
+      "name": "Lay's Sour Cream & Onion Potato Chips 1.5 oz — case (64)",
+      "barcodes": [
+        "00028400443616"
+      ],
+      "contents": [
+        {
+          "productId": "6ac15fc9add3eb010d071b88",
+          "units": 64
+        }
+      ],
+      "active": true,
+      "createdAt": "2026-10-03T20:04:25.037Z",
+      "updatedAt": "2026-10-03T20:04:25.037Z"
+    },
+    {
+      "id": "6ac15fcaadd3eb010d071b91",
+      "name": "Munchies Cheese Fix Snack Mix 1.75 oz — case (64)",
+      "barcodes": [
+        "00028400443876"
+      ],
+      "contents": [
+        {
+          "productId": "6ac15fcaadd3eb010d071b90",
+          "units": 64
+        }
+      ],
+      "active": true,
+      "createdAt": "2026-10-03T20:04:26.035Z",
+      "updatedAt": "2026-10-03T20:04:26.035Z"
+    },
+    {
+      "id": "6ac15fcbadd3eb010d071b9f",
+      "name": "Pop-Tarts Frosted Strawberry (2 ct) 3.3 oz — case (72)",
+      "barcodes": [
+        "00038000317323"
+      ],
+      "contents": [
+        {
+          "productId": "6ac15fcbadd3eb010d071b9e",
+          "units": 72
+        }
+      ],
+      "active": true,
+      "createdAt": "2026-10-03T20:04:27.509Z",
+      "updatedAt": "2026-10-03T20:04:27.509Z"
+    },
+    {
+      "id": "6ac15fcaadd3eb010d071b93",
+      "name": "Reese's Peanut Butter Cups 1.5 oz — case (36)",
+      "barcodes": [
+        "00034000440009"
+      ],
+      "contents": [
+        {
+          "productId": "6ac15fcaadd3eb010d071b92",
+          "units": 36
+        }
+      ],
+      "active": true,
+      "createdAt": "2026-10-03T20:04:26.241Z",
+      "updatedAt": "2026-10-03T20:04:26.241Z"
+    },
+    {
+      "id": "6ac15fc8add3eb010d071b81",
+      "name": "Ruffles Cheddar & Sour Cream Potato Chips 1.5 oz — case (64)",
+      "barcodes": [
+        "00028400443654"
+      ],
+      "contents": [
+        {
+          "productId": "6ac15fc8add3eb010d071b80",
+          "units": 64
+        }
+      ],
+      "active": true,
+      "createdAt": "2026-10-03T20:04:24.152Z",
+      "updatedAt": "2026-10-03T20:04:24.152Z"
+    },
+    {
+      "id": "6ac15fcaadd3eb010d071b95",
+      "name": "Skittles Original 2.17 oz — case (36)",
+      "barcodes": [],
+      "contents": [
+        {
+          "productId": "6ac15fcaadd3eb010d071b94",
+          "units": 36
+        }
+      ],
+      "active": true,
+      "createdAt": "2026-10-03T20:04:26.442Z",
+      "updatedAt": "2026-10-03T20:04:26.442Z"
+    },
+    {
+      "id": "6ac15fcbadd3eb010d071b9b",
+      "name": "Snickers Bar 1.86 oz — case (48)",
+      "barcodes": [
+        "00040000524311"
+      ],
+      "contents": [
+        {
+          "productId": "6ac15fcbadd3eb010d071b9a",
+          "units": 48
+        }
+      ],
+      "active": true,
+      "createdAt": "2026-10-03T20:04:27.113Z",
+      "updatedAt": "2026-10-03T20:04:27.113Z"
+    },
+    {
+      "id": "6ac15fc9add3eb010d071b8f",
+      "name": "SunChips Garden Salsa 1.5 oz — case (64)",
+      "barcodes": [
+        "00028400444286"
+      ],
+      "contents": [
+        {
+          "productId": "6ac15fc9add3eb010d071b8e",
+          "units": 64
+        }
+      ],
+      "active": true,
+      "createdAt": "2026-10-03T20:04:25.761Z",
+      "updatedAt": "2026-10-03T20:04:25.761Z"
+    },
+    {
+      "id": "6ac15fc9add3eb010d071b8d",
+      "name": "SunChips Harvest Cheddar 1.5 oz — case (64)",
+      "barcodes": [
+        "00028400444279"
+      ],
+      "contents": [
+        {
+          "productId": "6ac15fc9add3eb010d071b8c",
+          "units": 64
+        }
+      ],
+      "active": true,
+      "createdAt": "2026-10-03T20:04:25.546Z",
+      "updatedAt": "2026-10-03T20:04:25.546Z"
+    },
+    {
+      "id": "6ac15fcaadd3eb010d071b97",
+      "name": "Twix Caramel Cookie Bar 1.79 oz — case (36)",
+      "barcodes": [
+        "00040000353911"
+      ],
+      "contents": [
+        {
+          "productId": "6ac15fcaadd3eb010d071b96",
+          "units": 36
+        }
+      ],
+      "active": true,
+      "createdAt": "2026-10-03T20:04:26.651Z",
+      "updatedAt": "2026-10-03T20:04:26.651Z"
+    }
+  ],
+  "planograms": [
+    {
+      "id": "6ac6c85af02aa8530f1978a2",
+      "machineId": "6ac1c6c40bfb1cd4c63d3019",
+      "effectiveFrom": "2026-10-07T22:31:54.634Z",
+      "slots": [
+        {
+          "slotCode": "A0",
+          "productId": "6ac15fccadd3eb010d071ba2",
+          "par": 10,
+          "priceCents": 500
+        },
+        {
+          "slotCode": "A2",
+          "productId": "6ac15fcbadd3eb010d071b9c",
+          "par": 10,
+          "priceCents": 325
+        },
+        {
+          "slotCode": "A4",
+          "productId": "6ac15fc8add3eb010d071b86",
+          "par": 10,
+          "priceCents": 200
+        },
+        {
+          "slotCode": "A6",
+          "productId": "6ac15fc8add3eb010d071b84",
+          "par": 10,
+          "priceCents": 200
+        },
+        {
+          "slotCode": "B0",
+          "productId": "6ac15fccadd3eb010d071ba0",
+          "par": 10,
+          "priceCents": 150
+        },
+        {
+          "slotCode": "B2",
+          "productId": "6ac15fc9add3eb010d071b8a",
+          "par": 10,
+          "priceCents": 200
+        },
+        {
+          "slotCode": "B4",
+          "productId": "6ac15fcaadd3eb010d071b98",
+          "par": 10,
+          "priceCents": 400
+        },
+        {
+          "slotCode": "B6",
+          "productId": "6ac15fc8add3eb010d071b82",
+          "par": 10,
+          "priceCents": 175
+        },
+        {
+          "slotCode": "C0",
+          "productId": "6ac15fcaadd3eb010d071b90",
+          "par": 10,
+          "priceCents": 200
+        },
+        {
+          "slotCode": "C2",
+          "productId": "6ac15fcbadd3eb010d071b9e",
+          "par": 10,
+          "priceCents": 175
+        },
+        {
+          "slotCode": "C4",
+          "productId": "6ac15fcaadd3eb010d071b92",
+          "par": 10,
+          "priceCents": 325
+        },
+        {
+          "slotCode": "C6",
+          "productId": "6ac15fc8add3eb010d071b80",
+          "par": 10,
+          "priceCents": 200
+        },
+        {
+          "slotCode": "D1",
+          "productId": "6ac15fcaadd3eb010d071b94",
+          "par": 10,
+          "priceCents": 300
+        },
+        {
+          "slotCode": "D2",
+          "productId": "6ac15fcbadd3eb010d071b9a",
+          "par": 10,
+          "priceCents": 275
+        },
+        {
+          "slotCode": "D3",
+          "productId": "6ac15fc9add3eb010d071b8e",
+          "par": 10,
+          "priceCents": 200
+        },
+        {
+          "slotCode": "D4",
+          "productId": "6ac15fc9add3eb010d071b8c",
+          "par": 10,
+          "priceCents": 200
+        },
+        {
+          "slotCode": "D5",
+          "productId": "6ac15fcaadd3eb010d071b96",
+          "par": 10,
+          "priceCents": 275
+        }
+      ],
+      "createdAt": "2026-10-07T22:31:54.663Z",
+      "updatedAt": "2026-10-07T22:31:54.663Z"
+    },
+    {
+      "id": "6ac7f800f02aa8530f1978a6",
+      "machineId": "6ac7f7d3f02aa8530f1978a5",
+      "effectiveFrom": "2026-10-08T20:07:28.200Z",
+      "slots": [
+        {
+          "slotCode": "A1",
+          "productId": "6ac15fccadd3eb010d071ba2",
+          "par": 10,
+          "priceCents": 500
+        },
+        {
+          "slotCode": "A2",
+          "productId": "6ac15fcbadd3eb010d071b9c",
+          "par": 10,
+          "priceCents": 325
+        },
+        {
+          "slotCode": "B1",
+          "productId": "6ac15fc8add3eb010d071b86",
+          "par": 10,
+          "priceCents": 200
+        },
+        {
+          "slotCode": "B2",
+          "productId": "6ac15fcaadd3eb010d071b98",
+          "par": 10,
+          "priceCents": 400
+        }
+      ],
+      "createdAt": "2026-10-08T20:07:28.226Z",
+      "updatedAt": "2026-10-08T20:07:28.226Z"
+    }
+  ]
+}

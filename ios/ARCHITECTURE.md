@@ -6,6 +6,9 @@ easy to re-derive from the code; the *why* is what evaporates.
 Plan of record: `docs/plans/2026-10-05-visits-and-ios.md`. Where this document
 disagrees with it, see "Divergences" at the end.
 
+The mirror and outbox this layering serves are drawn in
+`docs/diagrams/visit-sync.md`.
+
 ## The layering
 
 ```
