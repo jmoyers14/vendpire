@@ -12,6 +12,7 @@ which a checked-in SVG or PNG can't do.
 | `webhook-ingestion.md` | How a Clerk webhook becomes a local user / org / membership row. |
 | `visit-calculations.md` | How two visit counts become sold units, revenue, COGS, and profit — with worked numbers. |
 | `forced-update.md` | How an unsupported iOS build gets told to upgrade, and how the version floor is raised. |
+| `visit-sync.md` | How the phone's store fills from the server, and how a captured visit gets back. |
 
 ## Authoring
 
@@ -46,9 +47,3 @@ Don't commit the output — regenerate it.
 ```sh
 bunx @mermaid-js/mermaid-cli -i docs/diagrams/barcode-resolution.md -o /tmp/barcode.svg
 ```
-
-## Index
-
-| Diagram | Shows |
-|---|---|
-| [barcode-resolution.md](barcode-resolution.md) | What happens when an operator enters a UPC during purchase entry |
