@@ -1,5 +1,4 @@
-import { isUnsupportedClient } from "./clientSupport.ts";
-import type { MobileConfig } from "../config/mobileConfig.ts";
+import type { MobileClientSupportService } from "./services/MobileClientSupportService/MobileClientSupportService.ts";
 
 /** Only the parts of a request the gate reads — the `cors` and Bun typings disagree about `IncomingMessage`. */
 interface GateRequest {
@@ -25,13 +24,13 @@ type Gate = (
  * check never ran or its answer went stale. Runs upstream of the router
  * because tRPC has no error code that maps to 426 — unmapped codes become 500.
  */
-export function buildClientSupportGate(config: MobileConfig): Gate {
+export function buildClientSupportGate(
+  clientSupport: MobileClientSupportService,
+): Gate {
   return (req, res, next) => {
-    const blocked = isUnsupportedClient({
+    const blocked = clientSupport.isUnsupportedRequest({
       header: req.headers["x-vendpire-client"],
       path: req.url ?? "",
-      minimumBuild: config.iosMinimumBuild,
-      recommendedBuild: config.iosRecommendedBuild,
     });
 
     if (!blocked) {
@@ -46,7 +45,7 @@ export function buildClientSupportGate(config: MobileConfig): Gate {
         error: {
           code: "UPGRADE_REQUIRED",
           message: "This app version is no longer supported. Please update.",
-          updateUrl: config.iosUpdateUrl,
+          updateUrl: clientSupport.updateUrl,
         },
       }),
     );

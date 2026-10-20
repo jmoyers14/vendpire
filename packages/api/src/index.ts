@@ -4,8 +4,9 @@ import { appRouter } from "./router.ts";
 import { createContext } from "./createContext.ts";
 import { container } from "./services/index.ts";
 import { SERVER_CONFIG_TOKEN, type ServerConfig } from "./config/serverConfig.ts";
-import { MOBILE_CONFIG_TOKEN, type MobileConfig } from "./config/mobileConfig.ts";
-import { buildClientSupportGate } from "./clientSupport/clientSupportGate.ts";
+import { MOBILE_CLIENT_SUPPORT_SERVICE_TOKEN } from "./services/index.ts";
+import type { MobileClientSupportService } from "./services/MobileClientSupportService/MobileClientSupportService.ts";
+import { buildClientSupportGate } from "./clientSupportGate.ts";
 import { ANALYTICS_CLIENT_TOKEN } from "@vendpire/platform";
 import type { AnalyticsClient } from "@vendpire/platform";
 import {
@@ -22,12 +23,14 @@ installGlobalErrorHandlers();
 const main = async (): Promise<void> => {
   const { port, webUrl } = container.resolve<ServerConfig>(SERVER_CONFIG_TOKEN);
   const { uri } = container.resolve<DatabaseConfig>(DATABASE_CONFIG_TOKEN);
-  const mobileConfig = container.resolve<MobileConfig>(MOBILE_CONFIG_TOKEN);
+  const clientSupport = container.resolve<MobileClientSupportService>(
+    MOBILE_CLIENT_SUPPORT_SERVICE_TOKEN,
+  );
 
   // The adapter takes one middleware; CORS runs first so a refusal still
   // carries the headers a browser needs.
   const allowOrigin = cors({ origin: webUrl, credentials: true });
-  const refuseUnsupportedClients = buildClientSupportGate(mobileConfig);
+  const refuseUnsupportedClients = buildClientSupportGate(clientSupport);
 
   await connectDatabase(uri);
   rootLogger.info("connected to MongoDB");

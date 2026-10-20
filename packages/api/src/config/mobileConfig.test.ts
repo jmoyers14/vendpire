@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "bun:test";
-import { loadMobileConfig } from "./loadMobileConfig.ts";
+import { loadMobileConfig } from "./mobileConfig.ts";
 
 const KEYS = ["IOS_MINIMUM_BUILD", "IOS_RECOMMENDED_BUILD", "IOS_UPDATE_URL"];
 

@@ -13,6 +13,7 @@ import {
   PURCHASE_SERVICE_TOKEN,
   VISIT_SERVICE_TOKEN,
   PACK_SERVICE_TOKEN,
+  MOBILE_CLIENT_SUPPORT_SERVICE_TOKEN,
 } from "./services/index.ts";
 import {
   ANALYTICS_CLIENT_TOKEN,
@@ -32,8 +33,8 @@ import type { PlanogramService } from "./services/PlanogramService/PlanogramServ
 import type { PurchaseService } from "./services/PurchaseService/PurchaseService.ts";
 import type { VisitService } from "./services/VisitService/VisitService.ts";
 import type { PackService } from "./services/PackService/PackService.ts";
+import type { MobileClientSupportService } from "./services/MobileClientSupportService/MobileClientSupportService.ts";
 import type { Context } from "./context.ts";
-import { MOBILE_CONFIG_TOKEN, type MobileConfig } from "./config/mobileConfig.ts";
 
 /**
  * Runs per request. Authenticates the caller via AuthService and resolves the
@@ -59,7 +60,6 @@ export async function createContext(
     log,
     analytics: container.resolve<AnalyticsClient>(ANALYTICS_CLIENT_TOKEN),
     appConfig: container.resolve<AppConfig>(APP_CONFIG_TOKEN),
-    mobileConfig: container.resolve<MobileConfig>(MOBILE_CONFIG_TOKEN),
     services: {
       addressService: container.resolve<AddressService>(ADDRESS_SERVICE_TOKEN),
       locationService: container.resolve<LocationService>(LOCATION_SERVICE_TOKEN),
@@ -78,6 +78,9 @@ export async function createContext(
       purchaseService: container.resolve<PurchaseService>(PURCHASE_SERVICE_TOKEN),
       visitService: container.resolve<VisitService>(VISIT_SERVICE_TOKEN),
       packService: container.resolve<PackService>(PACK_SERVICE_TOKEN),
+      mobileClientSupportService: container.resolve<MobileClientSupportService>(
+        MOBILE_CLIENT_SUPPORT_SERVICE_TOKEN,
+      ),
     },
   };
 }

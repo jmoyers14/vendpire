@@ -15,7 +15,7 @@ import type { PlanogramService } from "./services/PlanogramService/PlanogramServ
 import type { PurchaseService } from "./services/PurchaseService/PurchaseService.ts";
 import type { VisitService } from "./services/VisitService/VisitService.ts";
 import type { PackService } from "./services/PackService/PackService.ts";
-import type { MobileConfig } from "./config/mobileConfig.ts";
+import type { MobileClientSupportService } from "./services/MobileClientSupportService/MobileClientSupportService.ts";
 
 /**
  * Authenticated principal for a request — the provider-neutral identity the
@@ -40,8 +40,6 @@ export interface Context {
   analytics: AnalyticsClient;
   /** Process-wide app identity (environment + build stamp). Read by the system router. */
   appConfig: AppConfig;
-  /** The iOS support floor. Read by the system router. */
-  mobileConfig: MobileConfig;
   /**
    * Request-scoped logger — the root logger with requestId/orgId/userId already
    * bound, so every line it writes correlates to this request. Typed as the
@@ -61,5 +59,6 @@ export interface Context {
     purchaseService: PurchaseService;
     visitService: VisitService;
     packService: PackService;
+    mobileClientSupportService: MobileClientSupportService;
   };
 }

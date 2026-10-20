@@ -1,6 +1,5 @@
 import { z } from "zod";
 import { publicProcedure, router } from "../trpc.ts";
-import { updateRequirementFor } from "../clientSupport/clientSupport.ts";
 import { ANALYTICS_EVENTS } from "../analytics/events.ts";
 
 export const systemRouter = router({
@@ -28,12 +27,8 @@ export const systemRouter = router({
       }),
     )
     .query(({ ctx, input }) => {
-      const { iosMinimumBuild, iosRecommendedBuild, iosUpdateUrl } = ctx.mobileConfig;
-      const updateRequirement = updateRequirementFor({
-        build: input.build,
-        minimumBuild: iosMinimumBuild,
-        recommendedBuild: iosRecommendedBuild,
-      });
+      const clientSupport = ctx.services.mobileClientSupportService;
+      const updateRequirement = clientSupport.verdictFor(input.build);
 
       if (updateRequirement !== "none") {
         ctx.analytics.capture({
@@ -49,6 +44,6 @@ export const systemRouter = router({
         });
       }
 
-      return { updateRequirement, updateUrl: iosUpdateUrl };
+      return { updateRequirement, updateUrl: clientSupport.updateUrl };
     }),
 });

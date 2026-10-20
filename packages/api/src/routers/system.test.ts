@@ -3,6 +3,7 @@ import type { AnalyticsEvent } from "@vendpire/platform";
 import { systemRouter } from "./system.ts";
 import type { Context } from "../context.ts";
 import type { MobileConfig } from "../config/mobileConfig.ts";
+import { MobileClientSupportServiceImpl } from "../services/MobileClientSupportService/MobileClientSupportServiceImpl.ts";
 
 const INERT: MobileConfig = {
   iosMinimumBuild: 0,
@@ -23,9 +24,11 @@ const buildContext = (
     shutdown: async () => {},
   },
   appConfig: {} as Context["appConfig"],
-  mobileConfig,
   log: {} as Context["log"],
-  services: {} as Context["services"],
+  services: {
+    ...({} as Context["services"]),
+    mobileClientSupportService: new MobileClientSupportServiceImpl(mobileConfig),
+  },
 });
 
 describe("system.clientSupport", () => {
