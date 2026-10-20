@@ -10,11 +10,7 @@ const INERT: MobileConfig = {
   iosUpdateUrl: "https://apps.apple.com/app/vendpire",
 };
 
-/**
- * A context carrying only what `clientSupport` touches. The services bag and
- * the app stamp are cast rather than faked — a fake would assert this procedure
- * depends on them, and the point is that it doesn't.
- */
+/** A context carrying only what `clientSupport` touches. */
 const buildContext = (
   mobileConfig: MobileConfig,
   captured: AnalyticsEvent[] = [],
@@ -63,11 +59,7 @@ describe("system.clientSupport", () => {
     expect(result.updateRequirement).toBe("required");
   });
 
-  // The single most important property of this endpoint. A blocked client is
-  // very likely also holding an expired session, so a wall that needs a valid
-  // token to appear is a wall that never appears — silently. If someone moves
-  // this onto orgProtectedProcedure, the null auth below throws and this fails.
-  it("answers a caller with no authentication at all", async () => {
+  it("answers a caller with no authentication at all — the wall needs it to", async () => {
     const context = buildContext({ ...INERT, iosMinimumBuild: 43 });
     expect(context.auth).toBeNull();
 
@@ -102,8 +94,6 @@ describe("system.clientSupport", () => {
 });
 
 describe("system.clientSupport analytics", () => {
-  // This count is the whole safety mechanism for raising the floor: without it
-  // you are guessing at how many users a bump would strand.
   it("records a stale client, with the build you would filter on", async () => {
     const captured: AnalyticsEvent[] = [];
     const caller = systemRouter.createCaller(
@@ -124,8 +114,6 @@ describe("system.clientSupport analytics", () => {
     });
   });
 
-  // Raising RECOMMENDED first and watching this count fall is the documented
-  // procedure, so a merely-nudged client has to show up in it too.
   it("records a client that is only behind the recommended number", async () => {
     const captured: AnalyticsEvent[] = [];
     const caller = systemRouter.createCaller(

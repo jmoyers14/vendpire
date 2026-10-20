@@ -10,8 +10,6 @@ afterEach(() => {
 });
 
 describe("loadMobileConfig", () => {
-  // Env vars are always strings. A floor that stayed "43" would compare against
-  // the build number as a string and quietly stop walling anyone.
   it("coerces the floor from the string env vars actually give it", () => {
     process.env.IOS_MINIMUM_BUILD = "43";
     process.env.IOS_RECOMMENDED_BUILD = "50";
@@ -22,8 +20,6 @@ describe("loadMobileConfig", () => {
     expect(config.iosRecommendedBuild).toBe(50);
   });
 
-  // Every already-deployed api runs without these vars set. If the default were
-  // anything but 0, the next deploy would wall every client in the field.
   it("defaults both floors to 0 so an unconfigured api stays inert", () => {
     const config = loadMobileConfig();
 

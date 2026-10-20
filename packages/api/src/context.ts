@@ -40,11 +40,7 @@ export interface Context {
   analytics: AnalyticsClient;
   /** Process-wide app identity (environment + build stamp). Read by the system router. */
   appConfig: AppConfig;
-  /**
-   * The iOS support floor. Read by the system router to answer a client asking
-   * whether its build is still supported; the `426` gate in the server entry
-   * reads the same slice straight from the container, upstream of this context.
-   */
+  /** The iOS support floor. Read by the system router. */
   mobileConfig: MobileConfig;
   /**
    * Request-scoped logger — the root logger with requestId/orgId/userId already

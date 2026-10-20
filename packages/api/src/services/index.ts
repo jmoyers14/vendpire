@@ -52,8 +52,6 @@ container.register(SERVER_CONFIG_TOKEN, {
   useFactory: instanceCachingFactory(() => loadServerConfig()),
 });
 
-// The iOS support floor — policy this entrypoint enforces, so it registers
-// alongside the server config rather than in the shared core.
 container.register(MOBILE_CONFIG_TOKEN, {
   useFactory: instanceCachingFactory(() => loadMobileConfig()),
 });

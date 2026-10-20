@@ -24,8 +24,8 @@ const main = async (): Promise<void> => {
   const { uri } = container.resolve<DatabaseConfig>(DATABASE_CONFIG_TOKEN);
   const mobileConfig = container.resolve<MobileConfig>(MOBILE_CONFIG_TOKEN);
 
-  // The adapter takes a single middleware, so the two are composed by hand.
-  // CORS runs first so even a refusal carries the headers a browser needs.
+  // The adapter takes one middleware; CORS runs first so a refusal still
+  // carries the headers a browser needs.
   const allowOrigin = cors({ origin: webUrl, credentials: true });
   const refuseUnsupportedClients = buildClientSupportGate(mobileConfig);
 

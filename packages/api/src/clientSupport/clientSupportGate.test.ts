@@ -15,10 +15,7 @@ interface Captured {
   nextCalls: number;
 }
 
-/**
- * Drives the gate with a bare request and records what it did — whether it
- * wrote a refusal, or handed the request onward.
- */
+/** Drives the gate and records whether it refused or handed the request on. */
 const run = (
   config: MobileConfig,
   request: { url: string; clientHeader?: string },
@@ -75,17 +72,13 @@ describe("buildClientSupportGate", () => {
     expect(result.nextCalls).toBe(1);
   });
 
-  // The web bundle sends no client header, and neither does the e2e health
-  // check. A gate that refused unidentified callers would take down both.
-  it("serves a caller that sends no client header", () => {
+  it("serves a caller that sends no client header, like the web bundle", () => {
     const result = run(FLOOR, { url: "/visits.create" });
 
     expect(result.nextCalls).toBe(1);
   });
 
-  // Without this the wall can never render: the refused client cannot reach the
-  // one endpoint that would tell it why it was refused.
-  it("never refuses the client-support endpoint itself", () => {
+  it("never refuses the client-support endpoint itself — the wall needs it", () => {
     const result = run(FLOOR, {
       url: "/system.clientSupport?batch=1",
       clientHeader: "ios/42",
@@ -112,8 +105,6 @@ describe("buildClientSupportGate", () => {
     expect(result.nextCalls).toBe(1);
   });
 
-  // The backstop fires when the launch check never happened, so the refusal
-  // has to carry the destination itself rather than assume the client has it.
   it("names where to update in the refusal body", () => {
     const result = run(FLOOR, { url: "/visits.create", clientHeader: "ios/42" });
 
