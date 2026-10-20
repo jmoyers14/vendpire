@@ -15,6 +15,7 @@ import type { PlanogramService } from "./services/PlanogramService/PlanogramServ
 import type { PurchaseService } from "./services/PurchaseService/PurchaseService.ts";
 import type { VisitService } from "./services/VisitService/VisitService.ts";
 import type { PackService } from "./services/PackService/PackService.ts";
+import type { MobileClientSupportService } from "./services/MobileClientSupportService/MobileClientSupportService.ts";
 
 /**
  * Authenticated principal for a request — the provider-neutral identity the
@@ -58,5 +59,6 @@ export interface Context {
     purchaseService: PurchaseService;
     visitService: VisitService;
     packService: PackService;
+    mobileClientSupportService: MobileClientSupportService;
   };
 }

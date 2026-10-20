@@ -6,6 +6,10 @@ import {
   loadServerConfig,
 } from "../config/serverConfig.ts";
 import {
+  MOBILE_CONFIG_TOKEN,
+  loadMobileConfig,
+} from "../config/mobileConfig.ts";
+import {
   AUTH_SERVICE_TOKEN,
   ADDRESS_SERVICE_TOKEN,
   LOCATION_SERVICE_TOKEN,
@@ -18,6 +22,7 @@ import {
   PURCHASE_SERVICE_TOKEN,
   VISIT_SERVICE_TOKEN,
   PACK_SERVICE_TOKEN,
+  MOBILE_CLIENT_SUPPORT_SERVICE_TOKEN,
 } from "./tokens.ts";
 import { AuthServiceImpl } from "./AuthService/AuthServiceImpl.ts";
 import { AddressServiceImpl } from "./AddressService/AddressServiceImpl.ts";
@@ -31,6 +36,7 @@ import { PlanogramServiceImpl } from "./PlanogramService/PlanogramServiceImpl.ts
 import { PurchaseServiceImpl } from "./PurchaseService/PurchaseServiceImpl.ts";
 import { VisitServiceImpl } from "./VisitService/VisitServiceImpl.ts";
 import { PackServiceImpl } from "./PackService/PackServiceImpl.ts";
+import { MobileClientSupportServiceImpl } from "./MobileClientSupportService/MobileClientSupportServiceImpl.ts";
 
 // This entrypoint's composition root. Registrations go on a *child* container
 // rather than tsyringe's global one so two entrypoints in the same process (or
@@ -50,7 +56,15 @@ container.register(SERVER_CONFIG_TOKEN, {
   useFactory: instanceCachingFactory(() => loadServerConfig()),
 });
 
+container.register(MOBILE_CONFIG_TOKEN, {
+  useFactory: instanceCachingFactory(() => loadMobileConfig()),
+});
+
 container.registerSingleton(AUTH_SERVICE_TOKEN, AuthServiceImpl);
+container.registerSingleton(
+  MOBILE_CLIENT_SUPPORT_SERVICE_TOKEN,
+  MobileClientSupportServiceImpl,
+);
 container.registerSingleton(ADDRESS_SERVICE_TOKEN, AddressServiceImpl);
 container.registerSingleton(LOCATION_SERVICE_TOKEN, LocationServiceImpl);
 container.registerSingleton(MACHINE_SERVICE_TOKEN, MachineServiceImpl);

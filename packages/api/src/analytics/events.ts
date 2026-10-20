@@ -15,4 +15,5 @@ export const ANALYTICS_EVENTS = {
   PURCHASE_CREATED: "purchase.created",
   VISIT_CREATED: "visit.created",
   PACK_CREATED: "pack.created",
+  STALE_CLIENT_DETECTED: "stale_client.detected",
 } as const;

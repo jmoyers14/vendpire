@@ -4,11 +4,12 @@ How a Vendpire iOS build that we no longer support gets told to upgrade, and
 how the floor that decides "no longer supported" gets raised without stranding
 anyone.
 
-> **Status: planned, not built.** Nothing in this file exists in code yet. It is
-> specified across Phases 2, 6, 7 and 8 of
-> `docs/plans/2026-10-05-visits-and-ios.md` — this file is the one place the
-> whole mechanism is told as a single story. Every file path below is a
-> destination, not a location.
+> **Status: the server half is built; the client half is not.** The floor, the
+> `client-support` endpoint and the `426` gate all exist and are deployed
+> inert behind a default floor of `0`. Nothing in the iOS app exists yet — no
+> gate, no wall, no middleware — so today the mechanism decides correctly and
+> has nobody listening. See "Where it lives" at the bottom for which paths are
+> real and which are still destinations.
 
 ## Why this is documented before it is built
 
@@ -203,15 +204,32 @@ occurs in normal development, so it has to be forced deliberately.
 The last two matter most. A wall that hides the data is a worse bug than no
 wall, so assert the mirror still renders behind it.
 
-## Where it will live
+## Where it lives
+
+Built:
+
+| Path | Role |
+|---|---|
+| `packages/api/src/config/mobileConfig.ts` | the floor, defaulting to `0` |
+| `packages/api/src/clientSupport/clientSupport.ts` | the verdict + header parsing, shared by both layers |
+| `packages/api/src/clientSupport/clientSupportGate.ts` | the `426` backstop, upstream of the router |
+| `packages/api/src/routers/system.ts` | the `clientSupport` procedure |
+
+Still destinations:
 
 | Path | Role | Phase |
 |---|---|---|
 | `ios/Vendpire/Support/ClientSupport.swift` | the `@Observable` gate + build comparison | 2 |
 | `ios/Vendpire/Features/UpdateRequired/` | the wall view | 2 |
-| `packages/api/src/config/mobileConfig.ts` | the floor, defaulting to `0` | 6 |
-| `packages/api/src/routers/system.ts` | the `clientSupport` procedure | 6 |
 | `ios/Vendpire/Network/ClientSupportMiddleware.swift` | header + `426` interception | 7 |
+
+**One note on the 426, since it shaped the layout above.** tRPC cannot produce
+this status: its code table has no entry mapping to 426 and unmapped codes fall
+back to 500. So the backstop is a gate in the HTTP middleware rather than a
+procedure throwing an error — which also gives the better semantics, one place
+in front of everything. It fires only for a request that positively identifies
+itself as a too-old iOS build, and never on `/system.*`, so the walled client
+can still read the verdict telling it why.
 
 The web dashboard does **not** use any of this. We control that bundle, so its
 equivalent is a "new version, reload" toast built on the existing
