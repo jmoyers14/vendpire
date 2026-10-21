@@ -49,8 +49,8 @@ struct AccountView: View {
         .navigationTitle("Account")
     }
 
-    /// Phase 2's DECIDE subtask on screen as well as in the console, so the
-    /// finding can be screenshotted rather than retyped.
+    /// The session token's organization claim on screen as well as in the
+    /// console, so it can be screenshotted rather than retyped.
     #if DEBUG
     /// Forces the wall, whose trigger never occurs in normal development.
     @ViewBuilder

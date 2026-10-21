@@ -12,8 +12,8 @@ enum AppEnvironment {
     /// Clerk publishable key for the instance this build authenticates against.
     static let clerkPublishableKey: String = requiredString("ClerkPublishableKey")
 
-    /// Base URL of the Vendpire REST API. Defined now, unused until Phase 7 —
-    /// the point is that there is already a right place for it.
+    /// Base URL of the Vendpire REST API. Unused until the app talks to it;
+    /// declared here so it never gets hardcoded at a call site.
     static let apiBaseURL: URL = {
         let raw = requiredString("VendpireAPIBaseURL")
         guard let url = URL(string: raw) else {
