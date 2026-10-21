@@ -91,6 +91,56 @@ convenience: the realistic threat here is a misplaced phone rather than a
 targeted theft. It is a named constant precisely because it is a policy choice
 — shorten it if that ever feels loose.
 
+## First launch
+
+**There is no local code to set up.** `LocalLock` evaluates
+`.deviceOwnerAuthentication`, which reuses the phone's existing Face ID and
+passcode. No app PIN is created, stored, or recoverable — so there is no
+enrolment step, no reset flow, and nothing for an operator to forget. The
+trade is that anyone who knows the phone's passcode is already past this gate;
+for a crew of two that is the right side of the trade.
+
+The order is also the reverse of the obvious guess: **the lock comes first,
+before Clerk.** Signing in is not a gate, so it cannot be a step in a sequence
+— it is a thing you go and do when you want the device to sync.
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Lock as LocalLockGate
+    participant List as LocationList
+    participant Account as AccountView
+    participant Clerk
+
+    User->>Lock: first launch after install
+    Note over Lock: device passcode already exists —<br/>nothing to enrol
+    Lock-->>User: Face ID
+    User->>List: unlocked
+    Note over List: empty — no org data yet
+    User->>Account: toolbar, to sign in
+    Account->>Clerk: email + password
+    Clerk-->>Account: session + organization claim
+    Note over List: fills on the next refresh
+```
+
+### Two gaps this exposes
+
+Both are real today, neither is fixed by the lock itself.
+
+**The lock asks before there is anything to protect.** On a fresh install the
+store is empty, so the first thing a new operator meets is a Face ID prompt
+guarding nothing, before they have any idea what the app is. The gate should
+engage once the store has content; an empty store needs no gate and a prompt
+without context teaches people to distrust the one that matters later.
+
+**Nothing points a new operator at sign-in.** The empty state currently reads
+"The store is empty. Re-run exportIosFixture.ts" — developer scaffolding — and
+the only route to signing in is noticing the account icon in the toolbar. A
+first run should say what is missing and offer the way to fix it.
+
+Neither is a security hole. Both are the difference between a flow that
+explains itself and one that is merely correct.
+
 ## When there is nothing to lock
 
 If the device has no passcode enrolled, `canEvaluatePolicy` returns false and
