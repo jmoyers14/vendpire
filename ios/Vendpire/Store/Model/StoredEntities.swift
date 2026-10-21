@@ -3,9 +3,8 @@ import SwiftData
 
 /// The device's mirror of the org's reference data.
 ///
-/// Five entities, all already shipped and stable server-side. The visit model is
-/// deliberately absent — it depends on Phase 3 and nothing speculative is built
-/// here.
+/// Five entities, all stable server-side. The visit model is deliberately
+/// absent until the write path it depends on exists.
 ///
 /// Three rules run through all of them:
 ///

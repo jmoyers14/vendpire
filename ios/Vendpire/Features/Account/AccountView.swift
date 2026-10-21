@@ -7,6 +7,7 @@ import SwiftUI
 /// ARCHITECTURE.md, "Auth never gates the store".
 struct AccountView: View {
     @Environment(ClerkSession.self) private var session
+    @Environment(ClientSupport.self) private var clientSupport
 
     var body: some View {
         List {
@@ -40,12 +41,36 @@ struct AccountView: View {
             if let report = session.claimReport {
                 claimReportSection(report)
             }
+
+            #if DEBUG
+            updateWallSection()
+            #endif
         }
         .navigationTitle("Account")
     }
 
-    /// Phase 2's DECIDE subtask on screen as well as in the console, so the
-    /// finding can be screenshotted rather than retyped.
+    /// The session token's organization claim on screen as well as in the
+    /// console, so it can be screenshotted rather than retyped.
+    #if DEBUG
+    /// Forces the wall, whose trigger never occurs in normal development.
+    @ViewBuilder
+    private func updateWallSection() -> some View {
+        Section("Update wall (Debug)") {
+            Picker("Requirement", selection: Binding(
+                get: { clientSupport.requirement },
+                set: { clientSupport.apply($0, updateUrl: Self.debugUpdateUrl) }
+            )) {
+                Text("none").tag(UpdateRequirement.none)
+                Text("recommended").tag(UpdateRequirement.recommended)
+                Text("required").tag(UpdateRequirement.required)
+            }
+            LabeledContent("This build", value: ClientBuild.current.map(String.init) ?? "unreadable")
+        }
+    }
+
+    private static let debugUpdateUrl = URL(string: "https://apps.apple.com/app/id000000000")
+    #endif
+
     @ViewBuilder
     private func claimReportSection(_ report: ClerkSession.ClaimReport) -> some View {
         Section("Session token claims") {
