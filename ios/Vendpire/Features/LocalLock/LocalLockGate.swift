@@ -4,13 +4,15 @@ import SwiftUI
 /// confirmed — unlike the update wall, hiding the store is the point here.
 struct LocalLockGate<Content: View>: View {
     let lock: LocalLock
+    /// False when there is nothing behind the gate worth guarding.
+    let isArmed: Bool
     @ViewBuilder var content: () -> Content
 
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         Group {
-            if lock.isUnlocked {
+            if lock.isUnlocked || !isArmed {
                 content()
             } else {
                 LockedView(state: lock.state) {
@@ -19,12 +21,13 @@ struct LocalLockGate<Content: View>: View {
             }
         }
         .task {
+            guard isArmed else { return }
             await lock.unlock()
         }
         .onChange(of: scenePhase) { _, phase in
             switch phase {
             case .background: lock.backgrounded()
-            case .active: lock.foregrounded()
+            case .active: if isArmed { lock.foregrounded() }
             default: break
             }
         }

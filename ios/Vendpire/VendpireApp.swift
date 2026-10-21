@@ -15,10 +15,7 @@ struct VendpireApp: App {
 
     var body: some Scene {
         WindowGroup {
-            LocalLockGate(lock: lock) {
-                LocationListView()
-                    .updateWall(clientSupport)
-            }
+            RootView(lock: lock, clientSupport: clientSupport)
             .environment(session)
             .environment(clientSupport)
             .modelContainer(container)
@@ -39,6 +36,11 @@ struct VendpireApp: App {
     /// from the store regardless of what the last fill attempt did.
     @MainActor
     private func seedStore() {
+        #if DEBUG
+        // The fixture seeds every launch, so the first-run path is otherwise
+        // unreachable in development: `-skipFixture` is how it gets looked at.
+        if ProcessInfo.processInfo.arguments.contains("-skipFixture") { return }
+        #endif
         let loader = DevFixtureLoader(writer: MirrorWriter(context: container.mainContext))
         do {
             try loader.load()

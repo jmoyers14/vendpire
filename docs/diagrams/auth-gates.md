@@ -105,41 +105,53 @@ before Clerk.** Signing in is not a gate, so it cannot be a step in a sequence
 — it is a thing you go and do when you want the device to sync.
 
 ```mermaid
-sequenceDiagram
-    participant User
-    participant Lock as LocalLockGate
-    participant List as LocationList
-    participant Account as AccountView
-    participant Clerk
+flowchart TD
+    Launch["launch"] --> HasOrg
 
-    User->>Lock: first launch after install
-    Note over Lock: device passcode already exists —<br/>nothing to enrol
-    Lock-->>User: Face ID
-    User->>List: unlocked
-    Note over List: empty — no org data yet
-    User->>Account: toolbar, to sign in
-    Account->>Clerk: email + password
-    Clerk-->>Account: session + organization claim
-    Note over List: fills on the next refresh
+    HasOrg{"StoreMetadata exists?<br/>(an org has been mirrored)"}
+    HasOrg -->|"no — nothing to guard"| SignedIn
+    HasOrg -->|"yes"| Lock
+
+    SignedIn{"signed in?"}
+    SignedIn -->|"no"| Welcome["Welcome to Vendpire<br/>→ Sign In"]
+    SignedIn -->|"yes"| Waiting["Nothing synced yet"]
+
+    Lock{"LocalLock"}
+    Lock -->|"owner confirmed,<br/>or no passcode enrolled"| List["Locations"]
+    Lock -->|"cancelled"| Locked["Vendpire is locked<br/>→ Unlock"]
 ```
 
-### Two gaps this exposes
+**The gate arms only once there is something behind it.** An empty store holds
+nothing worth guarding, and a biometric prompt before the app has explained
+itself teaches people to dismiss the one that matters later. `StoreMetadata`
+exists only after an organization has been mirrored, so its absence is the
+honest signal.
 
-Both are real today, neither is fixed by the lock itself.
+**The welcome screen is the one place that routes to sign-in** rather than
+waiting to be found — and only because there is nothing else to show. Once the
+store has content it never appears again, signed in or not. That keeps the rule
+intact: emptiness sends you to sign-in, auth never does.
 
-**The lock asks before there is anything to protect.** On a fresh install the
-store is empty, so the first thing a new operator meets is a Face ID prompt
-guarding nothing, before they have any idea what the app is. The gate should
-engage once the store has content; an empty store needs no gate and a prompt
-without context teaches people to distrust the one that matters later.
+Worth knowing: a Clerk session survives app deletion, because it lives in the
+Keychain. A reinstall is therefore usually signed in already, landing on
+"Nothing synced yet" rather than the welcome screen.
 
-**Nothing points a new operator at sign-in.** The empty state currently reads
-"The store is empty. Re-run exportIosFixture.ts" — developer scaffolding — and
-the only route to signing in is noticing the account icon in the toolbar. A
-first run should say what is missing and offer the way to fix it.
+### Reaching these states in development
 
-Neither is a security hole. Both are the difference between a flow that
-explains itself and one that is merely correct.
+The fixture seeds on every launch and the Simulator has no enrolled
+biometrics, so two of the four states are otherwise unreachable there.
+
+| Flag | Gets you |
+|---|---|
+| `-skipFixture` | an empty store — the welcome and waiting screens |
+| `-skipLock` | past a gate the Simulator cannot satisfy |
+
+```
+xcrun simctl launch <udid> com.dogbeach.dev.Vendpire -skipFixture
+```
+
+Both are `#if DEBUG`. On hardware neither is needed: enrolled biometrics
+satisfy the real gate.
 
 ## When there is nothing to lock
 

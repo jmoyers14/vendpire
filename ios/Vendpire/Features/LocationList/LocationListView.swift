@@ -16,7 +16,7 @@ struct LocationListView: View {
                     ContentUnavailableView(
                         "No locations",
                         systemImage: "mappin.slash",
-                        description: Text("The store is empty. Re-run exportIosFixture.ts.")
+                        description: Text("This organization has no locations yet.")
                     )
                 } else {
                     List(locations) { location in

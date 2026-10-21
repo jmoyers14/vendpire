@@ -61,6 +61,15 @@ final class LocalLock {
     func unlock(now: Date = Date()) async {
         guard state != .unlocked else { return }
 
+        #if DEBUG
+        // The Simulator has no enrolled biometrics, so the gate is otherwise
+        // impassable there and every screen behind it unreachable.
+        if ProcessInfo.processInfo.arguments.contains("-skipLock") {
+            markUnlocked(at: now)
+            return
+        }
+        #endif
+
         // No passcode on the device means the gate can only stop the
         // legitimate user — what it would protect is already reachable by
         // anyone holding the phone. See docs/diagrams/auth-gates.md.
