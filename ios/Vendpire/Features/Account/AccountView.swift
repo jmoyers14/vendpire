@@ -52,8 +52,7 @@ struct AccountView: View {
     /// Phase 2's DECIDE subtask on screen as well as in the console, so the
     /// finding can be screenshotted rather than retyped.
     #if DEBUG
-    /// The wall's trigger never occurs in normal development, so it has to be
-    /// forced deliberately.
+    /// Forces the wall, whose trigger never occurs in normal development.
     @ViewBuilder
     private func updateWallSection() -> some View {
         Section("Update wall (Debug)") {

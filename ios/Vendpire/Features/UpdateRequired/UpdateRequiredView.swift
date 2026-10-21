@@ -1,11 +1,8 @@
 import SwiftUI
 
-/// The update wall.
-///
-/// Sits in the bottom safe area rather than covering the screen: the store has
-/// to stay readable behind it, so someone standing at a machine still sees
-/// their planogram while being told to update. A wall that hides the data is a
-/// worse bug than no wall.
+/// The update wall. Sits in the bottom safe area rather than covering the
+/// screen — someone standing at a machine keeps seeing their planogram while
+/// being told to update.
 struct UpdateRequiredView: View {
     let requirement: UpdateRequirement
     let updateUrl: URL?

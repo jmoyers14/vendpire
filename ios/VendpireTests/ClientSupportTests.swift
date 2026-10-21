@@ -38,8 +38,7 @@ final class ClientSupportTests: XCTestCase {
         XCTAssertEqual(support.requirement, .recommended, "dismissing hides the nudge, not the verdict")
     }
 
-    /// Escalation must reach someone who already waved the nudge away.
-    func testADismissedNudgeResurfacesWhenTheVerdictChanges() {
+    func testADismissedNudgeResurfacesWhenTheVerdictEscalates() {
         let support = ClientSupport()
         support.apply(.recommended, updateUrl: updateUrl)
         support.dismissNudge()
@@ -66,9 +65,7 @@ final class ClientSupportTests: XCTestCase {
         XCTAssertEqual(try decodeRequirement("\"required\""), .required)
     }
 
-    /// A newer server adding a verdict must not wall anyone on a value this
-    /// build cannot interpret.
-    func testAnUnknownVerdictReadsAsNone() throws {
+    func testAnUnknownVerdictReadsAsNoneRatherThanWalling() throws {
         XCTAssertEqual(try decodeRequirement("\"catastrophic\""), .none)
     }
 
@@ -78,9 +75,7 @@ final class ClientSupportTests: XCTestCase {
         XCTAssertEqual(ClientBuild.parse("42"), 42)
     }
 
-    /// We report nothing rather than guess: every sentinel is wrong in one
-    /// direction — `0` walls everyone, `Int.max` walls no one.
-    func testADottedBundleVersionIsUnreadable() {
+    func testADottedBundleVersionReportsNothingRatherThanGuessing() {
         XCTAssertNil(ClientBuild.parse("1.2.3"))
     }
 

@@ -1,10 +1,7 @@
 import Foundation
 
-/// The server's verdict on this build.
-///
-/// Decoded leniently: an unrecognised value from a newer server reads as
-/// `.none`. Walling people over a verdict we cannot interpret is the failure
-/// this whole mechanism exists to avoid.
+/// The server's verdict on this build. An unrecognised value decodes as
+/// `.none` — never wall anyone over a verdict this build cannot interpret.
 nonisolated enum UpdateRequirement: String, Decodable, Sendable {
     case none
     case recommended
@@ -17,38 +14,31 @@ nonisolated enum UpdateRequirement: String, Decodable, Sendable {
 }
 
 /// This binary's `CFBundleVersion`, reported to the server and never compared
-/// to a floor on device — the server owns how build 41 is treated, so the floor
-/// can move without shipping an app.
+/// to a floor here — the floor moves without shipping an app.
 ///
-/// `nil` when the value is missing or not an integer. A sentinel would be worse
-/// either way: `0` walls everyone on a misread, and `Int.max` walls no one. The
-/// caller skips the check instead, and the server already passes through a
-/// request that reports no build.
+/// `nil` rather than a sentinel when unreadable: `0` walls everyone, `Int.max`
+/// walls no one. The server passes through a request reporting no build.
 nonisolated enum ClientBuild {
     static var current: Int? {
         parse(Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String)
     }
 
-    /// `CFBundleVersion` is permitted to be dotted (`1.2.3`), which is not a
-    /// build number we can report.
+    /// `CFBundleVersion` is permitted to be dotted (`1.2.3`).
     static func parse(_ raw: String?) -> Int? {
         guard let raw else { return nil }
         return Int(raw)
     }
 }
 
-/// Holds the current verdict and decides whether the wall is on screen.
-///
-/// Nothing here touches the network: the verdict is handed in, by the Debug
-/// menu today and by the client-support check once networking exists.
+/// Holds the current verdict and decides whether the wall is on screen. The
+/// verdict is handed in; nothing here touches the network.
 @MainActor
 @Observable
 final class ClientSupport {
     private(set) var requirement: UpdateRequirement = .none
     private(set) var updateUrl: URL?
 
-    /// Per-launch, and only ever for `.recommended`. Not persisted — a nudge
-    /// that stays dismissed across launches is one nobody ever acts on.
+    /// Not persisted: a nudge dismissed across launches is one nobody acts on.
     private(set) var isNudgeDismissed = false
 
     var isWallVisible: Bool {
@@ -61,8 +51,8 @@ final class ClientSupport {
 
     var isDismissible: Bool { requirement == .recommended }
 
-    /// A changed verdict resurfaces a dismissed nudge: the situation is not the
-    /// one the user waved away.
+    /// A changed verdict resurfaces a dismissed nudge — escalation has to reach
+    /// someone who waved the first one away.
     func apply(_ requirement: UpdateRequirement, updateUrl: URL?) {
         if requirement != self.requirement {
             isNudgeDismissed = false
@@ -77,9 +67,7 @@ final class ClientSupport {
     }
 
     #if DEBUG
-    /// The wall's trigger never occurs in normal development, so it has to be
-    /// forced: `-updateRequirement required` as a launch argument, or the
-    /// Debug section of the account screen.
+    /// Forces the gate without a server: `-updateRequirement required`.
     func applyLaunchArgumentOverride(_ arguments: [String] = ProcessInfo.processInfo.arguments) {
         guard let flag = arguments.firstIndex(of: "-updateRequirement"),
               let raw = arguments[safe: flag + 1],
