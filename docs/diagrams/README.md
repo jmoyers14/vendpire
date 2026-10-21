@@ -13,6 +13,7 @@ which a checked-in SVG or PNG can't do.
 | `visit-calculations.md` | How two visit counts become sold units, revenue, COGS, and profit — with worked numbers. |
 | `forced-update.md` | How an unsupported iOS build gets told to upgrade, and how the version floor is raised. |
 | `visit-sync.md` | How the phone's store fills from the server, and how a captured visit gets back. |
+| `auth-gates.md` | How the local lock, the Clerk token, and the update wall divide up what they guard. |
 
 ## Authoring
 
