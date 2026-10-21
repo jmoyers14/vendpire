@@ -30,6 +30,28 @@ One source of truth — the router — producing compile-time safety on both end
 implementation to keep in sync. The README already frames it this way: *"Two
 surfaces share one backend."*
 
+```mermaid
+flowchart LR
+    Web["packages/web<br/>imports the AppRouter type"]
+    Phone["iOS app<br/>generated from vendpire.yaml"]
+
+    subgraph server["vendpire-api — one process, one port"]
+        Trpc["createHTTPHandler"]
+        Rest["createOpenApiHttpHandler"]
+        Router["appRouter.locations.list"]
+        Svc["LocationService.list"]
+    end
+
+    Db[("MongoDB")]
+
+    Web -->|"httpBatchLink — /locations.list?batch=1"| Trpc
+    Phone -->|"URLSession — GET /api/v1/locations"| Rest
+    Trpc -->|"same procedure"| Router
+    Rest -->|"same procedure"| Router
+    Router -->|"orgProtectedProcedure narrows orgId"| Svc
+    Svc -->|"findByOrg(orgId)"| Db
+```
+
 ### Why now, despite the card's precondition
 
 The card says *"don't start until real visits have gone through Phase 5."* That
@@ -71,6 +93,18 @@ considered and rejected: the full ten-endpoint surface lands in one go.
   an org gate it returns 403 with no way to tell "no org" from "no access" —
   the same pending-session trap that already bit the web app. A comment saying
   so goes on the procedure, not only in this document.
+
+```mermaid
+flowchart TD
+    User["member-less user<br/>valid token, no active org"]
+    Me["GET /api/v1/me<br/>protectedProcedure"]
+    Tidy["if me were orgProtectedProcedure"]
+
+    User -->|"Bearer token"| Me
+    Me -->|"200 { orgId: null }"| Learn(["phone can say: join an organization"])
+    User -.->|"the tidy-up this spec forbids"| Tidy
+    Tidy -->|"403 No active organization selected"| Stuck(["'no org' and 'no access'<br/>are indistinguishable"])
+```
 
 Only three of the ten take input at all: `visits.create`, `purchases.create`,
 and `system.clientSupport`. The rest take none.
@@ -184,12 +218,26 @@ is the `middleware` slot, where `cors` and `clientSupportGate` already live.
 `index.ts` therefore inlines that one line so the callback can branch. **This
 adds no second server, port, or process.**
 
-```
-request
-  └─ cors(webUrl)              ← in effect for the tRPC path; native clients send no preflight
-      └─ clientSupportGate      ← 426; sees the URL BEFORE the prefix is stripped
-          ├─ /api/v1/*  → strip prefix → createOpenApiHttpHandler
-          └─ else       → createHTTPHandler   (tRPC at root, unchanged)
+```mermaid
+flowchart TD
+    Req["incoming request"]
+    Cors["cors(webUrl)"]
+    Gate["clientSupportGate"]
+    Branch{"url starts with /api/v1 ?"}
+    Strip["req.url = req.url.slice(7)"]
+    Rest["createOpenApiHttpHandler"]
+    Trpc["createHTTPHandler"]
+    Err["logRequestError"]
+
+    Req -->|"http.createServer callback"| Cors
+    Cors -->|"next() — native clients send no preflight"| Gate
+    Gate -->|"426 UPGRADE_REQUIRED"| Refused(["router never runs"])
+    Gate -->|"next() — sees the URL before the rewrite"| Branch
+    Branch -->|"yes"| Strip
+    Strip -->|"/api/v1/locations becomes /locations"| Rest
+    Branch -->|"no — tRPC stays at the root"| Trpc
+    Rest -->|"onError"| Err
+    Trpc -->|"onError"| Err
 ```
 
 The gate running **before** the rewrite is load-bearing: it is why the exemption
@@ -218,6 +266,22 @@ explains why: the `cors` and Bun typings disagree about `IncomingMessage`).
 `client-support` moves to `/api/v1/client-support`, that match fails and **the
 426 gate refuses the one endpoint that explains the wall.** Exactly the failure
 the forced-update card warns about, and it fails silently.
+
+```mermaid
+sequenceDiagram
+    participant Phone as iPhone build 42
+    participant Gate as clientSupportGate
+    participant Api as clientSupport procedure
+
+    Note over Phone,Api: today — the exemption matches the "system." prefix
+    Phone->>Gate: GET /system.clientSupport
+    Gate->>Api: isEntirelyUngated("system.clientSupport") = true
+    Api-->>Phone: updateRequirement = "required"
+
+    Note over Phone,Api: after the move, without the fix
+    Phone->>Gate: GET /api/v1/client-support
+    Gate-->>Phone: 426 — the wall refuses to explain itself
+```
 
 The rule stays in the service. The card's invariant is that one implementation
 answers both the launch check and the gate so the two cannot disagree; splitting
@@ -284,6 +348,23 @@ type Exactly<Dto, S extends z.ZodType> = Equal<z.infer<S>, Dto> extends true ? S
 Its failure message (`not assignable to type 'never'`) is poor; a short comment
 at the helper explains what the error means when it fires.
 
+```mermaid
+flowchart LR
+    Entity["Location<br/>platform/…/LocationRepository/types.ts"]
+    Dto["LocationDto = Omit&lt;Location, 'commission'&gt;"]
+    Schema["locationDto = z.object({…})"]
+    Check{"Exactly&lt;LocationDto, typeof locationDto&gt;"}
+    Yaml[("openapi/vendpire.yaml")]
+    Swift["Components.Schemas.Location"]
+
+    Entity -->|"Omit — the one deliberate cut"| Dto
+    Dto -->|"expected shape"| Check
+    Schema -->|"z.infer — actual shape"| Check
+    Check -->|"field added, type changed, or stale field left"| Stop(["tsc fails — drift stops here"])
+    Check -->|"exact in both directions"| Yaml
+    Yaml -->|"swift-openapi-generator"| Swift
+```
+
 **Gotcha to keep in mind:** `.output()` strips unknown keys at runtime. Outputs
 are exact DTOs from the `toX()` mappers so this should be a no-op — but it is
 the first thing to check if a field goes missing.
@@ -293,6 +374,25 @@ the first thing to check if a field goes missing.
 Committed, so the Swift build never needs a running server. A test asserts the
 committed document matches a fresh generation, so an un-regenerated schema
 change fails CI.
+
+```mermaid
+flowchart LR
+    Router["appRouter<br/>.meta({ openapi }) + .output()"]
+    Script["scripts/generateOpenApi.ts"]
+    Fresh["freshly generated document"]
+    Committed[("openapi/vendpire.yaml<br/>checked in")]
+    Drift{"fresh == committed ?"}
+    Meta{"valid OpenAPI 3.1 ?"}
+
+    Router -->|"generateOpenApiDocument"| Script
+    Script -->|"reused: ref + override hook"| Fresh
+    Fresh -->|"compared by the drift test"| Drift
+    Committed -->|"read from disk"| Drift
+    Drift -->|"no — someone changed a schema<br/>without regenerating"| Fail(["CI fails"])
+    Drift -->|"yes"| Meta
+    Meta -->|"no — malformed document"| Fail
+    Meta -->|"yes"| Pass(["Phase 7 can generate Swift from it"])
+```
 
 Three settings that matter more than they look:
 
