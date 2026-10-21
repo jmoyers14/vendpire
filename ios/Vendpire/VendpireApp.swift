@@ -6,6 +6,7 @@ import SwiftUI
 struct VendpireApp: App {
     @State private var session = ClerkSession()
     @State private var clientSupport = ClientSupport()
+    @State private var lock = LocalLock()
     private let container = VendpireStore.makeContainer()
 
     init() {
@@ -14,21 +15,20 @@ struct VendpireApp: App {
 
     var body: some Scene {
         WindowGroup {
-            LocationListView()
-                .updateWall(clientSupport)
-                .environment(session)
-                .environment(clientSupport)
-                .modelContainer(container)
-                .task {
-                    seedStore()
-                    #if DEBUG
-                    clientSupport.applyLaunchArgumentOverride()
-                    #endif
-                    // Clerk rehydrates a persisted session itself; this only
-                    // reads the result. It must never gate what is shown —
-                    // a cold offline launch is expected to fail here.
-                    session.refreshFromClerk()
-                }
+            RootView(lock: lock, clientSupport: clientSupport)
+            .environment(session)
+            .environment(clientSupport)
+            .modelContainer(container)
+            .task {
+                seedStore()
+                #if DEBUG
+                clientSupport.applyLaunchArgumentOverride()
+                #endif
+                // Clerk rehydrates a persisted session itself; this only
+                // reads the result. It must never gate what is shown —
+                // a cold offline launch is expected to fail here.
+                session.refreshFromClerk()
+            }
         }
     }
 
@@ -36,6 +36,11 @@ struct VendpireApp: App {
     /// from the store regardless of what the last fill attempt did.
     @MainActor
     private func seedStore() {
+        #if DEBUG
+        // The fixture seeds every launch, so the first-run path is otherwise
+        // unreachable in development: `-skipFixture` is how it gets looked at.
+        if ProcessInfo.processInfo.arguments.contains("-skipFixture") { return }
+        #endif
         let loader = DevFixtureLoader(writer: MirrorWriter(context: container.mainContext))
         do {
             try loader.load()
