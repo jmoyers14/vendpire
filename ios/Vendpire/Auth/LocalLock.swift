@@ -40,10 +40,11 @@ final class LocalLock {
         case unlocked
     }
 
-    /// Leaving the app is constant while servicing — a camera, a phone call, a
-    /// supplier's site. Re-prompting on every return is how people turn the
-    /// feature off, and a disabled lock protects nothing.
-    static let graceInterval: TimeInterval = 5 * 60
+    /// Leaving the app is constant while servicing — a camera, a phone call,
+    /// the drive to the next location. Re-prompting on every return is how
+    /// people turn the feature off, and a disabled lock protects nothing. An
+    /// hour is roughly once per shift; shorten it if that ever feels loose.
+    static let graceInterval: TimeInterval = 60 * 60
 
     private(set) var state: State = .locked
 

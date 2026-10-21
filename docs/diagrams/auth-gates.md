@@ -82,10 +82,14 @@ stateDiagram-v2
 ```
 
 **A grace period, not an instant re-lock.** Servicing a machine means leaving
-the app constantly — a camera, a phone call, a supplier's site. Re-prompting on
-every return is how people turn the feature off, and a disabled lock protects
-nothing. The window is a named constant, not a literal, because it is a policy
-choice rather than a fact.
+the app constantly — a camera, a phone call, the drive to the next location.
+Re-prompting on every return is how people turn the feature off, and a disabled
+lock protects nothing.
+
+The window is **an hour**, roughly once per shift, chosen deliberately toward
+convenience: the realistic threat here is a misplaced phone rather than a
+targeted theft. It is a named constant precisely because it is a policy choice
+— shorten it if that ever feels loose.
 
 ## When there is nothing to lock
 
