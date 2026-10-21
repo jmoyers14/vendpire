@@ -219,7 +219,7 @@ Still destinations:
 
 | Path | Role | Phase |
 |---|---|---|
-| `ios/Vendpire/Support/ClientSupport.swift` | the `@Observable` gate + build comparison | 2 |
+| `ios/Vendpire/ClientSupport/ClientSupport.swift` | the `@Observable` gate + build comparison | 2 |
 | `ios/Vendpire/Features/UpdateRequired/` | the wall view | 2 |
 | `ios/Vendpire/Network/ClientSupportMiddleware.swift` | header + `426` interception | 7 |
 
