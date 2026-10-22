@@ -3,15 +3,29 @@ import type { Location } from "@vendpire/platform";
 import type { Assert, Equal } from "./exactly.ts";
 
 /**
- * What `GET /api/v1/locations` returns: the Location entity minus `commission`.
+ * What `GET /api/v1/locations` returns: the Location entity, exactly, like the
+ * other eight schemas in this directory.
  *
- * `commission` is a 3-arm discriminated union and the only union in the entity
- * layer. It is cut from v1 — the phone has no use for it — which keeps a
- * `oneOf` out of the generated document, the shape swift-openapi-generator
- * fights hardest with. Declaring the omission as a type (rather than leaving
- * the schema un-annotated) keeps it an explicit decision.
+ * `commission` stays even though it's a 3-arm discriminated union — the only
+ * union in the entity layer, and the one shape that pushes a `oneOf` into the
+ * generated document. `locations.list` is shared with the web dashboard, and
+ * `.output()` applies to the procedure, not the transport: it strips any key
+ * not in the schema AT RUNTIME, for every caller. Trimming `commission` here
+ * to spare the phone a `oneOf` would silently trim it from the dashboard's
+ * response too. The dashboard needs it, so it stays, and the phone just
+ * ignores the `oneOf` it doesn't use.
  */
-export type LocationDto = Omit<Location, "commission">;
+const locationCommission = z
+  .discriminatedUnion("type", [
+    z.object({ type: z.literal("none") }),
+    z.object({
+      type: z.literal("percent"),
+      percentBps: z.number(),
+      basis: z.enum(["gross", "net"]),
+    }),
+    z.object({ type: z.literal("flat"), flatCents: z.number() }),
+  ])
+  .meta({ id: "LocationCommission" });
 
 export const locationDto = z
   .object({
@@ -29,6 +43,7 @@ export const locationDto = z
       phone: z.string().nullable(),
       email: z.string().nullable(),
     }),
+    commission: locationCommission,
     notes: z.string().nullable(),
     active: z.boolean(),
     createdAt: z.string().meta({ format: "date-time" }),
@@ -37,5 +52,5 @@ export const locationDto = z
   .meta({ id: "Location" });
 
 export type LocationDtoMatches = Assert<
-  Equal<z.infer<typeof locationDto>, LocationDto>
+  Equal<z.infer<typeof locationDto>, Location>
 >;

@@ -27,11 +27,7 @@ export type ApiProduct = Outputs["products"]["list"][number];
 export type ApiPack = Outputs["packs"]["list"][number];
 export type ApiPackContent = ApiPack["contents"][number];
 export type ApiPurchase = NonNullable<Outputs["purchases"]["get"]>;
-// Sourced from `get`, not `list`: the REST-facing `locationDto` cuts
-// `commission` from the list output to keep a 3-arm union out of the
-// generated OpenAPI document, but `get` is untouched and still carries it —
-// which the location edit form (and the Commission type below) needs.
-export type ApiLocation = NonNullable<Outputs["locations"]["get"]>;
+export type ApiLocation = Outputs["locations"]["list"][number];
 export type ApiBarcodeResolution = Outputs["barcodes"]["resolve"];
 export type ApiVisit = Outputs["visits"]["list"][number];
 export type ApiVisitLine = ApiVisit["lines"][number];

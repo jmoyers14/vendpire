@@ -2,6 +2,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { buttonClass, EmptyState, ErrorNote, Page, PageTitle, TableScroll } from "../../ui.tsx";
+import { commissionLabel } from "./commission.ts";
 import { queryClient, trpc } from "../../trpc.ts";
 
 
@@ -46,6 +47,7 @@ export function LocationsScreen() {
               <tr className="border-b border-gray-200 bg-gray-50 text-left text-gray-600">
                 <th className="px-4 py-2 font-medium">Name</th>
                 <th className="px-4 py-2 font-medium">City</th>
+                <th className="px-4 py-2 font-medium">Commission</th>
                 <th className="px-4 py-2 font-medium">Contact</th>
                 <th className="px-4 py-2 font-medium">Active</th>
                 <th className="px-4 py-2" />
@@ -59,6 +61,9 @@ export function LocationsScreen() {
                   </td>
                   <td className="px-4 py-2 text-gray-600">
                     {location.address.city ?? "—"}
+                  </td>
+                  <td className="px-4 py-2 text-gray-600">
+                    {commissionLabel(location.commission)}
                   </td>
                   <td className="px-4 py-2 text-gray-600">
                     {location.contact.name ?? "—"}

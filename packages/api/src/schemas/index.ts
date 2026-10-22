@@ -4,7 +4,7 @@
  * rather than silent spec drift, and each carrying `.meta({ id })` so the
  * generated document emits a named component instead of an inline copy.
  */
-export { locationDto, type LocationDto } from "./location.ts";
+export { locationDto } from "./location.ts";
 export { machineDto } from "./machine.ts";
 export { productDto } from "./product.ts";
 export { packDto } from "./pack.ts";
