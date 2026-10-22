@@ -721,8 +721,14 @@ import { z } from "zod";
 import type { Visit } from "@vendpire/platform";
 import type { Assert, Equal } from "./exactly.ts";
 
-/** The four reasons a unit leaves a machine without being sold. */
-const removalReason = z.enum(["expired", "damaged", "recalled", "destocked"]);
+/** The five reasons a unit leaves a machine without being sold. */
+const removalReason = z.enum([
+  "expired",
+  "damaged",
+  "recalled",
+  "destocked",
+  "transferred",
+]);
 
 export const visitDto = z
   .object({
