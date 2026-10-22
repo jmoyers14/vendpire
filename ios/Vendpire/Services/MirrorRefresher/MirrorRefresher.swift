@@ -1,6 +1,9 @@
 import Foundation
 
 /// What the last refresh did. Status, never rows — rows come from `@Query`.
+///
+/// A `failed` message is a lowercase clause, not a sentence: the one place it
+/// is shown appends it after "As of 3 days ago · ".
 nonisolated enum MirrorState: Equatable, Sendable {
     case idle
     case refreshing
@@ -43,7 +46,7 @@ final class MirrorRefresher {
             guard let orgId = identity.orgId else {
                 // A real state, not a failure to retry: the token is fine and
                 // the six reads below would 403 with no way to say why.
-                state = .failed(message: "You're not in an organization.")
+                state = .failed(message: "you're not in an organization")
                 return
             }
 
@@ -76,7 +79,7 @@ final class MirrorRefresher {
                 // reason as the outer catch below: skip straight past the
                 // visits block rather than reporting `.synced` over a write
                 // that just failed.
-                state = .failed(message: "Couldn't save to the local store.")
+                state = .failed(message: "couldn't save to the local store")
                 return
             }
             state = .synced(at: syncedAt)
@@ -87,7 +90,7 @@ final class MirrorRefresher {
             // control falls through to the latest-visits block below, which
             // would apply against that stale store with nothing left to
             // repair it afterward.
-            state = .failed(message: "Couldn't reach the server.")
+            state = .failed(message: "couldn't reach the server")
             return
         }
 

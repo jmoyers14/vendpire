@@ -17,8 +17,8 @@ struct LocationListView: View {
     private var stalenessText: String? {
         guard let syncedAt = metadata.first?.lastSyncedAt else { return nil }
         let age = syncedAt.formatted(.relative(presentation: .named))
-        if case .failed = refresher.state {
-            return "As of \(age) · couldn't reach the server"
+        if case .failed(let message) = refresher.state {
+            return "As of \(age) · \(message)"
         }
         return "As of \(age)"
     }
