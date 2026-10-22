@@ -124,9 +124,10 @@ app target go back to a MainActor default without the conflict.
 
 **Why it's safe today:** every stateful or UI-facing type already carries an
 explicit `@MainActor` — `ClerkSession`, `LocalLock`, `ClientSupport`,
-`MirrorWriter`, `MirrorRefresher`, `DevFixtureLoader`, `VendpireApp` — and the
-app's only `ModelContext` (`container.mainContext`) is consumed exclusively
-inside that annotated path. `ModelContext` is not `Sendable`; the default
+`MirrorWriter`, `MirrorRefresher`, `DevFixtureLoader` — `VendpireApp` and the
+views inherit main-actor isolation from SwiftUI's `App` and `View`
+conformances, and the app's only `ModelContext` (`container.mainContext`) is
+consumed exclusively inside that annotated path. `ModelContext` is not `Sendable`; the default
 changes nothing about everything that touches one staying on the main actor.
 
 **The cost, stated plainly:** the compiler used to catch a new type that

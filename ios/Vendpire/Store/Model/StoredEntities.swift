@@ -3,8 +3,9 @@ import SwiftData
 
 /// The device's mirror of the org's reference data.
 ///
-/// Six entities, all stable server-side. `StoredLatestVisit` is the one
-/// mutable one — a newer visit overwrites it rather than appending history.
+/// Six entities, all mirrored from stable, server-owned sources.
+/// `StoredLatestVisit` is the one that changes shape over time — a newer visit
+/// overwrites it rather than appending history.
 ///
 /// Three rules run through all of them:
 ///

@@ -81,7 +81,7 @@ runTests() {
   else
     udid="$(resolveSim)"
     platform="iOS Simulator"
-    echo "Testing on Simulator $udid — 9 tests will be silently skipped" >&2
+    echo "Testing on Simulator $udid — 10 tests will be silently skipped" >&2
   fi
   xcodebuild -project "$IOS_DIR/$SCHEME.xcodeproj" -scheme "$SCHEME" \
     -destination "platform=$platform,id=$udid" \

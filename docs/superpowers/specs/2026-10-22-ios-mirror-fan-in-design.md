@@ -365,8 +365,8 @@ server is unreachable.
 ### 9. Retiring `DevFixtureLoader`
 
 It is not deleted. `VendpireApp.seedStore()` stops calling it and
-`MirrorRefresher.refresh()` takes its place; the loader stays for previews and
-tests, which is what subtask 3 asks for. `MirrorWriter`,
+`MirrorRefresher.refresh()` takes its place; the loader stays for tests —
+nothing previews it — which is what subtask 3 asks for. `MirrorWriter`,
 `StoredEntities+Remote`, the fixture, `MirrorWriterTests` and
 `DevFixtureLoaderTests` are unchanged apart from the `syncedAt` argument.
 
