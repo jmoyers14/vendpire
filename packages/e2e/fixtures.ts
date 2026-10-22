@@ -142,15 +142,26 @@ const stop = (child: ChildProcess): void => {
   }
 };
 
+type WorkerOptions = {
+  /**
+   * Extra environment for the api process. A spec sets this with
+   * `test.use({ apiEnv: { IOS_MINIMUM_BUILD: "43" } })`; Playwright starts a
+   * fresh worker (and so a fresh api) whenever the value changes.
+   */
+  apiEnv: Record<string, string>;
+};
+
 type WorkerFixtures = {
   apiStack: ApiStack;
   workerStack: WorkerStack;
   webStack: WebStack;
 };
 
-export const test = base.extend<Record<never, never>, WorkerFixtures>({
+export const test = base.extend<Record<never, never>, WorkerFixtures & WorkerOptions>({
+  apiEnv: [{}, { scope: "worker", option: true }],
+
   apiStack: [
-    async ({}, use) => {
+    async ({ apiEnv }, use) => {
       const mongo = await MongoMemoryServer.create();
       const port = await freePort();
       const apiUrl = `http://localhost:${port}`;
@@ -175,6 +186,8 @@ export const test = base.extend<Record<never, never>, WorkerFixtures>({
           CLERK_SECRET_KEY: process.env.CLERK_SECRET_KEY || "sk_test_placeholder",
           WEB_URL: "http://localhost:5173",
           POSTHOG_API_KEY: "",
+          // Last, so a spec can override any of the above.
+          ...apiEnv,
         },
       });
 
