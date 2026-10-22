@@ -46,9 +46,10 @@ build() {
     build "$@"
 }
 
-# Prefer a physically attached device. Nine tests abort the test host in the
-# Simulator and XCTest silently skips them, so a green Simulator run is not
-# evidence. VENDPIRE_SIM forces the Simulator back.
+# Prefer a physically attached device. Ten tests abort the test host in the
+# Simulator, so that path is EXPECTED to exit 65 — that failure is honest;
+# the silent green it replaced was not. VENDPIRE_SIM forces the Simulator
+# back for build/launch work, not for trusting a test result.
 resolveDevice() {
   xcrun xctrace list devices 2>/dev/null | python3 -c '
 import re, sys
