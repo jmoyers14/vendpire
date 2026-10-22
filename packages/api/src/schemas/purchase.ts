@@ -5,7 +5,7 @@ import type { Assert, Equal } from "./exactly.ts";
 export const purchaseDto = z
   .object({
     id: z.string(),
-    purchasedAt: z.string(),
+    purchasedAt: z.string().meta({ format: "date-time" }),
     vendor: z.string(),
     lines: z.array(
       z.object({
@@ -19,8 +19,8 @@ export const purchaseDto = z
     receiptTotalCents: z.number().nullable(),
     notes: z.string().nullable(),
     clientRequestId: z.string(),
-    createdAt: z.string(),
-    updatedAt: z.string(),
+    createdAt: z.string().meta({ format: "date-time" }),
+    updatedAt: z.string().meta({ format: "date-time" }),
   })
   .meta({ id: "Purchase" });
 

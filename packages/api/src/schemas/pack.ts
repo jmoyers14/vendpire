@@ -12,8 +12,8 @@ export const packDto = z
       z.object({ productId: z.string(), units: z.number() }),
     ),
     active: z.boolean(),
-    createdAt: z.string(),
-    updatedAt: z.string(),
+    createdAt: z.string().meta({ format: "date-time" }),
+    updatedAt: z.string().meta({ format: "date-time" }),
   })
   .meta({ id: "Pack" });
 

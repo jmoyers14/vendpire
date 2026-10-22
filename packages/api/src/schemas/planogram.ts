@@ -6,7 +6,7 @@ export const planogramDto = z
   .object({
     id: z.string(),
     machineId: z.string(),
-    effectiveFrom: z.string(),
+    effectiveFrom: z.string().meta({ format: "date-time" }),
     slots: z.array(
       z.object({
         slotCode: z.string(),
@@ -16,8 +16,8 @@ export const planogramDto = z
         priceCents: z.number(),
       }),
     ),
-    createdAt: z.string(),
-    updatedAt: z.string(),
+    createdAt: z.string().meta({ format: "date-time" }),
+    updatedAt: z.string().meta({ format: "date-time" }),
   })
   .meta({ id: "Planogram" });
 

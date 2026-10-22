@@ -14,8 +14,8 @@ export const productDto = z
     defaultPriceCents: z.number(),
     active: z.boolean(),
     tracksExpiration: z.boolean(),
-    createdAt: z.string(),
-    updatedAt: z.string(),
+    createdAt: z.string().meta({ format: "date-time" }),
+    updatedAt: z.string().meta({ format: "date-time" }),
   })
   .meta({ id: "Product" });
 

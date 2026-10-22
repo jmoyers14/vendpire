@@ -25,7 +25,7 @@ export const visitDto = z
     locationId: z.string(),
     planogramId: z.string().nullable(),
     /** When you stood at the machine. The ordering key for everything. */
-    countedAt: z.string(),
+    countedAt: z.string().meta({ format: "date-time" }),
     recordedByUserId: z.string(),
     lines: z.array(
       z.object({
@@ -45,8 +45,8 @@ export const visitDto = z
     ),
     notes: z.string().nullable(),
     clientRequestId: z.string(),
-    createdAt: z.string(),
-    updatedAt: z.string(),
+    createdAt: z.string().meta({ format: "date-time" }),
+    updatedAt: z.string().meta({ format: "date-time" }),
   })
   .meta({ id: "Visit" });
 
