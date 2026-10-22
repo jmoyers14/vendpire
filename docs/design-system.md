@@ -99,11 +99,12 @@ Import everything from `../components/ui.tsx`.
 
 ### Top nav bar with tabs
 
-`packages/web/src/screens/RootLayout.tsx`. The selected tab gets `aria-current="page"`,
+`packages/web/src/screens/root-layout/RootLayout.tsx`. The selected tab gets `aria-current="page"`,
 `text-tab-active` and `border-tab-indicator`. Unselected tabs get `text-tab` with a
 transparent 3px border, so the label doesn't shift when it becomes current.
 
-Current tabs: **Dashboard, Locations, Machines, Products, Packs, Purchases**.
+Current tabs: **Dashboard, Locations, Machines, Products, Packs, Purchases,
+Settings**.
 
 ### Buttons — `<Button>` / `buttonClass()`
 
