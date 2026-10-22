@@ -20,6 +20,7 @@ const TABS: { to: string; label: string; exact?: boolean }[] = [
   { to: "/products", label: "Products" },
   { to: "/packs", label: "Packs" },
   { to: "/purchases", label: "Purchases" },
+  { to: "/settings", label: "Settings" },
 ];
 
 // Router Link appends activeProps to the base className rather than replacing
@@ -42,6 +43,9 @@ const Header = () => (
         <div className="flex items-center gap-3">
           <OrganizationSwitcher
             afterCreateOrganizationUrl="/"
+            // "Manage organization" goes to the Settings tab, not a modal.
+            organizationProfileMode="navigation"
+            organizationProfileUrl="/settings"
             appearance={{
               elements: {
                 organizationSwitcherTrigger:

@@ -19,6 +19,7 @@ import { ProductsScreen } from "./screens/products/ProductsScreen.tsx";
 import { PurchaseFormScreen } from "./screens/purchases/PurchaseFormScreen.tsx";
 import { PurchasesScreen } from "./screens/purchases/PurchasesScreen.tsx";
 import { RootLayout } from "./screens/root-layout/RootLayout.tsx";
+import { SettingsScreen } from "./screens/settings/SettingsScreen.tsx";
 import { MachineVisitsScreen } from "./screens/visits/MachineVisitsScreen.tsx";
 import { VisitEntryScreen } from "./screens/visits/VisitEntryScreen.tsx";
 
@@ -35,6 +36,12 @@ const designRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/design",
   component: DesignSystemScreen,
+});
+
+const settingsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/settings",
+  component: SettingsScreen,
 });
 
 const locationsRoute = createRoute({
@@ -197,6 +204,7 @@ const editPurchaseRoute = createRoute({
 const routeTree = rootRoute.addChildren([
   indexRoute,
   designRoute,
+  settingsRoute,
   locationsRoute,
   newLocationRoute,
   editLocationRoute,
