@@ -134,3 +134,12 @@ nonisolated struct RemoteVisitLine: Decodable, Sendable {
     let added: Int
     let removed: Int
 }
+
+/// The signed-in principal, as the server sees it.
+///
+/// A null `orgId` is a real state, not an error: it is how a member-less user
+/// learns why nothing syncs.
+nonisolated struct RemoteIdentity: Decodable, Sendable {
+    let userId: String
+    let orgId: String?
+}

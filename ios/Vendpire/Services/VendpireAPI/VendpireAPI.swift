@@ -2,10 +2,15 @@ import Foundation
 
 /// The single seam between the app and the network.
 ///
-/// Services take this protocol so their orchestration — full refresh, outbox
-/// submission, retry — can be tested against a stub with an in-memory store,
-/// which is where the bugs that lose field data live. See ARCHITECTURE.md.
-///
-/// Empty until there are endpoints to call: a method signature here would be a
-/// guess at a contract the REST surface has not defined.
-protocol VendpireAPI: Sendable {}
+/// Vends `Remote*` rather than the generated OpenAPI types so a stub stays two
+/// lines and the bundled fixture remains usable as test input. The generated
+/// types live behind `VendpireAPIClient` and nowhere else. See ARCHITECTURE.md.
+protocol VendpireAPI: Sendable {
+    func fetchIdentity() async throws -> RemoteIdentity
+    func fetchLocations() async throws -> [RemoteLocation]
+    func fetchMachines() async throws -> [RemoteMachine]
+    func fetchProducts() async throws -> [RemoteProduct]
+    func fetchPacks() async throws -> [RemotePack]
+    func fetchCurrentPlanograms() async throws -> [RemotePlanogram]
+    func fetchLatestVisits() async throws -> [RemoteVisit]
+}
