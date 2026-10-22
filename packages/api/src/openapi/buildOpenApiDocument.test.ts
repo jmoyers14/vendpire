@@ -174,6 +174,9 @@ describe("the shapes a Swift client has to decode", () => {
       schemas.Visit.properties.lines.items.properties.priceCents,
       schemas.Purchase.properties.lines.items.properties.units,
       schemas.Purchase.properties.lines.items.properties.totalCostCents,
+      // LocationCommission is a oneOf: [none, percent, flat].
+      schemas.LocationCommission.oneOf[1].properties.percentBps,
+      schemas.LocationCommission.oneOf[2].properties.flatCents,
     ];
 
     for (const property of moneyAndCounts) {
