@@ -9,7 +9,7 @@ servers:
 paths:
   /me:
     get:
-      operationId: auth-me
+      operationId: getCurrentIdentity
       summary: The signed-in principal; orgId is null without an active org
       tags:
         - auth
@@ -34,15 +34,16 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/error.FORBIDDEN"
-        "500": &a1
-          description: Internal server error
+        "426": &a1
+          description: This build is below the supported floor; the client must update.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/error.INTERNAL_SERVER_ERROR"
+        "500": *a1
   /client-support:
     get:
-      operationId: system-clientSupport
+      operationId: getClientSupport
       summary: Whether this iOS build is still supported
       tags:
         - system
@@ -82,7 +83,7 @@ paths:
         "500": *a1
   /locations:
     get:
-      operationId: locations-list
+      operationId: listLocations
       summary: Every location in the organization
       tags:
         - locations
@@ -99,10 +100,11 @@ paths:
                   $ref: "#/components/schemas/Location"
         "401": *a2
         "403": *a3
+        "426": *a1
         "500": *a1
   /machines:
     get:
-      operationId: machines-list
+      operationId: listMachines
       summary: Every machine in the organization
       tags:
         - machines
@@ -119,10 +121,11 @@ paths:
                   $ref: "#/components/schemas/Machine"
         "401": *a2
         "403": *a3
+        "426": *a1
         "500": *a1
   /products:
     get:
-      operationId: products-list
+      operationId: listProducts
       summary: Every product in the organization
       tags:
         - products
@@ -139,10 +142,11 @@ paths:
                   $ref: "#/components/schemas/Product"
         "401": *a2
         "403": *a3
+        "426": *a1
         "500": *a1
   /planograms/current:
     get:
-      operationId: planograms-listCurrentByOrg
+      operationId: listCurrentPlanograms
       summary: The current planogram for every machine in the organization
       tags:
         - planograms
@@ -159,10 +163,11 @@ paths:
                   $ref: "#/components/schemas/Planogram"
         "401": *a2
         "403": *a3
+        "426": *a1
         "500": *a1
   /purchases:
     post:
-      operationId: purchases-create
+      operationId: createPurchase
       summary: Record one stock-buying run
       tags:
         - purchases
@@ -261,10 +266,11 @@ paths:
         "400": *a4
         "401": *a2
         "403": *a3
+        "426": *a1
         "500": *a1
   /visits/latest:
     get:
-      operationId: visits-listLatestByOrg
+      operationId: listLatestVisits
       summary: The latest visit for every machine in the organization
       tags:
         - visits
@@ -281,10 +287,11 @@ paths:
                   $ref: "#/components/schemas/Visit"
         "401": *a2
         "403": *a3
+        "426": *a1
         "500": *a1
   /visits:
     post:
-      operationId: visits-create
+      operationId: createVisit
       summary: Record a servicing of one machine
       description: "Idempotent on clientRequestId: a repeat submit returns the first
         visit rather than creating another."
@@ -404,10 +411,11 @@ paths:
         "400": *a4
         "401": *a2
         "403": *a3
+        "426": *a1
         "500": *a1
   /packs:
     get:
-      operationId: packs-list
+      operationId: listPacks
       summary: Every pack in the organization
       tags:
         - packs
@@ -424,6 +432,7 @@ paths:
                   $ref: "#/components/schemas/Pack"
         "401": *a2
         "403": *a3
+        "426": *a1
         "500": *a1
 components:
   schemas:
@@ -433,6 +442,8 @@ components:
         userId:
           type: string
         orgId:
+          description: Null means no active org — how a member-less user discovers why
+            they are stuck.
           type:
             - string
             - "null"
@@ -517,7 +528,7 @@ components:
         message:
           type: string
           description: The error message
-          example: Internal server error
+          example: This build is below the supported floor; the client must update.
         code:
           type: string
           description: The error code
@@ -536,11 +547,12 @@ components:
       required:
         - message
         - code
-      title: Internal server error error (500)
+      title: This build is below the supported floor; the client must update. error
+        (500)
       description: The error information
       example:
         code: INTERNAL_SERVER_ERROR
-        message: Internal server error
+        message: This build is below the supported floor; the client must update.
         issues: []
     ClientSupport:
       type: object
@@ -645,6 +657,7 @@ components:
                 - string
                 - "null"
             geo:
+              description: From the Places resolve.
               type:
                 - object
                 - "null"
@@ -748,6 +761,7 @@ components:
           type: string
         locationId:
           type: string
+          description: Where the machine sits NOW — visits record their own locationId.
         name:
           type: string
         kind:
@@ -782,6 +796,7 @@ components:
             type: array
             items:
               type: string
+          description: One array per shelf, slot codes in walking order.
         cardReader:
           type:
             - object
@@ -828,6 +843,7 @@ components:
         name:
           type: string
         upc:
+          description: The UNIT barcode, null until verified.
           type:
             - string
             - "null"
@@ -886,6 +902,7 @@ components:
                 type: string
               par:
                 type: number
+                description: Units the slot holds when full — the refill target.
               priceCents:
                 type: number
             required:
@@ -927,6 +944,7 @@ components:
                 type: number
               totalCostCents:
                 type: number
+                description: The TOTAL for the line, not a unit cost — the receipt's number.
               packId:
                 type:
                   - string
@@ -991,11 +1009,16 @@ components:
                 type: string
               remaining:
                 type: number
+                description: What was physically in the slot on arrival, before refilling and
+                  before removing anything — every derived number is silently
+                  wrong if a post-fill count is recorded here.
               added:
                 type: number
               removed:
                 type: number
               removedReason:
+                description: Required when removed > 0; decides whether the removed units are a
+                  write-off or a transfer.
                 type:
                   - string
                   - "null"
@@ -1008,11 +1031,15 @@ components:
                   - null
               priceCents:
                 type: number
+                description: Snapshotted, so a later planogram edit cannot rewrite past revenue.
               par:
+                description: Fill target in effect at this servicing; never used in the P&L.
                 type:
                   - number
                   - "null"
               bestBy:
+                description: The front unit's expiration date, as a zoneless "YYYY-MM-DD"
+                  string.
                 type:
                   - string
                   - "null"
@@ -1061,6 +1088,7 @@ components:
           type: array
           items:
             type: string
+          description: Case-level barcodes, normalized to GTIN-14.
         contents:
           type: array
           items:

@@ -7,7 +7,7 @@ export const productDto = z
     id: z.string(),
     name: z.string(),
     /** The UNIT barcode, null until verified. */
-    upc: z.string().nullable(),
+    upc: z.string().nullable().describe("The UNIT barcode, null until verified."),
     category: z.string(),
     taxClass: z.string().nullable(),
     imageUrl: z.string().nullable(),

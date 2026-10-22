@@ -79,7 +79,15 @@ export const purchasesRouter = router({
         path: "/purchases",
         tags: ["purchases"],
         protect: true,
+        operationId: "createPurchase",
         summary: "Record one stock-buying run",
+        errorResponses: {
+          400: "Invalid input data",
+          401: "Authorization not provided",
+          403: "Insufficient access",
+          426: "This build is below the supported floor; the client must update.",
+          500: "Internal server error",
+        },
       },
     })
     .input(purchaseInput)

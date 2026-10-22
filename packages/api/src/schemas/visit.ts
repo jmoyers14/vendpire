@@ -26,15 +26,33 @@ export const visitDto = z
         slotCode: z.string(),
         productId: z.string(),
         /** What was in the slot on arrival, BEFORE refilling and removing. */
-        remaining: z.number(),
+        remaining: z
+          .number()
+          .describe(
+            "What was physically in the slot on arrival, before refilling and before removing anything — every derived number is silently wrong if a post-fill count is recorded here.",
+          ),
         added: z.number(),
         removed: z.number(),
-        removedReason: removalReason.nullable(),
+        removedReason: removalReason
+          .nullable()
+          .describe(
+            "Required when removed > 0; decides whether the removed units are a write-off or a transfer.",
+          ),
         /** Snapshotted, so a later planogram edit cannot rewrite past revenue. */
-        priceCents: z.number(),
-        par: z.number().nullable(),
+        priceCents: z
+          .number()
+          .describe(
+            "Snapshotted, so a later planogram edit cannot rewrite past revenue.",
+          ),
+        par: z
+          .number()
+          .nullable()
+          .describe("Fill target in effect at this servicing; never used in the P&L."),
         /** The front unit's date, "YYYY-MM-DD". */
-        bestBy: z.string().nullable(),
+        bestBy: z
+          .string()
+          .nullable()
+          .describe("The front unit's expiration date, as a zoneless \"YYYY-MM-DD\" string."),
       }),
     ),
     notes: z.string().nullable(),

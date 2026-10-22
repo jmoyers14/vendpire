@@ -12,7 +12,9 @@ export const purchaseDto = z
         productId: z.string(),
         units: z.number(),
         /** The TOTAL for the line, not a unit cost — the receipt's number. */
-        totalCostCents: z.number(),
+        totalCostCents: z
+          .number()
+          .describe("The TOTAL for the line, not a unit cost — the receipt's number."),
         packId: z.string().nullable(),
       }),
     ),

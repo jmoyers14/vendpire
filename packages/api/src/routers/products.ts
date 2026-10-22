@@ -23,7 +23,14 @@ export const productsRouter = router({
         path: "/products",
         tags: ["products"],
         protect: true,
+        operationId: "listProducts",
         summary: "Every product in the organization",
+        errorResponses: {
+          401: "Authorization not provided",
+          403: "Insufficient access",
+          426: "This build is below the supported floor; the client must update.",
+          500: "Internal server error",
+        },
       },
     })
     .input(z.void())

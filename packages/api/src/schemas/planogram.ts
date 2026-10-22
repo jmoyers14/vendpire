@@ -12,7 +12,7 @@ export const planogramDto = z
         slotCode: z.string(),
         productId: z.string(),
         /** Units the slot holds when full — the refill target. */
-        par: z.number(),
+        par: z.number().describe("Units the slot holds when full — the refill target."),
         priceCents: z.number(),
       }),
     ),

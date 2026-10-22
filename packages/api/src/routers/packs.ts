@@ -26,7 +26,14 @@ export const packsRouter = router({
         path: "/packs",
         tags: ["packs"],
         protect: true,
+        operationId: "listPacks",
         summary: "Every pack in the organization",
+        errorResponses: {
+          401: "Authorization not provided",
+          403: "Insufficient access",
+          426: "This build is below the supported floor; the client must update.",
+          500: "Internal server error",
+        },
       },
     })
     .input(z.void())

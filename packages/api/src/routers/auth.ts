@@ -20,7 +20,14 @@ export const authRouter = router({
         path: "/me",
         tags: ["auth"],
         protect: true,
+        operationId: "getCurrentIdentity",
         summary: "The signed-in principal; orgId is null without an active org",
+        errorResponses: {
+          401: "Authorization not provided",
+          403: "Insufficient access",
+          426: "This build is below the supported floor; the client must update.",
+          500: "Internal server error",
+        },
       },
     })
     .input(z.void())

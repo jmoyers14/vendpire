@@ -10,7 +10,12 @@ import type { Assert, Equal } from "./exactly.ts";
 export const identityDto = z
   .object({
     userId: z.string(),
-    orgId: z.string().nullable(),
+    orgId: z
+      .string()
+      .nullable()
+      .describe(
+        "Null means no active org — how a member-less user discovers why they are stuck.",
+      ),
     orgRole: z.string().nullable(),
     orgSlug: z.string().nullable(),
   })

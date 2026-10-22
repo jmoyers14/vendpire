@@ -5,7 +5,11 @@ import type { Assert, Equal } from "./exactly.ts";
 export const machineDto = z
   .object({
     id: z.string(),
-    locationId: z.string(),
+    locationId: z
+      .string()
+      .describe(
+        "Where the machine sits NOW — visits record their own locationId.",
+      ),
     name: z.string(),
     kind: z.enum(["snack", "drink", "combo"]),
     make: z.string().nullable(),
@@ -14,7 +18,9 @@ export const machineDto = z
     tagCode: z.string().nullable(),
     templateId: z.string().nullable(),
     /** One array per shelf, slot codes in walking order. */
-    slots: z.array(z.array(z.string())),
+    slots: z
+      .array(z.array(z.string()))
+      .describe("One array per shelf, slot codes in walking order."),
     cardReader: z
       .object({
         provider: z.enum(["nayax", "cantaloupe"]),

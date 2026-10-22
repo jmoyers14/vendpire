@@ -28,7 +28,10 @@ export const locationDto = z
       city: z.string().nullable(),
       state: z.string().nullable(),
       zip: z.string().nullable(),
-      geo: z.object({ lat: z.number(), lng: z.number() }).nullable(),
+      geo: z
+        .object({ lat: z.number(), lng: z.number() })
+        .nullable()
+        .describe("From the Places resolve."),
     }),
     contact: z.object({
       name: z.string().nullable(),

@@ -71,7 +71,14 @@ export const visitsRouter = router({
         path: "/visits/latest",
         tags: ["visits"],
         protect: true,
+        operationId: "listLatestVisits",
         summary: "The latest visit for every machine in the organization",
+        errorResponses: {
+          401: "Authorization not provided",
+          403: "Insufficient access",
+          426: "This build is below the supported floor; the client must update.",
+          500: "Internal server error",
+        },
       },
     })
     .input(z.void())
@@ -125,9 +132,17 @@ export const visitsRouter = router({
         path: "/visits",
         tags: ["visits"],
         protect: true,
+        operationId: "createVisit",
         summary: "Record a servicing of one machine",
         description:
           "Idempotent on clientRequestId: a repeat submit returns the first visit rather than creating another.",
+        errorResponses: {
+          400: "Invalid input data",
+          401: "Authorization not provided",
+          403: "Insufficient access",
+          426: "This build is below the supported floor; the client must update.",
+          500: "Internal server error",
+        },
       },
     })
     .input(visitInput)

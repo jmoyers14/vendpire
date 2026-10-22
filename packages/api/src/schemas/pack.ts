@@ -7,7 +7,9 @@ export const packDto = z
     id: z.string(),
     name: z.string(),
     /** Case-level barcodes, normalized to GTIN-14. */
-    barcodes: z.array(z.string()),
+    barcodes: z
+      .array(z.string())
+      .describe("Case-level barcodes, normalized to GTIN-14."),
     contents: z.array(
       z.object({ productId: z.string(), units: z.number() }),
     ),
