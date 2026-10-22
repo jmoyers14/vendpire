@@ -110,23 +110,35 @@ filter once and another org's machines render, which no single-org testing will
 ever catch. Here the leak has no field to travel through. Refetching is already
 assumed cheap by the mirror-by-full-refresh model.
 
-## Main actor until proven otherwise
+## Main actor by exception, not by default
 
-Xcode 26 sets `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` on new projects, so
-anything without explicit isolation is implicitly `@MainActor`. That matches the
-decision below, but it over-applies: it also pins pure value types and pure
-functions to the main actor, which makes them unreachable from a nonisolated
-test and needlessly serialised later.
+Xcode 26 sets `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` on new projects. The
+Vendpire target overrides that to `nonisolated`, because the generated OpenAPI
+client (`swift-openapi-generator` 1.14.2, which offers no isolation option)
+crosses actor boundaries internally via `@Sendable` closures and will not
+compile under a MainActor default at all. This wasn't chosen on the app's own
+merits — a code generator forced it — and is tracked for reversal on the
+shuffleboard card "Generated OpenAPI client vs. MainActor-by-default — revisit
+the module boundary": moving generated code into its own module would let the
+app target go back to a MainActor default without the conflict.
 
-**Pure logic is therefore marked `nonisolated` explicitly** — `SessionTokenDecoder`
-today, and everything in `Domain/` as it arrives. Code that touches no shared
-state should have no actor affinity.
+**Why it's safe today:** every stateful or UI-facing type already carries an
+explicit `@MainActor` — `ClerkSession`, `LocalLock`, `ClientSupport`,
+`MirrorWriter`, `MirrorRefresher`, `DevFixtureLoader`, `VendpireApp` — and the
+app's only `ModelContext` (`container.mainContext`) is consumed exclusively
+inside that annotated path. `ModelContext` is not `Sendable`; the default
+changes nothing about everything that touches one staying on the main actor.
 
-`ModelContext` is not `Sendable`, and everything stays on the main actor. The
-whole org is ~43 products and well under 100 KB, so a background context buys
-nothing measurable while premature `@ModelActor` use is a reliable source of
-SwiftData crashes. If a sync ever janks visibly, the service boundary means it
-moves in one place.
+**The cost, stated plainly:** the compiler used to catch a new type that
+touched `ModelContext` or a `@Model` and forgot `@MainActor`. It no longer
+does — `nonisolated` is now the silent default, so that mistake compiles and
+has to be caught by inspection or at runtime instead. That is a real
+regression in the project's safety net, accepted because the alternative was
+an app that would not build at all.
+
+Pure logic — `SessionTokenDecoder`, everything in `Domain/` — needed an
+explicit `nonisolated` under the old default and needs no annotation at all
+under this one. Nothing changes for it either way.
 
 ## Divergences from the plan
 
