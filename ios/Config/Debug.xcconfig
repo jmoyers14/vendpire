@@ -13,8 +13,10 @@ SLASH = /
 // into every web bundle we serve — so it's committed rather than kept local.
 CLERK_PUBLISHABLE_KEY = pk_test_ZHluYW1pYy1raXQtNjY1Ny5jbGVyay5hY2NvdW50cy5kZXYk
 
-// Unused until Phase 7. Defined now so that when networking arrives there is
-// already a right place to put the URL. The simulator shares the Mac's network
-// so localhost resolves; a physical device needs the Mac's LAN IP instead.
+// The only server the app talks to. The `/api/v1` suffix belongs in the base
+// URL: the generated client appends the operation path and nothing else, so it
+// never applies the document's own `servers:` entry.
+// The simulator shares the Mac's network so localhost resolves; a physical
+// device needs the Mac's LAN IP instead.
 // Port 3211 is this worktree's API port — worktrees differ, check before use.
-VENDPIRE_API_BASE_URL = http:$(SLASH)$(SLASH)localhost:3211
+VENDPIRE_API_BASE_URL = http:$(SLASH)$(SLASH)localhost:3211$(SLASH)api$(SLASH)v1

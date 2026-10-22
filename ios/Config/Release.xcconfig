@@ -5,5 +5,6 @@ SLASH = /
 // Swap this when one exists — it is the only change needed here.
 CLERK_PUBLISHABLE_KEY = pk_test_ZHluYW1pYy1raXQtNjY1Ny5jbGVyay5hY2NvdW50cy5kZXYk
 
-// The deployed Cloud Run API (see DEPLOY.md). Unused until Phase 7.
-VENDPIRE_API_BASE_URL = https:$(SLASH)$(SLASH)vendpire-api-fmivoycv6q-uc.a.run.app
+// The deployed Cloud Run API (see DEPLOY.md). The `/api/v1` suffix is part of
+// the base URL — see Debug.xcconfig for why.
+VENDPIRE_API_BASE_URL = https:$(SLASH)$(SLASH)vendpire-api-fmivoycv6q-uc.a.run.app$(SLASH)api$(SLASH)v1
