@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { orgProtectedProcedure, router } from "../trpc.ts";
 import { ANALYTICS_EVENTS } from "../analytics/events.ts";
+import { productDto } from "../schemas/index.ts";
 import { objectId } from "./validators.ts";
 
 const productInput = z.object({
@@ -8,16 +9,33 @@ const productInput = z.object({
   upc: z.string().nullable().default(null),
   category: z.string().min(1),
   taxClass: z.string().nullable().default(null),
-  imageUrl: z.string().url().nullable().default(null),
+  imageUrl: z.url().nullable().default(null),
   defaultPriceCents: z.number().int().min(0),
   active: z.boolean().default(true),
   tracksExpiration: z.boolean().default(true),
 });
 
 export const productsRouter = router({
-  list: orgProtectedProcedure.query(({ ctx }) =>
-    ctx.services.productService.list(ctx.auth.orgId),
-  ),
+  list: orgProtectedProcedure
+    .meta({
+      openapi: {
+        method: "GET",
+        path: "/products",
+        tags: ["products"],
+        protect: true,
+        operationId: "listProducts",
+        summary: "Every product in the organization",
+        errorResponses: {
+          401: "Authorization not provided",
+          403: "Insufficient access",
+          426: "This build is below the supported floor; the client must update.",
+          500: "Internal server error",
+        },
+      },
+    })
+    .input(z.void())
+    .output(z.array(productDto))
+    .query(({ ctx }) => ctx.services.productService.list(ctx.auth.orgId)),
 
   // External catalog text search — returns ranked matches with barcodes.
   searchCatalog: orgProtectedProcedure

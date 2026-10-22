@@ -1,4 +1,6 @@
-import { createHTTPServer } from "@trpc/server/adapters/standalone";
+import http from "node:http";
+import { createHTTPHandler } from "@trpc/server/adapters/standalone";
+import { createOpenApiHttpHandler } from "trpc-to-openapi";
 import { appRouter } from "./router.ts";
 import { createContext } from "./createContext.ts";
 import {
@@ -9,13 +11,40 @@ import { SERVER_CONFIG_TOKEN, type ServerConfig } from "./config/serverConfig.ts
 import type { MobileClientSupportService } from "./services/MobileClientSupportService/MobileClientSupportService.ts";
 import { buildHttpMiddleware } from "./middleware/index.ts";
 import { ANALYTICS_CLIENT_TOKEN } from "@vendpire/platform";
-import type { AnalyticsClient } from "@vendpire/platform";
+import type { AnalyticsClient, Logger } from "@vendpire/platform";
 import {
   connectDatabase,
   DATABASE_CONFIG_TOKEN,
   rootLogger,
   type DatabaseConfig,
 } from "@vendpire/platform/server";
+
+/** The `/api/v1` mount point. Stripped before the REST handler sees the URL. */
+const API_V1_PREFIX = "/api/v1";
+
+interface TrpcErrorReport {
+  error: { code: string; cause?: unknown };
+  path?: string | undefined;
+  ctx?: { log?: Logger } | undefined;
+}
+
+/**
+ * Shared by both handlers — a separately-mounted one does not inherit the
+ * adapter's onError. INTERNAL_SERVER_ERROR is an unhandled bug and logs at
+ * error with the cause's stack; handled domain errors log at warn so error
+ * tracking isn't flooded by 4xxs.
+ */
+const logRequestError = ({ error, path, ctx }: TrpcErrorReport): void => {
+  const log = ctx?.log ?? rootLogger;
+  if (error.code === "INTERNAL_SERVER_ERROR") {
+    log.error(
+      { path, code: error.code, err: error.cause ?? error },
+      "unhandled request error",
+    );
+  } else {
+    log.warn({ path, code: error.code }, "request error");
+  }
+};
 
 // A crash anywhere leaves a structured line before the process dies, so the
 // host's log explorer has something to show. Registered before boot.
@@ -31,26 +60,36 @@ const main = async (): Promise<void> => {
   await connectDatabase(uri);
   rootLogger.info("connected to MongoDB");
 
-  const server = createHTTPServer({
+  const trpcHandler = createHTTPHandler({
     router: appRouter,
     createContext,
-    // The single place request errors are logged. Uses the request-scoped child
-    // (with orgId/userId/requestId) when the context was built, else the root.
-    // INTERNAL_SERVER_ERROR is an unhandled bug — log at error with the original
-    // cause's stack; everything else is a handled domain error (NOT_FOUND,
-    // FORBIDDEN, …) and logs at warn so error tracking isn't flooded by 4xxs.
-    onError: ({ error, path, ctx }) => {
-      const log = ctx?.log ?? rootLogger;
-      if (error.code === "INTERNAL_SERVER_ERROR") {
-        log.error(
-          { path, code: error.code, err: error.cause ?? error },
-          "unhandled request error",
-        );
-      } else {
-        log.warn({ path, code: error.code }, "request error");
+    onError: logRequestError,
+  });
+  const restHandler = createOpenApiHttpHandler({
+    router: appRouter,
+    createContext,
+    onError: logRequestError,
+  });
+  const runHttpMiddleware = buildHttpMiddleware({ webUrl, clientSupport });
+
+  // One server. The middleware runs on the UNREWRITTEN url — the 426 gate
+  // exempts "/api/v1/client-support" by full path, so the strip must stay
+  // inside the branch below.
+  const server = http.createServer((req, res) => {
+    runHttpMiddleware(req, res, (err?: unknown) => {
+      if (err !== undefined && err !== null) {
+        rootLogger.error({ err }, "middleware error");
+        res.statusCode = 500;
+        res.end();
+        return;
       }
-    },
-    middleware: buildHttpMiddleware({ webUrl, clientSupport }),
+      if (req.url?.startsWith(API_V1_PREFIX) === true) {
+        req.url = req.url.slice(API_V1_PREFIX.length) || "/";
+        void restHandler(req, res);
+        return;
+      }
+      void trpcHandler(req, res);
+    });
   });
 
   server.listen(port);

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { publicProcedure, router } from "../trpc.ts";
 import { ANALYTICS_EVENTS } from "../analytics/events.ts";
+import { clientSupportDto } from "../schemas/index.ts";
 
 export const systemRouter = router({
   /**
@@ -19,13 +20,28 @@ export const systemRouter = router({
    * an expired session.
    */
   clientSupport: publicProcedure
+    .meta({
+      openapi: {
+        method: "GET",
+        path: "/client-support",
+        tags: ["system"],
+        // The ONLY unauthenticated route on the surface. A client old enough
+        // to be walled is likely also holding an expired session, and a wall
+        // that needs a valid token is a wall that never appears.
+        protect: false,
+        operationId: "getClientSupport",
+        summary: "Whether this iOS build is still supported",
+      },
+    })
     .input(
       z.object({
         platform: z.literal("ios"),
-        // CFBundleVersion, not the marketing version.
+        // CFBundleVersion, not the marketing version. Arrives as the STRING
+        // "43" in the query string; the generator coerces it from this schema.
         build: z.number().int().min(0),
       }),
     )
+    .output(clientSupportDto)
     .query(({ ctx, input }) => {
       const clientSupport = ctx.services.mobileClientSupportService;
       const updateRequirement = clientSupport.verdictFor(input.build);

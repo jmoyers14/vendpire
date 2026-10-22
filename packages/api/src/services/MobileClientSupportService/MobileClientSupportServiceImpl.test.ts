@@ -126,3 +126,22 @@ describe("isUnsupportedRequest — batched requests", () => {
     expect(ask("/visits.create")).toBe(true);
   });
 });
+
+describe("isUnsupportedRequest — REST paths", () => {
+  const ask = (header: string | string[] | undefined, path: string) =>
+    build().isUnsupportedRequest({ header, path });
+
+  it("never gates the client-support endpoint itself — the wall needs it", () => {
+    expect(ask("ios/42", "/api/v1/client-support")).toBe(false);
+  });
+
+  it("still gates other REST paths for a build below the floor", () => {
+    expect(ask("ios/42", "/api/v1/visits")).toBe(true);
+  });
+
+  it("ignores a query string on the REST client-support path", () => {
+    expect(ask("ios/42", "/api/v1/client-support?platform=ios&build=42")).toBe(
+      false,
+    );
+  });
+});

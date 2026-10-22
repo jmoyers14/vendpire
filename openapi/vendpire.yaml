@@ -1,0 +1,1196 @@
+openapi: 3.1.0
+info:
+  title: Vendpire
+  description: Sync surface for the Vendpire iOS app. Mirrors procedures the web
+    dashboard calls over tRPC.
+  version: 1.0.0
+servers:
+  - url: http://localhost:3210/api/v1
+paths:
+  /me:
+    get:
+      operationId: getCurrentIdentity
+      summary: The signed-in principal; orgId is null without an active org
+      tags:
+        - auth
+      security:
+        - bearer: []
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Identity"
+        "401":
+          description: Authorization not provided
+          content: &a2
+            application/json:
+              schema:
+                $ref: "#/components/schemas/error.UNAUTHORIZED"
+        "403":
+          description: Insufficient access
+          content: &a3
+            application/json:
+              schema:
+                $ref: "#/components/schemas/error.FORBIDDEN"
+        "426":
+          description: This build is below the supported floor; the client must update.
+          content: &a1
+            application/json:
+              schema:
+                $ref: "#/components/schemas/error.INTERNAL_SERVER_ERROR"
+        "500":
+          description: Internal server error
+          content: *a1
+  /client-support:
+    get:
+      operationId: getClientSupport
+      summary: Whether this iOS build is still supported
+      tags:
+        - system
+      parameters:
+        - in: query
+          name: platform
+          schema:
+            type: string
+            const: ios
+          required: true
+        - in: query
+          name: build
+          schema:
+            type: integer
+            minimum: 0
+            maximum: 9007199254740991
+          required: true
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClientSupport"
+        "400":
+          description: Invalid input data
+          content: &a4
+            application/json:
+              schema:
+                $ref: "#/components/schemas/error.BAD_REQUEST"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/error.NOT_FOUND"
+        "500":
+          description: Internal server error
+          content: *a1
+  /locations:
+    get:
+      operationId: listLocations
+      summary: Every location in the organization
+      tags:
+        - locations
+      security:
+        - bearer: []
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Location"
+        "401":
+          description: Authorization not provided
+          content: *a2
+        "403":
+          description: Insufficient access
+          content: *a3
+        "426":
+          description: This build is below the supported floor; the client must update.
+          content: *a1
+        "500":
+          description: Internal server error
+          content: *a1
+  /machines:
+    get:
+      operationId: listMachines
+      summary: Every machine in the organization
+      tags:
+        - machines
+      security:
+        - bearer: []
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Machine"
+        "401":
+          description: Authorization not provided
+          content: *a2
+        "403":
+          description: Insufficient access
+          content: *a3
+        "426":
+          description: This build is below the supported floor; the client must update.
+          content: *a1
+        "500":
+          description: Internal server error
+          content: *a1
+  /products:
+    get:
+      operationId: listProducts
+      summary: Every product in the organization
+      tags:
+        - products
+      security:
+        - bearer: []
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Product"
+        "401":
+          description: Authorization not provided
+          content: *a2
+        "403":
+          description: Insufficient access
+          content: *a3
+        "426":
+          description: This build is below the supported floor; the client must update.
+          content: *a1
+        "500":
+          description: Internal server error
+          content: *a1
+  /planograms/current:
+    get:
+      operationId: listCurrentPlanograms
+      summary: The current planogram for every machine in the organization
+      tags:
+        - planograms
+      security:
+        - bearer: []
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Planogram"
+        "401":
+          description: Authorization not provided
+          content: *a2
+        "403":
+          description: Insufficient access
+          content: *a3
+        "426":
+          description: This build is below the supported floor; the client must update.
+          content: *a1
+        "500":
+          description: Internal server error
+          content: *a1
+  /purchases:
+    post:
+      operationId: createPurchase
+      summary: Record one stock-buying run
+      tags:
+        - purchases
+      security:
+        - bearer: []
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                purchasedAt:
+                  type: string
+                  format: date-time
+                  pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d+)?(?:Z))$
+                vendor:
+                  type: string
+                  minLength: 1
+                lines:
+                  default: []
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      productId:
+                        type: string
+                        pattern: ^[0-9a-f]{24}$
+                      units:
+                        type: integer
+                        minimum: 1
+                        maximum: 9007199254740991
+                      totalCostCents:
+                        type: integer
+                        minimum: 0
+                        maximum: 9007199254740991
+                      packId:
+                        default: null
+                        type:
+                          - string
+                          - "null"
+                        pattern: ^[0-9a-f]{24}$
+                    required:
+                      - productId
+                      - units
+                      - totalCostCents
+                packLines:
+                  default: []
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      packId:
+                        type: string
+                        pattern: ^[0-9a-f]{24}$
+                      qty:
+                        type: integer
+                        minimum: 1
+                        maximum: 9007199254740991
+                      totalCostCents:
+                        type: integer
+                        minimum: 0
+                        maximum: 9007199254740991
+                    required:
+                      - packId
+                      - qty
+                      - totalCostCents
+                receiptTotalCents:
+                  default: null
+                  type:
+                    - integer
+                    - "null"
+                  minimum: 0
+                  maximum: 9007199254740991
+                notes:
+                  default: null
+                  type:
+                    - string
+                    - "null"
+                clientRequestId:
+                  type: string
+                  minLength: 8
+                  maxLength: 64
+              required:
+                - purchasedAt
+                - vendor
+                - clientRequestId
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Purchase"
+        "400":
+          description: Invalid input data
+          content: *a4
+        "401":
+          description: Authorization not provided
+          content: *a2
+        "403":
+          description: Insufficient access
+          content: *a3
+        "426":
+          description: This build is below the supported floor; the client must update.
+          content: *a1
+        "500":
+          description: Internal server error
+          content: *a1
+  /visits/latest:
+    get:
+      operationId: listLatestVisits
+      summary: The latest visit for every machine in the organization
+      tags:
+        - visits
+      security:
+        - bearer: []
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Visit"
+        "401":
+          description: Authorization not provided
+          content: *a2
+        "403":
+          description: Insufficient access
+          content: *a3
+        "426":
+          description: This build is below the supported floor; the client must update.
+          content: *a1
+        "500":
+          description: Internal server error
+          content: *a1
+  /visits:
+    post:
+      operationId: createVisit
+      summary: Record a servicing of one machine
+      description: "Idempotent on clientRequestId: a repeat submit returns the first
+        visit rather than creating another."
+      tags:
+        - visits
+      security:
+        - bearer: []
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                machineId:
+                  type: string
+                  pattern: ^[0-9a-f]{24}$
+                locationId:
+                  type: string
+                  pattern: ^[0-9a-f]{24}$
+                planogramId:
+                  default: null
+                  type:
+                    - string
+                    - "null"
+                  pattern: ^[0-9a-f]{24}$
+                countedAt:
+                  type: string
+                  format: date-time
+                  pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d+)?(?:Z|([+-](?:[01]\d|2[0-3]):[0-5]\d)))$
+                lines:
+                  minItems: 1
+                  maxItems: 200
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      slotCode:
+                        type: string
+                        minLength: 1
+                        maxLength: 8
+                      productId:
+                        type: string
+                        pattern: ^[0-9a-f]{24}$
+                      remaining:
+                        type: integer
+                        minimum: 0
+                        maximum: 999
+                      added:
+                        type: integer
+                        minimum: 0
+                        maximum: 999
+                      removed:
+                        default: 0
+                        type: integer
+                        minimum: 0
+                        maximum: 999
+                      removedReason:
+                        default: null
+                        type:
+                          - string
+                          - "null"
+                        enum:
+                          - expired
+                          - damaged
+                          - recalled
+                          - destocked
+                          - transferred
+                          - null
+                      priceCents:
+                        type: integer
+                        minimum: 0
+                        maximum: 100000
+                      par:
+                        default: null
+                        type:
+                          - integer
+                          - "null"
+                        minimum: 0
+                        maximum: 999
+                      bestBy:
+                        default: null
+                        type:
+                          - string
+                          - "null"
+                        pattern: ^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                    required:
+                      - slotCode
+                      - productId
+                      - remaining
+                      - added
+                      - priceCents
+                notes:
+                  default: null
+                  type:
+                    - string
+                    - "null"
+                  maxLength: 2000
+                clientRequestId:
+                  type: string
+                  minLength: 8
+                  maxLength: 64
+              required:
+                - machineId
+                - locationId
+                - countedAt
+                - lines
+                - clientRequestId
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Visit"
+        "400":
+          description: Invalid input data
+          content: *a4
+        "401":
+          description: Authorization not provided
+          content: *a2
+        "403":
+          description: Insufficient access
+          content: *a3
+        "426":
+          description: This build is below the supported floor; the client must update.
+          content: *a1
+        "500":
+          description: Internal server error
+          content: *a1
+  /packs:
+    get:
+      operationId: listPacks
+      summary: Every pack in the organization
+      tags:
+        - packs
+      security:
+        - bearer: []
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Pack"
+        "401":
+          description: Authorization not provided
+          content: *a2
+        "403":
+          description: Insufficient access
+          content: *a3
+        "426":
+          description: This build is below the supported floor; the client must update.
+          content: *a1
+        "500":
+          description: Internal server error
+          content: *a1
+components:
+  schemas:
+    Identity:
+      type: object
+      properties:
+        userId:
+          type: string
+        orgId:
+          description: Null means no active org — how a member-less user discovers why
+            they are stuck.
+          type:
+            - string
+            - "null"
+        orgRole:
+          type:
+            - string
+            - "null"
+        orgSlug:
+          type:
+            - string
+            - "null"
+      required:
+        - userId
+        - orgId
+        - orgRole
+        - orgSlug
+    error.UNAUTHORIZED:
+      type: object
+      properties:
+        message:
+          type: string
+          description: The error message
+          example: Authorization not provided
+        code:
+          type: string
+          description: The error code
+          example: UNAUTHORIZED
+        issues:
+          description: An array of issues that were responsible for the error
+          example: []
+          type: array
+          items:
+            type: object
+            properties:
+              message:
+                type: string
+            required:
+              - message
+      required:
+        - message
+        - code
+      title: Authorization not provided error (401)
+      description: The error information
+      example:
+        code: UNAUTHORIZED
+        message: Authorization not provided
+        issues: []
+    error.FORBIDDEN:
+      type: object
+      properties:
+        message:
+          type: string
+          description: The error message
+          example: Insufficient access
+        code:
+          type: string
+          description: The error code
+          example: FORBIDDEN
+        issues:
+          description: An array of issues that were responsible for the error
+          example: []
+          type: array
+          items:
+            type: object
+            properties:
+              message:
+                type: string
+            required:
+              - message
+      required:
+        - message
+        - code
+      title: Insufficient access error (403)
+      description: The error information
+      example:
+        code: FORBIDDEN
+        message: Insufficient access
+        issues: []
+    error.INTERNAL_SERVER_ERROR:
+      type: object
+      properties:
+        message:
+          type: string
+          description: The error message
+          example: This build is below the supported floor; the client must update.
+        code:
+          type: string
+          description: The error code
+          example: INTERNAL_SERVER_ERROR
+        issues:
+          description: An array of issues that were responsible for the error
+          example: []
+          type: array
+          items:
+            type: object
+            properties:
+              message:
+                type: string
+            required:
+              - message
+      required:
+        - message
+        - code
+      title: This build is below the supported floor; the client must update. error
+        (500)
+      description: The error information
+      example:
+        code: INTERNAL_SERVER_ERROR
+        message: This build is below the supported floor; the client must update.
+        issues: []
+    ClientSupport:
+      type: object
+      properties:
+        updateRequirement:
+          type: string
+          enum:
+            - none
+            - recommended
+            - required
+        updateUrl:
+          type: string
+      required:
+        - updateRequirement
+        - updateUrl
+    error.BAD_REQUEST:
+      type: object
+      properties:
+        message:
+          type: string
+          description: The error message
+          example: Invalid input data
+        code:
+          type: string
+          description: The error code
+          example: BAD_REQUEST
+        issues:
+          description: An array of issues that were responsible for the error
+          example: []
+          type: array
+          items:
+            type: object
+            properties:
+              message:
+                type: string
+            required:
+              - message
+      required:
+        - message
+        - code
+      title: Invalid input data error (400)
+      description: The error information
+      example:
+        code: BAD_REQUEST
+        message: Invalid input data
+        issues: []
+    error.NOT_FOUND:
+      type: object
+      properties:
+        message:
+          type: string
+          description: The error message
+          example: Not found
+        code:
+          type: string
+          description: The error code
+          example: NOT_FOUND
+        issues:
+          description: An array of issues that were responsible for the error
+          example: []
+          type: array
+          items:
+            type: object
+            properties:
+              message:
+                type: string
+            required:
+              - message
+      required:
+        - message
+        - code
+      title: Not found error (404)
+      description: The error information
+      example:
+        code: NOT_FOUND
+        message: Not found
+        issues: []
+    Location:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        address:
+          type: object
+          properties:
+            line1:
+              type:
+                - string
+                - "null"
+            city:
+              type:
+                - string
+                - "null"
+            state:
+              type:
+                - string
+                - "null"
+            zip:
+              type:
+                - string
+                - "null"
+            geo:
+              description: From the Places resolve.
+              type:
+                - object
+                - "null"
+              properties:
+                lat:
+                  type: number
+                lng:
+                  type: number
+              required:
+                - lat
+                - lng
+          required:
+            - line1
+            - city
+            - state
+            - zip
+            - geo
+        contact:
+          type: object
+          properties:
+            name:
+              type:
+                - string
+                - "null"
+            phone:
+              type:
+                - string
+                - "null"
+            email:
+              type:
+                - string
+                - "null"
+          required:
+            - name
+            - phone
+            - email
+        commission:
+          $ref: "#/components/schemas/LocationCommission"
+        notes:
+          type:
+            - string
+            - "null"
+        active:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - address
+        - contact
+        - commission
+        - notes
+        - active
+        - createdAt
+        - updatedAt
+    LocationCommission:
+      oneOf:
+        - type: object
+          properties:
+            type:
+              type: string
+              const: none
+          required:
+            - type
+        - type: object
+          properties:
+            type:
+              type: string
+              const: percent
+            percentBps:
+              type: number
+            basis:
+              type: string
+              enum:
+                - gross
+                - net
+          required:
+            - type
+            - percentBps
+            - basis
+        - type: object
+          properties:
+            type:
+              type: string
+              const: flat
+            flatCents:
+              type: number
+          required:
+            - type
+            - flatCents
+      type: object
+    Machine:
+      type: object
+      properties:
+        id:
+          type: string
+        locationId:
+          type: string
+          description: Where the machine sits NOW — visits record their own locationId.
+        name:
+          type: string
+        kind:
+          type: string
+          enum:
+            - snack
+            - drink
+            - combo
+        make:
+          type:
+            - string
+            - "null"
+        model:
+          type:
+            - string
+            - "null"
+        serial:
+          type:
+            - string
+            - "null"
+        tagCode:
+          type:
+            - string
+            - "null"
+        templateId:
+          type:
+            - string
+            - "null"
+        slots:
+          type: array
+          items:
+            type: array
+            items:
+              type: string
+          description: One array per shelf, slot codes in walking order.
+        cardReader:
+          type:
+            - object
+            - "null"
+          properties:
+            provider:
+              type: string
+              enum:
+                - nayax
+                - cantaloupe
+            deviceId:
+              type: string
+          required:
+            - provider
+            - deviceId
+        active:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - locationId
+        - name
+        - kind
+        - make
+        - model
+        - serial
+        - tagCode
+        - templateId
+        - slots
+        - cardReader
+        - active
+        - createdAt
+        - updatedAt
+    Product:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        upc:
+          description: The UNIT barcode, null until verified.
+          type:
+            - string
+            - "null"
+        category:
+          type: string
+        taxClass:
+          type:
+            - string
+            - "null"
+        imageUrl:
+          type:
+            - string
+            - "null"
+        defaultPriceCents:
+          type: number
+        active:
+          type: boolean
+        tracksExpiration:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - upc
+        - category
+        - taxClass
+        - imageUrl
+        - defaultPriceCents
+        - active
+        - tracksExpiration
+        - createdAt
+        - updatedAt
+    Planogram:
+      type: object
+      properties:
+        id:
+          type: string
+        machineId:
+          type: string
+        effectiveFrom:
+          type: string
+          format: date-time
+        slots:
+          type: array
+          items:
+            type: object
+            properties:
+              slotCode:
+                type: string
+              productId:
+                type: string
+              par:
+                type: number
+                description: Units the slot holds when full — the refill target.
+              priceCents:
+                type: number
+            required:
+              - slotCode
+              - productId
+              - par
+              - priceCents
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - machineId
+        - effectiveFrom
+        - slots
+        - createdAt
+        - updatedAt
+    Purchase:
+      type: object
+      properties:
+        id:
+          type: string
+        purchasedAt:
+          type: string
+          format: date-time
+        vendor:
+          type: string
+        lines:
+          type: array
+          items:
+            type: object
+            properties:
+              productId:
+                type: string
+              units:
+                type: number
+              totalCostCents:
+                type: number
+                description: The TOTAL for the line, not a unit cost — the receipt's number.
+              packId:
+                type:
+                  - string
+                  - "null"
+            required:
+              - productId
+              - units
+              - totalCostCents
+              - packId
+        receiptTotalCents:
+          type:
+            - number
+            - "null"
+        notes:
+          type:
+            - string
+            - "null"
+        clientRequestId:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - purchasedAt
+        - vendor
+        - lines
+        - receiptTotalCents
+        - notes
+        - clientRequestId
+        - createdAt
+        - updatedAt
+    Visit:
+      type: object
+      properties:
+        id:
+          type: string
+        machineId:
+          type: string
+        locationId:
+          type: string
+        planogramId:
+          type:
+            - string
+            - "null"
+        countedAt:
+          type: string
+          format: date-time
+        recordedByUserId:
+          type: string
+        lines:
+          type: array
+          items:
+            type: object
+            properties:
+              slotCode:
+                type: string
+              productId:
+                type: string
+              remaining:
+                type: number
+                description: What was physically in the slot on arrival, before refilling and
+                  before removing anything — every derived number is silently
+                  wrong if a post-fill count is recorded here.
+              added:
+                type: number
+              removed:
+                type: number
+              removedReason:
+                description: Required when removed > 0; decides whether the removed units are a
+                  write-off or a transfer.
+                type:
+                  - string
+                  - "null"
+                enum:
+                  - expired
+                  - damaged
+                  - recalled
+                  - destocked
+                  - transferred
+                  - null
+              priceCents:
+                type: number
+                description: Snapshotted, so a later planogram edit cannot rewrite past revenue.
+              par:
+                description: Fill target in effect at this servicing; never used in the P&L.
+                type:
+                  - number
+                  - "null"
+              bestBy:
+                description: The front unit's expiration date, as a zoneless "YYYY-MM-DD"
+                  string.
+                type:
+                  - string
+                  - "null"
+            required:
+              - slotCode
+              - productId
+              - remaining
+              - added
+              - removed
+              - removedReason
+              - priceCents
+              - par
+              - bestBy
+        notes:
+          type:
+            - string
+            - "null"
+        clientRequestId:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - machineId
+        - locationId
+        - planogramId
+        - countedAt
+        - recordedByUserId
+        - lines
+        - notes
+        - clientRequestId
+        - createdAt
+        - updatedAt
+    Pack:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        barcodes:
+          type: array
+          items:
+            type: string
+          description: Case-level barcodes, normalized to GTIN-14.
+        contents:
+          type: array
+          items:
+            type: object
+            properties:
+              productId:
+                type: string
+              units:
+                type: number
+            required:
+              - productId
+              - units
+        active:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - barcodes
+        - contents
+        - active
+        - createdAt
+        - updatedAt
+  securitySchemes:
+    bearer:
+      type: http
+      scheme: bearer
+      description: A Clerk session token.

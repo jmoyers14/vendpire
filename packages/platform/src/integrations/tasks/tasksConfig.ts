@@ -26,7 +26,7 @@ export const TASKS_CONFIG_TOKEN = "TasksConfig";
 const schema = z.object({
   projectId: z.string().min(1, "GCP_PROJECT_ID is required to enqueue tasks"),
   location: z.string().default("us-central1"),
-  workerUrl: z.string().url("WORKER_URL must be the worker's own base URL"),
+  workerUrl: z.url("WORKER_URL must be the worker's own base URL"),
   invokerServiceAccount: z
     .string()
     .min(

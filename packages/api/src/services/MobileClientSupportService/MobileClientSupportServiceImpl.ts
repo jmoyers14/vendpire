@@ -13,7 +13,14 @@ import type {
 const IOS_CLIENT = /^ios\/(\d+)$/;
 
 /** Procedures that stay reachable to a client the floor has refused. */
-const UNGATED_PREFIX = "system.";
+const UNGATED_TRPC_PREFIX = "system.";
+
+/**
+ * Two conventions because one gate fronts both transports: tRPC addresses
+ * procedures by name, `/api/v1` by path. Full path — the gate runs upstream of
+ * the prefix rewrite in index.ts.
+ */
+const UNGATED_REST_PATHS = new Set(["/api/v1/client-support"]);
 
 /**
  * Decides whether an iOS build is still supported. One implementation answers
@@ -67,11 +74,16 @@ function parseClientBuild(raw: string | string[] | undefined): number | null {
   return Number(match[1]);
 }
 
-// httpBatchLink joins a batch's procedure names with commas, so this path is a
-// list. The query string is dropped first — batched input is JSON, itself full
-// of commas.
+// httpBatchLink joins a batch's procedure names with commas, so the tRPC path
+// is a list. The query string is dropped first — batched input is JSON, itself
+// full of commas.
 function isEntirelyUngated(path: string): boolean {
   const [withoutQuery = ""] = path.split("?");
+  if (UNGATED_REST_PATHS.has(withoutQuery)) {
+    return true;
+  }
   const procedures = withoutQuery.replace(/^\//, "").split(",");
-  return procedures.every((procedure) => procedure.startsWith(UNGATED_PREFIX));
+  return procedures.every((procedure) =>
+    procedure.startsWith(UNGATED_TRPC_PREFIX),
+  );
 }
