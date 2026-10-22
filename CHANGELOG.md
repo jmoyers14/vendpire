@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.4.0](https://github.com/jmoyers14/vendpire/compare/v0.3.0...v0.4.0) (2026-10-22)
+
+
+### Features
+
+* **api:** gate stale iOS clients behind a server-owned build floor ([#18](https://github.com/jmoyers14/vendpire/issues/18)) ([77419fb](https://github.com/jmoyers14/vendpire/commit/77419fb0614364032f64d5e577945cb1a441edc8))
+* **api:** REST/OpenAPI surface at /api/v1 ([#22](https://github.com/jmoyers14/vendpire/issues/22)) ([f2d1050](https://github.com/jmoyers14/vendpire/commit/f2d1050df5db38e5931b8f980bda406730fcbb19))
+* **ios:** add a placeholder app icon ([#23](https://github.com/jmoyers14/vendpire/issues/23)) ([67c3f13](https://github.com/jmoyers14/vendpire/commit/67c3f13e805b1809ae6fd7413042c2a3c10e0238))
+* **ios:** fixture-backed store and navigation skeleton ([#19](https://github.com/jmoyers14/vendpire/issues/19)) ([d08f579](https://github.com/jmoyers14/vendpire/commit/d08f579ece617579536de240dc9c91ff13959977))
+* **ios:** lock the app on the device owner, and send a fresh install to sign-in ([#21](https://github.com/jmoyers14/vendpire/issues/21)) ([c778077](https://github.com/jmoyers14/vendpire/commit/c778077b4c0ee692ad3a9028a26125bfe027cb4e))
+* **ios:** update wall and GTIN normalization ([#20](https://github.com/jmoyers14/vendpire/issues/20)) ([20d258f](https://github.com/jmoyers14/vendpire/commit/20d258fffeedf95a7aa4758d7d1d0b89f29e488b))
+* store document relationships as ObjectId refs ([#16](https://github.com/jmoyers14/vendpire/issues/16)) ([d36c3c8](https://github.com/jmoyers14/vendpire/commit/d36c3c81013f27df65d1485125c35f638f0dcf2d))
+* **web:** give organization management a home at /settings ([#24](https://github.com/jmoyers14/vendpire/issues/24)) ([1c4edc3](https://github.com/jmoyers14/vendpire/commit/1c4edc31a0c194b7f76f213839f35007d66b7ddd))
+
 ## [0.3.0](https://github.com/jmoyers14/vendpire/compare/v0.2.0...v0.3.0) (2026-10-18)
 
 
