@@ -354,6 +354,7 @@ paths:
                           - recalled
                           - destocked
                           - transferred
+                          - null
                       priceCents:
                         type: integer
                         minimum: 0
@@ -1004,6 +1005,7 @@ components:
                   - recalled
                   - destocked
                   - transferred
+                  - null
               priceCents:
                 type: number
               par:

@@ -6,6 +6,8 @@ import { appRouter } from "../router.ts";
 const override: NonNullable<CreateDocumentOptions["override"]> = (ctx) => {
   const schema = ctx.jsonSchema as Record<string, unknown> & {
     anyOf?: Array<Record<string, unknown>>;
+    enum?: unknown[];
+    const?: unknown;
   };
 
   // zod renders `.nullable()` as a 2-arm anyOf; the canonical 3.1 `type: [T,
@@ -17,6 +19,16 @@ const override: NonNullable<CreateDocumentOptions["override"]> = (ctx) => {
     if (nullArm && valueArm && typeof valueArm.type === "string") {
       delete schema.anyOf;
       Object.assign(schema, valueArm, { type: [valueArm.type, "null"] });
+
+      // `enum`/`const` constrain every instance, not just the value type, so a
+      // collapsed nullable must admit null explicitly or it contradicts its own `type`.
+      if (Array.isArray(schema.enum)) {
+        schema.enum = [...schema.enum, null];
+      }
+      if ("const" in schema) {
+        schema.enum = [schema.const, null];
+        delete schema.const;
+      }
     }
   }
 

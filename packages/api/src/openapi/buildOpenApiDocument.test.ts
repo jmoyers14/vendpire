@@ -2,6 +2,7 @@ import { describe, expect, it } from "bun:test";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import SwaggerParser from "@apidevtools/swagger-parser";
+import Ajv2020 from "ajv/dist/2020.js";
 import { parse, stringify } from "yaml";
 import { buildOpenApiDocument } from "./buildOpenApiDocument.ts";
 
@@ -109,6 +110,40 @@ describe("the shapes a Swift client has to decode", () => {
     expect(document.components.schemas.LocationCommission.oneOf).toHaveLength(
       3,
     );
+  });
+
+  it("accepts a null removedReason — most visit lines have nothing removed", () => {
+    const document = parse(readFileSync(COMMITTED, "utf8"));
+    const ajv = new Ajv2020({ strict: false });
+    const validate = ajv.compile(document.components.schemas.Visit);
+
+    const visit = {
+      id: "visit_1",
+      machineId: "machine_1",
+      locationId: "location_1",
+      planogramId: "planogram_1",
+      countedAt: "2026-10-21T00:00:00.000Z",
+      recordedByUserId: "user_1",
+      lines: [
+        {
+          slotCode: "A1",
+          productId: "product_1",
+          remaining: 10,
+          added: 0,
+          removed: 0,
+          removedReason: null,
+          priceCents: 150,
+          par: 12,
+          bestBy: null,
+        },
+      ],
+      notes: null,
+      clientRequestId: "request_1",
+      createdAt: "2026-10-21T00:00:00.000Z",
+      updatedAt: "2026-10-21T00:00:00.000Z",
+    };
+
+    expect(validate(visit)).toBe(true);
   });
 });
 

@@ -35,6 +35,7 @@
       "devDependencies": {
         "@apidevtools/swagger-parser": "^13.1.0",
         "@types/cors": "^2.8.17",
+        "ajv": "^8.20.0",
         "bun-types": "^1.0.0",
         "typescript": "^5.3.3",
       },
