@@ -19,6 +19,7 @@
 - **`system.clientSupport` stays `publicProcedure`** with `protect: false`.
 - **Naming:** follow `CLAUDE.md`. `build*` constructs in memory, `create` persists. TypeScript treats acronyms as words (`openApiDocument`, not `openAPIDocument`).
 - **Timestamps are ISO-8601 strings in DTOs.** Money is integer cents. Percentages are basis points.
+- **Instant timestamps carry `.meta({ format: "date-time" })`** so the generated document marks them `format: date-time` and `swift-openapi-generator` produces `Foundation.Date` — conversion in the response decoder, not at every call site. Use `.meta()`, never `z.iso.datetime()`: the values all reach the DTO through `Date.prototype.toISOString()` and so cannot be malformed, making runtime validation a 500 path for an impossible case. **`bestBy` is excluded** — it is a zoneless `"YYYY-MM-DD"` calendar date, and an instant reports the wrong day read from another zone.
 - **Never commit without the full suite green** (`bun run typecheck && bun run test && bun run lint`).
 - **Run package-scoped tests from inside the package**, as `(cd packages/api && bun test <path>)` — never `bun test --cwd packages/api <path>`. `--cwd` does not pick up `packages/api/bunfig.toml`, which preloads `reflect-metadata`; without it any test reaching a tsyringe-decorated class fails for a reason that has nothing to do with the test. Found the hard way in Task 3.
 
