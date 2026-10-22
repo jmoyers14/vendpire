@@ -8,7 +8,7 @@ const productInput = z.object({
   upc: z.string().nullable().default(null),
   category: z.string().min(1),
   taxClass: z.string().nullable().default(null),
-  imageUrl: z.string().url().nullable().default(null),
+  imageUrl: z.url().nullable().default(null),
   defaultPriceCents: z.number().int().min(0),
   active: z.boolean().default(true),
   tracksExpiration: z.boolean().default(true),

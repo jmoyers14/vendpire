@@ -27,7 +27,7 @@
         "posthog-node": "^5.38.0",
         "reflect-metadata": "^0.2.1",
         "tsyringe": "^4.8.0",
-        "zod": "^3.22.4",
+        "zod": "^4.6.7",
       },
       "devDependencies": {
         "@types/cors": "^2.8.17",
@@ -70,7 +70,7 @@
         "posthog-node": "^5.38.0",
         "reflect-metadata": "^0.2.1",
         "tsyringe": "^4.8.0",
-        "zod": "^3.22.4",
+        "zod": "^4.6.7",
       },
       "devDependencies": {
         "bun-types": "^1.0.0",
@@ -113,7 +113,7 @@
         "mongoose": "9.7.0",
         "reflect-metadata": "^0.2.1",
         "tsyringe": "^4.8.0",
-        "zod": "^3.22.4",
+        "zod": "^4.6.7",
       },
       "devDependencies": {
         "bun-types": "^1.0.0",
@@ -853,7 +853,7 @@
 
     "yauzl": ["yauzl@3.4.0", "", { "dependencies": { "pend": "~1.2.0" } }, "sha512-jIH9yLR9wqr0wOS0TpBvo/g/2UgZH5qePVbjgRliiF0BYvOZyaBknKsF+x9Iht0O6sqgnB93rCICdOZFecJuDw=="],
 
-    "zod": ["zod@3.25.76", "", {}, "sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ=="],
+    "zod": ["zod@4.6.7", "", {}, "sha512-g8W2D2kU6a8untc053fX1uVBKzM7yqAxW/3zwk83+6RyF2+SKOuV+c0wBDhUwzV1PaGapmZH+rmcUzPf+3CGwg=="],
 
     "@babel/core/semver": ["semver@6.3.1", "", { "bin": { "semver": "bin/semver.js" } }, "sha512-BR7VvDCVHO+q2xBEWskxS6DJE1qRnb7DxzUrogb71CWoSficBxYsiAGd+Kl0mmq/MprG9yArRkyrQxTO6XjMzA=="],
 

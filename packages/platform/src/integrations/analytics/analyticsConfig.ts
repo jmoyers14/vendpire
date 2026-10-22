@@ -15,7 +15,7 @@ const DEFAULT_POSTHOG_HOST = "https://us.i.posthog.com";
 // analytics capture is a no-op and the server still boots.
 const schema = z.object({
   apiKey: z.string().min(1).nullish().transform((v) => v ?? null),
-  host: z.string().url().default(DEFAULT_POSTHOG_HOST),
+  host: z.url().default(DEFAULT_POSTHOG_HOST),
 });
 
 export function loadAnalyticsConfig(): AnalyticsConfig {

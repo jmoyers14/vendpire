@@ -10,7 +10,7 @@ export const SERVER_CONFIG_TOKEN = "ServerConfig";
 
 const schema = z.object({
   port: z.coerce.number().default(3000),
-  webUrl: z.string().url().default("http://localhost:5173"),
+  webUrl: z.url().default("http://localhost:5173"),
 });
 
 export function loadServerConfig(): ServerConfig {
