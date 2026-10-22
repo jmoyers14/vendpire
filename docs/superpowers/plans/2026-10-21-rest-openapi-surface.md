@@ -1377,7 +1377,7 @@ separately-mounted handler does not inherit the adapter's."
 - Consumes: `appRouter` from `../router.ts`.
 - Produces: `buildOpenApiDocument(): OpenAPIObject` — pure, no disk access, so Task 9's test can call it directly.
 
-**Context you need:** three settings carry real weight. `reused: "ref"` makes shared schemas emit as `$ref`s to named components rather than being inlined per endpoint. The `override` hook collapses `anyOf: [{type: T}, {type: "null"}]` into the canonical 3.1 `type: [T, "null"]`, which maps to a Swift optional rather than a wrapper enum — and the entities are full of nullable fields. And `additionalProperties` is stripped from *outputs only* so a field added to the server later cannot break an older phone build; request bodies never carry it, because zod's `$strip` drops unknown input keys rather than rejecting them.
+**Context you need:** three settings carry real weight. `reused: "inline"` — named components come from `.meta({ id })`, not this setting; `"ref"` would additionally hoist 119 anonymous sub-schemas as `__schemaN` junk types. The `override` hook collapses `anyOf: [{type: T}, {type: "null"}]` into the canonical 3.1 `type: [T, "null"]`, which maps to a Swift optional rather than a wrapper enum — and the entities are full of nullable fields. And `additionalProperties` is stripped from *outputs only* so a field added to the server later cannot break an older phone build; request bodies never carry it, because zod's `$strip` drops unknown input keys rather than rejecting them.
 
 - [ ] **Step 1: Write `buildOpenApiDocument.ts`**
 
@@ -1441,7 +1441,7 @@ export function buildOpenApiDocument() {
         description: "A Clerk session token.",
       },
     },
-    options: { reused: "ref", override },
+    options: { reused: "inline", override },
   });
 }
 ```
@@ -1508,7 +1508,7 @@ git add packages/api/src/openapi/ packages/api/scripts/ packages/api/package.jso
         openapi/vendpire.yaml bun.lock
 git commit -m "feat(api): generate and commit openapi/vendpire.yaml
 
-Committed so the Swift build never needs a running server. reused: ref
+Committed so the Swift build never needs a running server. reused: inline
 emits named components instead of inlining a copy per endpoint, and the
 override hook collapses anyOf-null into the canonical 3.1 type array and
 drops additionalProperties from responses so a new server field cannot

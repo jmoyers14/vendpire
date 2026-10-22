@@ -153,9 +153,12 @@ and `system.clientSupport`. The rest take none.
   is better offline behavior anyway. Only a code absent from the store needs the
   server, and that path hits the external catalog so it requires network
   regardless.
-- **`commission` on the Location output** — a 3-arm `z.discriminatedUnion`
-  (`LocationCommission`, the *only* union in the entire entity layer), cut from
-  v1 because the phone has no use for it. See "the DTO decision" below.
+- ~~`commission` on the Location output~~ — **this was reversed during
+  implementation.** It is a 3-arm `z.discriminatedUnion` and the only union in
+  the entity layer, so cutting it would have kept a `oneOf` out of the document
+  — but `.output()` strips at runtime for every caller, and `locations.list` is
+  shared with the web dashboard, which needs it. See "The cost of sharing a
+  procedure" above. `commission` is on the surface; the phone ignores it.
 - **No P&L endpoint.** The cost-basis as-of-interval fix therefore does not bake
   into this contract and does not need to be sequenced before this phase.
 
@@ -353,18 +356,12 @@ barrel (`platform/src/index.ts:19`), not `/server`, so annotating against them
 does not drag tsyringe-decorated classes into the web compile. The TS1206 trap
 recorded on the forced-update card does not bite here.
 
-#### The DTO decision
+#### No DTO aliases
 
-The Location output omits `commission`, so the schema **cannot** satisfy
-`z.ZodType<Location>` and will not compile. The risk is that someone weakens the
-annotation to make the build pass, discarding the drift detection that is the
-entire point. Instead, declare the omission:
-
-```ts
-type LocationDto = Omit<Location, "commission">;
-```
-
-so removing a field stays an explicit decision rather than an accident.
+Every schema mirrors its entity exactly — there are no `Omit<>` aliases. An
+earlier draft used `LocationDto = Omit<Location, "commission">` to express the
+omission; that omission was reversed (above), and with it the only special case
+in the directory.
 
 #### Bidirectional exactness, not a plain annotation
 
@@ -388,14 +385,12 @@ at the helper explains what the error means when it fires.
 ```mermaid
 flowchart LR
     Entity["Location<br/>platform/…/LocationRepository/types.ts"]
-    Dto["LocationDto = Omit&lt;Location, 'commission'&gt;"]
     Schema["locationDto = z.object({…})"]
-    Check{"Exactly&lt;LocationDto, typeof locationDto&gt;"}
+    Check{"Assert&lt;Equal&lt;z.infer&lt;locationDto&gt;, Location&gt;&gt;"}
     Yaml[("openapi/vendpire.yaml")]
     Swift["Components.Schemas.Location"]
 
-    Entity -->|"Omit — the one deliberate cut"| Dto
-    Dto -->|"expected shape"| Check
+    Entity -->|"expected shape — no Omit, mirrors it exactly"| Check
     Schema -->|"z.infer — actual shape"| Check
     Check -->|"field added, type changed, or stale field left"| Stop(["tsc fails — drift stops here"])
     Check -->|"exact in both directions"| Yaml
@@ -422,7 +417,7 @@ flowchart LR
     Meta{"valid OpenAPI 3.1 ?"}
 
     Router -->|"generateOpenApiDocument"| Script
-    Script -->|"reused: ref + override hook"| Fresh
+    Script -->|"reused: inline + override hook"| Fresh
     Fresh -->|"compared by the drift test"| Drift
     Committed -->|"read from disk"| Drift
     Drift -->|"no — someone changed a schema<br/>without regenerating"| Fail(["CI fails"])
@@ -437,10 +432,13 @@ Three settings that matter more than they look:
   prints `Invalid target: openapi-3.0` and **still emits 3.1 syntax** — a
   document labelled 3.0.3 containing constructs invalid in 3.0. Silently wrong.
   A comment at the call site prevents someone "fixing" the version string later.
-- **`reused: "ref"`.** The default inlines reused schemas, which would give
-  Phase 7 a pile of duplicate anonymous structs instead of one
-  `Components.Schemas.Location`. With it, responses emit
-  `{"$ref": "#/components/schemas/Location"}`.
+- **`reused: "inline"`.** Named components come from `.meta({ id })` on each
+  schema, not from this setting — responses emit
+  `{"$ref": "#/components/schemas/Location"}` either way. Measured on the real
+  router, `"ref"` additionally hoists 119 repeated *anonymous* sub-schemas into
+  components named `__schema0`…`__schema118`, each of which Swift codegen turns
+  into a type. `"inline"` keeps the same ten named components and drops the
+  junk (27 kb → 20 kb).
 - **An `override` hook** doing two things (both verified):
   1. Collapse `anyOf: [{type: T}, {type: "null"}]` into the canonical 3.1
      `type: [T, "null"]`, which maps to a Swift optional rather than an `anyOf`
@@ -514,7 +512,7 @@ dial, not the thing that fails to turn.
 ## The risk this creates
 
 **The spec is not validated against `swift-openapi-generator` in this phase.**
-That is Phase 7 and cannot be run here. The `reused: "ref"`, nullable-collapsing
+That is Phase 7 and cannot be run here. The named-component, nullable-collapsing
 and meta-schema work is what reduces the risk, but it remains residual: if the
 Swift generator objects to something in the document, we find out in Phase 7,
 not now.
