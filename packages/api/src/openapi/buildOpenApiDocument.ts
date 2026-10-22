@@ -2,20 +2,15 @@ import { generateOpenApiDocument } from "trpc-to-openapi";
 import type { CreateDocumentOptions } from "zod-openapi";
 import { appRouter } from "../router.ts";
 
-/**
- * Collapses the two shapes the default rendering gets wrong for a native
- * client, and nothing else.
- */
+/** Fixes the two shapes the default rendering gets wrong for a native client. */
 const override: NonNullable<CreateDocumentOptions["override"]> = (ctx) => {
   const schema = ctx.jsonSchema as Record<string, unknown> & {
     anyOf?: Array<Record<string, unknown>>;
   };
 
-  // 1. `anyOf: [{type: T}, {type: "null"}]` is how zod renders `.nullable()`.
-  //    The canonical 3.1 spelling is `type: [T, "null"]`, which generators map
-  //    to a plain optional instead of a wrapper enum. The entities are full of
-  //    nullable fields, so this is the difference between `String?` and a
-  //    generated anyOf container on every one of them.
+  // zod renders `.nullable()` as a 2-arm anyOf; the canonical 3.1 `type: [T,
+  // "null"]` is what generators map to a plain optional. Multi-arm unions and
+  // oneOf are untouched.
   if (Array.isArray(schema.anyOf) && schema.anyOf.length === 2) {
     const nullArm = schema.anyOf.find((arm) => arm.type === "null");
     const valueArm = schema.anyOf.find((arm) => arm.type !== "null");
@@ -25,20 +20,15 @@ const override: NonNullable<CreateDocumentOptions["override"]> = (ctx) => {
     }
   }
 
-  // 2. Responses tolerate unknown keys, so adding a server field later cannot
-  //    break a phone build compiled against today's document. Request bodies
-  //    never carry additionalProperties in the first place — zod's `$strip`
-  //    drops unknown input keys rather than rejecting them.
+  // Responses tolerate unknown keys, so a field added later cannot break an
+  // older phone build. Inputs never carry it — zod's `$strip` already drops
+  // unknown keys rather than rejecting them.
   if (ctx.io === "output") {
     delete schema.additionalProperties;
   }
 };
 
-/**
- * Builds the OpenAPI document from the router. Pure — writing it to disk is
- * `scripts/generateOpenApi.ts`, so the drift test can compare against this
- * without touching the filesystem.
- */
+/** Pure, so the drift test can compare against it. Writing to disk is scripts/generateOpenApi.ts. */
 export function buildOpenApiDocument() {
   return generateOpenApiDocument(appRouter, {
     title: "Vendpire",
@@ -46,9 +36,8 @@ export function buildOpenApiDocument() {
       "Sync surface for the Vendpire iOS app. Mirrors procedures the web dashboard calls over tRPC.",
     version: "1.0.0",
     baseUrl: "http://localhost:3210/api/v1",
-    // 3.1.0 is not negotiable. Passing "3.0.3" prints `Invalid target:
-    // openapi-3.0` and STILL emits 3.1 syntax, producing a document that lies
-    // about its own version. Do not "fix" this string.
+    // Do not "fix" this to 3.0.3 — that target still emits 3.1 syntax, under
+    // a label that lies about it.
     openApiVersion: "3.1.0",
     securitySchemes: {
       bearer: {
