@@ -45,6 +45,13 @@ struct VendpireApp: App {
                 guard phase == .active else { return }
                 Task { await refresher.refresh() }
             }
+            // Signing in happens in-app, so neither trigger above fires for it.
+            // Without this a fresh install dead-ends: the launch refresh 401s
+            // with no session, and FirstRunView has nothing to pull on.
+            .onChange(of: session.isSignedIn) { _, signedIn in
+                guard signedIn else { return }
+                Task { await refresher.refresh() }
+            }
         }
     }
 }
