@@ -30,6 +30,12 @@ final class MirrorRefresher {
     }
 
     func refresh() async {
+        // Task 11 fires this from both `.task` and `.onChange(of: scenePhase)`
+        // within milliseconds of each other at launch. Without this guard the
+        // two races set `state` to whichever finishes last, which can report
+        // a transient failure over data that is already current, and doubles
+        // the request count for no benefit.
+        guard state != .refreshing else { return }
         state = .refreshing
 
         do {
@@ -59,9 +65,28 @@ final class MirrorRefresher {
                 packs: packs,
                 planograms: planograms
             )
-            try writer.apply(org, syncedAt: syncedAt)
+
+            do {
+                try writer.apply(org, syncedAt: syncedAt)
+            } catch {
+                // A throw here means the LOCAL store is broken — a save,
+                // migration, or constraint failure — not a connectivity
+                // problem. Retrying the network can never fix it, so this
+                // gets its own message, and the return matters for the same
+                // reason as the outer catch below: skip straight past the
+                // visits block rather than reporting `.synced` over a write
+                // that just failed.
+                state = .failed(message: "Couldn't save to the local store.")
+                return
+            }
             state = .synced(at: syncedAt)
         } catch {
+            // Reached only by a fetch failure, before anything touched the
+            // writer — the store may still hold a previous (possibly
+            // wrong-org) snapshot. The return is load-bearing: drop it and
+            // control falls through to the latest-visits block below, which
+            // would apply against that stale store with nothing left to
+            // repair it afterward.
             state = .failed(message: "Couldn't reach the server.")
             return
         }
