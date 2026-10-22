@@ -805,7 +805,9 @@ components:
               type: string
               const: percent
             percentBps:
-              type: number
+              type: integer
+              minimum: -9007199254740991
+              maximum: 9007199254740991
             basis:
               type: string
               enum:
@@ -821,7 +823,9 @@ components:
               type: string
               const: flat
             flatCents:
-              type: number
+              type: integer
+              minimum: -9007199254740991
+              maximum: 9007199254740991
           required:
             - type
             - flatCents
@@ -930,7 +934,9 @@ components:
             - string
             - "null"
         defaultPriceCents:
-          type: number
+          type: integer
+          minimum: -9007199254740991
+          maximum: 9007199254740991
         active:
           type: boolean
         tracksExpiration:
@@ -973,10 +979,14 @@ components:
               productId:
                 type: string
               par:
-                type: number
+                type: integer
+                minimum: -9007199254740991
+                maximum: 9007199254740991
                 description: Units the slot holds when full — the refill target.
               priceCents:
-                type: number
+                type: integer
+                minimum: -9007199254740991
+                maximum: 9007199254740991
             required:
               - slotCode
               - productId
@@ -1013,9 +1023,13 @@ components:
               productId:
                 type: string
               units:
-                type: number
+                type: integer
+                minimum: -9007199254740991
+                maximum: 9007199254740991
               totalCostCents:
-                type: number
+                type: integer
+                minimum: -9007199254740991
+                maximum: 9007199254740991
                 description: The TOTAL for the line, not a unit cost — the receipt's number.
               packId:
                 type:
@@ -1028,8 +1042,10 @@ components:
               - packId
         receiptTotalCents:
           type:
-            - number
+            - integer
             - "null"
+          minimum: -9007199254740991
+          maximum: 9007199254740991
         notes:
           type:
             - string
@@ -1080,14 +1096,20 @@ components:
               productId:
                 type: string
               remaining:
-                type: number
+                type: integer
+                minimum: -9007199254740991
+                maximum: 9007199254740991
                 description: What was physically in the slot on arrival, before refilling and
                   before removing anything — every derived number is silently
                   wrong if a post-fill count is recorded here.
               added:
-                type: number
+                type: integer
+                minimum: -9007199254740991
+                maximum: 9007199254740991
               removed:
-                type: number
+                type: integer
+                minimum: -9007199254740991
+                maximum: 9007199254740991
               removedReason:
                 description: Required when removed > 0; decides whether the removed units are a
                   write-off or a transfer.
@@ -1102,13 +1124,17 @@ components:
                   - transferred
                   - null
               priceCents:
-                type: number
+                type: integer
+                minimum: -9007199254740991
+                maximum: 9007199254740991
                 description: Snapshotted, so a later planogram edit cannot rewrite past revenue.
               par:
                 description: Fill target in effect at this servicing; never used in the P&L.
                 type:
-                  - number
+                  - integer
                   - "null"
+                minimum: -9007199254740991
+                maximum: 9007199254740991
               bestBy:
                 description: The front unit's expiration date, as a zoneless "YYYY-MM-DD"
                   string.
@@ -1169,7 +1195,9 @@ components:
               productId:
                 type: string
               units:
-                type: number
+                type: integer
+                minimum: -9007199254740991
+                maximum: 9007199254740991
             required:
               - productId
               - units

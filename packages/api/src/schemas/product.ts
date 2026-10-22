@@ -11,7 +11,7 @@ export const productDto = z
     category: z.string(),
     taxClass: z.string().nullable(),
     imageUrl: z.string().nullable(),
-    defaultPriceCents: z.number(),
+    defaultPriceCents: z.number().int(),
     active: z.boolean(),
     tracksExpiration: z.boolean(),
     createdAt: z.string().meta({ format: "date-time" }),
