@@ -54,8 +54,9 @@ extension ContactInfo {
 
 extension Commission {
     /// Flattens the document's one `oneOf` into the stored struct. `type` stays
-    /// a raw String so a fourth arm from a newer server cannot fail the decode
-    /// and make the whole location vanish.
+    /// a raw String, but that buys nothing today: the generated `oneOf` is
+    /// closed, so a fourth arm from a newer server fails the decode — and a
+    /// failed decode fails the whole refresh, not just this location.
     init(_ generated: Components.Schemas.LocationCommission) {
         switch generated {
         case .case1:
@@ -79,8 +80,9 @@ extension RemoteMachine {
             id: generated.id,
             locationId: generated.locationId,
             name: generated.name,
-            // Loose on purpose: an unrecognised kind from a newer server should
-            // not make the machine vanish from the mirror.
+            // A raw String here, but the generated enum feeding it is closed:
+            // an unrecognised kind fails the decode, and that fails the whole
+            // refresh, so there is no surviving machine for this to loosen.
             kind: generated.kind.rawValue,
             make: generated.make,
             model: generated.model,
