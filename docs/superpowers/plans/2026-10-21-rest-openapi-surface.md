@@ -20,6 +20,7 @@
 - **Naming:** follow `CLAUDE.md`. `build*` constructs in memory, `create` persists. TypeScript treats acronyms as words (`openApiDocument`, not `openAPIDocument`).
 - **Timestamps are ISO-8601 strings in DTOs.** Money is integer cents. Percentages are basis points.
 - **Never commit without the full suite green** (`bun run typecheck && bun run test && bun run lint`).
+- **Run package-scoped tests from inside the package**, as `(cd packages/api && bun test <path>)` — never `bun test --cwd packages/api <path>`. `--cwd` does not pick up `packages/api/bunfig.toml`, which preloads `reflect-metadata`; without it any test reaching a tsyringe-decorated class fails for a reason that has nothing to do with the test. Found the hard way in Task 3.
 
 ## File Structure
 
@@ -299,7 +300,7 @@ const INERT: MobileConfig = {
 - [ ] **Step 2: Run the tests to verify they fail**
 
 ```bash
-bun test --cwd packages/api src/services/MobileClientSupportService
+(cd packages/api && bun test src/services/MobileClientSupportService)
 ```
 
 Expected: FAIL — the first and third cases return `true` because `/api/v1/client-support` does not start with `system.`.
@@ -343,7 +344,7 @@ function isEntirelyUngated(path: string): boolean {
 - [ ] **Step 4: Run the tests to verify they pass**
 
 ```bash
-bun test --cwd packages/api src/services/MobileClientSupportService
+(cd packages/api && bun test src/services/MobileClientSupportService)
 ```
 
 Expected: PASS, including the pre-existing cases.
@@ -489,7 +490,7 @@ describe("locationDto", () => {
 - [ ] **Step 3: Run the test to verify it fails**
 
 ```bash
-bun test --cwd packages/api src/schemas/location.test.ts
+(cd packages/api && bun test src/schemas/location.test.ts)
 ```
 
 Expected: FAIL — `Cannot find module './location.ts'`.
@@ -543,7 +544,7 @@ export type LocationDtoMatches = Assert<
 - [ ] **Step 5: Run the test and typecheck**
 
 ```bash
-bun test --cwd packages/api src/schemas/location.test.ts
+(cd packages/api && bun test src/schemas/location.test.ts)
 bun run --cwd packages/api typecheck
 ```
 
@@ -974,7 +975,7 @@ describe("output schemas", () => {
 - [ ] **Step 11: Run the tests and typecheck**
 
 ```bash
-bun test --cwd packages/api src/schemas
+(cd packages/api && bun test src/schemas)
 bun run --cwd packages/api typecheck
 ```
 
@@ -1027,7 +1028,7 @@ rather than inlining a copy per endpoint."
 - [ ] **Step 2: Typecheck — this should change nothing yet**
 
 ```bash
-bun run --cwd packages/api typecheck && bun test --cwd packages/api
+bun run --cwd packages/api typecheck && (cd packages/api && bun test)
 ```
 
 Expected: PASS. If the web package fails, stop — `OpenApiMeta` must not leak into the client's compile through `AppRouter`.
@@ -1633,7 +1634,7 @@ describe("the shapes a Swift client has to decode", () => {
 - [ ] **Step 2: Run them**
 
 ```bash
-bun test --cwd packages/api src/openapi
+(cd packages/api && bun test src/openapi)
 ```
 
 Expected: PASS. If the drift test fails, run `bun run --cwd packages/api openapi` and commit the regenerated file — that failure is the test working.
