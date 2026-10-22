@@ -52,6 +52,43 @@ flowchart LR
     Svc -->|"findByOrg(orgId)"| Db
 ```
 
+### The cost of sharing a procedure — learned the hard way
+
+**`.output()` applies to the procedure, not the transport**, and it *strips*
+unknown keys at runtime rather than merely documenting the shape. So two
+consumers sharing a procedure share its response shape: narrowing the phone's
+view narrows the dashboard's too.
+
+This bit during implementation. The original plan omitted `commission` from the
+Location output to keep a 3-arm `oneOf` out of the document — and silently
+removed the Commission column from the web dashboard, which reads the same
+`locations.list`. `commission` was restored; `Location` now mirrors its entity
+exactly, like every other schema.
+
+The rule this phase operates under:
+
+> **Share the procedure while both consumers can live with the same shape.
+> Split the procedure when they can't. Never split the service.**
+
+Splitting is cheap and invisible to the phone, because the whole client-facing
+contract — URL *and* generated Swift method name — is declared in `.meta()`,
+independent of the procedure's name:
+
+```ts
+list: orgProtectedProcedure            // web only: no .meta(), no .output()
+  .query(({ ctx }) => ctx.services.locationService.list(ctx.auth.orgId)),
+
+listForClient: orgProtectedProcedure   // phone only, same service call
+  .meta({ openapi: { method: "GET", path: "/locations", operationId: "listLocations" } })
+  .output(z.array(locationDto))
+  .query(({ ctx }) => ctx.services.locationService.list(ctx.auth.orgId)),
+```
+
+Same URL, same `operationId`, byte-identical generated client. Reach for this
+when a divergence is **expensive to compute** for one side or **structurally
+different** — not when one side merely wants an extra field, where sending the
+superset is free.
+
 ### Why now, despite the card's precondition
 
 The card says *"don't start until real visits have gone through Phase 5."* That
