@@ -101,7 +101,10 @@ final class ClerkSession {
             try await Clerk.shared.auth.signOut()
         } catch {
             // Signing out locally matters more than the server round trip
-            // succeeding; the next launch reconciles either way.
+            // succeeding, so this still swallows the error; the next launch
+            // reconciles either way. It's logged so a silent failure here is
+            // diagnosable instead of just "sign-out doesn't work."
+            print("[signOut] \(error)")
         }
         claimReport = nil
         state = .signedOut
