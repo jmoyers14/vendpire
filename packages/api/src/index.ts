@@ -29,15 +29,10 @@ interface TrpcErrorReport {
 }
 
 /**
- * The single place request errors are logged, shared by BOTH handlers. Uses the
- * request-scoped child (with orgId/userId/requestId) when the context was
- * built, else the root. INTERNAL_SERVER_ERROR is an unhandled bug — log at
- * error with the original cause's stack; everything else is a handled domain
- * error (NOT_FOUND, FORBIDDEN, …) and logs at warn so error tracking isn't
- * flooded by 4xxs.
- *
- * Extracted rather than passed inline because a separately-mounted handler does
- * not inherit the adapter's onError — every REST error would go unlogged.
+ * Shared by both handlers — a separately-mounted one does not inherit the
+ * adapter's onError. INTERNAL_SERVER_ERROR is an unhandled bug and logs at
+ * error with the cause's stack; handled domain errors log at warn so error
+ * tracking isn't flooded by 4xxs.
  */
 const logRequestError = ({ error, path, ctx }: TrpcErrorReport): void => {
   const log = ctx?.log ?? rootLogger;
@@ -77,9 +72,9 @@ const main = async (): Promise<void> => {
   });
   const runHttpMiddleware = buildHttpMiddleware({ webUrl, clientSupport });
 
-  // One server. CORS and the 426 gate run once, upstream of both handlers; the
-  // gate therefore sees the UNREWRITTEN url, which is why its exemption list
-  // holds "/api/v1/client-support" rather than a stripped path.
+  // One server. The middleware runs on the UNREWRITTEN url — the 426 gate
+  // exempts "/api/v1/client-support" by full path, so the strip must stay
+  // inside the branch below.
   const server = http.createServer((req, res) => {
     runHttpMiddleware(req, res, (err?: unknown) => {
       if (err !== undefined && err !== null) {

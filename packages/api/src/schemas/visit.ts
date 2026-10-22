@@ -2,13 +2,7 @@ import { z } from "zod";
 import type { Visit } from "@vendpire/platform";
 import type { Assert, Equal } from "./exactly.ts";
 
-/**
- * The five reasons a unit leaves a machine without being sold. Mirrors
- * `RemovalReason` at packages/domain/src/visits/removals.ts — kept as a
- * literal enum here (rather than importing the domain type) because this is
- * an output schema, and `transferred` must stay even though the task brief
- * that described this file omitted it; the Assert below is what caught that.
- */
+/** Mirrors `RemovalReason` (domain/src/visits/removals.ts). All five arms. */
 const removalReason = z.enum([
   "expired",
   "damaged",

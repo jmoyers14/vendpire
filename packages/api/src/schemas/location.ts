@@ -3,17 +3,9 @@ import type { Location } from "@vendpire/platform";
 import type { Assert, Equal } from "./exactly.ts";
 
 /**
- * What `GET /api/v1/locations` returns: the Location entity, exactly, like the
- * other eight schemas in this directory.
- *
- * `commission` stays even though it's a 3-arm discriminated union — the only
- * union in the entity layer, and the one shape that pushes a `oneOf` into the
- * generated document. `locations.list` is shared with the web dashboard, and
- * `.output()` applies to the procedure, not the transport: it strips any key
- * not in the schema AT RUNTIME, for every caller. Trimming `commission` here
- * to spare the phone a `oneOf` would silently trim it from the dashboard's
- * response too. The dashboard needs it, so it stays, and the phone just
- * ignores the `oneOf` it doesn't use.
+ * Kept despite being the one union that puts a `oneOf` in the document:
+ * `.output()` strips at runtime for every caller, and `locations.list` is
+ * shared with the dashboard, which needs it. The phone ignores it.
  */
 const locationCommission = z
   .discriminatedUnion("type", [

@@ -3,12 +3,9 @@ import type { AuthIdentity } from "@vendpire/platform";
 import type { Assert, Equal } from "./exactly.ts";
 
 /**
- * What `GET /api/v1/me` returns.
- *
- * `orgId` is NULLABLE and that is load-bearing: it is how a user with no
- * active organization discovers why they are stuck. The procedure behind this
- * is `protectedProcedure`, never `orgProtectedProcedure` — under an org gate
- * the call returns 403 with no way to tell "no org" from "no access".
+ * A null `orgId` is how a member-less user learns why they are stuck, so the
+ * procedure stays `protectedProcedure` — an org gate would 403 with no way to
+ * tell "no org" from "no access".
  */
 export const identityDto = z
   .object({

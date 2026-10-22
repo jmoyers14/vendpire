@@ -1,30 +1,21 @@
 /**
- * Compile-time proof that an output schema and its DTO type are the same shape.
- *
- * A plain `const dto: z.ZodType<Dto>` annotation catches a field ADDED to the
- * entity and a field whose type CHANGED — but not a stale field left behind in
- * the schema, because extra properties stay structurally assignable through a
- * generic. That direction is the damaging one: `.output()` strips the field at
- * runtime while the generated spec still advertises it as required, so the
- * phone decodes a required property that never arrives.
+ * Compile-time proof that an output schema still matches its entity.
  *
  * Usage, one line under each schema:
  *
- *   export type LocationDtoMatches = Assert<Equal<z.infer<typeof locationDto>, LocationDto>>;
+ *   export type LocationDtoMatches = Assert<Equal<z.infer<typeof locationDto>, Location>>;
  *
- * When it fires the error is `Type 'false' does not satisfy the constraint
- * 'true'` on that line. It means the schema and the entity have drifted — fix
- * whichever one is wrong. Do NOT weaken the assertion to make the build pass;
- * catching this is the entire point of declaring the schemas.
+ * It fires as `Type 'false' does not satisfy the constraint 'true'`. Fix the
+ * schema or the entity — never weaken the assertion to make the build pass.
  */
 
 /** Fails to compile unless `T` is exactly `true`. Mirrors VisitRepository/types.ts:57. */
 export type Assert<T extends true> = T;
 
 /**
- * Structural equality in BOTH directions. The identical-function-signature
- * trick is what makes it bidirectional; a bare conditional would accept a
- * schema with extra properties.
+ * Equality in BOTH directions. `z.ZodType<Dto>` only checks assignability, so it
+ * accepts a schema that is too narrow — a stale extra field, or a missing union
+ * arm. Both reach Swift as a contract that lies.
  */
 export type Equal<A, B> = (<G>() => G extends A ? 1 : 2) extends <
   G,

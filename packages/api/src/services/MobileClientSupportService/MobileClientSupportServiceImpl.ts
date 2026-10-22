@@ -16,11 +16,9 @@ const IOS_CLIENT = /^ios\/(\d+)$/;
 const UNGATED_TRPC_PREFIX = "system.";
 
 /**
- * REST paths that stay reachable to a refused client. Two conventions rather
- * than one because the same gate sits in front of both transports: tRPC
- * addresses procedures by name, `/api/v1` addresses them by path. The gate runs
- * upstream of the prefix rewrite in index.ts, so the path here is the full one
- * the client sent.
+ * Two conventions because one gate fronts both transports: tRPC addresses
+ * procedures by name, `/api/v1` by path. Full path — the gate runs upstream of
+ * the prefix rewrite in index.ts.
  */
 const UNGATED_REST_PATHS = new Set(["/api/v1/client-support"]);
 
