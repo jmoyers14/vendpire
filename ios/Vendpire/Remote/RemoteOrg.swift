@@ -8,7 +8,6 @@ import Foundation
 /// `Decodable` ignores them.
 nonisolated struct RemoteOrg: Decodable, Sendable {
     let orgId: String
-    let exportedAt: Date
     let locations: [RemoteLocation]
     let machines: [RemoteMachine]
     let products: [RemoteProduct]

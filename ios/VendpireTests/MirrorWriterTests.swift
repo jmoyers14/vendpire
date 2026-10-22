@@ -25,7 +25,7 @@ final class MirrorWriterTests: XCTestCase {
 
     func testAppliesEveryEntityInTheRemoteOrg() throws {
         try setUpStore()
-        try writer.apply(makeRemoteOrg())
+        try writer.apply(makeRemoteOrg(), syncedAt: Date(timeIntervalSince1970: 0))
 
         XCTAssertEqual(try count(StoredLocation.self), 1)
         XCTAssertEqual(try count(StoredMachine.self), 1)
@@ -37,8 +37,8 @@ final class MirrorWriterTests: XCTestCase {
     func testReapplyingTheSameRemoteOrgDoesNotDuplicate() throws {
         try setUpStore()
         let remote = makeRemoteOrg()
-        try writer.apply(remote)
-        try writer.apply(remote)
+        try writer.apply(remote, syncedAt: Date(timeIntervalSince1970: 0))
+        try writer.apply(remote, syncedAt: Date(timeIntervalSince1970: 0))
 
         XCTAssertEqual(try count(StoredMachine.self), 1)
         XCTAssertEqual(try count(StoredProduct.self), 1)
@@ -46,11 +46,11 @@ final class MirrorWriterTests: XCTestCase {
 
     func testUpsertUpdatesInPlaceRatherThanReplacing() throws {
         try setUpStore()
-        try writer.apply(makeRemoteOrg())
+        try writer.apply(makeRemoteOrg(), syncedAt: Date(timeIntervalSince1970: 0))
         let before = try XCTUnwrap(try fetch(StoredProduct.self).first)
         let identity = before.persistentModelID
 
-        try writer.apply(makeRemoteOrg(productName: "Renamed"))
+        try writer.apply(makeRemoteOrg(productName: "Renamed"), syncedAt: Date(timeIntervalSince1970: 0))
 
         let after = try XCTUnwrap(try fetch(StoredProduct.self).first)
         XCTAssertEqual(after.name, "Renamed")
@@ -62,10 +62,10 @@ final class MirrorWriterTests: XCTestCase {
     /// Without this the mirror happily renders a machine deleted months ago.
     func testRemovesRecordsTheRemoteOrgNoLongerCarries() throws {
         try setUpStore()
-        try writer.apply(makeRemoteOrg(machineIds: ["machine-1", "machine-2"]))
+        try writer.apply(makeRemoteOrg(machineIds: ["machine-1", "machine-2"]), syncedAt: Date(timeIntervalSince1970: 0))
         XCTAssertEqual(try count(StoredMachine.self), 2)
 
-        try writer.apply(makeRemoteOrg(machineIds: ["machine-1"]))
+        try writer.apply(makeRemoteOrg(machineIds: ["machine-1"]), syncedAt: Date(timeIntervalSince1970: 0))
 
         let remaining = try fetch(StoredMachine.self)
         XCTAssertEqual(remaining.map(\.id), ["machine-1"])
@@ -73,8 +73,8 @@ final class MirrorWriterTests: XCTestCase {
 
     func testAnEmptyRemoteOrgEmptiesTheStore() throws {
         try setUpStore()
-        try writer.apply(makeRemoteOrg())
-        try writer.apply(makeRemoteOrg(machineIds: [], includeOtherEntities: false))
+        try writer.apply(makeRemoteOrg(), syncedAt: Date(timeIntervalSince1970: 0))
+        try writer.apply(makeRemoteOrg(machineIds: [], includeOtherEntities: false), syncedAt: Date(timeIntervalSince1970: 0))
 
         XCTAssertEqual(try count(StoredMachine.self), 0)
         XCTAssertEqual(try count(StoredProduct.self), 0)
@@ -84,8 +84,8 @@ final class MirrorWriterTests: XCTestCase {
 
     func testSwitchingOrgWipesTheStoreFirst() throws {
         try setUpStore()
-        try writer.apply(makeRemoteOrg(orgId: "org-a", machineIds: ["a-machine"]))
-        try writer.apply(makeRemoteOrg(orgId: "org-b", machineIds: ["b-machine"]))
+        try writer.apply(makeRemoteOrg(orgId: "org-a", machineIds: ["a-machine"]), syncedAt: Date(timeIntervalSince1970: 0))
+        try writer.apply(makeRemoteOrg(orgId: "org-b", machineIds: ["b-machine"]), syncedAt: Date(timeIntervalSince1970: 0))
 
         let machines = try fetch(StoredMachine.self)
         XCTAssertEqual(machines.map(\.id), ["b-machine"], "org-a rows must not survive")
@@ -95,15 +95,29 @@ final class MirrorWriterTests: XCTestCase {
         XCTAssertEqual(metadata.first?.orgId, "org-b")
     }
 
-    func testStampsMetadataOnFirstApply() throws {
+    // MARK: - The transaction boundary
+
+    func testStampsTheSyncedAtItWasGivenRatherThanAnythingInThePayload() throws {
         try setUpStore()
-        let exportedAt = Date(timeIntervalSince1970: 1_000_000)
-        try writer.apply(makeRemoteOrg(orgId: "org-a", exportedAt: exportedAt))
+        let syncedAt = Date(timeIntervalSince1970: 1_000_000)
+
+        try writer.apply(makeRemoteOrg(orgId: "org-a"), syncedAt: syncedAt)
 
         let metadata = try fetch(StoreMetadata.self)
-        XCTAssertEqual(metadata.count, 1)
-        XCTAssertEqual(metadata.first?.orgId, "org-a")
-        XCTAssertEqual(metadata.first?.lastSyncedAt, exportedAt)
+        XCTAssertEqual(metadata.first?.lastSyncedAt, syncedAt)
+    }
+
+    /// A throw mid-apply must leave nothing staged, or the next unrelated save
+    /// anywhere in the app flushes a half-applied mirror.
+    func testAThrowPartWayThroughLeavesNothingStaged() throws {
+        try setUpStore()
+        try writer.apply(makeRemoteOrg(), syncedAt: Date())
+        let before = try count(StoredProduct.self)
+
+        context.insert(StoredProduct(makeProduct(name: "Staged By A Failed Apply")))
+        writer.discardPendingChanges()
+
+        XCTAssertEqual(try count(StoredProduct.self), before)
     }
 
     // MARK: - Layout fidelity
@@ -113,7 +127,7 @@ final class MirrorWriterTests: XCTestCase {
     func testRaggedShelvesSurviveRoundTripExactly() throws {
         try setUpStore()
         let ragged = [["A0", "A2", "A4", "A6"], ["B0", "B2"], ["C0", "C2", "C4", "C6", "C8"]]
-        try writer.apply(makeRemoteOrg(slots: ragged))
+        try writer.apply(makeRemoteOrg(slots: ragged), syncedAt: Date(timeIntervalSince1970: 0))
 
         let machine = try XCTUnwrap(try fetch(StoredMachine.self).first)
         XCTAssertEqual(machine.slots, ragged)
@@ -131,7 +145,6 @@ final class MirrorWriterTests: XCTestCase {
 
     private func makeRemoteOrg(
         orgId: String = "org-a",
-        exportedAt: Date = Date(timeIntervalSince1970: 0),
         machineIds: [String] = ["machine-1"],
         productName: String = "Cinnamon Roll",
         slots: [[String]] = [["A0", "A2"]],
@@ -139,7 +152,6 @@ final class MirrorWriterTests: XCTestCase {
     ) -> RemoteOrg {
         RemoteOrg(
             orgId: orgId,
-            exportedAt: exportedAt,
             locations: includeOtherEntities ? [makeLocation()] : [],
             machines: machineIds.map { makeMachine(id: $0, slots: slots) },
             products: includeOtherEntities ? [makeProduct(name: productName)] : [],

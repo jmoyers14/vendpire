@@ -43,7 +43,9 @@ final class DevFixtureLoader {
     /// converges, so the cost is a few hundred upserts.
     func load() throws {
         let remote = try readRemoteOrg()
-        try writer.apply(remote)
+        // The seed really did just happen; the fixture's own export time is
+        // not when this device synced.
+        try writer.apply(remote, syncedAt: Date())
     }
 
     func readRemoteOrg() throws -> RemoteOrg {

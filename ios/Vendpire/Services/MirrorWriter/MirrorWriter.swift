@@ -14,47 +14,61 @@ final class MirrorWriter {
         self.context = context
     }
 
-    func apply(_ remote: RemoteOrg) throws {
-        try wipeIfOrgChanged(to: remote.orgId)
+    /// `syncedAt` is passed rather than read off the payload: the fixture was
+    /// exported at a known time, a live refresh was assembled just now, and the
+    /// writer should not have to know which it is holding.
+    func apply(_ remote: RemoteOrg, syncedAt: Date) throws {
+        do {
+            try wipeIfOrgChanged(to: remote.orgId)
 
-        try reconcile(
-            remote.locations,
-            idOfRemote: \.id,
-            idOfStored: \StoredLocation.id,
-            update: { stored, remote in stored.update(from: remote) },
-            insert: { StoredLocation($0) }
-        )
-        try reconcile(
-            remote.machines,
-            idOfRemote: \.id,
-            idOfStored: \StoredMachine.id,
-            update: { stored, remote in stored.update(from: remote) },
-            insert: { StoredMachine($0) }
-        )
-        try reconcile(
-            remote.products,
-            idOfRemote: \.id,
-            idOfStored: \StoredProduct.id,
-            update: { stored, remote in stored.update(from: remote) },
-            insert: { StoredProduct($0) }
-        )
-        try reconcile(
-            remote.packs,
-            idOfRemote: \.id,
-            idOfStored: \StoredPack.id,
-            update: { stored, remote in stored.update(from: remote) },
-            insert: { StoredPack($0) }
-        )
-        try reconcile(
-            remote.planograms,
-            idOfRemote: \.id,
-            idOfStored: \StoredPlanogram.id,
-            update: { stored, remote in stored.update(from: remote) },
-            insert: { StoredPlanogram($0) }
-        )
+            try reconcile(
+                remote.locations,
+                idOfRemote: \.id,
+                idOfStored: \StoredLocation.id,
+                update: { stored, remote in stored.update(from: remote) },
+                insert: { StoredLocation($0) }
+            )
+            try reconcile(
+                remote.machines,
+                idOfRemote: \.id,
+                idOfStored: \StoredMachine.id,
+                update: { stored, remote in stored.update(from: remote) },
+                insert: { StoredMachine($0) }
+            )
+            try reconcile(
+                remote.products,
+                idOfRemote: \.id,
+                idOfStored: \StoredProduct.id,
+                update: { stored, remote in stored.update(from: remote) },
+                insert: { StoredProduct($0) }
+            )
+            try reconcile(
+                remote.packs,
+                idOfRemote: \.id,
+                idOfStored: \StoredPack.id,
+                update: { stored, remote in stored.update(from: remote) },
+                insert: { StoredPack($0) }
+            )
+            try reconcile(
+                remote.planograms,
+                idOfRemote: \.id,
+                idOfStored: \StoredPlanogram.id,
+                update: { stored, remote in stored.update(from: remote) },
+                insert: { StoredPlanogram($0) }
+            )
 
-        try stamp(orgId: remote.orgId, at: remote.exportedAt)
-        try context.save()
+            try stamp(orgId: remote.orgId, at: syncedAt)
+            try context.save()
+        } catch {
+            discardPendingChanges()
+            throw error
+        }
+    }
+
+    /// Staged inserts and deletes do not evaporate on a throw — the next save
+    /// anywhere in the app would flush them.
+    func discardPendingChanges() {
+        context.rollback()
     }
 
     // MARK: - The org boundary
