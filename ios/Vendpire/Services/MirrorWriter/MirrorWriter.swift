@@ -67,7 +67,7 @@ final class MirrorWriter {
 
     /// Staged inserts and deletes do not evaporate on a throw — the next save
     /// anywhere in the app would flush them.
-    func discardPendingChanges() {
+    private func discardPendingChanges() {
         context.rollback()
     }
 

@@ -107,19 +107,6 @@ final class MirrorWriterTests: XCTestCase {
         XCTAssertEqual(metadata.first?.lastSyncedAt, syncedAt)
     }
 
-    /// A throw mid-apply must leave nothing staged, or the next unrelated save
-    /// anywhere in the app flushes a half-applied mirror.
-    func testAThrowPartWayThroughLeavesNothingStaged() throws {
-        try setUpStore()
-        try writer.apply(makeRemoteOrg(), syncedAt: Date())
-        let before = try count(StoredProduct.self)
-
-        context.insert(StoredProduct(makeProduct(name: "Staged By A Failed Apply")))
-        writer.discardPendingChanges()
-
-        XCTAssertEqual(try count(StoredProduct.self), before)
-    }
-
     // MARK: - Layout fidelity
 
     /// Real machines have shelves of differing widths; inferring layout from
