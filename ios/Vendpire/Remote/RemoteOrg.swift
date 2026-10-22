@@ -117,3 +117,20 @@ private enum RemoteDate {
         return formatter
     }()
 }
+
+/// A machine's most recent visit. Only the fields the phone reads — the server
+/// sends more, and `Decodable` ignores the rest.
+nonisolated struct RemoteVisit: Decodable, Sendable {
+    let id: String
+    let machineId: String
+    let countedAt: Date
+    let lines: [RemoteVisitLine]
+}
+
+nonisolated struct RemoteVisitLine: Decodable, Sendable {
+    let slotCode: String
+    let productId: String
+    let remaining: Int
+    let added: Int
+    let removed: Int
+}

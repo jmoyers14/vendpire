@@ -65,6 +65,24 @@ final class MirrorWriter {
         }
     }
 
+    /// Applied on its own boundary, after the reference data. Nothing joins
+    /// against latest visits, so losing a refresh of them tears nothing.
+    func applyLatestVisits(_ visits: [RemoteVisit]) throws {
+        do {
+            try reconcile(
+                visits,
+                idOfRemote: \.machineId,
+                idOfStored: \StoredLatestVisit.machineId,
+                update: { stored, remote in stored.update(from: remote) },
+                insert: { StoredLatestVisit($0) }
+            )
+            try context.save()
+        } catch {
+            discardPendingChanges()
+            throw error
+        }
+    }
+
     /// Staged inserts and deletes do not evaporate on a throw — the next save
     /// anywhere in the app would flush them.
     private func discardPendingChanges() {
@@ -85,6 +103,7 @@ final class MirrorWriter {
         try context.delete(model: StoredProduct.self)
         try context.delete(model: StoredPack.self)
         try context.delete(model: StoredPlanogram.self)
+        try context.delete(model: StoredLatestVisit.self)
     }
 
     private func stamp(orgId: String, at syncedAt: Date) throws {

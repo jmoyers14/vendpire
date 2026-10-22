@@ -120,6 +120,54 @@ final class MirrorWriterTests: XCTestCase {
         XCTAssertEqual(machine.slots, ragged)
     }
 
+    // MARK: - Latest visits
+
+    func testAppliesLatestVisitsKeyedByMachine() throws {
+        try setUpStore()
+
+        try writer.applyLatestVisits([makeRemoteVisit(id: "visit-1", machineId: "machine-1")])
+
+        let stored = try fetch(StoredLatestVisit.self)
+        XCTAssertEqual(stored.count, 1)
+        XCTAssertEqual(stored.first?.machineId, "machine-1")
+        XCTAssertEqual(stored.first?.lines.first?.levelAfter, 9)
+    }
+
+    func testANewerVisitReplacesTheMachinesPreviousOne() throws {
+        try setUpStore()
+        try writer.applyLatestVisits([makeRemoteVisit(id: "visit-1", machineId: "machine-1")])
+
+        try writer.applyLatestVisits([makeRemoteVisit(id: "visit-2", machineId: "machine-1")])
+
+        let stored = try fetch(StoredLatestVisit.self)
+        XCTAssertEqual(stored.count, 1)
+        XCTAssertEqual(stored.first?.id, "visit-2")
+    }
+
+    func testDropsAVisitTheServerNoLongerCarries() throws {
+        try setUpStore()
+        try writer.applyLatestVisits([
+            makeRemoteVisit(id: "visit-1", machineId: "machine-1"),
+            makeRemoteVisit(id: "visit-2", machineId: "machine-2"),
+        ])
+
+        try writer.applyLatestVisits([makeRemoteVisit(id: "visit-1", machineId: "machine-1")])
+
+        XCTAssertEqual(try count(StoredLatestVisit.self), 1)
+    }
+
+    /// StoredLatestVisit carries no orgId, so the wipe is the only thing between
+    /// it and a cross-org leak.
+    func testAnOrgChangeWipesLatestVisitsToo() throws {
+        try setUpStore()
+        try writer.apply(makeRemoteOrg(orgId: "org-a"), syncedAt: Date())
+        try writer.applyLatestVisits([makeRemoteVisit(id: "visit-1", machineId: "machine-1")])
+
+        try writer.apply(makeRemoteOrg(orgId: "org-b"), syncedAt: Date())
+
+        XCTAssertEqual(try count(StoredLatestVisit.self), 0)
+    }
+
     // MARK: - Helpers
 
     private func fetch<Model: PersistentModel>(_ type: Model.Type) throws -> [Model] {
@@ -214,6 +262,23 @@ final class MirrorWriterTests: XCTestCase {
             slots: [PlanogramSlot(slotCode: "A0", productId: "product-1", par: 10, priceCents: 500)],
             deletedAt: nil,
             updatedAt: nil
+        )
+    }
+
+    private func makeRemoteVisit(id: String, machineId: String) -> RemoteVisit {
+        RemoteVisit(
+            id: id,
+            machineId: machineId,
+            countedAt: Date(timeIntervalSince1970: 0),
+            lines: [
+                RemoteVisitLine(
+                    slotCode: "A0",
+                    productId: "product-1",
+                    remaining: 2,
+                    added: 8,
+                    removed: 1
+                )
+            ]
         )
     }
 }
