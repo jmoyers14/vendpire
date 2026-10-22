@@ -1,8 +1,12 @@
 import { initTRPC, TRPCError } from "@trpc/server";
+import type { OpenApiMeta } from "trpc-to-openapi";
 import type { Context } from "./context.ts";
 import { ServiceError } from "./services/errors.ts";
 
-const t = initTRPC.context<Context>().create();
+// `.meta<OpenApiMeta>()` is what lets a procedure declare its REST route. Only
+// procedures that carry `.meta({ openapi })` reach the generated document; the
+// rest of the router stays web-only.
+const t = initTRPC.meta<OpenApiMeta>().context<Context>().create();
 
 export const router = t.router;
 

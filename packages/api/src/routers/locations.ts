@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { orgProtectedProcedure, router } from "../trpc.ts";
 import { ANALYTICS_EVENTS } from "../analytics/events.ts";
+import { locationDto } from "../schemas/index.ts";
 import { objectId } from "./validators.ts";
 
 // Each arm carries only its own payload — the shape the entity now uses, so
@@ -42,9 +43,19 @@ const locationInput = z.object({
 });
 
 export const locationsRouter = router({
-  list: orgProtectedProcedure.query(({ ctx }) =>
-    ctx.services.locationService.list(ctx.auth.orgId),
-  ),
+  list: orgProtectedProcedure
+    .meta({
+      openapi: {
+        method: "GET",
+        path: "/locations",
+        tags: ["locations"],
+        protect: true,
+        summary: "Every location in the organization",
+      },
+    })
+    .input(z.void())
+    .output(z.array(locationDto))
+    .query(({ ctx }) => ctx.services.locationService.list(ctx.auth.orgId)),
 
   get: orgProtectedProcedure
     .input(z.object({ id: objectId() }))

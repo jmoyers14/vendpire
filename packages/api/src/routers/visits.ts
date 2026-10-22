@@ -5,6 +5,7 @@ import {
   DEFAULT_EXPIRY_WINDOW_DAYS,
   DEFAULT_VISIT_LIST_LIMIT,
 } from "../services/VisitService/VisitService.ts";
+import { visitDto } from "../schemas/index.ts";
 import { objectId } from "./validators.ts";
 
 export const visitLineInput = z
@@ -63,9 +64,19 @@ export const visitsRouter = router({
       ctx.services.visitService.list(ctx.auth.orgId, input),
     ),
 
-  listLatestByOrg: orgProtectedProcedure.query(({ ctx }) =>
-    ctx.services.visitService.listLatestByOrg(ctx.auth.orgId),
-  ),
+  listLatestByOrg: orgProtectedProcedure
+    .meta({
+      openapi: {
+        method: "GET",
+        path: "/visits/latest",
+        tags: ["visits"],
+        protect: true,
+        summary: "The latest visit for every machine in the organization",
+      },
+    })
+    .input(z.void())
+    .output(z.array(visitDto))
+    .query(({ ctx }) => ctx.services.visitService.listLatestByOrg(ctx.auth.orgId)),
 
   get: orgProtectedProcedure
     .input(z.object({ id: objectId() }))
@@ -108,7 +119,19 @@ export const visitsRouter = router({
   // No `update`: a visit's `remaining` is the next visit's baseline, so editing
   // one rewrites the interval after it. Remove and re-count instead.
   create: orgProtectedProcedure
+    .meta({
+      openapi: {
+        method: "POST",
+        path: "/visits",
+        tags: ["visits"],
+        protect: true,
+        summary: "Record a servicing of one machine",
+        description:
+          "Idempotent on clientRequestId: a repeat submit returns the first visit rather than creating another.",
+      },
+    })
     .input(visitInput)
+    .output(visitDto)
     .mutation(async ({ ctx, input }) => {
       const creation = await ctx.services.visitService.create(ctx.auth.orgId, {
         draft: input,

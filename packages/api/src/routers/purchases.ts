@@ -2,6 +2,7 @@ import { z } from "zod";
 import { orgProtectedProcedure, router } from "../trpc.ts";
 import { ANALYTICS_EVENTS } from "../analytics/events.ts";
 import { DEFAULT_PURCHASE_PAGE_SIZE } from "../services/PurchaseService/PurchaseService.ts";
+import { purchaseDto } from "../schemas/index.ts";
 import { objectId } from "./validators.ts";
 
 const purchaseInput = z.object({
@@ -72,7 +73,17 @@ export const purchasesRouter = router({
     ),
 
   create: orgProtectedProcedure
+    .meta({
+      openapi: {
+        method: "POST",
+        path: "/purchases",
+        tags: ["purchases"],
+        protect: true,
+        summary: "Record one stock-buying run",
+      },
+    })
     .input(purchaseInput)
+    .output(purchaseDto)
     .mutation(async ({ ctx, input }) => {
       const purchase = await ctx.services.purchaseService.create(
         ctx.auth.orgId,

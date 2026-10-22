@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { orgProtectedProcedure, router } from "../trpc.ts";
 import { ANALYTICS_EVENTS } from "../analytics/events.ts";
+import { productDto } from "../schemas/index.ts";
 import { objectId } from "./validators.ts";
 
 const productInput = z.object({
@@ -15,9 +16,19 @@ const productInput = z.object({
 });
 
 export const productsRouter = router({
-  list: orgProtectedProcedure.query(({ ctx }) =>
-    ctx.services.productService.list(ctx.auth.orgId),
-  ),
+  list: orgProtectedProcedure
+    .meta({
+      openapi: {
+        method: "GET",
+        path: "/products",
+        tags: ["products"],
+        protect: true,
+        summary: "Every product in the organization",
+      },
+    })
+    .input(z.void())
+    .output(z.array(productDto))
+    .query(({ ctx }) => ctx.services.productService.list(ctx.auth.orgId)),
 
   // External catalog text search — returns ranked matches with barcodes.
   searchCatalog: orgProtectedProcedure

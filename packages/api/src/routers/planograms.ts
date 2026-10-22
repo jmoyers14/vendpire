@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { orgProtectedProcedure, router } from "../trpc.ts";
 import { ANALYTICS_EVENTS } from "../analytics/events.ts";
+import { planogramDto } from "../schemas/index.ts";
 import { objectId } from "./validators.ts";
 
 const planogramInput = z.object({
@@ -43,9 +44,21 @@ export const planogramsRouter = router({
       ctx.services.planogramService.getCurrent(ctx.auth.orgId, input.machineId),
     ),
 
-  listCurrentByOrg: orgProtectedProcedure.query(({ ctx }) =>
-    ctx.services.planogramService.listCurrentByOrg(ctx.auth.orgId),
-  ),
+  listCurrentByOrg: orgProtectedProcedure
+    .meta({
+      openapi: {
+        method: "GET",
+        path: "/planograms/current",
+        tags: ["planograms"],
+        protect: true,
+        summary: "The current planogram for every machine in the organization",
+      },
+    })
+    .input(z.void())
+    .output(z.array(planogramDto))
+    .query(({ ctx }) =>
+      ctx.services.planogramService.listCurrentByOrg(ctx.auth.orgId),
+    ),
 
   // Immutable versions: no update/remove. A layout change is a new create.
   create: orgProtectedProcedure

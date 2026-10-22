@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { orgProtectedProcedure, router } from "../trpc.ts";
 import { ANALYTICS_EVENTS } from "../analytics/events.ts";
+import { machineDto } from "../schemas/index.ts";
 import { objectId } from "./validators.ts";
 
 const machineInput = z.object({
@@ -26,9 +27,19 @@ const machineInput = z.object({
 });
 
 export const machinesRouter = router({
-  list: orgProtectedProcedure.query(({ ctx }) =>
-    ctx.services.machineService.list(ctx.auth.orgId),
-  ),
+  list: orgProtectedProcedure
+    .meta({
+      openapi: {
+        method: "GET",
+        path: "/machines",
+        tags: ["machines"],
+        protect: true,
+        summary: "Every machine in the organization",
+      },
+    })
+    .input(z.void())
+    .output(z.array(machineDto))
+    .query(({ ctx }) => ctx.services.machineService.list(ctx.auth.orgId)),
 
   get: orgProtectedProcedure
     .input(z.object({ id: objectId() }))

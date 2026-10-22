@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { orgProtectedProcedure, router } from "../trpc.ts";
 import { ANALYTICS_EVENTS } from "../analytics/events.ts";
+import { packDto } from "../schemas/index.ts";
 import { objectId } from "./validators.ts";
 
 const packInput = z.object({
@@ -18,9 +19,19 @@ const packInput = z.object({
 });
 
 export const packsRouter = router({
-  list: orgProtectedProcedure.query(({ ctx }) =>
-    ctx.services.packService.list(ctx.auth.orgId),
-  ),
+  list: orgProtectedProcedure
+    .meta({
+      openapi: {
+        method: "GET",
+        path: "/packs",
+        tags: ["packs"],
+        protect: true,
+        summary: "Every pack in the organization",
+      },
+    })
+    .input(z.void())
+    .output(z.array(packDto))
+    .query(({ ctx }) => ctx.services.packService.list(ctx.auth.orgId)),
 
   get: orgProtectedProcedure
     .input(z.object({ id: objectId() }))
