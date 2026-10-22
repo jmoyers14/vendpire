@@ -39,11 +39,22 @@ private struct FirstRunView: View {
     var body: some View {
         NavigationStack {
             if session.isSignedIn {
+                // Matches LocationListView's toolbar so account access sits in the
+                // same place everywhere; this is the one signed-in screen that
+                // otherwise has no way back to Sign Out.
                 ContentUnavailableView(
                     "Nothing synced yet",
                     systemImage: "arrow.trianglehead.2.clockwise",
                     description: Text("This organization's machines will appear once they sync.")
                 )
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        NavigationLink(destination: AccountView()) {
+                            Image(systemName: "person.crop.circle")
+                        }
+                        .accessibilityLabel("Account")
+                    }
+                }
             } else {
                 ContentUnavailableView {
                     Label("Welcome to Vendpire", systemImage: "shippingbox")
