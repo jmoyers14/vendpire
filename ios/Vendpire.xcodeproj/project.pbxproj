@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		99188B71308A997500FCA60A /* OpenAPIRuntime in Frameworks */ = {isa = PBXBuildFile; productRef = 99188B70308A997500FCA60A /* OpenAPIRuntime */; };
+		99188B73308A997C00FCA60A /* OpenAPIURLSession in Frameworks */ = {isa = PBXBuildFile; productRef = 99188B72308A997C00FCA60A /* OpenAPIURLSession */; };
 		996FC5CD3075A1D200BBCD42 /* ClerkKit in Frameworks */ = {isa = PBXBuildFile; productRef = 996FC5CC3075A1D200BBCD42 /* ClerkKit */; };
 		996FC5CF3075A1D200BBCD42 /* ClerkKitUI in Frameworks */ = {isa = PBXBuildFile; productRef = 996FC5CE3075A1D200BBCD42 /* ClerkKitUI */; };
 /* End PBXBuildFile section */
@@ -60,7 +62,9 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				99188B73308A997C00FCA60A /* OpenAPIURLSession in Frameworks */,
 				996FC5CD3075A1D200BBCD42 /* ClerkKit in Frameworks */,
+				99188B71308A997500FCA60A /* OpenAPIRuntime in Frameworks */,
 				996FC5CF3075A1D200BBCD42 /* ClerkKitUI in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -89,6 +93,7 @@
 				99128E0630758C6800630E2F /* Vendpire */,
 				99128E1430758C6A00630E2F /* VendpireTests */,
 				99128E1E30758C6A00630E2F /* VendpireUITests */,
+				99188B6F308A997500FCA60A /* Frameworks */,
 				99128E0530758C6800630E2F /* Products */,
 			);
 			sourceTree = "<group>";
@@ -101,6 +106,13 @@
 				99128E1B30758C6A00630E2F /* VendpireUITests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		99188B6F308A997500FCA60A /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 		AA0000000000000000000001 /* Config */ = {
@@ -127,6 +139,7 @@
 			buildRules = (
 			);
 			dependencies = (
+				99188B75308A9CA800FCA60A /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				99128E0630758C6800630E2F /* Vendpire */,
@@ -135,6 +148,8 @@
 			packageProductDependencies = (
 				996FC5CC3075A1D200BBCD42 /* ClerkKit */,
 				996FC5CE3075A1D200BBCD42 /* ClerkKitUI */,
+				99188B70308A997500FCA60A /* OpenAPIRuntime */,
+				99188B72308A997C00FCA60A /* OpenAPIURLSession */,
 			);
 			productName = Vendpire;
 			productReference = 99128E0430758C6800630E2F /* Vendpire.app */;
@@ -220,6 +235,9 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				996FC5CB3075A1D200BBCD42 /* XCRemoteSwiftPackageReference "clerk-ios" */,
+				99188B6C308A97CA00FCA60A /* XCRemoteSwiftPackageReference "swift-openapi-generator" */,
+				99188B6D308A97DB00FCA60A /* XCRemoteSwiftPackageReference "swift-openapi-runtime" */,
+				99188B6E308A985300FCA60A /* XCRemoteSwiftPackageReference "swift-openapi-urlsession" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 99128E0530758C6800630E2F /* Products */;
@@ -291,6 +309,10 @@
 			isa = PBXTargetDependency;
 			target = 99128E0330758C6800630E2F /* Vendpire */;
 			targetProxy = 99128E1C30758C6A00630E2F /* PBXContainerItemProxy */;
+		};
+		99188B75308A9CA800FCA60A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			productRef = 99188B74308A9CA800FCA60A /* OpenAPIGenerator */;
 		};
 /* End PBXTargetDependency section */
 
@@ -443,7 +465,7 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
-				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = nonisolated;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 6.2;
@@ -476,7 +498,7 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
-				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = nonisolated;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 6.2;
@@ -610,6 +632,30 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		99188B6C308A97CA00FCA60A /* XCRemoteSwiftPackageReference "swift-openapi-generator" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/apple/swift-openapi-generator";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.14.2;
+			};
+		};
+		99188B6D308A97DB00FCA60A /* XCRemoteSwiftPackageReference "swift-openapi-runtime" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/apple/swift-openapi-runtime";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.13.3;
+			};
+		};
+		99188B6E308A985300FCA60A /* XCRemoteSwiftPackageReference "swift-openapi-urlsession" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/apple/swift-openapi-urlsession";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.4.0;
+			};
+		};
 		996FC5CB3075A1D200BBCD42 /* XCRemoteSwiftPackageReference "clerk-ios" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/clerk/clerk-ios";
@@ -621,6 +667,21 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		99188B70308A997500FCA60A /* OpenAPIRuntime */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 99188B6D308A97DB00FCA60A /* XCRemoteSwiftPackageReference "swift-openapi-runtime" */;
+			productName = OpenAPIRuntime;
+		};
+		99188B72308A997C00FCA60A /* OpenAPIURLSession */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 99188B6E308A985300FCA60A /* XCRemoteSwiftPackageReference "swift-openapi-urlsession" */;
+			productName = OpenAPIURLSession;
+		};
+		99188B74308A9CA800FCA60A /* OpenAPIGenerator */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 99188B6C308A97CA00FCA60A /* XCRemoteSwiftPackageReference "swift-openapi-generator" */;
+			productName = "plugin:OpenAPIGenerator";
+		};
 		996FC5CC3075A1D200BBCD42 /* ClerkKit */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 996FC5CB3075A1D200BBCD42 /* XCRemoteSwiftPackageReference "clerk-ios" */;
