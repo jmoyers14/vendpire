@@ -177,19 +177,76 @@ paths:
               type: object
               properties:
                 purchasedAt:
-                  $ref: "#/components/schemas/__schema0"
+                  type: string
+                  format: date-time
+                  pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d+)?(?:Z))$
                 vendor:
-                  $ref: "#/components/schemas/__schema1"
+                  type: string
+                  minLength: 1
                 lines:
-                  $ref: "#/components/schemas/__schema2"
+                  default: []
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      productId:
+                        type: string
+                        pattern: ^[0-9a-f]{24}$
+                      units:
+                        type: integer
+                        minimum: 1
+                        maximum: 9007199254740991
+                      totalCostCents:
+                        type: integer
+                        minimum: 0
+                        maximum: 9007199254740991
+                      packId:
+                        default: null
+                        type:
+                          - string
+                          - "null"
+                        pattern: ^[0-9a-f]{24}$
+                    required:
+                      - productId
+                      - units
+                      - totalCostCents
                 packLines:
-                  $ref: "#/components/schemas/__schema3"
+                  default: []
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      packId:
+                        type: string
+                        pattern: ^[0-9a-f]{24}$
+                      qty:
+                        type: integer
+                        minimum: 1
+                        maximum: 9007199254740991
+                      totalCostCents:
+                        type: integer
+                        minimum: 0
+                        maximum: 9007199254740991
+                    required:
+                      - packId
+                      - qty
+                      - totalCostCents
                 receiptTotalCents:
-                  $ref: "#/components/schemas/__schema4"
+                  default: null
+                  type:
+                    - integer
+                    - "null"
+                  minimum: 0
+                  maximum: 9007199254740991
                 notes:
-                  $ref: "#/components/schemas/__schema5"
+                  default: null
+                  type:
+                    - string
+                    - "null"
                 clientRequestId:
-                  $ref: "#/components/schemas/__schema6"
+                  type: string
+                  minLength: 8
+                  maxLength: 64
               required:
                 - purchasedAt
                 - vendor
@@ -244,19 +301,92 @@ paths:
               type: object
               properties:
                 machineId:
-                  $ref: "#/components/schemas/__schema7"
+                  type: string
+                  pattern: ^[0-9a-f]{24}$
                 locationId:
-                  $ref: "#/components/schemas/__schema8"
+                  type: string
+                  pattern: ^[0-9a-f]{24}$
                 planogramId:
-                  $ref: "#/components/schemas/__schema9"
+                  default: null
+                  type:
+                    - string
+                    - "null"
+                  pattern: ^[0-9a-f]{24}$
                 countedAt:
-                  $ref: "#/components/schemas/__schema10"
+                  type: string
+                  format: date-time
+                  pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d+)?(?:Z|([+-](?:[01]\d|2[0-3]):[0-5]\d)))$
                 lines:
-                  $ref: "#/components/schemas/__schema11"
+                  minItems: 1
+                  maxItems: 200
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      slotCode:
+                        type: string
+                        minLength: 1
+                        maxLength: 8
+                      productId:
+                        type: string
+                        pattern: ^[0-9a-f]{24}$
+                      remaining:
+                        type: integer
+                        minimum: 0
+                        maximum: 999
+                      added:
+                        type: integer
+                        minimum: 0
+                        maximum: 999
+                      removed:
+                        default: 0
+                        type: integer
+                        minimum: 0
+                        maximum: 999
+                      removedReason:
+                        default: null
+                        type:
+                          - string
+                          - "null"
+                        enum:
+                          - expired
+                          - damaged
+                          - recalled
+                          - destocked
+                          - transferred
+                      priceCents:
+                        type: integer
+                        minimum: 0
+                        maximum: 100000
+                      par:
+                        default: null
+                        type:
+                          - integer
+                          - "null"
+                        minimum: 0
+                        maximum: 999
+                      bestBy:
+                        default: null
+                        type:
+                          - string
+                          - "null"
+                        pattern: ^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+                    required:
+                      - slotCode
+                      - productId
+                      - remaining
+                      - added
+                      - priceCents
                 notes:
-                  $ref: "#/components/schemas/__schema22"
+                  default: null
+                  type:
+                    - string
+                    - "null"
+                  maxLength: 2000
                 clientRequestId:
-                  $ref: "#/components/schemas/__schema23"
+                  type: string
+                  minLength: 8
+                  maxLength: 64
               required:
                 - machineId
                 - locationId
@@ -296,195 +426,23 @@ paths:
         "500": *a1
 components:
   schemas:
-    __schema0:
-      type: string
-      format: date-time
-      pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d+)?(?:Z))$
-    __schema1:
-      type: string
-      minLength: 1
-    __schema2:
-      default: []
-      type: array
-      items:
-        type: object
-        properties:
-          productId:
-            type: string
-            pattern: ^[0-9a-f]{24}$
-          units:
-            type: integer
-            minimum: 1
-            maximum: 9007199254740991
-          totalCostCents:
-            type: integer
-            minimum: 0
-            maximum: 9007199254740991
-          packId:
-            default: null
-            type:
-              - string
-              - "null"
-            pattern: ^[0-9a-f]{24}$
-        required:
-          - productId
-          - units
-          - totalCostCents
-    __schema3:
-      default: []
-      type: array
-      items:
-        type: object
-        properties:
-          packId:
-            type: string
-            pattern: ^[0-9a-f]{24}$
-          qty:
-            type: integer
-            minimum: 1
-            maximum: 9007199254740991
-          totalCostCents:
-            type: integer
-            minimum: 0
-            maximum: 9007199254740991
-        required:
-          - packId
-          - qty
-          - totalCostCents
-    __schema4:
-      default: null
-      type:
-        - integer
-        - "null"
-      minimum: 0
-      maximum: 9007199254740991
-    __schema5:
-      default: null
-      type:
-        - string
-        - "null"
-    __schema6:
-      type: string
-      minLength: 8
-      maxLength: 64
-    __schema7:
-      type: string
-      pattern: ^[0-9a-f]{24}$
-    __schema8:
-      type: string
-      pattern: ^[0-9a-f]{24}$
-    __schema9:
-      default: null
-      type:
-        - string
-        - "null"
-      pattern: ^[0-9a-f]{24}$
-    __schema10:
-      type: string
-      format: date-time
-      pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d+)?(?:Z|([+-](?:[01]\d|2[0-3]):[0-5]\d)))$
-    __schema11:
-      minItems: 1
-      maxItems: 200
-      type: array
-      items:
-        $ref: "#/components/schemas/__schema12"
-    __schema12:
-      type: object
-      properties:
-        slotCode:
-          $ref: "#/components/schemas/__schema13"
-        productId:
-          $ref: "#/components/schemas/__schema14"
-        remaining:
-          $ref: "#/components/schemas/__schema15"
-        added:
-          $ref: "#/components/schemas/__schema16"
-        removed:
-          $ref: "#/components/schemas/__schema17"
-        removedReason:
-          $ref: "#/components/schemas/__schema18"
-        priceCents:
-          $ref: "#/components/schemas/__schema19"
-        par:
-          $ref: "#/components/schemas/__schema20"
-        bestBy:
-          $ref: "#/components/schemas/__schema21"
-      required:
-        - slotCode
-        - productId
-        - remaining
-        - added
-        - priceCents
-    __schema13:
-      type: string
-      minLength: 1
-      maxLength: 8
-    __schema14:
-      type: string
-      pattern: ^[0-9a-f]{24}$
-    __schema15:
-      type: integer
-      minimum: 0
-      maximum: 999
-    __schema16:
-      type: integer
-      minimum: 0
-      maximum: 999
-    __schema17:
-      default: 0
-      type: integer
-      minimum: 0
-      maximum: 999
-    __schema18:
-      default: null
-      type:
-        - string
-        - "null"
-      enum:
-        - expired
-        - damaged
-        - recalled
-        - destocked
-        - transferred
-    __schema19:
-      type: integer
-      minimum: 0
-      maximum: 100000
-    __schema20:
-      default: null
-      type:
-        - integer
-        - "null"
-      minimum: 0
-      maximum: 999
-    __schema21:
-      default: null
-      type:
-        - string
-        - "null"
-      pattern: ^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
-    __schema22:
-      default: null
-      type:
-        - string
-        - "null"
-      maxLength: 2000
-    __schema23:
-      type: string
-      minLength: 8
-      maxLength: 64
     Identity:
       type: object
       properties:
         userId:
-          $ref: "#/components/schemas/__schema24"
+          type: string
         orgId:
-          $ref: "#/components/schemas/__schema25"
+          type:
+            - string
+            - "null"
         orgRole:
-          $ref: "#/components/schemas/__schema26"
+          type:
+            - string
+            - "null"
         orgSlug:
-          $ref: "#/components/schemas/__schema27"
+          type:
+            - string
+            - "null"
       required:
         - userId
         - orgId
@@ -494,11 +452,24 @@ components:
       type: object
       properties:
         message:
-          $ref: "#/components/schemas/__schema28"
+          type: string
+          description: The error message
+          example: Authorization not provided
         code:
-          $ref: "#/components/schemas/__schema29"
+          type: string
+          description: The error code
+          example: UNAUTHORIZED
         issues:
-          $ref: "#/components/schemas/__schema30"
+          description: An array of issues that were responsible for the error
+          example: []
+          type: array
+          items:
+            type: object
+            properties:
+              message:
+                type: string
+            required:
+              - message
       required:
         - message
         - code
@@ -512,11 +483,24 @@ components:
       type: object
       properties:
         message:
-          $ref: "#/components/schemas/__schema32"
+          type: string
+          description: The error message
+          example: Insufficient access
         code:
-          $ref: "#/components/schemas/__schema33"
+          type: string
+          description: The error code
+          example: FORBIDDEN
         issues:
-          $ref: "#/components/schemas/__schema34"
+          description: An array of issues that were responsible for the error
+          example: []
+          type: array
+          items:
+            type: object
+            properties:
+              message:
+                type: string
+            required:
+              - message
       required:
         - message
         - code
@@ -530,11 +514,24 @@ components:
       type: object
       properties:
         message:
-          $ref: "#/components/schemas/__schema36"
+          type: string
+          description: The error message
+          example: Internal server error
         code:
-          $ref: "#/components/schemas/__schema37"
+          type: string
+          description: The error code
+          example: INTERNAL_SERVER_ERROR
         issues:
-          $ref: "#/components/schemas/__schema38"
+          description: An array of issues that were responsible for the error
+          example: []
+          type: array
+          items:
+            type: object
+            properties:
+              message:
+                type: string
+            required:
+              - message
       required:
         - message
         - code
@@ -548,9 +545,13 @@ components:
       type: object
       properties:
         updateRequirement:
-          $ref: "#/components/schemas/__schema40"
+          type: string
+          enum:
+            - none
+            - recommended
+            - required
         updateUrl:
-          $ref: "#/components/schemas/__schema41"
+          type: string
       required:
         - updateRequirement
         - updateUrl
@@ -558,11 +559,24 @@ components:
       type: object
       properties:
         message:
-          $ref: "#/components/schemas/__schema42"
+          type: string
+          description: The error message
+          example: Invalid input data
         code:
-          $ref: "#/components/schemas/__schema43"
+          type: string
+          description: The error code
+          example: BAD_REQUEST
         issues:
-          $ref: "#/components/schemas/__schema44"
+          description: An array of issues that were responsible for the error
+          example: []
+          type: array
+          items:
+            type: object
+            properties:
+              message:
+                type: string
+            required:
+              - message
       required:
         - message
         - code
@@ -576,11 +590,24 @@ components:
       type: object
       properties:
         message:
-          $ref: "#/components/schemas/__schema46"
+          type: string
+          description: The error message
+          example: Not found
         code:
-          $ref: "#/components/schemas/__schema47"
+          type: string
+          description: The error code
+          example: NOT_FOUND
         issues:
-          $ref: "#/components/schemas/__schema48"
+          description: An array of issues that were responsible for the error
+          example: []
+          type: array
+          items:
+            type: object
+            properties:
+              message:
+                type: string
+            required:
+              - message
       required:
         - message
         - code
@@ -594,23 +621,79 @@ components:
       type: object
       properties:
         id:
-          $ref: "#/components/schemas/__schema50"
+          type: string
         name:
-          $ref: "#/components/schemas/__schema51"
+          type: string
         address:
-          $ref: "#/components/schemas/__schema52"
+          type: object
+          properties:
+            line1:
+              type:
+                - string
+                - "null"
+            city:
+              type:
+                - string
+                - "null"
+            state:
+              type:
+                - string
+                - "null"
+            zip:
+              type:
+                - string
+                - "null"
+            geo:
+              type:
+                - object
+                - "null"
+              properties:
+                lat:
+                  type: number
+                lng:
+                  type: number
+              required:
+                - lat
+                - lng
+          required:
+            - line1
+            - city
+            - state
+            - zip
+            - geo
         contact:
-          $ref: "#/components/schemas/__schema53"
+          type: object
+          properties:
+            name:
+              type:
+                - string
+                - "null"
+            phone:
+              type:
+                - string
+                - "null"
+            email:
+              type:
+                - string
+                - "null"
+          required:
+            - name
+            - phone
+            - email
         commission:
           $ref: "#/components/schemas/LocationCommission"
         notes:
-          $ref: "#/components/schemas/__schema57"
+          type:
+            - string
+            - "null"
         active:
-          $ref: "#/components/schemas/__schema58"
+          type: boolean
         createdAt:
-          $ref: "#/components/schemas/__schema59"
+          type: string
+          format: date-time
         updatedAt:
-          $ref: "#/components/schemas/__schema60"
+          type: string
+          format: date-time
       required:
         - id
         - name
@@ -623,47 +706,104 @@ components:
         - updatedAt
     LocationCommission:
       oneOf:
-        - $ref: "#/components/schemas/__schema54"
-        - $ref: "#/components/schemas/__schema55"
-        - $ref: "#/components/schemas/__schema56"
+        - type: object
+          properties:
+            type:
+              type: string
+              const: none
+          required:
+            - type
+        - type: object
+          properties:
+            type:
+              type: string
+              const: percent
+            percentBps:
+              type: number
+            basis:
+              type: string
+              enum:
+                - gross
+                - net
+          required:
+            - type
+            - percentBps
+            - basis
+        - type: object
+          properties:
+            type:
+              type: string
+              const: flat
+            flatCents:
+              type: number
+          required:
+            - type
+            - flatCents
       type: object
-      discriminator:
-        propertyName: type
-        mapping:
-          none: "#/components/schemas/__schema54"
-          percent: "#/components/schemas/__schema55"
-          flat: "#/components/schemas/__schema56"
     Machine:
       type: object
       properties:
         id:
-          $ref: "#/components/schemas/__schema61"
+          type: string
         locationId:
-          $ref: "#/components/schemas/__schema62"
+          type: string
         name:
-          $ref: "#/components/schemas/__schema63"
+          type: string
         kind:
-          $ref: "#/components/schemas/__schema64"
+          type: string
+          enum:
+            - snack
+            - drink
+            - combo
         make:
-          $ref: "#/components/schemas/__schema65"
+          type:
+            - string
+            - "null"
         model:
-          $ref: "#/components/schemas/__schema66"
+          type:
+            - string
+            - "null"
         serial:
-          $ref: "#/components/schemas/__schema67"
+          type:
+            - string
+            - "null"
         tagCode:
-          $ref: "#/components/schemas/__schema68"
+          type:
+            - string
+            - "null"
         templateId:
-          $ref: "#/components/schemas/__schema69"
+          type:
+            - string
+            - "null"
         slots:
-          $ref: "#/components/schemas/__schema70"
+          type: array
+          items:
+            type: array
+            items:
+              type: string
         cardReader:
-          $ref: "#/components/schemas/__schema71"
+          type:
+            - object
+            - "null"
+          properties:
+            provider:
+              type: string
+              enum:
+                - nayax
+                - cantaloupe
+            deviceId:
+              type: string
+          required:
+            - provider
+            - deviceId
         active:
-          $ref: "#/components/schemas/__schema72"
+          type: boolean
         createdAt:
-          $ref: "#/components/schemas/__schema73"
+          type: string
+          format: date-time
         updatedAt:
-          $ref: "#/components/schemas/__schema74"
+          type: string
+          format: date-time
       required:
         - id
         - locationId
@@ -683,27 +823,35 @@ components:
       type: object
       properties:
         id:
-          $ref: "#/components/schemas/__schema75"
+          type: string
         name:
-          $ref: "#/components/schemas/__schema76"
+          type: string
         upc:
-          $ref: "#/components/schemas/__schema77"
+          type:
+            - string
+            - "null"
         category:
-          $ref: "#/components/schemas/__schema78"
+          type: string
         taxClass:
-          $ref: "#/components/schemas/__schema79"
+          type:
+            - string
+            - "null"
         imageUrl:
-          $ref: "#/components/schemas/__schema80"
+          type:
+            - string
+            - "null"
         defaultPriceCents:
-          $ref: "#/components/schemas/__schema81"
+          type: number
         active:
-          $ref: "#/components/schemas/__schema82"
+          type: boolean
         tracksExpiration:
-          $ref: "#/components/schemas/__schema83"
+          type: boolean
         createdAt:
-          $ref: "#/components/schemas/__schema84"
+          type: string
+          format: date-time
         updatedAt:
-          $ref: "#/components/schemas/__schema85"
+          type: string
+          format: date-time
       required:
         - id
         - name
@@ -720,17 +868,36 @@ components:
       type: object
       properties:
         id:
-          $ref: "#/components/schemas/__schema86"
+          type: string
         machineId:
-          $ref: "#/components/schemas/__schema87"
+          type: string
         effectiveFrom:
-          $ref: "#/components/schemas/__schema88"
+          type: string
+          format: date-time
         slots:
-          $ref: "#/components/schemas/__schema89"
+          type: array
+          items:
+            type: object
+            properties:
+              slotCode:
+                type: string
+              productId:
+                type: string
+              par:
+                type: number
+              priceCents:
+                type: number
+            required:
+              - slotCode
+              - productId
+              - par
+              - priceCents
         createdAt:
-          $ref: "#/components/schemas/__schema90"
+          type: string
+          format: date-time
         updatedAt:
-          $ref: "#/components/schemas/__schema91"
+          type: string
+          format: date-time
       required:
         - id
         - machineId
@@ -742,23 +909,48 @@ components:
       type: object
       properties:
         id:
-          $ref: "#/components/schemas/__schema92"
+          type: string
         purchasedAt:
-          $ref: "#/components/schemas/__schema93"
+          type: string
+          format: date-time
         vendor:
-          $ref: "#/components/schemas/__schema94"
+          type: string
         lines:
-          $ref: "#/components/schemas/__schema95"
+          type: array
+          items:
+            type: object
+            properties:
+              productId:
+                type: string
+              units:
+                type: number
+              totalCostCents:
+                type: number
+              packId:
+                type:
+                  - string
+                  - "null"
+            required:
+              - productId
+              - units
+              - totalCostCents
+              - packId
         receiptTotalCents:
-          $ref: "#/components/schemas/__schema96"
+          type:
+            - number
+            - "null"
         notes:
-          $ref: "#/components/schemas/__schema97"
+          type:
+            - string
+            - "null"
         clientRequestId:
-          $ref: "#/components/schemas/__schema98"
+          type: string
         createdAt:
-          $ref: "#/components/schemas/__schema99"
+          type: string
+          format: date-time
         updatedAt:
-          $ref: "#/components/schemas/__schema100"
+          type: string
+          format: date-time
       required:
         - id
         - purchasedAt
@@ -773,27 +965,77 @@ components:
       type: object
       properties:
         id:
-          $ref: "#/components/schemas/__schema101"
+          type: string
         machineId:
-          $ref: "#/components/schemas/__schema102"
+          type: string
         locationId:
-          $ref: "#/components/schemas/__schema103"
+          type: string
         planogramId:
-          $ref: "#/components/schemas/__schema104"
+          type:
+            - string
+            - "null"
         countedAt:
-          $ref: "#/components/schemas/__schema105"
+          type: string
+          format: date-time
         recordedByUserId:
-          $ref: "#/components/schemas/__schema106"
+          type: string
         lines:
-          $ref: "#/components/schemas/__schema107"
+          type: array
+          items:
+            type: object
+            properties:
+              slotCode:
+                type: string
+              productId:
+                type: string
+              remaining:
+                type: number
+              added:
+                type: number
+              removed:
+                type: number
+              removedReason:
+                type:
+                  - string
+                  - "null"
+                enum:
+                  - expired
+                  - damaged
+                  - recalled
+                  - destocked
+                  - transferred
+              priceCents:
+                type: number
+              par:
+                type:
+                  - number
+                  - "null"
+              bestBy:
+                type:
+                  - string
+                  - "null"
+            required:
+              - slotCode
+              - productId
+              - remaining
+              - added
+              - removed
+              - removedReason
+              - priceCents
+              - par
+              - bestBy
         notes:
-          $ref: "#/components/schemas/__schema108"
+          type:
+            - string
+            - "null"
         clientRequestId:
-          $ref: "#/components/schemas/__schema109"
+          type: string
         createdAt:
-          $ref: "#/components/schemas/__schema110"
+          type: string
+          format: date-time
         updatedAt:
-          $ref: "#/components/schemas/__schema111"
+          type: string
+          format: date-time
       required:
         - id
         - machineId
@@ -810,19 +1052,33 @@ components:
       type: object
       properties:
         id:
-          $ref: "#/components/schemas/__schema112"
+          type: string
         name:
-          $ref: "#/components/schemas/__schema113"
+          type: string
         barcodes:
-          $ref: "#/components/schemas/__schema114"
+          type: array
+          items:
+            type: string
         contents:
-          $ref: "#/components/schemas/__schema115"
+          type: array
+          items:
+            type: object
+            properties:
+              productId:
+                type: string
+              units:
+                type: number
+            required:
+              - productId
+              - units
         active:
-          $ref: "#/components/schemas/__schema116"
+          type: boolean
         createdAt:
-          $ref: "#/components/schemas/__schema117"
+          type: string
+          format: date-time
         updatedAt:
-          $ref: "#/components/schemas/__schema118"
+          type: string
+          format: date-time
       required:
         - id
         - name
@@ -831,506 +1087,6 @@ components:
         - active
         - createdAt
         - updatedAt
-    __schema24:
-      type: string
-    __schema25:
-      type:
-        - string
-        - "null"
-    __schema26:
-      type:
-        - string
-        - "null"
-    __schema27:
-      type:
-        - string
-        - "null"
-    __schema28:
-      type: string
-      description: The error message
-      example: Authorization not provided
-    __schema29:
-      type: string
-      description: The error code
-      example: UNAUTHORIZED
-    __schema30:
-      description: An array of issues that were responsible for the error
-      example: []
-      $ref: "#/components/schemas/__schema31"
-    __schema31:
-      type: array
-      items:
-        type: object
-        properties:
-          message:
-            type: string
-        required:
-          - message
-    __schema32:
-      type: string
-      description: The error message
-      example: Insufficient access
-    __schema33:
-      type: string
-      description: The error code
-      example: FORBIDDEN
-    __schema34:
-      description: An array of issues that were responsible for the error
-      example: []
-      $ref: "#/components/schemas/__schema35"
-    __schema35:
-      type: array
-      items:
-        type: object
-        properties:
-          message:
-            type: string
-        required:
-          - message
-    __schema36:
-      type: string
-      description: The error message
-      example: Internal server error
-    __schema37:
-      type: string
-      description: The error code
-      example: INTERNAL_SERVER_ERROR
-    __schema38:
-      description: An array of issues that were responsible for the error
-      example: []
-      $ref: "#/components/schemas/__schema39"
-    __schema39:
-      type: array
-      items:
-        type: object
-        properties:
-          message:
-            type: string
-        required:
-          - message
-    __schema40:
-      type: string
-      enum:
-        - none
-        - recommended
-        - required
-    __schema41:
-      type: string
-    __schema42:
-      type: string
-      description: The error message
-      example: Invalid input data
-    __schema43:
-      type: string
-      description: The error code
-      example: BAD_REQUEST
-    __schema44:
-      description: An array of issues that were responsible for the error
-      example: []
-      $ref: "#/components/schemas/__schema45"
-    __schema45:
-      type: array
-      items:
-        type: object
-        properties:
-          message:
-            type: string
-        required:
-          - message
-    __schema46:
-      type: string
-      description: The error message
-      example: Not found
-    __schema47:
-      type: string
-      description: The error code
-      example: NOT_FOUND
-    __schema48:
-      description: An array of issues that were responsible for the error
-      example: []
-      $ref: "#/components/schemas/__schema49"
-    __schema49:
-      type: array
-      items:
-        type: object
-        properties:
-          message:
-            type: string
-        required:
-          - message
-    __schema50:
-      type: string
-    __schema51:
-      type: string
-    __schema52:
-      type: object
-      properties:
-        line1:
-          type:
-            - string
-            - "null"
-        city:
-          type:
-            - string
-            - "null"
-        state:
-          type:
-            - string
-            - "null"
-        zip:
-          type:
-            - string
-            - "null"
-        geo:
-          type:
-            - object
-            - "null"
-          properties:
-            lat:
-              type: number
-            lng:
-              type: number
-          required:
-            - lat
-            - lng
-      required:
-        - line1
-        - city
-        - state
-        - zip
-        - geo
-    __schema53:
-      type: object
-      properties:
-        name:
-          type:
-            - string
-            - "null"
-        phone:
-          type:
-            - string
-            - "null"
-        email:
-          type:
-            - string
-            - "null"
-      required:
-        - name
-        - phone
-        - email
-    __schema54:
-      type: object
-      properties:
-        type:
-          type: string
-          const: none
-      required:
-        - type
-    __schema55:
-      type: object
-      properties:
-        type:
-          type: string
-          const: percent
-        percentBps:
-          type: number
-        basis:
-          type: string
-          enum:
-            - gross
-            - net
-      required:
-        - type
-        - percentBps
-        - basis
-    __schema56:
-      type: object
-      properties:
-        type:
-          type: string
-          const: flat
-        flatCents:
-          type: number
-      required:
-        - type
-        - flatCents
-    __schema57:
-      type:
-        - string
-        - "null"
-    __schema58:
-      type: boolean
-    __schema59:
-      type: string
-      format: date-time
-    __schema60:
-      type: string
-      format: date-time
-    __schema61:
-      type: string
-    __schema62:
-      type: string
-    __schema63:
-      type: string
-    __schema64:
-      type: string
-      enum:
-        - snack
-        - drink
-        - combo
-    __schema65:
-      type:
-        - string
-        - "null"
-    __schema66:
-      type:
-        - string
-        - "null"
-    __schema67:
-      type:
-        - string
-        - "null"
-    __schema68:
-      type:
-        - string
-        - "null"
-    __schema69:
-      type:
-        - string
-        - "null"
-    __schema70:
-      type: array
-      items:
-        type: array
-        items:
-          type: string
-    __schema71:
-      type:
-        - object
-        - "null"
-      properties:
-        provider:
-          type: string
-          enum:
-            - nayax
-            - cantaloupe
-        deviceId:
-          type: string
-      required:
-        - provider
-        - deviceId
-    __schema72:
-      type: boolean
-    __schema73:
-      type: string
-      format: date-time
-    __schema74:
-      type: string
-      format: date-time
-    __schema75:
-      type: string
-    __schema76:
-      type: string
-    __schema77:
-      type:
-        - string
-        - "null"
-    __schema78:
-      type: string
-    __schema79:
-      type:
-        - string
-        - "null"
-    __schema80:
-      type:
-        - string
-        - "null"
-    __schema81:
-      type: number
-    __schema82:
-      type: boolean
-    __schema83:
-      type: boolean
-    __schema84:
-      type: string
-      format: date-time
-    __schema85:
-      type: string
-      format: date-time
-    __schema86:
-      type: string
-    __schema87:
-      type: string
-    __schema88:
-      type: string
-      format: date-time
-    __schema89:
-      type: array
-      items:
-        type: object
-        properties:
-          slotCode:
-            type: string
-          productId:
-            type: string
-          par:
-            type: number
-          priceCents:
-            type: number
-        required:
-          - slotCode
-          - productId
-          - par
-          - priceCents
-    __schema90:
-      type: string
-      format: date-time
-    __schema91:
-      type: string
-      format: date-time
-    __schema92:
-      type: string
-    __schema93:
-      type: string
-      format: date-time
-    __schema94:
-      type: string
-    __schema95:
-      type: array
-      items:
-        type: object
-        properties:
-          productId:
-            type: string
-          units:
-            type: number
-          totalCostCents:
-            type: number
-          packId:
-            type:
-              - string
-              - "null"
-        required:
-          - productId
-          - units
-          - totalCostCents
-          - packId
-    __schema96:
-      type:
-        - number
-        - "null"
-    __schema97:
-      type:
-        - string
-        - "null"
-    __schema98:
-      type: string
-    __schema99:
-      type: string
-      format: date-time
-    __schema100:
-      type: string
-      format: date-time
-    __schema101:
-      type: string
-    __schema102:
-      type: string
-    __schema103:
-      type: string
-    __schema104:
-      type:
-        - string
-        - "null"
-    __schema105:
-      type: string
-      format: date-time
-    __schema106:
-      type: string
-    __schema107:
-      type: array
-      items:
-        type: object
-        properties:
-          slotCode:
-            type: string
-          productId:
-            type: string
-          remaining:
-            type: number
-          added:
-            type: number
-          removed:
-            type: number
-          removedReason:
-            type:
-              - string
-              - "null"
-            enum:
-              - expired
-              - damaged
-              - recalled
-              - destocked
-              - transferred
-          priceCents:
-            type: number
-          par:
-            type:
-              - number
-              - "null"
-          bestBy:
-            type:
-              - string
-              - "null"
-        required:
-          - slotCode
-          - productId
-          - remaining
-          - added
-          - removed
-          - removedReason
-          - priceCents
-          - par
-          - bestBy
-    __schema108:
-      type:
-        - string
-        - "null"
-    __schema109:
-      type: string
-    __schema110:
-      type: string
-      format: date-time
-    __schema111:
-      type: string
-      format: date-time
-    __schema112:
-      type: string
-    __schema113:
-      type: string
-    __schema114:
-      type: array
-      items:
-        type: string
-    __schema115:
-      type: array
-      items:
-        type: object
-        properties:
-          productId:
-            type: string
-          units:
-            type: number
-        required:
-          - productId
-          - units
-    __schema116:
-      type: boolean
-    __schema117:
-      type: string
-      format: date-time
-    __schema118:
-      type: string
-      format: date-time
   securitySchemes:
     bearer:
       type: http

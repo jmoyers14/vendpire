@@ -57,6 +57,8 @@ export function buildOpenApiDocument() {
         description: "A Clerk session token.",
       },
     },
-    options: { reused: "ref", override },
+    // "inline", not "ref": named components come from .meta({ id }) either way,
+    // and "ref" also hoists 119 anonymous sub-schemas as __schemaN junk types.
+    options: { reused: "inline", override },
   });
 }
