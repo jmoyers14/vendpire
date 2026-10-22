@@ -1,0 +1,1338 @@
+openapi: 3.1.0
+info:
+  title: Vendpire
+  description: Sync surface for the Vendpire iOS app. Mirrors procedures the web
+    dashboard calls over tRPC.
+  version: 1.0.0
+servers:
+  - url: http://localhost:3210/api/v1
+paths:
+  /me:
+    get:
+      operationId: auth-me
+      summary: The signed-in principal; orgId is null without an active org
+      tags:
+        - auth
+      security:
+        - bearer: []
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Identity"
+        "401": &a2
+          description: Authorization not provided
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/error.UNAUTHORIZED"
+        "403": &a3
+          description: Insufficient access
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/error.FORBIDDEN"
+        "500": &a1
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/error.INTERNAL_SERVER_ERROR"
+  /client-support:
+    get:
+      operationId: system-clientSupport
+      summary: Whether this iOS build is still supported
+      tags:
+        - system
+      parameters:
+        - in: query
+          name: platform
+          schema:
+            type: string
+            const: ios
+          required: true
+        - in: query
+          name: build
+          schema:
+            type: integer
+            minimum: 0
+            maximum: 9007199254740991
+          required: true
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClientSupport"
+        "400": &a4
+          description: Invalid input data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/error.BAD_REQUEST"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/error.NOT_FOUND"
+        "500": *a1
+  /locations:
+    get:
+      operationId: locations-list
+      summary: Every location in the organization
+      tags:
+        - locations
+      security:
+        - bearer: []
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Location"
+        "401": *a2
+        "403": *a3
+        "500": *a1
+  /machines:
+    get:
+      operationId: machines-list
+      summary: Every machine in the organization
+      tags:
+        - machines
+      security:
+        - bearer: []
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Machine"
+        "401": *a2
+        "403": *a3
+        "500": *a1
+  /products:
+    get:
+      operationId: products-list
+      summary: Every product in the organization
+      tags:
+        - products
+      security:
+        - bearer: []
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Product"
+        "401": *a2
+        "403": *a3
+        "500": *a1
+  /planograms/current:
+    get:
+      operationId: planograms-listCurrentByOrg
+      summary: The current planogram for every machine in the organization
+      tags:
+        - planograms
+      security:
+        - bearer: []
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Planogram"
+        "401": *a2
+        "403": *a3
+        "500": *a1
+  /purchases:
+    post:
+      operationId: purchases-create
+      summary: Record one stock-buying run
+      tags:
+        - purchases
+      security:
+        - bearer: []
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                purchasedAt:
+                  $ref: "#/components/schemas/__schema0"
+                vendor:
+                  $ref: "#/components/schemas/__schema1"
+                lines:
+                  $ref: "#/components/schemas/__schema2"
+                packLines:
+                  $ref: "#/components/schemas/__schema3"
+                receiptTotalCents:
+                  $ref: "#/components/schemas/__schema4"
+                notes:
+                  $ref: "#/components/schemas/__schema5"
+                clientRequestId:
+                  $ref: "#/components/schemas/__schema6"
+              required:
+                - purchasedAt
+                - vendor
+                - clientRequestId
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Purchase"
+        "400": *a4
+        "401": *a2
+        "403": *a3
+        "500": *a1
+  /visits/latest:
+    get:
+      operationId: visits-listLatestByOrg
+      summary: The latest visit for every machine in the organization
+      tags:
+        - visits
+      security:
+        - bearer: []
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Visit"
+        "401": *a2
+        "403": *a3
+        "500": *a1
+  /visits:
+    post:
+      operationId: visits-create
+      summary: Record a servicing of one machine
+      description: "Idempotent on clientRequestId: a repeat submit returns the first
+        visit rather than creating another."
+      tags:
+        - visits
+      security:
+        - bearer: []
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                machineId:
+                  $ref: "#/components/schemas/__schema7"
+                locationId:
+                  $ref: "#/components/schemas/__schema8"
+                planogramId:
+                  $ref: "#/components/schemas/__schema9"
+                countedAt:
+                  $ref: "#/components/schemas/__schema10"
+                lines:
+                  $ref: "#/components/schemas/__schema11"
+                notes:
+                  $ref: "#/components/schemas/__schema22"
+                clientRequestId:
+                  $ref: "#/components/schemas/__schema23"
+              required:
+                - machineId
+                - locationId
+                - countedAt
+                - lines
+                - clientRequestId
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Visit"
+        "400": *a4
+        "401": *a2
+        "403": *a3
+        "500": *a1
+  /packs:
+    get:
+      operationId: packs-list
+      summary: Every pack in the organization
+      tags:
+        - packs
+      security:
+        - bearer: []
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Pack"
+        "401": *a2
+        "403": *a3
+        "500": *a1
+components:
+  schemas:
+    __schema0:
+      type: string
+      format: date-time
+      pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d+)?(?:Z))$
+    __schema1:
+      type: string
+      minLength: 1
+    __schema2:
+      default: []
+      type: array
+      items:
+        type: object
+        properties:
+          productId:
+            type: string
+            pattern: ^[0-9a-f]{24}$
+          units:
+            type: integer
+            minimum: 1
+            maximum: 9007199254740991
+          totalCostCents:
+            type: integer
+            minimum: 0
+            maximum: 9007199254740991
+          packId:
+            default: null
+            type:
+              - string
+              - "null"
+            pattern: ^[0-9a-f]{24}$
+        required:
+          - productId
+          - units
+          - totalCostCents
+    __schema3:
+      default: []
+      type: array
+      items:
+        type: object
+        properties:
+          packId:
+            type: string
+            pattern: ^[0-9a-f]{24}$
+          qty:
+            type: integer
+            minimum: 1
+            maximum: 9007199254740991
+          totalCostCents:
+            type: integer
+            minimum: 0
+            maximum: 9007199254740991
+        required:
+          - packId
+          - qty
+          - totalCostCents
+    __schema4:
+      default: null
+      type:
+        - integer
+        - "null"
+      minimum: 0
+      maximum: 9007199254740991
+    __schema5:
+      default: null
+      type:
+        - string
+        - "null"
+    __schema6:
+      type: string
+      minLength: 8
+      maxLength: 64
+    __schema7:
+      type: string
+      pattern: ^[0-9a-f]{24}$
+    __schema8:
+      type: string
+      pattern: ^[0-9a-f]{24}$
+    __schema9:
+      default: null
+      type:
+        - string
+        - "null"
+      pattern: ^[0-9a-f]{24}$
+    __schema10:
+      type: string
+      format: date-time
+      pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d+)?(?:Z|([+-](?:[01]\d|2[0-3]):[0-5]\d)))$
+    __schema11:
+      minItems: 1
+      maxItems: 200
+      type: array
+      items:
+        $ref: "#/components/schemas/__schema12"
+    __schema12:
+      type: object
+      properties:
+        slotCode:
+          $ref: "#/components/schemas/__schema13"
+        productId:
+          $ref: "#/components/schemas/__schema14"
+        remaining:
+          $ref: "#/components/schemas/__schema15"
+        added:
+          $ref: "#/components/schemas/__schema16"
+        removed:
+          $ref: "#/components/schemas/__schema17"
+        removedReason:
+          $ref: "#/components/schemas/__schema18"
+        priceCents:
+          $ref: "#/components/schemas/__schema19"
+        par:
+          $ref: "#/components/schemas/__schema20"
+        bestBy:
+          $ref: "#/components/schemas/__schema21"
+      required:
+        - slotCode
+        - productId
+        - remaining
+        - added
+        - priceCents
+    __schema13:
+      type: string
+      minLength: 1
+      maxLength: 8
+    __schema14:
+      type: string
+      pattern: ^[0-9a-f]{24}$
+    __schema15:
+      type: integer
+      minimum: 0
+      maximum: 999
+    __schema16:
+      type: integer
+      minimum: 0
+      maximum: 999
+    __schema17:
+      default: 0
+      type: integer
+      minimum: 0
+      maximum: 999
+    __schema18:
+      default: null
+      type:
+        - string
+        - "null"
+      enum:
+        - expired
+        - damaged
+        - recalled
+        - destocked
+        - transferred
+    __schema19:
+      type: integer
+      minimum: 0
+      maximum: 100000
+    __schema20:
+      default: null
+      type:
+        - integer
+        - "null"
+      minimum: 0
+      maximum: 999
+    __schema21:
+      default: null
+      type:
+        - string
+        - "null"
+      pattern: ^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$
+    __schema22:
+      default: null
+      type:
+        - string
+        - "null"
+      maxLength: 2000
+    __schema23:
+      type: string
+      minLength: 8
+      maxLength: 64
+    Identity:
+      type: object
+      properties:
+        userId:
+          $ref: "#/components/schemas/__schema24"
+        orgId:
+          $ref: "#/components/schemas/__schema25"
+        orgRole:
+          $ref: "#/components/schemas/__schema26"
+        orgSlug:
+          $ref: "#/components/schemas/__schema27"
+      required:
+        - userId
+        - orgId
+        - orgRole
+        - orgSlug
+    error.UNAUTHORIZED:
+      type: object
+      properties:
+        message:
+          $ref: "#/components/schemas/__schema28"
+        code:
+          $ref: "#/components/schemas/__schema29"
+        issues:
+          $ref: "#/components/schemas/__schema30"
+      required:
+        - message
+        - code
+      title: Authorization not provided error (401)
+      description: The error information
+      example:
+        code: UNAUTHORIZED
+        message: Authorization not provided
+        issues: []
+    error.FORBIDDEN:
+      type: object
+      properties:
+        message:
+          $ref: "#/components/schemas/__schema32"
+        code:
+          $ref: "#/components/schemas/__schema33"
+        issues:
+          $ref: "#/components/schemas/__schema34"
+      required:
+        - message
+        - code
+      title: Insufficient access error (403)
+      description: The error information
+      example:
+        code: FORBIDDEN
+        message: Insufficient access
+        issues: []
+    error.INTERNAL_SERVER_ERROR:
+      type: object
+      properties:
+        message:
+          $ref: "#/components/schemas/__schema36"
+        code:
+          $ref: "#/components/schemas/__schema37"
+        issues:
+          $ref: "#/components/schemas/__schema38"
+      required:
+        - message
+        - code
+      title: Internal server error error (500)
+      description: The error information
+      example:
+        code: INTERNAL_SERVER_ERROR
+        message: Internal server error
+        issues: []
+    ClientSupport:
+      type: object
+      properties:
+        updateRequirement:
+          $ref: "#/components/schemas/__schema40"
+        updateUrl:
+          $ref: "#/components/schemas/__schema41"
+      required:
+        - updateRequirement
+        - updateUrl
+    error.BAD_REQUEST:
+      type: object
+      properties:
+        message:
+          $ref: "#/components/schemas/__schema42"
+        code:
+          $ref: "#/components/schemas/__schema43"
+        issues:
+          $ref: "#/components/schemas/__schema44"
+      required:
+        - message
+        - code
+      title: Invalid input data error (400)
+      description: The error information
+      example:
+        code: BAD_REQUEST
+        message: Invalid input data
+        issues: []
+    error.NOT_FOUND:
+      type: object
+      properties:
+        message:
+          $ref: "#/components/schemas/__schema46"
+        code:
+          $ref: "#/components/schemas/__schema47"
+        issues:
+          $ref: "#/components/schemas/__schema48"
+      required:
+        - message
+        - code
+      title: Not found error (404)
+      description: The error information
+      example:
+        code: NOT_FOUND
+        message: Not found
+        issues: []
+    Location:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/__schema50"
+        name:
+          $ref: "#/components/schemas/__schema51"
+        address:
+          $ref: "#/components/schemas/__schema52"
+        contact:
+          $ref: "#/components/schemas/__schema53"
+        commission:
+          $ref: "#/components/schemas/LocationCommission"
+        notes:
+          $ref: "#/components/schemas/__schema57"
+        active:
+          $ref: "#/components/schemas/__schema58"
+        createdAt:
+          $ref: "#/components/schemas/__schema59"
+        updatedAt:
+          $ref: "#/components/schemas/__schema60"
+      required:
+        - id
+        - name
+        - address
+        - contact
+        - commission
+        - notes
+        - active
+        - createdAt
+        - updatedAt
+    LocationCommission:
+      oneOf:
+        - $ref: "#/components/schemas/__schema54"
+        - $ref: "#/components/schemas/__schema55"
+        - $ref: "#/components/schemas/__schema56"
+      type: object
+      discriminator:
+        propertyName: type
+        mapping:
+          none: "#/components/schemas/__schema54"
+          percent: "#/components/schemas/__schema55"
+          flat: "#/components/schemas/__schema56"
+    Machine:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/__schema61"
+        locationId:
+          $ref: "#/components/schemas/__schema62"
+        name:
+          $ref: "#/components/schemas/__schema63"
+        kind:
+          $ref: "#/components/schemas/__schema64"
+        make:
+          $ref: "#/components/schemas/__schema65"
+        model:
+          $ref: "#/components/schemas/__schema66"
+        serial:
+          $ref: "#/components/schemas/__schema67"
+        tagCode:
+          $ref: "#/components/schemas/__schema68"
+        templateId:
+          $ref: "#/components/schemas/__schema69"
+        slots:
+          $ref: "#/components/schemas/__schema70"
+        cardReader:
+          $ref: "#/components/schemas/__schema71"
+        active:
+          $ref: "#/components/schemas/__schema72"
+        createdAt:
+          $ref: "#/components/schemas/__schema73"
+        updatedAt:
+          $ref: "#/components/schemas/__schema74"
+      required:
+        - id
+        - locationId
+        - name
+        - kind
+        - make
+        - model
+        - serial
+        - tagCode
+        - templateId
+        - slots
+        - cardReader
+        - active
+        - createdAt
+        - updatedAt
+    Product:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/__schema75"
+        name:
+          $ref: "#/components/schemas/__schema76"
+        upc:
+          $ref: "#/components/schemas/__schema77"
+        category:
+          $ref: "#/components/schemas/__schema78"
+        taxClass:
+          $ref: "#/components/schemas/__schema79"
+        imageUrl:
+          $ref: "#/components/schemas/__schema80"
+        defaultPriceCents:
+          $ref: "#/components/schemas/__schema81"
+        active:
+          $ref: "#/components/schemas/__schema82"
+        tracksExpiration:
+          $ref: "#/components/schemas/__schema83"
+        createdAt:
+          $ref: "#/components/schemas/__schema84"
+        updatedAt:
+          $ref: "#/components/schemas/__schema85"
+      required:
+        - id
+        - name
+        - upc
+        - category
+        - taxClass
+        - imageUrl
+        - defaultPriceCents
+        - active
+        - tracksExpiration
+        - createdAt
+        - updatedAt
+    Planogram:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/__schema86"
+        machineId:
+          $ref: "#/components/schemas/__schema87"
+        effectiveFrom:
+          $ref: "#/components/schemas/__schema88"
+        slots:
+          $ref: "#/components/schemas/__schema89"
+        createdAt:
+          $ref: "#/components/schemas/__schema90"
+        updatedAt:
+          $ref: "#/components/schemas/__schema91"
+      required:
+        - id
+        - machineId
+        - effectiveFrom
+        - slots
+        - createdAt
+        - updatedAt
+    Purchase:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/__schema92"
+        purchasedAt:
+          $ref: "#/components/schemas/__schema93"
+        vendor:
+          $ref: "#/components/schemas/__schema94"
+        lines:
+          $ref: "#/components/schemas/__schema95"
+        receiptTotalCents:
+          $ref: "#/components/schemas/__schema96"
+        notes:
+          $ref: "#/components/schemas/__schema97"
+        clientRequestId:
+          $ref: "#/components/schemas/__schema98"
+        createdAt:
+          $ref: "#/components/schemas/__schema99"
+        updatedAt:
+          $ref: "#/components/schemas/__schema100"
+      required:
+        - id
+        - purchasedAt
+        - vendor
+        - lines
+        - receiptTotalCents
+        - notes
+        - clientRequestId
+        - createdAt
+        - updatedAt
+    Visit:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/__schema101"
+        machineId:
+          $ref: "#/components/schemas/__schema102"
+        locationId:
+          $ref: "#/components/schemas/__schema103"
+        planogramId:
+          $ref: "#/components/schemas/__schema104"
+        countedAt:
+          $ref: "#/components/schemas/__schema105"
+        recordedByUserId:
+          $ref: "#/components/schemas/__schema106"
+        lines:
+          $ref: "#/components/schemas/__schema107"
+        notes:
+          $ref: "#/components/schemas/__schema108"
+        clientRequestId:
+          $ref: "#/components/schemas/__schema109"
+        createdAt:
+          $ref: "#/components/schemas/__schema110"
+        updatedAt:
+          $ref: "#/components/schemas/__schema111"
+      required:
+        - id
+        - machineId
+        - locationId
+        - planogramId
+        - countedAt
+        - recordedByUserId
+        - lines
+        - notes
+        - clientRequestId
+        - createdAt
+        - updatedAt
+    Pack:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/__schema112"
+        name:
+          $ref: "#/components/schemas/__schema113"
+        barcodes:
+          $ref: "#/components/schemas/__schema114"
+        contents:
+          $ref: "#/components/schemas/__schema115"
+        active:
+          $ref: "#/components/schemas/__schema116"
+        createdAt:
+          $ref: "#/components/schemas/__schema117"
+        updatedAt:
+          $ref: "#/components/schemas/__schema118"
+      required:
+        - id
+        - name
+        - barcodes
+        - contents
+        - active
+        - createdAt
+        - updatedAt
+    __schema24:
+      type: string
+    __schema25:
+      type:
+        - string
+        - "null"
+    __schema26:
+      type:
+        - string
+        - "null"
+    __schema27:
+      type:
+        - string
+        - "null"
+    __schema28:
+      type: string
+      description: The error message
+      example: Authorization not provided
+    __schema29:
+      type: string
+      description: The error code
+      example: UNAUTHORIZED
+    __schema30:
+      description: An array of issues that were responsible for the error
+      example: []
+      $ref: "#/components/schemas/__schema31"
+    __schema31:
+      type: array
+      items:
+        type: object
+        properties:
+          message:
+            type: string
+        required:
+          - message
+    __schema32:
+      type: string
+      description: The error message
+      example: Insufficient access
+    __schema33:
+      type: string
+      description: The error code
+      example: FORBIDDEN
+    __schema34:
+      description: An array of issues that were responsible for the error
+      example: []
+      $ref: "#/components/schemas/__schema35"
+    __schema35:
+      type: array
+      items:
+        type: object
+        properties:
+          message:
+            type: string
+        required:
+          - message
+    __schema36:
+      type: string
+      description: The error message
+      example: Internal server error
+    __schema37:
+      type: string
+      description: The error code
+      example: INTERNAL_SERVER_ERROR
+    __schema38:
+      description: An array of issues that were responsible for the error
+      example: []
+      $ref: "#/components/schemas/__schema39"
+    __schema39:
+      type: array
+      items:
+        type: object
+        properties:
+          message:
+            type: string
+        required:
+          - message
+    __schema40:
+      type: string
+      enum:
+        - none
+        - recommended
+        - required
+    __schema41:
+      type: string
+    __schema42:
+      type: string
+      description: The error message
+      example: Invalid input data
+    __schema43:
+      type: string
+      description: The error code
+      example: BAD_REQUEST
+    __schema44:
+      description: An array of issues that were responsible for the error
+      example: []
+      $ref: "#/components/schemas/__schema45"
+    __schema45:
+      type: array
+      items:
+        type: object
+        properties:
+          message:
+            type: string
+        required:
+          - message
+    __schema46:
+      type: string
+      description: The error message
+      example: Not found
+    __schema47:
+      type: string
+      description: The error code
+      example: NOT_FOUND
+    __schema48:
+      description: An array of issues that were responsible for the error
+      example: []
+      $ref: "#/components/schemas/__schema49"
+    __schema49:
+      type: array
+      items:
+        type: object
+        properties:
+          message:
+            type: string
+        required:
+          - message
+    __schema50:
+      type: string
+    __schema51:
+      type: string
+    __schema52:
+      type: object
+      properties:
+        line1:
+          type:
+            - string
+            - "null"
+        city:
+          type:
+            - string
+            - "null"
+        state:
+          type:
+            - string
+            - "null"
+        zip:
+          type:
+            - string
+            - "null"
+        geo:
+          type:
+            - object
+            - "null"
+          properties:
+            lat:
+              type: number
+            lng:
+              type: number
+          required:
+            - lat
+            - lng
+      required:
+        - line1
+        - city
+        - state
+        - zip
+        - geo
+    __schema53:
+      type: object
+      properties:
+        name:
+          type:
+            - string
+            - "null"
+        phone:
+          type:
+            - string
+            - "null"
+        email:
+          type:
+            - string
+            - "null"
+      required:
+        - name
+        - phone
+        - email
+    __schema54:
+      type: object
+      properties:
+        type:
+          type: string
+          const: none
+      required:
+        - type
+    __schema55:
+      type: object
+      properties:
+        type:
+          type: string
+          const: percent
+        percentBps:
+          type: number
+        basis:
+          type: string
+          enum:
+            - gross
+            - net
+      required:
+        - type
+        - percentBps
+        - basis
+    __schema56:
+      type: object
+      properties:
+        type:
+          type: string
+          const: flat
+        flatCents:
+          type: number
+      required:
+        - type
+        - flatCents
+    __schema57:
+      type:
+        - string
+        - "null"
+    __schema58:
+      type: boolean
+    __schema59:
+      type: string
+      format: date-time
+    __schema60:
+      type: string
+      format: date-time
+    __schema61:
+      type: string
+    __schema62:
+      type: string
+    __schema63:
+      type: string
+    __schema64:
+      type: string
+      enum:
+        - snack
+        - drink
+        - combo
+    __schema65:
+      type:
+        - string
+        - "null"
+    __schema66:
+      type:
+        - string
+        - "null"
+    __schema67:
+      type:
+        - string
+        - "null"
+    __schema68:
+      type:
+        - string
+        - "null"
+    __schema69:
+      type:
+        - string
+        - "null"
+    __schema70:
+      type: array
+      items:
+        type: array
+        items:
+          type: string
+    __schema71:
+      type:
+        - object
+        - "null"
+      properties:
+        provider:
+          type: string
+          enum:
+            - nayax
+            - cantaloupe
+        deviceId:
+          type: string
+      required:
+        - provider
+        - deviceId
+    __schema72:
+      type: boolean
+    __schema73:
+      type: string
+      format: date-time
+    __schema74:
+      type: string
+      format: date-time
+    __schema75:
+      type: string
+    __schema76:
+      type: string
+    __schema77:
+      type:
+        - string
+        - "null"
+    __schema78:
+      type: string
+    __schema79:
+      type:
+        - string
+        - "null"
+    __schema80:
+      type:
+        - string
+        - "null"
+    __schema81:
+      type: number
+    __schema82:
+      type: boolean
+    __schema83:
+      type: boolean
+    __schema84:
+      type: string
+      format: date-time
+    __schema85:
+      type: string
+      format: date-time
+    __schema86:
+      type: string
+    __schema87:
+      type: string
+    __schema88:
+      type: string
+      format: date-time
+    __schema89:
+      type: array
+      items:
+        type: object
+        properties:
+          slotCode:
+            type: string
+          productId:
+            type: string
+          par:
+            type: number
+          priceCents:
+            type: number
+        required:
+          - slotCode
+          - productId
+          - par
+          - priceCents
+    __schema90:
+      type: string
+      format: date-time
+    __schema91:
+      type: string
+      format: date-time
+    __schema92:
+      type: string
+    __schema93:
+      type: string
+      format: date-time
+    __schema94:
+      type: string
+    __schema95:
+      type: array
+      items:
+        type: object
+        properties:
+          productId:
+            type: string
+          units:
+            type: number
+          totalCostCents:
+            type: number
+          packId:
+            type:
+              - string
+              - "null"
+        required:
+          - productId
+          - units
+          - totalCostCents
+          - packId
+    __schema96:
+      type:
+        - number
+        - "null"
+    __schema97:
+      type:
+        - string
+        - "null"
+    __schema98:
+      type: string
+    __schema99:
+      type: string
+      format: date-time
+    __schema100:
+      type: string
+      format: date-time
+    __schema101:
+      type: string
+    __schema102:
+      type: string
+    __schema103:
+      type: string
+    __schema104:
+      type:
+        - string
+        - "null"
+    __schema105:
+      type: string
+      format: date-time
+    __schema106:
+      type: string
+    __schema107:
+      type: array
+      items:
+        type: object
+        properties:
+          slotCode:
+            type: string
+          productId:
+            type: string
+          remaining:
+            type: number
+          added:
+            type: number
+          removed:
+            type: number
+          removedReason:
+            type:
+              - string
+              - "null"
+            enum:
+              - expired
+              - damaged
+              - recalled
+              - destocked
+              - transferred
+          priceCents:
+            type: number
+          par:
+            type:
+              - number
+              - "null"
+          bestBy:
+            type:
+              - string
+              - "null"
+        required:
+          - slotCode
+          - productId
+          - remaining
+          - added
+          - removed
+          - removedReason
+          - priceCents
+          - par
+          - bestBy
+    __schema108:
+      type:
+        - string
+        - "null"
+    __schema109:
+      type: string
+    __schema110:
+      type: string
+      format: date-time
+    __schema111:
+      type: string
+      format: date-time
+    __schema112:
+      type: string
+    __schema113:
+      type: string
+    __schema114:
+      type: array
+      items:
+        type: string
+    __schema115:
+      type: array
+      items:
+        type: object
+        properties:
+          productId:
+            type: string
+          units:
+            type: number
+        required:
+          - productId
+          - units
+    __schema116:
+      type: boolean
+    __schema117:
+      type: string
+      format: date-time
+    __schema118:
+      type: string
+      format: date-time
+  securitySchemes:
+    bearer:
+      type: http
+      scheme: bearer
+      description: A Clerk session token.
