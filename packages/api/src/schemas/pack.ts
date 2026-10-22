@@ -1,0 +1,20 @@
+import { z } from "zod";
+import type { Pack } from "@vendpire/platform";
+import type { Assert, Equal } from "./exactly.ts";
+
+export const packDto = z
+  .object({
+    id: z.string(),
+    name: z.string(),
+    /** Case-level barcodes, normalized to GTIN-14. */
+    barcodes: z.array(z.string()),
+    contents: z.array(
+      z.object({ productId: z.string(), units: z.number() }),
+    ),
+    active: z.boolean(),
+    createdAt: z.string(),
+    updatedAt: z.string(),
+  })
+  .meta({ id: "Pack" });
+
+export type PackDtoMatches = Assert<Equal<z.infer<typeof packDto>, Pack>>;
