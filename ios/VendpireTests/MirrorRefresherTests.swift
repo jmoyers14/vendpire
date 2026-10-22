@@ -100,6 +100,11 @@ final class MirrorRefresherTests: XCTestCase {
         }
     }
 
+    /// Pinned on the one row only the wipe can remove. The five reference
+    /// reconciles already delete whatever an org-b payload omits, so they
+    /// cannot tell a wipe from an ordinary upsert; `StoredLatestVisit` is
+    /// never touched by that pass, and breaking the visits fetch stops
+    /// `applyLatestVisits` from tidying it away instead.
     func testADifferentOrgWipesTheStoreBeforeRefilling() async throws {
         try setUpStore()
         await makeRefresher().refresh()
@@ -107,10 +112,21 @@ final class MirrorRefresherTests: XCTestCase {
         XCTAssertEqual(try count(StoredLatestVisit.self), 1)
 
         api.identity = { RemoteIdentity(userId: "user-1", orgId: "org-b") }
+        api.locations = { [Self.otherOrgLocation] }
+        api.machines = { [Self.otherOrgMachine] }
+        api.products = { [] }
+        api.packs = { [] }
+        api.planograms = { [] }
+        api.latestVisits = { throw StubError.unreachable }
         await makeRefresher().refresh()
 
         XCTAssertEqual(try fetch(StoreMetadata.self).first?.orgId, "org-b")
-        XCTAssertEqual(try count(StoredLatestVisit.self), 0)
+        XCTAssertEqual(
+            try count(StoredLatestVisit.self), 0,
+            "org-a's visit survived an org change"
+        )
+        XCTAssertEqual(try fetch(StoredLocation.self).map(\.id), ["location-2"])
+        XCTAssertEqual(try fetch(StoredMachine.self).map(\.id), ["machine-2"])
     }
 
     func testAMemberLessUserMakesNoFurtherCallsAndWritesNothing() async throws {
@@ -268,6 +284,36 @@ final class MirrorRefresherTests: XCTestCase {
         machineId: "machine-1",
         effectiveFrom: Date(timeIntervalSince1970: 0),
         slots: [PlanogramSlot(slotCode: "A0", productId: "product-1", par: 10, priceCents: 500)],
+        deletedAt: nil,
+        updatedAt: nil
+    )
+
+    /// org-b's rows, sharing no id with org-a's, so "replaced" is visible
+    /// rather than inferred from a count that happens to match.
+    private nonisolated static let otherOrgLocation = RemoteLocation(
+        id: "location-2",
+        name: "Bellweather Lofts",
+        address: nil,
+        contact: nil,
+        commission: nil,
+        notes: nil,
+        active: true,
+        deletedAt: nil,
+        updatedAt: nil
+    )
+
+    private nonisolated static let otherOrgMachine = RemoteMachine(
+        id: "machine-2",
+        locationId: "location-2",
+        name: "AMS 39",
+        kind: "drink",
+        make: nil,
+        model: nil,
+        serial: nil,
+        tagCode: nil,
+        slots: [["A0"]],
+        cardReader: nil,
+        active: true,
         deletedAt: nil,
         updatedAt: nil
     )
