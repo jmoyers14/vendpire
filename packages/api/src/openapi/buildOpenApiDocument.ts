@@ -2,6 +2,55 @@ import { generateOpenApiDocument } from "trpc-to-openapi";
 import type { CreateDocumentOptions } from "zod-openapi";
 import { appRouter } from "../router.ts";
 
+type ResponseEntry = Record<string, unknown> & {
+  $ref?: string;
+  description?: string;
+};
+
+const ERROR_DESCRIPTIONS: Record<string, string> = {
+  "400": "Invalid input data",
+  "401": "Authorization not provided",
+  "403": "Insufficient access",
+  "404": "Not found",
+  "426": "This build is below the supported floor; the client must update.",
+  "500": "Internal server error",
+};
+
+function isReference(entry: ResponseEntry): boolean {
+  return typeof entry.$ref === "string" && entry.description === undefined;
+}
+
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+// trpc-to-openapi reuses one response object across status codes that share
+// an error body, so a description written for one leaks onto the other.
+function relabelErrorResponses<T extends { paths?: unknown }>(document: T): T {
+  if (!isObject(document.paths)) {
+    return document;
+  }
+  for (const path of Object.values(document.paths)) {
+    if (!isObject(path)) {
+      continue;
+    }
+    for (const operation of Object.values(path)) {
+      if (!isObject(operation) || !isObject(operation.responses)) {
+        continue;
+      }
+      const responses = operation.responses as Record<string, ResponseEntry>;
+      for (const [code, response] of Object.entries(responses)) {
+        const description = ERROR_DESCRIPTIONS[code];
+        if (!description || isReference(response)) {
+          continue;
+        }
+        responses[code] = { ...response, description };
+      }
+    }
+  }
+  return document;
+}
+
 /** Fixes the two shapes the default rendering gets wrong for a native client. */
 const override: NonNullable<CreateDocumentOptions["override"]> = (ctx) => {
   const schema = ctx.jsonSchema as Record<string, unknown> & {
@@ -42,7 +91,7 @@ const override: NonNullable<CreateDocumentOptions["override"]> = (ctx) => {
 
 /** Pure, so the drift test can compare against it. Writing to disk is scripts/generateOpenApi.ts. */
 export function buildOpenApiDocument() {
-  return generateOpenApiDocument(appRouter, {
+  return relabelErrorResponses(generateOpenApiDocument(appRouter, {
     title: "Vendpire",
     description:
       "Sync surface for the Vendpire iOS app. Mirrors procedures the web dashboard calls over tRPC.",
@@ -61,5 +110,5 @@ export function buildOpenApiDocument() {
     // "inline", not "ref": named components come from .meta({ id }) either way,
     // and "ref" also hoists 119 anonymous sub-schemas as __schemaN junk types.
     options: { reused: "inline", override },
-  });
+  }));
 }

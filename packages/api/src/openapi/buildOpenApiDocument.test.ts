@@ -58,6 +58,19 @@ describe("the surface's auth posture", () => {
       expect(operation.security).toEqual([{ bearer: [] }]);
     }
   });
+
+  it("gives each status its own description — the generator shares one response object", () => {
+    const document = parse(readFileSync(COMMITTED, "utf8"));
+    const operation = document.paths["/locations"].get;
+
+    expect(operation.responses["426"].description).toBe(
+      "This build is below the supported floor; the client must update.",
+    );
+    expect(operation.responses["500"].description).toBe("Internal server error");
+    expect(operation.responses["426"].description).not.toBe(
+      operation.responses["500"].description,
+    );
+  });
 });
 
 describe("the shapes a Swift client has to decode", () => {

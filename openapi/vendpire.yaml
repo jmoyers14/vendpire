@@ -22,25 +22,27 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Identity"
-        "401": &a2
+        "401":
           description: Authorization not provided
-          content:
+          content: &a2
             application/json:
               schema:
                 $ref: "#/components/schemas/error.UNAUTHORIZED"
-        "403": &a3
+        "403":
           description: Insufficient access
-          content:
+          content: &a3
             application/json:
               schema:
                 $ref: "#/components/schemas/error.FORBIDDEN"
-        "426": &a1
+        "426":
           description: This build is below the supported floor; the client must update.
-          content:
+          content: &a1
             application/json:
               schema:
                 $ref: "#/components/schemas/error.INTERNAL_SERVER_ERROR"
-        "500": *a1
+        "500":
+          description: Internal server error
+          content: *a1
   /client-support:
     get:
       operationId: getClientSupport
@@ -68,9 +70,9 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ClientSupport"
-        "400": &a4
+        "400":
           description: Invalid input data
-          content:
+          content: &a4
             application/json:
               schema:
                 $ref: "#/components/schemas/error.BAD_REQUEST"
@@ -80,7 +82,9 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/error.NOT_FOUND"
-        "500": *a1
+        "500":
+          description: Internal server error
+          content: *a1
   /locations:
     get:
       operationId: listLocations
@@ -98,10 +102,18 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/Location"
-        "401": *a2
-        "403": *a3
-        "426": *a1
-        "500": *a1
+        "401":
+          description: Authorization not provided
+          content: *a2
+        "403":
+          description: Insufficient access
+          content: *a3
+        "426":
+          description: This build is below the supported floor; the client must update.
+          content: *a1
+        "500":
+          description: Internal server error
+          content: *a1
   /machines:
     get:
       operationId: listMachines
@@ -119,10 +131,18 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/Machine"
-        "401": *a2
-        "403": *a3
-        "426": *a1
-        "500": *a1
+        "401":
+          description: Authorization not provided
+          content: *a2
+        "403":
+          description: Insufficient access
+          content: *a3
+        "426":
+          description: This build is below the supported floor; the client must update.
+          content: *a1
+        "500":
+          description: Internal server error
+          content: *a1
   /products:
     get:
       operationId: listProducts
@@ -140,10 +160,18 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/Product"
-        "401": *a2
-        "403": *a3
-        "426": *a1
-        "500": *a1
+        "401":
+          description: Authorization not provided
+          content: *a2
+        "403":
+          description: Insufficient access
+          content: *a3
+        "426":
+          description: This build is below the supported floor; the client must update.
+          content: *a1
+        "500":
+          description: Internal server error
+          content: *a1
   /planograms/current:
     get:
       operationId: listCurrentPlanograms
@@ -161,10 +189,18 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/Planogram"
-        "401": *a2
-        "403": *a3
-        "426": *a1
-        "500": *a1
+        "401":
+          description: Authorization not provided
+          content: *a2
+        "403":
+          description: Insufficient access
+          content: *a3
+        "426":
+          description: This build is below the supported floor; the client must update.
+          content: *a1
+        "500":
+          description: Internal server error
+          content: *a1
   /purchases:
     post:
       operationId: createPurchase
@@ -263,11 +299,21 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Purchase"
-        "400": *a4
-        "401": *a2
-        "403": *a3
-        "426": *a1
-        "500": *a1
+        "400":
+          description: Invalid input data
+          content: *a4
+        "401":
+          description: Authorization not provided
+          content: *a2
+        "403":
+          description: Insufficient access
+          content: *a3
+        "426":
+          description: This build is below the supported floor; the client must update.
+          content: *a1
+        "500":
+          description: Internal server error
+          content: *a1
   /visits/latest:
     get:
       operationId: listLatestVisits
@@ -285,10 +331,18 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/Visit"
-        "401": *a2
-        "403": *a3
-        "426": *a1
-        "500": *a1
+        "401":
+          description: Authorization not provided
+          content: *a2
+        "403":
+          description: Insufficient access
+          content: *a3
+        "426":
+          description: This build is below the supported floor; the client must update.
+          content: *a1
+        "500":
+          description: Internal server error
+          content: *a1
   /visits:
     post:
       operationId: createVisit
@@ -408,11 +462,21 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Visit"
-        "400": *a4
-        "401": *a2
-        "403": *a3
-        "426": *a1
-        "500": *a1
+        "400":
+          description: Invalid input data
+          content: *a4
+        "401":
+          description: Authorization not provided
+          content: *a2
+        "403":
+          description: Insufficient access
+          content: *a3
+        "426":
+          description: This build is below the supported floor; the client must update.
+          content: *a1
+        "500":
+          description: Internal server error
+          content: *a1
   /packs:
     get:
       operationId: listPacks
@@ -430,10 +494,18 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/Pack"
-        "401": *a2
-        "403": *a3
-        "426": *a1
-        "500": *a1
+        "401":
+          description: Authorization not provided
+          content: *a2
+        "403":
+          description: Insufficient access
+          content: *a3
+        "426":
+          description: This build is below the supported floor; the client must update.
+          content: *a1
+        "500":
+          description: Internal server error
+          content: *a1
 components:
   schemas:
     Identity:
