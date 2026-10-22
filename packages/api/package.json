@@ -26,6 +26,7 @@
     "zod-openapi": "5.4.6"
   },
   "devDependencies": {
+    "@apidevtools/swagger-parser": "^13.1.0",
     "@types/cors": "^2.8.17",
     "bun-types": "^1.0.0",
     "typescript": "^5.3.3"
