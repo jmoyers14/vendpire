@@ -34,11 +34,17 @@ struct LocationListView: View {
                     )
                 } else {
                     List(locations) { location in
-                        NavigationLink(destination: MachineListView(location: location)) {
+                        NavigationLink(value: location) {
                             LocationRow(location: location)
                         }
                     }
                 }
+            }
+            // Registered on the Group, not inside the branch that has a list:
+            // a destination that only exists sometimes is a route that only
+            // works sometimes.
+            .navigationDestination(for: StoredLocation.self) { location in
+                MachineListView(location: location)
             }
             .navigationTitle("Locations")
             .toolbar {
