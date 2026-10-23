@@ -36,6 +36,32 @@ import type { PackService } from "./services/PackService/PackService.ts";
 import type { MobileClientSupportService } from "./services/MobileClientSupportService/MobileClientSupportService.ts";
 import type { Context } from "./context.ts";
 
+/** Headers exposed Fetch-style, as the REST adapter (trpc-to-openapi) hands us. */
+function canGetHeader(
+  headers: unknown,
+): headers is { get(name: string): string | null } {
+  return (
+    typeof headers === "object" &&
+    headers !== null &&
+    typeof (headers as { get?: unknown }).get === "function"
+  );
+}
+
+/**
+ * `CreateHTTPContextOptions` types `req.headers` as a Node `IncomingMessage`'s
+ * plain object, but only the standalone tRPC adapter hands us that. The REST
+ * adapter (trpc-to-openapi) hands a Fetch API `Request`, whose `Headers` object
+ * has no `.authorization` property — reading it the Node way silently returns
+ * `undefined`. Feature-detect `.get` instead of trusting the declared type.
+ */
+function authorizationHeaderFrom(headers: unknown): string | undefined {
+  if (canGetHeader(headers)) {
+    return headers.get("authorization") ?? undefined;
+  }
+  const value = (headers as { authorization?: unknown } | null)?.authorization;
+  return typeof value === "string" ? value : undefined;
+}
+
 /**
  * Runs per request. Authenticates the caller via AuthService and resolves the
  * services each procedure needs from the DI container. Lives apart from the
@@ -45,7 +71,9 @@ export async function createContext(
   opts: CreateHTTPContextOptions,
 ): Promise<Context> {
   const authService = container.resolve<AuthService>(AUTH_SERVICE_TOKEN);
-  const auth = await authService.authenticate(opts.req.headers.authorization);
+  const auth = await authService.authenticate(
+    authorizationHeaderFrom(opts.req.headers),
+  );
 
   // One correlating id per request, plus the caller's org/user once known, so a
   // request's log lines group together.

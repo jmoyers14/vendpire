@@ -28,11 +28,12 @@ export const visitDto = z
         /** What was in the slot on arrival, BEFORE refilling and removing. */
         remaining: z
           .number()
+          .int()
           .describe(
             "What was physically in the slot on arrival, before refilling and before removing anything — every derived number is silently wrong if a post-fill count is recorded here.",
           ),
-        added: z.number(),
-        removed: z.number(),
+        added: z.number().int(),
+        removed: z.number().int(),
         removedReason: removalReason
           .nullable()
           .describe(
@@ -41,11 +42,13 @@ export const visitDto = z
         /** Snapshotted, so a later planogram edit cannot rewrite past revenue. */
         priceCents: z
           .number()
+          .int()
           .describe(
             "Snapshotted, so a later planogram edit cannot rewrite past revenue.",
           ),
         par: z
           .number()
+          .int()
           .nullable()
           .describe("Fill target in effect at this servicing; never used in the P&L."),
         /** The front unit's date, "YYYY-MM-DD". */

@@ -34,10 +34,11 @@ nonisolated struct ContactInfo: Codable, Equatable, Hashable, Sendable {
 /// What a location is owed. Percentages are **basis points** (1000 = 10%), never
 /// a float, and flat amounts are `Int` cents — the money rule applies here too.
 nonisolated struct Commission: Codable, Equatable, Hashable, Sendable {
-    /// Raw rather than an enum so an unrecognised value from a newer server
-    /// cannot fail decoding and make the whole location vanish. Same reasoning
-    /// as the plan's "reference validation must be deleted-tolerant" rule:
-    /// prefer showing the record over discarding it.
+    /// Raw rather than an enum, on the principle that an unrecognised value
+    /// should cost one field rather than the whole location. Currently moot:
+    /// the generated `oneOf` upstream is closed, so an unknown commission arm
+    /// fails the decode and with it the entire refresh, before anything
+    /// reaches this struct.
     var type: String
     var percentBps: Int?
     var flatCents: Int?
@@ -74,4 +75,22 @@ nonisolated struct PlanogramSlot: Codable, Equatable, Hashable, Sendable {
     /// Units the slot holds when full — the refill target.
     var par: Int
     var priceCents: Int
+}
+
+// MARK: - Visit
+
+/// One slot's line from the machine's most recent visit. Counts are `Int` — the
+/// money rule applies to units too.
+///
+/// Carries only what "what did I leave here last time" needs. Price and par for
+/// a new visit come from the current planogram, not from the prior visit. Shared
+/// between the wire and the store, like every other entity — visits used to be
+/// the one exception, with a same-shaped twin just to dodge the name collision.
+nonisolated struct VisitLine: Codable, Equatable, Hashable, Sendable {
+    var slotCode: String
+    var productId: String
+    /// What was in the slot on arrival, BEFORE refilling and removing.
+    var remaining: Int
+    var added: Int
+    var removed: Int
 }

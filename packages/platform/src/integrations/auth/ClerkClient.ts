@@ -1,6 +1,7 @@
 import { verifyToken } from "@clerk/backend";
 import { inject, injectable } from "tsyringe";
 import { CLERK_CONFIG_TOKEN, type ClerkConfig } from "./clerkConfig.ts";
+import { LOGGER_TOKEN, type Logger } from "../../logging/Logger.ts";
 import type { AuthClient, AuthIdentity } from "./AuthClient.ts";
 
 /**
@@ -14,6 +15,8 @@ export class ClerkClient implements AuthClient {
   constructor(
     @inject(CLERK_CONFIG_TOKEN)
     private readonly config: ClerkConfig,
+    @inject(LOGGER_TOKEN)
+    private readonly logger: Logger,
   ) {}
 
   async verifySessionToken(token: string): Promise<AuthIdentity | null> {
@@ -30,7 +33,11 @@ export class ClerkClient implements AuthClient {
         orgRole: claims.org_role ?? (o?.rol ? `org:${o.rol}` : null),
         orgSlug: claims.org_slug ?? o?.slg ?? null,
       };
-    } catch {
+    } catch (error) {
+      // Still returns null — an unverifiable token is an ordinary 401. But a
+      // bare `catch { return null }` made a bad secret key indistinguishable
+      // from an expired or malformed token, which once cost hours to debug.
+      this.logger.warn({ err: error }, "ClerkClient.verifySessionToken failed");
       return null;
     }
   }

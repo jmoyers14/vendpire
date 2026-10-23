@@ -8,7 +8,6 @@ import Foundation
 /// `Decodable` ignores them.
 nonisolated struct RemoteOrg: Decodable, Sendable {
     let orgId: String
-    let exportedAt: Date
     let locations: [RemoteLocation]
     let machines: [RemoteMachine]
     let products: [RemoteProduct]
@@ -117,4 +116,22 @@ private enum RemoteDate {
         formatter.formatOptions = [.withInternetDateTime]
         return formatter
     }()
+}
+
+/// A machine's most recent visit. Only the fields the phone reads — the server
+/// sends more, and `Decodable` ignores the rest.
+nonisolated struct RemoteVisit: Decodable, Sendable {
+    let id: String
+    let machineId: String
+    let countedAt: Date
+    let lines: [VisitLine]
+}
+
+/// The signed-in principal, as the server sees it.
+///
+/// A null `orgId` is a real state, not an error: it is how a member-less user
+/// learns why nothing syncs.
+nonisolated struct RemoteIdentity: Decodable, Sendable {
+    let userId: String
+    let orgId: String?
 }

@@ -46,14 +46,48 @@ build() {
     build "$@"
 }
 
+# Prefer a physically attached device. Ten tests abort the test host in the
+# Simulator, so that path is EXPECTED to exit 65 — that failure is honest;
+# the silent green it replaced was not. VENDPIRE_SIM forces the Simulator
+# back for build/launch work, not for trusting a test result.
+resolveDevice() {
+  xcrun xctrace list devices 2>/dev/null | python3 -c '
+import re, sys
+section = False
+for line in sys.stdin:
+    if line.startswith("== Devices =="):
+        section = True
+        continue
+    if line.startswith("== "):
+        section = False
+    if not section:
+        continue
+    # "Jeremy'"'"'s iPhone (26.7.1) (00008130-…)" — the version group is what
+    # separates a real device from the "My Mac" entry, which has no version.
+    match = re.match(r"^.* \(\d+(?:\.\d+)+\) \(([0-9A-Fa-f-]+)\)\s*$", line)
+    if match:
+        print(match.group(1))
+        break
+'
+}
+
 # UI tests dominate the run (~50s for testLaunchPerformance alone) and this
 # phase has none worth keeping, so they're skipped rather than deleted.
 runTests() {
-  local udid; udid="$(resolveSim)"
+  local udid platform
+  if [[ -z "${VENDPIRE_SIM:-}" ]] && udid="$(resolveDevice)" && [[ -n "$udid" ]]; then
+    platform="iOS"
+    echo "Testing on attached device $udid" >&2
+  else
+    udid="$(resolveSim)"
+    platform="iOS Simulator"
+    echo "Testing on Simulator $udid — 10 tests will be silently skipped" >&2
+  fi
   xcodebuild -project "$IOS_DIR/$SCHEME.xcodeproj" -scheme "$SCHEME" \
-    -destination "platform=iOS Simulator,id=$udid" \
+    -destination "platform=$platform,id=$udid" \
     -derivedDataPath "$DERIVED" \
     -skip-testing:VendpireUITests \
+    -parallel-testing-enabled NO \
     test "$@"
 }
 

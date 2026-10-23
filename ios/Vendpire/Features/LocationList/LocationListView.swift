@@ -9,6 +9,20 @@ struct LocationListView: View {
     @Query(filter: StoredLocation.visible, sort: \StoredLocation.name)
     private var locations: [StoredLocation]
 
+    @Environment(MirrorRefresher.self) private var refresher
+    @Query private var metadata: [StoreMetadata]
+
+    /// The badge reads the store, not the refresher: the age of the data is the
+    /// fact that matters, and it outlives any one refresh attempt.
+    private var stalenessText: String? {
+        guard let syncedAt = metadata.first?.lastSyncedAt else { return nil }
+        let age = syncedAt.formatted(.relative(presentation: .named))
+        if case .failed(let message) = refresher.state {
+            return "As of \(age) · \(message)"
+        }
+        return "As of \(age)"
+    }
+
     var body: some View {
         NavigationStack {
             Group {
@@ -33,6 +47,17 @@ struct LocationListView: View {
                         Image(systemName: "person.crop.circle")
                     }
                     .accessibilityLabel("Account")
+                }
+            }
+            .refreshable { await refresher.refresh() }
+            .safeAreaInset(edge: .bottom) {
+                if let stalenessText {
+                    Text(stalenessText)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 8)
+                        .background(.bar)
                 }
             }
         }

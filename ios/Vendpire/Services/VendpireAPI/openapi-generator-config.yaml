@@ -1,0 +1,5 @@
+# Types and a client; no server stubs — the phone only calls.
+generate:
+  - types
+  - client
+accessModifier: internal

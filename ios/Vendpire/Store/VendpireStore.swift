@@ -12,6 +12,7 @@ enum VendpireStore {
         StoredProduct.self,
         StoredPack.self,
         StoredPlanogram.self,
+        StoredLatestVisit.self,
         StoreMetadata.self,
     ])
 

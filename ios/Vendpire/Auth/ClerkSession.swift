@@ -100,8 +100,9 @@ final class ClerkSession {
         do {
             try await Clerk.shared.auth.signOut()
         } catch {
-            // Signing out locally matters more than the server round trip
-            // succeeding; the next launch reconciles either way.
+            // Logged but still swallowed: signing out locally matters more than
+            // the server round trip succeeding, and the next launch reconciles either way.
+            print("[signOut] \(error)")
         }
         claimReport = nil
         state = .signedOut

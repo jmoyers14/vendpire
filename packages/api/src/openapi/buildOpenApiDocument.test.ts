@@ -158,10 +158,45 @@ describe("the shapes a Swift client has to decode", () => {
 
     expect(validate(visit)).toBe(true);
   });
+
+  it("declares money and counts as integers, so Swift gets Int and not Double", () => {
+    const document = parse(readFileSync(COMMITTED, "utf8"));
+    const schemas = document.components.schemas;
+
+    const moneyAndCounts = [
+      schemas.Product.properties.defaultPriceCents,
+      schemas.Planogram.properties.slots.items.properties.par,
+      schemas.Planogram.properties.slots.items.properties.priceCents,
+      schemas.Pack.properties.contents.items.properties.units,
+      schemas.Visit.properties.lines.items.properties.remaining,
+      schemas.Visit.properties.lines.items.properties.added,
+      schemas.Visit.properties.lines.items.properties.removed,
+      schemas.Visit.properties.lines.items.properties.priceCents,
+      schemas.Purchase.properties.lines.items.properties.units,
+      schemas.Purchase.properties.lines.items.properties.totalCostCents,
+      // LocationCommission is a oneOf: [none, percent, flat].
+      schemas.LocationCommission.oneOf[1].properties.percentBps,
+      schemas.LocationCommission.oneOf[2].properties.flatCents,
+    ];
+
+    for (const property of moneyAndCounts) {
+      expect(property.type).toBe("integer");
+    }
+
+    // The nullable ones spell the type as an array; "number" must not appear.
+    expect(schemas.Visit.properties.lines.items.properties.par.type).toEqual([
+      "integer",
+      "null",
+    ]);
+    expect(schemas.Purchase.properties.receiptTotalCents.type).toEqual([
+      "integer",
+      "null",
+    ]);
+  });
 });
 
 describe("document validity", () => {
-  it("is a valid OpenAPI document — the only check before Phase 7's Swift build", async () => {
+  it("is a valid OpenAPI document — the only check before the generated Swift client consumes it", async () => {
     // validate() mutates its input by resolving $refs, so hand it a clone.
     const document = parse(readFileSync(COMMITTED, "utf8"));
 

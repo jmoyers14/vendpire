@@ -112,3 +112,20 @@ extension StoredPlanogram {
         updatedAt = remote.updatedAt
     }
 }
+
+extension StoredLatestVisit {
+    convenience init(_ remote: RemoteVisit) {
+        self.init(
+            id: remote.id,
+            machineId: remote.machineId,
+            countedAt: remote.countedAt,
+            lines: remote.lines
+        )
+    }
+
+    func update(from remote: RemoteVisit) {
+        id = remote.id
+        countedAt = remote.countedAt
+        lines = remote.lines
+    }
+}

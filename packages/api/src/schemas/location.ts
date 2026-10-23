@@ -12,10 +12,10 @@ const locationCommission = z
     z.object({ type: z.literal("none") }),
     z.object({
       type: z.literal("percent"),
-      percentBps: z.number(),
+      percentBps: z.number().int(),
       basis: z.enum(["gross", "net"]),
     }),
-    z.object({ type: z.literal("flat"), flatCents: z.number() }),
+    z.object({ type: z.literal("flat"), flatCents: z.number().int() }),
   ])
   .meta({ id: "LocationCommission" });
 

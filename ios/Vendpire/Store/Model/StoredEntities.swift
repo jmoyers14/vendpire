@@ -3,8 +3,9 @@ import SwiftData
 
 /// The device's mirror of the org's reference data.
 ///
-/// Five entities, all stable server-side. The visit model is deliberately
-/// absent until the write path it depends on exists.
+/// Six entities, all mirrored from stable, server-owned sources.
+/// `StoredLatestVisit` is the one that changes shape over time — a newer visit
+/// overwrites it rather than appending history.
 ///
 /// Three rules run through all of them:
 ///
@@ -227,6 +228,28 @@ final class StoredPlanogram {
         self.slots = slots
         self.deletedAt = deletedAt
         self.updatedAt = updatedAt
+    }
+}
+
+/// The machine's most recent visit, mirrored so capture can show what was left
+/// behind last time.
+///
+/// Keyed by `machineId`, not the visit id: the endpoint's contract is one visit
+/// per machine, so a newer visit is an update rather than a delete-plus-insert.
+@Model
+final class StoredLatestVisit {
+    #Unique<StoredLatestVisit>([\.machineId])
+
+    var id: String = ""
+    var machineId: String = ""
+    var countedAt: Date = Date.distantPast
+    var lines: [VisitLine] = []
+
+    init(id: String, machineId: String, countedAt: Date, lines: [VisitLine]) {
+        self.id = id
+        self.machineId = machineId
+        self.countedAt = countedAt
+        self.lines = lines
     }
 }
 
