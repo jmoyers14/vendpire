@@ -64,6 +64,14 @@ struct FaceGrid: View {
                     }
                 }
                 .padding(ShelfLayout.padding)
+                // A two-axis ScrollView centres content smaller than its
+                // viewport, and the whole cabinet usually fits. Growing the
+                // content to the viewport pins the top shelf to the top.
+                .frame(
+                    minWidth: proxy.size.width,
+                    minHeight: proxy.size.height,
+                    alignment: .topLeading
+                )
             }
         }
     }

@@ -40,5 +40,10 @@ final class MachineNavigationUITests: XCTestCase {
             "National 148 Snack Machine",
             "something was pushed on top of the face"
         )
+
+        let shot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        shot.name = "machine-face"
+        shot.lifetime = .keepAlways
+        add(shot)
     }
 }
