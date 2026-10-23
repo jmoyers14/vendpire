@@ -14,6 +14,7 @@ struct VendpireAPIClient: VendpireAPI {
     init(baseURL: URL = AppEnvironment.apiBaseURL) {
         client = Client(
             serverURL: baseURL,
+            configuration: Configuration(dateTranscoder: TolerantDateTranscoder()),
             transport: URLSessionTransport(),
             middlewares: [AuthTokenMiddleware()]
         )
