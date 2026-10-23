@@ -124,15 +124,7 @@ nonisolated struct RemoteVisit: Decodable, Sendable {
     let id: String
     let machineId: String
     let countedAt: Date
-    let lines: [RemoteVisitLine]
-}
-
-nonisolated struct RemoteVisitLine: Decodable, Sendable {
-    let slotCode: String
-    let productId: String
-    let remaining: Int
-    let added: Int
-    let removed: Int
+    let lines: [VisitLine]
 }
 
 /// The signed-in principal, as the server sees it.

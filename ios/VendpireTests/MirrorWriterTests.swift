@@ -271,7 +271,7 @@ final class MirrorWriterTests: XCTestCase {
             machineId: machineId,
             countedAt: Date(timeIntervalSince1970: 0),
             lines: [
-                RemoteVisitLine(
+                VisitLine(
                     slotCode: "A0",
                     productId: "product-1",
                     remaining: 2,

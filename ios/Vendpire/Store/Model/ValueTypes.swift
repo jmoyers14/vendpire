@@ -83,8 +83,10 @@ nonisolated struct PlanogramSlot: Codable, Equatable, Hashable, Sendable {
 /// money rule applies to units too.
 ///
 /// Carries only what "what did I leave here last time" needs. Price and par for
-/// a new visit come from the current planogram, not from the prior visit.
-nonisolated struct VisitLineSnapshot: Codable, Equatable, Hashable, Sendable {
+/// a new visit come from the current planogram, not from the prior visit. Shared
+/// between the wire and the store, like every other entity — visits used to be
+/// the one exception, with a same-shaped twin just to dodge the name collision.
+nonisolated struct VisitLine: Codable, Equatable, Hashable, Sendable {
     var slotCode: String
     var productId: String
     /// What was in the slot on arrival, BEFORE refilling and removing.

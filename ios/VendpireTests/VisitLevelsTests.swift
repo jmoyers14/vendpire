@@ -6,7 +6,7 @@ import XCTest
 /// two drift the moment either side gets clever.
 final class VisitLevelsTests: XCTestCase {
     func testLevelAfterIsWhatWasLeftInTheSlot() {
-        let line = VisitLineSnapshot(
+        let line = VisitLine(
             slotCode: "A0",
             productId: "product-1",
             remaining: 2,
@@ -18,7 +18,7 @@ final class VisitLevelsTests: XCTestCase {
     }
 
     func testAnUntouchedSlotKeepsItsRemainingCount() {
-        let line = VisitLineSnapshot(
+        let line = VisitLine(
             slotCode: "B2",
             productId: "product-2",
             remaining: 5,
@@ -30,7 +30,7 @@ final class VisitLevelsTests: XCTestCase {
     }
 
     func testEverythingRemovedLeavesNothing() {
-        let line = VisitLineSnapshot(
+        let line = VisitLine(
             slotCode: "C4",
             productId: "product-3",
             remaining: 3,

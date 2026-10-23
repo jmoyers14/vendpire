@@ -243,9 +243,9 @@ final class StoredLatestVisit {
     var id: String = ""
     var machineId: String = ""
     var countedAt: Date = Date.distantPast
-    var lines: [VisitLineSnapshot] = []
+    var lines: [VisitLine] = []
 
-    init(id: String, machineId: String, countedAt: Date, lines: [VisitLineSnapshot]) {
+    init(id: String, machineId: String, countedAt: Date, lines: [VisitLine]) {
         self.id = id
         self.machineId = machineId
         self.countedAt = countedAt

@@ -159,7 +159,7 @@ extension RemoteVisit {
             machineId: generated.machineId,
             countedAt: generated.countedAt,
             lines: generated.lines.map {
-                RemoteVisitLine(
+                VisitLine(
                     slotCode: $0.slotCode,
                     productId: $0.productId,
                     remaining: $0.remaining,
