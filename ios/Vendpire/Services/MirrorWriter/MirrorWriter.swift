@@ -83,12 +83,11 @@ final class MirrorWriter {
         }
     }
 
-    /// Staged inserts and deletes do not evaporate on a throw — the next save
+    /// Staged inserts and deletes don't evaporate on a throw — the next save
     /// anywhere in the app would flush them.
     ///
-    /// `rollback()` discards unsaved changes on the whole `ModelContext`, and
-    /// this one is shared (`container.mainContext`). That is only safe because
-    /// views never write to the store — a stated project constraint, not an
+    /// `rollback()` clears the whole shared `mainContext`, which is safe only
+    /// because views never write to the store — a stated constraint, not an
     /// accident of the current screens.
     private func discardPendingChanges() {
         context.rollback()
@@ -111,11 +110,11 @@ final class MirrorWriter {
         try deleteEvery(StoredLatestVisit.self)
     }
 
-    /// Per instance rather than `context.delete(model:)`: individual deletes
-    /// are stated to participate in `rollback()`, and the batch form's
-    /// behaviour there is unverified — which matters, because `apply` relies
-    /// on a rollback to put the old org back if a later step throws. One org's
-    /// mirror is a few dozen rows, so the fetch costs nothing.
+    /// Per instance, not `context.delete(model:)`: individual deletes are
+    /// documented to participate in `rollback()`, and the batch form's
+    /// behavior there is unverified — and `apply` relies on rollback to
+    /// restore the old org if a later step throws. A mirror is a few dozen
+    /// rows, so the extra fetch costs nothing.
     private func deleteEvery<Model: PersistentModel>(_ type: Model.Type) throws {
         for stored in try context.fetch(FetchDescriptor<Model>()) {
             context.delete(stored)

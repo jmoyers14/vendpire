@@ -100,10 +100,10 @@ final class MirrorRefresherTests: XCTestCase {
         }
     }
 
-    /// Pinned on the one row only the wipe can remove. The five reference
-    /// reconciles already delete whatever an org-b payload omits, so they
-    /// cannot tell a wipe from an ordinary upsert; `StoredLatestVisit` is
-    /// never touched by that pass, and breaking the visits fetch stops
+    /// Pinned on the one row only the wipe can remove: the five reference
+    /// reconciles already delete anything an org-b payload omits, so they can't
+    /// distinguish a wipe from an ordinary upsert. `StoredLatestVisit` isn't
+    /// touched by that pass, and breaking the visits fetch stops
     /// `applyLatestVisits` from tidying it away instead.
     func testADifferentOrgWipesTheStoreBeforeRefilling() async throws {
         try setUpStore()
@@ -155,10 +155,10 @@ final class MirrorRefresherTests: XCTestCase {
         XCTAssertEqual(try count(StoredProduct.self), 1)
     }
 
-    /// Task 11 calls `refresh()` from both `.task` and a scene-phase
-    /// observer, which fire within milliseconds of each other at launch.
-    /// The gate holds the first refresh mid-flight so the second can be
-    /// shown doing nothing to `state` rather than merely finishing second.
+    /// `.task` and a scene-phase observer both call `refresh()` within
+    /// milliseconds of each other at launch. The gate holds the first refresh
+    /// mid-flight so the second can be shown doing nothing to `state` rather
+    /// than merely finishing second.
     func testASecondRefreshWhileOneIsInFlightLeavesTheFirstsOutcomeAlone() async throws {
         try setUpStore()
         let gate = RefreshGate()

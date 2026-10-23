@@ -196,7 +196,7 @@ describe("the shapes a Swift client has to decode", () => {
 });
 
 describe("document validity", () => {
-  it("is a valid OpenAPI document — the only check before Phase 7's Swift build", async () => {
+  it("is a valid OpenAPI document — the only check before the generated Swift client consumes it", async () => {
     // validate() mutates its input by resolving $refs, so hand it a clone.
     const document = parse(readFileSync(COMMITTED, "utf8"));
 

@@ -39,9 +39,8 @@ private struct FirstRunView: View {
     var body: some View {
         NavigationStack {
             if session.isSignedIn {
-                // Matches LocationListView's toolbar so account access sits in the
-                // same place everywhere; this is the one signed-in screen that
-                // otherwise has no way back to Sign Out.
+                // This is the one signed-in screen with no other way back to
+                // Sign Out, so it gets LocationListView's toolbar too.
                 ContentUnavailableView(
                     "Nothing synced yet",
                     systemImage: "arrow.trianglehead.2.clockwise",

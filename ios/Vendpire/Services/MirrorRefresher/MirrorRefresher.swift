@@ -13,12 +13,9 @@ nonisolated enum MirrorState: Equatable, Sendable {
 
 /// Fills the mirror from `/api/v1`.
 ///
-/// The ordering is load-bearing. `MirrorWriter.reconcile` deletes rows absent
-/// from the array it is handed, so a payload missing an entity is a deletion
-/// rather than a smaller refresh. Every reference fetch therefore has to return
-/// before any of them reaches the writer — which makes "a failed refresh never
-/// clears the store" a property of the shape rather than of remembering to
-/// check.
+/// Order is load-bearing: `MirrorWriter.reconcile` deletes rows absent from
+/// what it's handed, so every reference fetch must complete before any reaches
+/// the writer, or a failed refresh would delete data instead of leaving it alone.
 @MainActor
 @Observable
 final class MirrorRefresher {
@@ -33,11 +30,10 @@ final class MirrorRefresher {
     }
 
     func refresh() async {
-        // Task 11 fires this from both `.task` and `.onChange(of: scenePhase)`
-        // within milliseconds of each other at launch. Without this guard the
-        // two races set `state` to whichever finishes last, which can report
-        // a transient failure over data that is already current, and doubles
-        // the request count for no benefit.
+        // `.task` and `.onChange(of: scenePhase)` both fire this within
+        // milliseconds of each other at launch. Without this guard, whichever
+        // finishes last wins `state`, which can report a transient failure
+        // over data that's already current, and doubles the request count.
         guard state != .refreshing else { return }
         state = .refreshing
 
@@ -72,24 +68,20 @@ final class MirrorRefresher {
             do {
                 try writer.apply(org, syncedAt: syncedAt)
             } catch {
-                // A throw here means the LOCAL store is broken — a save,
-                // migration, or constraint failure — not a connectivity
-                // problem. Retrying the network can never fix it, so this
-                // gets its own message, and the return matters for the same
-                // reason as the outer catch below: skip straight past the
-                // visits block rather than reporting `.synced` over a write
-                // that just failed.
+                // A throw here means the LOCAL store is broken, not the
+                // network — retrying can't fix it, hence the distinct message.
+                // The return is load-bearing: drop it and `.synced` gets
+                // reported over a write that just failed.
                 state = .failed(message: "couldn't save to the local store")
                 return
             }
             state = .synced(at: syncedAt)
         } catch {
-            // Reached only by a fetch failure, before anything touched the
-            // writer — the store may still hold a previous (possibly
-            // wrong-org) snapshot. The return is load-bearing: drop it and
-            // control falls through to the latest-visits block below, which
-            // would apply against that stale store with nothing left to
-            // repair it afterward.
+            // A fetch failure here means the writer was never touched — the
+            // store may still hold a previous, possibly wrong-org, snapshot.
+            // The return is load-bearing: without it, control falls into the
+            // visits block below and writes into that stale store with
+            // nothing left to repair it afterward.
             state = .failed(message: "couldn't reach the server")
             return
         }

@@ -26,10 +26,9 @@ const stubAuthService = (): {
 };
 
 describe("createContext auth header extraction", () => {
-  // The REST adapter (trpc-to-openapi) hands createContext a Fetch API
-  // Request, whose headers are a Headers object. createContext used to read
-  // `.authorization` off it directly, which is always undefined on a Headers
-  // object — every authenticated REST call silently saw no credentials.
+  // createContext used to read `.authorization` directly off a `Headers`
+  // object, which is always undefined — every authenticated REST call
+  // silently saw no credentials.
   it("reads the Authorization header off a Fetch-style Request", async () => {
     const { authService, received } = stubAuthService();
     container.register(AUTH_SERVICE_TOKEN, { useValue: authService });
@@ -43,9 +42,8 @@ describe("createContext auth header extraction", () => {
     expect(received).toEqual(["Bearer test-token"]);
   });
 
-  // The standalone tRPC adapter hands createContext a Node IncomingMessage,
-  // whose headers are a plain object. This path already worked; it's here so
-  // a future refactor of authorizationHeaderFrom can't regress it.
+  // This path already worked; it's here so a future refactor of
+  // authorizationHeaderFrom can't regress it.
   it("reads the Authorization header off a Node IncomingMessage-style req", async () => {
     const { authService, received } = stubAuthService();
     container.register(AUTH_SERVICE_TOKEN, { useValue: authService });

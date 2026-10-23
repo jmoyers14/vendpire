@@ -49,11 +49,10 @@ function canGetHeader(
 
 /**
  * `CreateHTTPContextOptions` types `req.headers` as a Node `IncomingMessage`'s
- * plain object, but only the standalone tRPC adapter actually hands us that.
- * The REST adapter (trpc-to-openapi) hands us a Fetch API `Request`, whose
- * `headers` is a `Headers` object with no `.authorization` property at all —
- * reading it the Node way silently returns `undefined`. Feature-detect `.get`
- * instead of trusting the declared type.
+ * plain object, but only the standalone tRPC adapter hands us that. The REST
+ * adapter (trpc-to-openapi) hands a Fetch API `Request`, whose `Headers` object
+ * has no `.authorization` property — reading it the Node way silently returns
+ * `undefined`. Feature-detect `.get` instead of trusting the declared type.
  */
 function authorizationHeaderFrom(headers: unknown): string | undefined {
   if (canGetHeader(headers)) {

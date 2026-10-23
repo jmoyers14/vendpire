@@ -1,13 +1,11 @@
 import Foundation
 
-/// Generated OpenAPI types in, `Remote*` out. The only file in the app that
-/// knows the generated types exist.
+/// Generated OpenAPI types in, `Remote*` out — the only file in the app that
+/// knows the generated types exist, so a spec change becomes a compile error
+/// here. The cost is the extra hop; the payoff is that stubs stay two lines and
+/// the bundled fixture stays valid test input.
 ///
-/// This is where a spec change becomes a compile error. The cost of the extra
-/// hop is that stubs stay two lines and the bundled fixture is still valid test
-/// input.
-///
-/// Dates arrive already decoded: the generator's transcoder handles the
+/// Dates arrive already decoded: the generator's transcoder handles
 /// `format: date-time` fields, so `RemoteOrg.makeDecoder()` is not involved.
 
 extension RemoteIdentity {
@@ -54,9 +52,9 @@ extension ContactInfo {
 
 extension Commission {
     /// Flattens the document's one `oneOf` into the stored struct. `type` stays
-    /// a raw String, but that buys nothing today: the generated `oneOf` is
-    /// closed, so a fourth arm from a newer server fails the decode — and a
-    /// failed decode fails the whole refresh, not just this location.
+    /// a raw `String`, but that buys nothing today: the generated `oneOf` is
+    /// closed, so an unrecognized arm fails the decode — and the whole refresh
+    /// with it, not just this location.
     init(_ generated: Components.Schemas.LocationCommission) {
         switch generated {
         case .case1:
@@ -81,8 +79,8 @@ extension RemoteMachine {
             locationId: generated.locationId,
             name: generated.name,
             // A raw String here, but the generated enum feeding it is closed:
-            // an unrecognised kind fails the decode, and that fails the whole
-            // refresh, so there is no surviving machine for this to loosen.
+            // an unrecognised kind fails the decode, taking the whole refresh
+            // down with it — not just this machine.
             kind: generated.kind.rawValue,
             make: generated.make,
             model: generated.model,

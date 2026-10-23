@@ -34,11 +34,9 @@ export class ClerkClient implements AuthClient {
         orgSlug: claims.org_slug ?? o?.slg ?? null,
       };
     } catch (error) {
-      // Still returns null — an unverifiable token is an ordinary 401, not
-      // something the caller should handle differently. But a bare `catch {
-      // return null }` made a wrong secret key, an expired token, and a
-      // malformed token indistinguishable from here, which is exactly what
-      // made this port's one real bug take hours to find.
+      // Still returns null — an unverifiable token is an ordinary 401. But a
+      // bare `catch { return null }` made a bad secret key indistinguishable
+      // from an expired or malformed token, which once cost hours to debug.
       this.logger.warn({ err: error }, "ClerkClient.verifySessionToken failed");
       return null;
     }
