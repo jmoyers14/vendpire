@@ -1853,6 +1853,6 @@ And by hand: record a visit with dates, see the slot warnings at capture time, s
 
 ## Out of scope
 
-- **iOS.** `ios/Vendpire/Store/Model/StoredEntities.swift` mirrors visits, but there is no fill screen yet. `bestBy` joins the mirror when that screen is built, against the contract this plan establishes.
+- **iOS.** `ios/Vendpire/Store/Model/MirroredEntities.swift` mirrors visits, but there is no fill screen yet. `bestBy` joins the mirror when that screen is built, against the contract this plan establishes.
 - **A configurable per-org warning window.** Fixed at 14 days in both `DEFAULT_EXPIRY_WINDOW_DAYS` (server) and `EXPIRY_WINDOW_DAYS` (`visitRows.ts`); the comment on each points at the other.
 - **Dated add-lines.** The planned upgrade, with its revisit trigger recorded in the spec. Nothing in this plan has to be unbuilt to get there.

@@ -19,7 +19,7 @@ struct StoreSchemaTests {
     @Test("the schema opens with every model registered")
     func schemaOpens() throws {
         let context = try makeContext()
-        #expect(context.container.schema.entities.count == 7)
+        #expect(context.container.schema.entities.count == 8)
     }
 
     /// The plan's load-bearing rule at the storage layer: a machine face is

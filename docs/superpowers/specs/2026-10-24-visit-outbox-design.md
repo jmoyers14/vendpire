@@ -48,7 +48,9 @@ agent-noun symmetry — `visit-sync.md` calls it `OutboxDrain` and should be upd
 ```
 Services/Outbox/OutboxSubmitter.swift     the drain loop — the only async part
 Services/Outbox/SubmitOutcome.swift       classification + backoff, both pure
-Store/Model/StoredEntities.swift          OutboxItem
+Store/Model/OutboxItem.swift              OutboxItem (its own file —
+                                          the mirror's models live in
+                                          MirroredEntities.swift)
 Store/Model/StoredEntityQueries.swift     the eligibility predicate
 ```
 
