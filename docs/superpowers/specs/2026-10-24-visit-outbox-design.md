@@ -174,6 +174,18 @@ writing under an incompatible contract is the thing the version floor exists to 
 
 ## What wakes it
 
+**Deferred to spec 2 (decided 2026-10-24, mid-build).** The triggers were going
+to land here, but they have nothing to trigger: `OutboxSubmitter` needs an
+`OutboxSubmitting`, and the only conformance in this spec is the test stub.
+Wiring them would mean giving `VendpireAPIClient` a placeholder that returns
+`.retryable` forever — a path that silently never sends, sitting in the app
+waiting to be forgotten. And with no producer there is nothing to drain, so the
+wiring could not be verified beyond "it does not crash."
+
+They move next to the network edge they depend on, where a drain can actually
+post and the app can actually produce a visit. The design below stands as
+written.
+
 The same four triggers as `MirrorRefresher`, plus one the mirror does not need.
 
 ```mermaid
@@ -261,6 +273,26 @@ from `AccountView`) moves to the capture spec. Nothing here can produce an item,
 only be tested against hand-seeded rows and `needsAttention` would have no real content. It
 carries over as an explicit subtask rather than disappearing.
 
+**The drain triggers**, for the reason above — they belong with the network edge.
+
+**The real `OutboxSubmitting` conformance.** Implementing it means defining the
+visit request body, which is capture's data contract: the struct `VisitDraft`
+encodes into. Designing it here would be guessing at fields capture has not
+chosen yet, so the "payload is our own `Codable` type, not the generated one"
+boundary gets drawn once, in spec 2, with those fields known.
+
 Also out: capture itself · the draft model and whether it is one model or two · purchase
 submission (Phase 9 adds a producer, not a schema change) · `NWPathMonitor` · the offline drill
 and the idempotency proof, both of which need capture.
+
+## What shipped
+
+`71ff026` the policy table and backoff · `ff3cf19` `OutboxItem`, eligibility, and the
+`StoredEntities` → `MirroredEntities` rename · `11ab9b6` the serial drain, orphan reclaim and
+the never-delete invariant. 116 tests green.
+
+One thing the build found that the design above did not anticipate: a row left reading
+`sending` by a force-quit. `eligible()` excludes that status, so nothing would ever look at it
+again — the idempotency proof's own scenario would strand the counts it exists to protect.
+`reclaimOrphans` runs at the top of a pass, which is the only place that can know no drain is
+in flight.
