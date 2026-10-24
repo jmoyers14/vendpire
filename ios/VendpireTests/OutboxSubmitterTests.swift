@@ -207,10 +207,10 @@ final class OutboxSubmitterTests: XCTestCase {
         insert(id: "first", countedAt: 100)
         var inserted = false
         api.onSubmit = { [weak self] _ in
-            guard let self, !inserted else { return .accepted(visitId: "v") }
+            guard let self, !inserted else { return .accepted }
             inserted = true
             self.insert(id: "arrived-late", countedAt: 200)
-            return .accepted(visitId: "v")
+            return .accepted
         }
 
         await makeSubmitter().drain()
@@ -237,7 +237,7 @@ final class OutboxSubmitterTests: XCTestCase {
 /// about.
 @MainActor
 final class StubOutboxAPI: OutboxSubmitting {
-    var onSubmit: @MainActor (OutboxRequest) async -> SubmitOutcome = { _ in .accepted(visitId: "v-1") }
+    var onSubmit: @MainActor (OutboxRequest) async -> SubmitOutcome = { _ in .accepted }
     private(set) var submitted: [String] = []
 
     func submit(_ request: OutboxRequest) async -> SubmitOutcome {

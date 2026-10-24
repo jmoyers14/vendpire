@@ -2,7 +2,10 @@ import Foundation
 
 /// What the server's answer means for a queued row.
 enum SubmitOutcome: Equatable {
-    case accepted(visitId: String)
+    /// Carries nothing on purpose. The id is unread — success deletes the row
+    /// — and decoding a 200 body to produce one would let a parse failure turn
+    /// a created visit into a retry.
+    case accepted
     case retryable
     case unauthorized
     case noOrganization
