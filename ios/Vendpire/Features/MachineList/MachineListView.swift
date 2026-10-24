@@ -24,12 +24,18 @@ struct MachineListView: View {
                     description: Text("Nothing is placed at \(location.name).")
                 )
             } else {
+                // `destination:` would build every row's face eagerly, before
+                // the list is even on screen. The face holds live queries, so
+                // that costs a full join per machine and spins the render loop.
                 List(machines) { machine in
-                    NavigationLink(destination: MachineFaceView(machine: machine)) {
+                    NavigationLink(value: machine) {
                         MachineRow(machine: machine)
                     }
                 }
             }
+        }
+        .navigationDestination(for: StoredMachine.self) { machine in
+            MachineFaceView(machine: machine)
         }
         .navigationTitle(location.name)
         .navigationBarTitleDisplayMode(.inline)

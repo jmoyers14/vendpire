@@ -57,13 +57,79 @@ final class StoredEntityQueryTests: XCTestCase {
         XCTAssertEqual(found.map(\.id), ["loc-a"])
     }
 
+    func testThePlanogramForAMachineExcludesOtherMachines() throws {
+        try setUpStore()
+        context.insert(makePlanogram(id: "pg-1", machineId: "m-1"))
+        context.insert(makePlanogram(id: "pg-2", machineId: "m-2"))
+
+        let found = try fetch(StoredPlanogram.self, matching: StoredPlanogram.forMachine("m-1"))
+
+        XCTAssertEqual(found.map(\.id), ["pg-1"])
+    }
+
+    func testASoftDeletedPlanogramIsNotTheMachinesPlanogram() throws {
+        try setUpStore()
+        context.insert(makePlanogram(id: "pg-1", machineId: "m-1", deletedAt: .distantPast))
+
+        let found = try fetch(StoredPlanogram.self, matching: StoredPlanogram.forMachine("m-1"))
+
+        XCTAssertTrue(found.isEmpty)
+    }
+
+    /// Reachable today: a machine added on the web and not yet planogrammed.
+    /// The face must render every cell empty rather than fail to build.
+    func testAMachineWithNoPlanogramMatchesNothing() throws {
+        try setUpStore()
+        context.insert(makePlanogram(id: "pg-1", machineId: "m-1"))
+
+        let found = try fetch(StoredPlanogram.self, matching: StoredPlanogram.forMachine("m-zzz"))
+
+        XCTAssertTrue(found.isEmpty)
+    }
+
+    /// The mirror holds one planogram per machine — the server already picked.
+    /// If a re-sync ever leaves two, latest wins, matching findCurrentByMachine.
+    func testTheNewestPlanogramSortsFirst() throws {
+        try setUpStore()
+        context.insert(
+            makePlanogram(id: "pg-old", machineId: "m-1", effectiveFrom: .distantPast)
+        )
+        context.insert(
+            makePlanogram(id: "pg-new", machineId: "m-1", effectiveFrom: .distantFuture)
+        )
+
+        let found = try fetch(
+            StoredPlanogram.self,
+            matching: StoredPlanogram.forMachine("m-1"),
+            sortedBy: StoredPlanogram.newestFirst
+        )
+
+        XCTAssertEqual(found.map(\.id), ["pg-new", "pg-old"])
+    }
+
     // MARK: - Helpers
 
     private func fetch<Model: PersistentModel>(
         _ type: Model.Type,
-        matching predicate: Predicate<Model>
+        matching predicate: Predicate<Model>,
+        sortedBy sortDescriptors: [SortDescriptor<Model>] = []
     ) throws -> [Model] {
-        try context.fetch(FetchDescriptor<Model>(predicate: predicate))
+        try context.fetch(FetchDescriptor<Model>(predicate: predicate, sortBy: sortDescriptors))
+    }
+
+    private func makePlanogram(
+        id: String,
+        machineId: String,
+        effectiveFrom: Date = .distantPast,
+        deletedAt: Date? = nil
+    ) -> StoredPlanogram {
+        StoredPlanogram(
+            id: id,
+            machineId: machineId,
+            effectiveFrom: effectiveFrom,
+            slots: [PlanogramSlot(slotCode: "A0", productId: "p-0", par: 10, priceCents: 175)],
+            deletedAt: deletedAt
+        )
     }
 
     private func makeMachine(
