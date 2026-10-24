@@ -51,7 +51,7 @@ final class OutboxSubmitter {
 
             switch outcome {
             case .accepted:
-                item.status = "sent"
+                deleteWithDraft(item)
             case .permanent(let message):
                 item.status = "needsAttention"
                 item.lastMessage = message
@@ -64,6 +64,27 @@ final class OutboxSubmitter {
             }
             save()
         }
+    }
+
+    /// Success is the one exit, and it leaves nothing behind: the server is
+    /// the record of what synced, and a table of sent rows grows without bound.
+    ///
+    /// The draft goes with it. While both exist the face reads "waiting to
+    /// sync"; a draft left behind would read as a fresh open visit at a machine
+    /// that was already counted. The queue knows drafts exist by id and never
+    /// by shape — a purchase has none, and the delete is simply a no-op.
+    private func deleteWithDraft(_ item: OutboxItem) {
+        let requestId = item.id
+        let drafts = (try? context.fetch(
+            FetchDescriptor<VisitDraft>(
+                predicate: #Predicate { $0.clientRequestId == requestId }
+            )
+        )) ?? []
+
+        for draft in drafts {
+            context.delete(draft)
+        }
+        context.delete(item)
     }
 
     /// A force-quit mid-submit leaves a row reading `sending` with no drain in

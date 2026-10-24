@@ -49,13 +49,68 @@ final class OutboxSubmitterTests: XCTestCase {
         try context.fetch(FetchDescriptor<OutboxItem>()).count
     }
 
-    func testASuccessfulSubmitMarksTheRowSent() async throws {
+    /// Success is the one exit from the queue, and it leaves nothing behind:
+    /// the server is the record of what synced, and a table of sent rows grows
+    /// without bound.
+    func testASuccessfulSubmitRemovesTheRow() async throws {
         try setUpStore()
         insert(id: "a", countedAt: 100)
 
         await makeSubmitter().drain()
 
-        XCTAssertEqual(try item("a").status, "sent")
+        XCTAssertEqual(try rowCount(), 0)
+    }
+
+    /// The draft and its queue row have to go together. While both exist the
+    /// face reads "waiting to sync"; a draft left behind would read as a fresh
+    /// open visit at a machine that was already counted.
+    func testSuccessRemovesTheDraftAlongsideTheRow() async throws {
+        try setUpStore()
+        insert(id: "req-1", countedAt: 100)
+        context.insert(
+            VisitDraft(
+                clientRequestId: "req-1",
+                machineId: "machine-1",
+                locationId: "location-1",
+                planogramId: nil,
+                countedAt: Date(timeIntervalSince1970: 100)
+            )
+        )
+
+        await makeSubmitter().drain()
+
+        XCTAssertEqual(try context.fetch(FetchDescriptor<VisitDraft>()).count, 0)
+    }
+
+    /// A purchase has no draft. The delete must be a no-op, not a crash.
+    func testARowWithNoDraftStillCompletes() async throws {
+        try setUpStore()
+        insert(id: "orphaned-row", countedAt: 100)
+
+        await makeSubmitter().drain()
+
+        XCTAssertEqual(try rowCount(), 0)
+    }
+
+    /// Failure still leaves the draft alone — it is the operator's only copy.
+    func testAFailedSubmitKeepsTheDraft() async throws {
+        try setUpStore()
+        insert(id: "req-1", countedAt: 100)
+        context.insert(
+            VisitDraft(
+                clientRequestId: "req-1",
+                machineId: "machine-1",
+                locationId: "location-1",
+                planogramId: nil,
+                countedAt: Date(timeIntervalSince1970: 100)
+            )
+        )
+        api.onSubmit = { _ in .permanent(message: "rejected") }
+
+        await makeSubmitter().drain()
+
+        XCTAssertEqual(try context.fetch(FetchDescriptor<VisitDraft>()).count, 1)
+        XCTAssertEqual(try rowCount(), 1)
     }
 
     func testTheQueueDrainsOldestObservationFirst() async throws {
@@ -141,7 +196,7 @@ final class OutboxSubmitterTests: XCTestCase {
         await makeSubmitter().drain()
 
         XCTAssertEqual(api.submitted, ["orphan"])
-        XCTAssertEqual(try item("orphan").status, "sent")
+        XCTAssertEqual(try rowCount(), 0)
     }
 
     /// A submit landing mid-drain must not wait for the next tick: its own

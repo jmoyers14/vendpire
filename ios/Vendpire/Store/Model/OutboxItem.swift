@@ -33,7 +33,8 @@ final class OutboxItem {
     /// struct at submit. See the 2026-10-24 outbox spec.
     var schemaVersion: Int = 1
 
-    /// `queued` | `sending` | `sent` | `needsAttention`.
+    /// `queued` | `sending` | `needsAttention`. There is no `sent`: success
+    /// deletes the row, so reaching the server is the absence of one.
     var status: String = "queued"
 
     var attemptCount: Int = 0
