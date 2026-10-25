@@ -124,6 +124,34 @@ final class VisitDraftTests: XCTestCase {
         XCTAssertEqual(emitted.par, 8)
     }
 
+    /// Identity is minted at birth, so no draft can exist without one. An
+    /// empty `#Unique` field would let two id-less drafts collide into one.
+    func testADraftMintsItsOwnRequestId() throws {
+        try setUpStore()
+
+        let draft = VisitDraft(
+            machineId: "machine-1", locationId: "location-1",
+            planogramId: nil, countedAt: countedAt
+        )
+
+        XCTAssertFalse(draft.clientRequestId.isEmpty)
+    }
+
+    func testTwoDraftsNeverShareAMintedId() throws {
+        try setUpStore()
+
+        let first = VisitDraft(
+            machineId: "machine-1", locationId: "location-1",
+            planogramId: nil, countedAt: countedAt
+        )
+        let second = VisitDraft(
+            machineId: "machine-1", locationId: "location-1",
+            planogramId: nil, countedAt: countedAt
+        )
+
+        XCTAssertNotEqual(first.clientRequestId, second.clientRequestId)
+    }
+
     /// An operator can service the same machine twice before finding signal,
     /// so uniqueness is on the request id, not the machine.
     func testTwoDraftsForOneMachineCanCoexist() throws {

@@ -10,8 +10,10 @@ import SwiftData
 final class OutboxItem {
     #Unique<OutboxItem>([\.id])
 
-    /// The `clientRequestId`. An edited draft keeps it, so it cannot double-post.
-    var id: String = ""
+    /// The `clientRequestId`. An edited draft keeps it, so it cannot
+    /// double-post. No property default: an empty `#Unique` field would
+    /// collide two rows into one.
+    var id: String
 
     /// `visit` | `purchase`. Raw String like `Machine.kind`: an unfamiliar
     /// value from a newer build must still load.
@@ -59,6 +61,24 @@ final class OutboxItem {
         self.attemptCount = attemptCount
         self.nextAttemptAt = nextAttemptAt
         self.lastMessage = lastMessage
+    }
+}
+
+extension OutboxItem {
+    /// Enqueue a visit, deriving the row from the payload rather than taking
+    /// the same facts twice.
+    ///
+    /// `id` and `countedAt` exist both here and inside `payload`. Passing them
+    /// separately would let them disagree, and a mismatch submits under one id
+    /// while the draft is deleted by another — leaving a draft that looks open
+    /// and resubmits as a second visit for one count.
+    convenience init(visit: VisitSubmission) throws {
+        self.init(
+            id: visit.clientRequestId,
+            kind: "visit",
+            countedAt: visit.countedAt,
+            payload: try VisitSubmission.makeEncoder().encode(visit)
+        )
     }
 }
 

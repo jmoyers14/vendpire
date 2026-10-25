@@ -14,7 +14,9 @@ import SwiftData
 final class VisitDraft {
     #Unique<VisitDraft>([\.clientRequestId])
 
-    var clientRequestId: String = ""
+    /// No property default. An empty `#Unique` field would let two id-less
+    /// drafts collide into one row — silent loss of a day's counts.
+    var clientRequestId: String
     var machineId: String = ""
     /// Snapshot: the machine may be moved between counting and syncing.
     var locationId: String = ""
@@ -24,8 +26,11 @@ final class VisitDraft {
     var notes: String?
     var lines: [DraftLine] = []
 
+    /// Minted here so a draft cannot exist without an identity. Resuming
+    /// fetches the open draft rather than building a new one, which is what
+    /// keeps the id stable across edits.
     init(
-        clientRequestId: String,
+        clientRequestId: String = UUID().uuidString,
         machineId: String,
         locationId: String,
         planogramId: String?,

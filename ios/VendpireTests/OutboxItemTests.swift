@@ -95,6 +95,39 @@ final class OutboxItemTests: XCTestCase {
         XCTAssertEqual(try eligibleIds(), ["first", "second", "third"])
     }
 
+    /// Enqueuing derives the row id and `countedAt` from the payload, so the
+    /// two copies of each cannot disagree. A mismatch would submit under one
+    /// id and delete the draft by another — leaving a draft that looks open
+    /// and resubmits as a second visit for the same count.
+    func testEnqueuingDerivesTheRowFromThePayload() throws {
+        try setUpStore()
+        let submission = VisitSubmission(
+            machineId: "machine-1",
+            locationId: "location-1",
+            planogramId: nil,
+            countedAt: Date(timeIntervalSince1970: 500),
+            lines: [
+                VisitSubmissionLine(
+                    slotCode: "A0", productId: "p-0", remaining: 1, added: 2,
+                    removed: 0, removedReason: nil, priceCents: 100,
+                    par: nil, bestBy: nil
+                )
+            ],
+            notes: nil,
+            clientRequestId: "req-from-payload"
+        )
+
+        let item = try OutboxItem(visit: submission)
+
+        XCTAssertEqual(item.id, "req-from-payload")
+        XCTAssertEqual(item.countedAt, Date(timeIntervalSince1970: 500))
+        XCTAssertEqual(item.kind, "visit")
+        XCTAssertEqual(
+            try VisitSubmission.makeDecoder().decode(VisitSubmission.self, from: item.payload),
+            submission
+        )
+    }
+
     /// `id` is the clientRequestId. A second write under the same id is the
     /// same visit being re-saved, and must upsert rather than queue twice.
     func testTheSameClientRequestIdCannotQueueTwice() throws {
