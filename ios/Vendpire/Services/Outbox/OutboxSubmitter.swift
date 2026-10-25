@@ -2,11 +2,10 @@ import Foundation
 import SwiftData
 
 /// Drains the outbox: serial, oldest observation first, stopping at the first
-/// failure worth retrying.
+/// retryable failure.
 ///
-/// The one invariant every path here preserves is that a row leaves the queue
-/// on success and no other way. Nothing deletes on error, nothing expires, and
-/// nothing is dropped to keep the queue tidy.
+/// The invariant every path preserves is that a row leaves the queue on
+/// success and no other way.
 @MainActor
 @Observable
 final class OutboxSubmitter {
@@ -35,8 +34,7 @@ final class OutboxSubmitter {
     }
 
     func drain() async {
-        // Launch and foreground fire this within milliseconds of each other,
-        // same as the mirror's.
+        // Launch and foreground fire within milliseconds, same as the mirror.
         guard state != .draining else { return }
         state = .draining
         defer { state = .idle }
@@ -66,13 +64,11 @@ final class OutboxSubmitter {
         }
     }
 
-    /// Success is the one exit, and it leaves nothing behind: the server is
-    /// the record of what synced, and a table of sent rows grows without bound.
+    /// The draft goes with the row: while both exist the face reads "waiting
+    /// to sync", so one left behind would look like a fresh open visit.
     ///
-    /// The draft goes with it. While both exist the face reads "waiting to
-    /// sync"; a draft left behind would read as a fresh open visit at a machine
-    /// that was already counted. The queue knows drafts exist by id and never
-    /// by shape — a purchase has none, and the delete is simply a no-op.
+    /// Drafts are known by id, never by shape — a purchase has none and this
+    /// is a no-op.
     private func deleteWithDraft(_ item: OutboxItem) {
         let requestId = item.id
         let drafts = (try? context.fetch(
@@ -87,15 +83,13 @@ final class OutboxSubmitter {
         context.delete(item)
     }
 
-    /// A force-quit mid-submit leaves a row reading `sending` with no drain in
-    /// flight. The top of a pass is the one place that can know that, because
-    /// the coalescing guard means no other pass is running.
+    /// A force-quit mid-submit leaves a row reading `sending` that nothing
+    /// else would ever look at again.
     ///
-    /// That makes this correct by two pieces of code agreeing rather than by
-    /// the type system. A second concurrent drain — a background task, say —
-    /// would reclaim rows another pass is mid-flight on and submit them twice.
-    /// Idempotency on `clientRequestId` absorbs it server-side, so the blast
-    /// radius is small, but the guard is load-bearing and not obviously so.
+    /// Correct only because the coalescing guard means no other pass is
+    /// running. A second concurrent drain would reclaim rows mid-flight and
+    /// double-submit them — absorbed by idempotency, but the guard is
+    /// load-bearing and not obviously so.
     private func reclaimOrphans() {
         let orphans = (try? context.fetch(
             FetchDescriptor<OutboxItem>(predicate: #Predicate { $0.status == "sending" })
@@ -107,9 +101,8 @@ final class OutboxSubmitter {
         save()
     }
 
-    /// Re-queried each pass rather than snapshotted, so a submit that lands
-    /// mid-drain is picked up here instead of waiting out a tick behind the
-    /// guard that just rejected its own `drain()` call.
+    /// Re-queried rather than snapshotted, so a submit landing mid-drain is
+    /// picked up here instead of waiting out a tick.
     private func nextEligible() -> OutboxItem? {
         var descriptor = FetchDescriptor<OutboxItem>(
             predicate: OutboxItem.eligible(asOf: now()),
@@ -127,9 +120,8 @@ final class OutboxSubmitter {
         )
     }
 
-    /// A failed local save leaves the row correct in memory but not on disk.
-    /// The next launch re-reads the store and `reclaimOrphans` picks up
-    /// anything stuck mid-flight, so there is no state worth unwinding here.
+    /// A failed save leaves the row right in memory but not on disk, and the
+    /// next launch reclaims anything stuck mid-flight. Nothing to unwind.
     private func save() {
         try? context.save()
     }

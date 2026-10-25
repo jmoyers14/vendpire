@@ -3,27 +3,23 @@ import SwiftData
 
 /// A visit being counted, or counted and waiting to sync.
 ///
-/// Carries no status of its own. Its existence, joined against `OutboxItem` on
-/// the request id, is the state: a draft alone is open, a draft beside a queue
-/// row is waiting to sync, and both are deleted together once the server
-/// confirms the visit. Storing that fact twice would let the two disagree.
+/// No status field: a draft alone is open, a draft beside an `OutboxItem` is
+/// waiting, and both are deleted on success. Storing that twice would let the
+/// two disagree.
 ///
-/// `#Unique` is on `clientRequestId`, not `machineId`. One *open* draft per
-/// machine is the rule, but a submitted-but-undrained draft must not block a
-/// new one — an operator can service the same machine twice before finding
-/// signal. That distinction is a service rule; the schema cannot express it.
+/// `#Unique` is on the request id, not `machineId` — an operator can service
+/// one machine twice before finding signal, so "one open draft per machine"
+/// is a service rule the schema cannot express.
 @Model
 final class VisitDraft {
     #Unique<VisitDraft>([\.clientRequestId])
 
     var clientRequestId: String = ""
     var machineId: String = ""
-    /// Snapshot, not a lookup: the machine may be moved between counting and
-    /// syncing, and the visit belongs where it was counted.
+    /// Snapshot: the machine may be moved between counting and syncing.
     var locationId: String = ""
     var planogramId: String?
-    /// Stamped at Start visit — when the observations were made, which is what
-    /// the drain orders by and what the server checks for out-of-order.
+    /// Stamped at Start visit. Drain order, and the server's out-of-order check.
     var countedAt: Date = Date.distantPast
     var notes: String?
     var lines: [DraftLine] = []
@@ -49,10 +45,9 @@ final class VisitDraft {
 
 /// One slot mid-count.
 ///
-/// `remaining` is `nil` until someone counts it, and that nil is load-bearing
-/// — see `makeSubmission`. `priceCents` and `par` are snapshotted from the
-/// planogram at Start visit so a reprice mid-route cannot rewrite what was
-/// actually charged.
+/// `remaining` is `nil` until counted, and that nil is load-bearing — see
+/// `makeSubmission`. `priceCents` and `par` are snapshotted at Start visit so
+/// a reprice mid-route cannot rewrite what was charged.
 nonisolated struct DraftLine: Codable, Equatable, Hashable, Sendable {
     var slotCode: String
     var productId: String
@@ -68,14 +63,12 @@ nonisolated struct DraftLine: Codable, Equatable, Hashable, Sendable {
 extension VisitDraft {
     /// The payload, or `nil` when nothing was counted.
     ///
-    /// **A slot with no `remaining` emits no line.** Trap 3 in the plan of
-    /// record: treating an uncounted slot as `remaining = 0` books the entire
-    /// leftover as sold and invents revenue. The server cannot detect it, the
-    /// P&L cannot detect it, and the operator has already left the building.
+    /// **A slot with no `remaining` emits no line.** Trap 3: treating an
+    /// uncounted slot as zero books the leftover as sold and invents revenue
+    /// nothing downstream can detect.
     ///
-    /// `nil` rather than an empty submission because the server rejects an
-    /// empty `lines`, and finding that out after a drain means telling someone
-    /// hours after they could have done anything about it.
+    /// `nil` rather than empty because the server rejects empty `lines`, and
+    /// learning that after a drain is hours too late.
     func makeSubmission() -> VisitSubmission? {
         let counted = lines.compactMap { line -> VisitSubmissionLine? in
             guard let remaining = line.remaining else { return nil }

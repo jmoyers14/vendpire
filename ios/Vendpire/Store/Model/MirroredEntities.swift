@@ -4,13 +4,12 @@ import SwiftData
 /// The device's mirror of the org's reference data.
 ///
 /// Six entities, all mirrored from stable, server-owned sources.
-/// The downward pipe: reference data the server owns, mirrored here and never
-/// edited on the device. The upward pipe — observations the device owns and
-/// the server never edits — is `OutboxItem`, which is equally stored and
-/// deliberately not one of these.
+/// The downward pipe: reference data the server owns, never edited here. The
+/// upward pipe is `OutboxItem`, equally stored and deliberately not one of
+/// these.
 ///
-/// The `Stored*` prefix pairs each type with its `Remote*` wire counterpart;
-/// it is the file that says which direction they flow.
+/// The `Stored*` prefix pairs each type with its `Remote*` counterpart; the
+/// file name is what says which direction they flow.
 ///
 /// `StoredLatestVisit` is the one that changes shape over time — a newer visit
 /// overwrites it rather than appending history.

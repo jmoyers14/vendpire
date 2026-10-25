@@ -5,10 +5,8 @@ import XCTest
 
 /// The draft, and the one conversion in the app where a mistake invents money.
 ///
-/// Trap 3 from the plan of record: treating an uncounted slot as
-/// `remaining = 0` books the entire leftover as sold. The server cannot detect
-/// it, the P&L cannot detect it, and the operator has already left. The only
-/// defence is that an uncounted slot emits no line at all.
+/// Trap 3: an uncounted slot treated as zero books the leftover as sold, and
+/// nothing downstream can detect it. The defence is emitting no line at all.
 @MainActor
 final class VisitDraftTests: XCTestCase {
     private var context: ModelContext!

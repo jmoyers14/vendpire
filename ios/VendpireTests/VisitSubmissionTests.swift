@@ -2,10 +2,9 @@ import XCTest
 
 @testable import Vendpire
 
-/// The payload is written to the store and decoded later — possibly by a build
-/// that shipped after it was captured. These pin the encoding so that round
-/// trip stays lossless, and pin the key names so a rename shows up here rather
-/// than as a 400 on a phone in a basement.
+/// The payload is stored and decoded later, possibly by a newer build. These
+/// pin the encoding so the round trip stays lossless, and the key names so a
+/// rename surfaces here rather than as a 400 in the field.
 final class VisitSubmissionTests: XCTestCase {
     /// Whole seconds: `countedAt` is stamped when a person starts counting a
     /// machine, so sub-second precision is not a fact worth preserving.

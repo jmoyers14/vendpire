@@ -2,12 +2,9 @@ import XCTest
 
 @testable import Vendpire
 
-/// The policy that decides whether a day's counts are recoverable. Pure, so the
-/// table can be read and tested without HTTP.
-///
-/// The rule under test throughout: only 400 and 404 are permanent. Everything
-/// else keeps the row queued, because a draft that stops retrying is a draft
-/// nobody re-enters.
+/// The policy that decides whether a day's counts are recoverable. Only 400
+/// and 404 are permanent — a draft that stops retrying is one nobody
+/// re-enters.
 final class SubmitOutcomeTests: XCTestCase {
     func testServerFaultsAreRetryable() {
         XCTAssertEqual(SubmitOutcome.forFailure(statusCode: 500, message: nil), .retryable)

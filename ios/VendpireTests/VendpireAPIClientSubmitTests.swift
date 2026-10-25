@@ -4,13 +4,11 @@ import XCTest
 
 @testable import Vendpire
 
-/// The real client against a stubbed transport, so the mapping from HTTP to
-/// `SubmitOutcome` is exercised end to end — request encoding included —
-/// without a network.
+/// The real client against a stubbed transport, so the HTTP-to-`SubmitOutcome`
+/// mapping runs end to end without a network.
 ///
-/// This is the one place a wrong answer is expensive: calling a retryable
-/// failure permanent strands a day of counts, and calling a permanent one
-/// retryable hides a bug behind infinite backoff.
+/// A wrong answer here is expensive both ways: permanent strands a day of
+/// counts, retryable hides a bug behind infinite backoff.
 @MainActor
 final class VendpireAPIClientSubmitTests: XCTestCase {
     private func makeRequest() -> OutboxRequest {

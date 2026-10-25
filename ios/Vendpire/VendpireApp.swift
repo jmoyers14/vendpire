@@ -49,9 +49,8 @@ struct VendpireApp: App {
                 await refresher.refresh()
                 await submitter.drain()
             }
-            // Backoff needs a retry that lifecycle events will not provide:
-            // submit in a basement, walk upstairs, never background the app.
-            // Without this those counts sit unsent over a working connection.
+            // Backoff needs a retry lifecycle events will not provide: submit
+            // in a basement, walk upstairs, never background the app.
             .task {
                 while !Task.isCancelled {
                     try? await Task.sleep(for: .seconds(30))
@@ -72,8 +71,8 @@ struct VendpireApp: App {
                 guard signedIn else { return }
                 Task {
                     await refresher.refresh()
-                    // A draft queued before sign-in drains the moment there is
-                    // a token, rather than waiting for a tick.
+                    // A draft queued before sign-in drains as soon as there is
+                    // a token.
                     await submitter.drain()
                 }
             }
