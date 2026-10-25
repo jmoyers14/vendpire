@@ -14,6 +14,8 @@ enum VendpireStore {
         StoredPlanogram.self,
         StoredLatestVisit.self,
         StoreMetadata.self,
+        OutboxItem.self,
+        VisitDraft.self,
     ])
 
     /// The on-disk container the app runs against.

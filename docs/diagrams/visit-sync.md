@@ -23,7 +23,7 @@ flowchart LR
     subgraph phone["phone"]
         Mirror["MirrorRefresher"]
         Capture["VisitCaptureService"]
-        Drain["OutboxDrain"]
+        Drain["OutboxSubmitter"]
 
         subgraph store["one SwiftData container"]
             direction TB
@@ -135,16 +135,21 @@ sequenceDiagram
     end
 
     User->>Capture: Submit
-    Capture->>Item: encode payload to Data + schemaVersion
+    Capture->>Item: encode the draft struct to payload + schemaVersion
     Note over Item: OutboxItem.id == clientRequestId
 
-    Item->>Api: send bytes as captured
+    Item->>Api: POST
     Api-->>Item: 200 + visit document
     Item->>Item: mark sent
 ```
 
-The payload is frozen as bytes at submit time. A draft is never re-encoded
-against a newer schema.
+**Corrected 2026-10-24.** This previously said the payload is frozen as bytes
+and never re-encoded. The draft is stored as a struct and encoded at submit:
+`Remote+Generated.swift` is the only file that knows the generated types, so a
+spec change is a compile error there rather than a silent re-encode. Frozen
+bytes also made a stuck draft unfixable and were silently wrong under a
+semantic change. `schemaVersion` is kept for migration, not for freezing. See
+`docs/superpowers/specs/2026-10-24-visit-outbox-design.md`.
 
 ## Upward — outbox states
 

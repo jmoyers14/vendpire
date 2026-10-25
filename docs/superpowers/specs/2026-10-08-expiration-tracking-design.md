@@ -377,7 +377,7 @@ Nothing reports a slot as clear when it is not.
 
 ## Out of scope for this change
 
-- iOS. `Store/Model/StoredEntities.swift` mirrors visits but there is no fill
+- iOS. `Store/Model/MirroredEntities.swift` mirrors visits but there is no fill
   screen yet; `bestBy` joins the mirror when that screen is built, and the
   contract defined here is what it will target.
 - A configurable per-org warning window. Fixed at 14 days until there is a

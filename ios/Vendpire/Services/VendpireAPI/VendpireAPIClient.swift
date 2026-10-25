@@ -9,14 +9,22 @@ import OpenAPIURLSession
 /// 500 — throws, and `MirrorRefresher` turns that into a failed refresh that
 /// writes nothing.
 struct VendpireAPIClient: VendpireAPI {
-    private let client: Client
+    /// Not private: the outbox conformance lives in its own file.
+    let client: Client
 
-    init(baseURL: URL = AppEnvironment.apiBaseURL) {
+    /// `transport` and `middlewares` are injectable so the submit path can be
+    /// tested against canned HTTP — the generated client's own encoding and
+    /// decoding still run, which is where the mapping bugs would be.
+    init(
+        baseURL: URL = AppEnvironment.apiBaseURL,
+        transport: any ClientTransport = URLSessionTransport(),
+        middlewares: [any ClientMiddleware] = [AuthTokenMiddleware()]
+    ) {
         client = Client(
             serverURL: baseURL,
             configuration: Configuration(dateTranscoder: TolerantDateTranscoder()),
-            transport: URLSessionTransport(),
-            middlewares: [AuthTokenMiddleware()]
+            transport: transport,
+            middlewares: middlewares
         )
     }
 
