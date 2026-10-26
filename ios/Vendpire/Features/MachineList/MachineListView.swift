@@ -7,6 +7,11 @@ struct MachineListView: View {
 
     @Query private var machines: [StoredMachine]
 
+    // Queried once for the whole list, not once per row. A @Query inside a row
+    // is what spun the app at 100% CPU in d05ea2f.
+    @Query private var latestVisits: [StoredLatestVisit]
+    @Query private var planograms: [StoredPlanogram]
+
     init(location: StoredLocation) {
         self.location = location
         _machines = Query(
@@ -29,7 +34,7 @@ struct MachineListView: View {
                 // that costs a full join per machine and spins the render loop.
                 List(machines) { machine in
                     NavigationLink(value: machine) {
-                        MachineRow(machine: machine)
+                        MachineRow(machine: machine, triage: triage(for: machine))
                     }
                 }
             }
@@ -40,23 +45,40 @@ struct MachineListView: View {
         .navigationTitle(location.name)
         .navigationBarTitleDisplayMode(.inline)
     }
+
+    private func triage(for machine: StoredMachine) -> MachineTriage {
+        let visit = latestVisits.first { $0.machineId == machine.id }
+        let planogram = planograms.first { $0.machineId == machine.id }
+
+        return MachineTriage(
+            countedAt: visit?.countedAt,
+            lines: visit?.lines ?? [],
+            planogramSlots: planogram?.slots ?? [],
+            asOf: Date()
+        )
+    }
 }
 
+/// Two facts and no verdict: what we left only means something beside how
+/// long it has been, and the operator is the one who combines them.
 private struct MachineRow: View {
     let machine: StoredMachine
-
-    private var summary: String {
-        let shelves = machine.slots.count
-        let slots = machine.slots.reduce(0) { $0 + $1.count }
-        return "\(shelves) shelves · \(slots) slots"
-    }
+    let triage: MachineTriage
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text(machine.name)
-            Text(summary)
-                .font(.footnote)
-                .foregroundStyle(.secondary)
+            HStack(alignment: .firstTextBaseline) {
+                Text(machine.name)
+                Spacer(minLength: 8)
+                Text(triage.ageText)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+            if let shortFill = triage.shortFillText {
+                Text(shortFill)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
         }
     }
 }

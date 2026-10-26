@@ -37,31 +37,39 @@ tracked as a later additive field rather than built now.
 ```
 Right-On Studios
 
-  National 148 Snack Machine                12 days
-  left 61 of 170 · 7 slots low
+  National 148 Snack Machine                18 days
 
-  Small Machine                              3 days
-  left 38 of 40
+  Small Machine                              8 days
+  left 34 of 40 · 3 slots short
 ```
 
 Replaces `MachineRow`'s current `6 shelves · 48 slots`, which describes the cabinet rather
 than giving a reason to stop at it.
 
-**These are two facts, not a verdict.** What we left is only meaningful beside how long it
-has been — a machine left full 30 days ago may be empty, one left half-full two days ago
-probably is not. The operator combines them. That is worse than a computed estimate and
-strictly better than the nothing they have today, which is memory.
+**Revised 2026-10-26, after rendering it.** The row first showed `left 170 of 170` on every
+machine, which is not a rendering bug but the design being structurally empty: a visit's
+purpose is to fill to par, and capture's headline default is literally `added = par −
+remaining`. So after any successful visit every counted slot sits exactly at par, `left X of
+Y` reads "full" forever, and `slots short` is zero in the same breath. Two of the three facts
+were constants.
+
+They are non-zero only on a **short fill** — the operator ran out of stock in the van. So the
+stock line appears only then. Silence means we left it full, which is the truth and needs no
+words.
+
+That makes the age the one fact always shown, and every line a row does show is information.
 
 ### Definitions
 
 - **`12 days`** — whole days between `countedAt` and now. A machine with no
   `StoredLatestVisit` reads **"never serviced"**, not a number derived from `.distantPast`.
-- **`left 61 of 170`** — `Σ(remaining + added − removed)` across the last visit's lines,
-  against `Σ par` across the current planogram's slots. A machine with no planogram has no
-  denominator and reads `left 61`.
-- **`7 slots low`** — planogram slots where what we left is below par. A plain `< par` with
+- **`left 34 of 40`** — `Σ(remaining + added − removed)` across the last visit's lines,
+  against `Σ par` across the current planogram's slots. Shown only alongside a short fill. A
+  machine with no planogram has no denominator and reads the slot count alone.
+- **`3 slots short`** — planogram slots where what we left is below par. "Short" rather than
+  "low" to match the capture spec's *short fill*: one term per concept. A plain `< par` with
   no threshold fraction: a fraction is a tuning knob and there is no data to set it from.
-  Suppressed at zero rather than reading `0 slots low`.
+  At zero the whole stock line is suppressed, not just this phrase.
 
 All three are pure functions of plain values, so they live in `Domain/` beside the face join
 and are tested with no SwiftData and no simulator.
@@ -91,8 +99,11 @@ A draft with *any* counted line survives, as it must — that is somebody's work
 
 ## What is deleted, and what is not
 
-**Deleted:** `Features/MachineFace/MachineFaceView.swift` — the `@Query` wrapper and its two
-fixture previews.
+**Deleted — but with 2b, not here.** `Features/MachineFace/MachineFaceView.swift` is the
+`@Query` wrapper and its two fixture previews. It stays as the tap destination until capture
+exists to replace it: deleting it now would leave list rows with nowhere to go, the same way
+wiring the outbox triggers before the network edge would have left a drain with nothing to
+drain. So this change ships the row; the routing swap and the deletion land with capture.
 
 **Kept, because capture needs all of it:**
 
@@ -115,10 +126,10 @@ So the planogram work is not thrown away. Only the browse screen built on top of
 - No last visit reads "never serviced"
 - `left` sums `remaining + added − removed`, matching `VisitLine.levelAfter`
 - No planogram yields no denominator rather than `of 0`
-- `slots low` counts strictly below par; a slot left *at* par is not low
-- A slot with no par is excluded from both the denominator and the low count — nil par and
-  par zero are different facts
-- Zero low slots suppresses the phrase
+- `slots short` counts strictly below par; a slot left *at* par is not low
+- A par of zero can never be short, and contributes nothing to capacity
+- An uncounted planogram slot is excluded from `slots short` — unknown is not short
+- Zero short slots suppresses the whole stock line, not just the phrase
 
 `MachineListView` keeps the lazy `navigationDestination(for:)` routing from `1feb2fb`; a tap
 now resolves to capture.

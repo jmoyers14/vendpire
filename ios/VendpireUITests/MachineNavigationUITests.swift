@@ -27,6 +27,12 @@ final class MachineNavigationUITests: XCTestCase {
 
         let machine = app.staticTexts["National 148 Snack Machine"].firstMatch
         XCTAssertTrue(machine.waitForExistence(timeout: 10), "no machine row")
+
+        let list = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        list.name = "machine-list"
+        list.lifetime = .keepAlways
+        add(list)
+
         machine.tap()
 
         let faceBar = app.navigationBars["National 148 Snack Machine"]
