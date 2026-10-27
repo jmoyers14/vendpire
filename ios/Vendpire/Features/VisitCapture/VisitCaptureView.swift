@@ -72,13 +72,11 @@ struct VisitCaptureView: View {
             if let line = model.focusedLine, let found = line.remaining {
                 RemovalSheet(
                     slotCode: line.slotCode,
-                    productName: model.focusedProductName ?? "Unknown product",
+                    productName: model.productName(for: line),
                     foundInSlot: found,
                     initialUnits: line.removed,
-                    initialReason: line.removedReason.flatMap(RemovalReason.init(rawValue:)),
-                    onDone: { units, reason in
-                        model.recordRemoval(units: units, reason: reason)
-                    }
+                    initialReason: line.removalReason,
+                    onDone: model.recordRemoval(units:reason:)
                 )
             }
         }

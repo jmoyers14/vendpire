@@ -166,11 +166,16 @@ struct PulledButton: View {
             .padding(.vertical, 6)
         }
         .buttonStyle(.plain)
-        .foregroundStyle(isEnabled ? (removed > 0 ? AnyShapeStyle(.tint) : AnyShapeStyle(.primary)) : AnyShapeStyle(.tertiary))
+        .foregroundStyle(labelStyle)
         .frame(maxWidth: 78)
         .background(RoundedRectangle(cornerRadius: 8).fill(.quaternary))
         .disabled(!isEnabled)
         .accessibilityLabel(removed > 0 ? "Pulled \(removed)" : "Record pulled stock")
         .accessibilityHint(isEnabled ? "" : "Count the slot first")
+    }
+
+    private var labelStyle: AnyShapeStyle {
+        if !isEnabled { return AnyShapeStyle(.tertiary) }
+        return removed > 0 ? AnyShapeStyle(.tint) : AnyShapeStyle(.primary)
     }
 }

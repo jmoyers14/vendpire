@@ -134,19 +134,6 @@ extension RemovalReason {
         case .destocked, .transferred: .returnedToStock
         }
     }
-
-    /// What the operator is actually deciding between, which is not five words
-    /// but two outcomes.
-    var headline: String {
-        switch disposition {
-        case .writtenOff: "Written off — you paid, nobody will"
-        case .returnedToStock: "Back to the van — still your stock"
-        }
-    }
-
-    var label: String {
-        rawValue.prefix(1).uppercased() + rawValue.dropFirst()
-    }
 }
 
 extension DraftLine {
@@ -159,6 +146,14 @@ extension DraftLine {
     /// Counted means `remaining` was typed. A missing count is not a zero.
     var isCounted: Bool {
         remaining != nil
+    }
+
+    /// The stored reason, typed. The wire string and the enum meet here and
+    /// nowhere else — an unrecognised stored value reads as nil rather than
+    /// trapping, same as the read path's raw-String rule.
+    var removalReason: RemovalReason? {
+        get { removedReason.flatMap(RemovalReason.init(rawValue:)) }
+        set { removedReason = newValue?.rawValue }
     }
 
     /// The ADDING field's subtitle: the par target, and whether the fill meets

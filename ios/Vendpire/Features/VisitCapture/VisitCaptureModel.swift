@@ -64,7 +64,11 @@ final class VisitCaptureModel {
     }
 
     var focusedProductName: String? {
-        focusedLine.map { productNames[$0.productId] ?? "Unknown product" }
+        focusedLine.map(productName(for:))
+    }
+
+    func productName(for line: DraftLine) -> String {
+        productNames[line.productId] ?? "Unknown product"
     }
 
     /// The bar turns amber once `Next` has started hunting gaps.
@@ -130,15 +134,13 @@ final class VisitCaptureModel {
     /// found, and zero units clears the reason with it.
     func recordRemoval(units: Int, reason: RemovalReason?) {
         mutateFocusedLine { line in
-            let bounded = cappedRemoval(of: units, foundInSlot: line.remaining ?? 0)
+            // One count feeds both the cap and the refill.
+            let found = line.remaining ?? 0
+            let bounded = cappedRemoval(of: units, foundInSlot: found)
 
             line.removed = bounded
-            line.removedReason = bounded > 0 ? reason?.rawValue : nil
-            line.added = unitsToFillPar(
-                remaining: line.remaining ?? 0,
-                removed: bounded,
-                par: line.par
-            )
+            line.removalReason = bounded > 0 ? reason : nil
+            line.added = unitsToFillPar(remaining: found, removed: bounded, par: line.par)
         }
     }
 

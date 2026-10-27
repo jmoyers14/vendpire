@@ -10,10 +10,7 @@ struct RemovalSheet: View {
     /// What was found in the slot. The removal cannot exceed it.
     let foundInSlot: Int
 
-    let initialUnits: Int
-    let initialReason: RemovalReason?
-
-    let onDone: (Int, RemovalReason?) -> Void
+    let onDone: (_ units: Int, _ reason: RemovalReason?) -> Void
 
     @Environment(\.dismiss) private var dismiss
     @State private var units: Int
@@ -25,13 +22,11 @@ struct RemovalSheet: View {
         foundInSlot: Int,
         initialUnits: Int,
         initialReason: RemovalReason?,
-        onDone: @escaping (Int, RemovalReason?) -> Void
+        onDone: @escaping (_ units: Int, _ reason: RemovalReason?) -> Void
     ) {
         self.slotCode = slotCode
         self.productName = productName
         self.foundInSlot = foundInSlot
-        self.initialUnits = initialUnits
-        self.initialReason = initialReason
         self.onDone = onDone
         _units = State(initialValue: initialUnits)
         _reason = State(initialValue: initialReason)
@@ -58,7 +53,9 @@ struct RemovalSheet: View {
                         }
                     }
                     .onChange(of: units) { _, now in
-                        // Zero units is not a removal, so it keeps no reason.
+                        // Presentation only — the model enforces the invariant.
+                        // Without this, stepping 2 → 0 → 1 would resurrect a
+                        // stale checkmark.
                         if now == 0 { reason = nil }
                     }
                 } header: {
@@ -94,10 +91,8 @@ struct RemovalSheet: View {
     /// reason decides whether these units are a loss or still inventory, and
     /// that is the distinction worth surfacing at the moment of choosing.
     private func reasonSection(for disposition: RemovalDisposition) -> some View {
-        let reasons = RemovalReason.allCases.filter { $0.disposition == disposition }
-
-        return Section {
-            ForEach(reasons, id: \.self) { option in
+        Section {
+            ForEach(disposition.reasons, id: \.self) { option in
                 Button {
                     reason = option
                 } label: {
@@ -113,7 +108,33 @@ struct RemovalSheet: View {
                 }
             }
         } header: {
-            Text(reasons[0].headline)
+            Text(disposition.headline)
         }
+    }
+}
+
+// MARK: - The sheet's copy
+
+/// UI prose, deliberately NOT in Domain/: the server twin carries no copy and
+/// the mirror argument that justifies `RemovalReason` living there stops at the
+/// enum and its disposition. A designer hunting this text should find it here.
+private extension RemovalDisposition {
+    var headline: String {
+        switch self {
+        case .writtenOff: "Written off — you paid, nobody will"
+        case .returnedToStock: "Back to the van — still your stock"
+        }
+    }
+
+    /// Derived from the Domain table rather than listed, so a reason added or
+    /// moved there cannot leave this grouping behind.
+    var reasons: [RemovalReason] {
+        RemovalReason.allCases.filter { $0.disposition == self }
+    }
+}
+
+private extension RemovalReason {
+    var label: String {
+        rawValue.capitalized
     }
 }
