@@ -64,7 +64,11 @@ final class VisitCaptureModel {
     }
 
     var focusedProductName: String? {
-        focusedLine.map { productNames[$0.productId] ?? "Unknown product" }
+        focusedLine.map(productName(for:))
+    }
+
+    func productName(for line: DraftLine) -> String {
+        productNames[line.productId] ?? "Unknown product"
     }
 
     /// The bar turns amber once `Next` has started hunting gaps.
@@ -112,10 +116,31 @@ final class VisitCaptureModel {
                 line.remaining = typed
                 // Recomputed on every keystroke, which is what makes the fill
                 // path one digit and one tap.
-                line.added = unitsToFillPar(remaining: typed, par: line.par)
+                line.added = unitsToFillPar(remaining: typed, removed: line.removed, par: line.par)
             case .adding:
                 line.added = min(999, (line.added ?? 0) * 10 + digit)
             }
+        }
+    }
+
+    /// A removal needs a count to be bounded by and to be submitted alongside:
+    /// `makeSubmission` drops a line with no count, so a removal recorded on an
+    /// uncounted slot would vanish with no error.
+    var canRecordRemoval: Bool {
+        focusedLine?.isCounted ?? false
+    }
+
+    /// Replaces the focused slot's removal. `units` is bounded by what was
+    /// found, and zero units clears the reason with it.
+    func recordRemoval(units: Int, reason: RemovalReason?) {
+        mutateFocusedLine { line in
+            // One count feeds both the cap and the refill.
+            let found = line.remaining ?? 0
+            let bounded = cappedRemoval(of: units, foundInSlot: found)
+
+            line.removed = bounded
+            line.removalReason = bounded > 0 ? reason : nil
+            line.added = unitsToFillPar(remaining: found, removed: bounded, par: line.par)
         }
     }
 
@@ -132,6 +157,10 @@ final class VisitCaptureModel {
             case .left:
                 line.remaining = nil
                 line.added = nil
+                // A removal with no count behind it is the silent-loss case:
+                // the line would be dropped at submit and the units with it.
+                line.removed = 0
+                line.removedReason = nil
             case .adding:
                 line.added = nil
             }

@@ -142,3 +142,40 @@ struct Keypad: View {
         .buttonStyle(.bordered)
     }
 }
+
+/// The removals affordance, beside the two numbers.
+///
+/// Inert until the slot is counted: `remaining` is what was in the slot BEFORE
+/// anything was pulled, and a line with no count is dropped at submit — so a
+/// removal recorded first would vanish without a trace.
+struct PulledButton: View {
+    let removed: Int
+    let isEnabled: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 1) {
+                Text("PULLED")
+                    .font(.system(size: 10, weight: .medium, design: .monospaced))
+                Text(removed > 0 ? "\(removed)" : "—")
+                    .font(.title3)
+                    .monospacedDigit()
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 6)
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(labelStyle)
+        .frame(maxWidth: 78)
+        .background(RoundedRectangle(cornerRadius: 8).fill(.quaternary))
+        .disabled(!isEnabled)
+        .accessibilityLabel(removed > 0 ? "Pulled \(removed)" : "Record pulled stock")
+        .accessibilityHint(isEnabled ? "" : "Count the slot first")
+    }
+
+    private var labelStyle: AnyShapeStyle {
+        if !isEnabled { return AnyShapeStyle(.tertiary) }
+        return removed > 0 ? AnyShapeStyle(.tint) : AnyShapeStyle(.primary)
+    }
+}

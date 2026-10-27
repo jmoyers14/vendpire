@@ -187,16 +187,72 @@ final class CaptureOrderTests: XCTestCase {
     // MARK: - Fill to par
 
     func testFillingToParIsTheDifference() {
-        XCTAssertEqual(unitsToFillPar(remaining: 4, par: 10), 6)
+        XCTAssertEqual(unitsToFillPar(remaining: 4, removed: 0, par: 10), 6)
     }
 
     func testAnOverfullSlotNeedsNothingRatherThanANegative() {
-        XCTAssertEqual(unitsToFillPar(remaining: 12, par: 10), 0)
+        XCTAssertEqual(unitsToFillPar(remaining: 12, removed: 0, par: 10), 0)
     }
 
     /// No par and a fill of zero are different facts: one means "we do not
     /// know the target", the other means "it is already full".
     func testASlotWithNoParHasNoDefaultAtAll() {
-        XCTAssertNil(unitsToFillPar(remaining: 4, par: nil))
+        XCTAssertNil(unitsToFillPar(remaining: 4, removed: 0, par: nil))
+    }
+
+    /// The regression this exists to prevent. `levelAfter` is
+    /// `remaining − removed + added`, so reaching par takes back what was
+    /// pulled — otherwise the machine goes back short by exactly that many,
+    /// behind a default that looked right.
+    func testPullingStockRaisesTheFillRatherThanLeavingTheMachineShort() {
+        XCTAssertEqual(unitsToFillPar(remaining: 5, removed: 2, par: 10), 7)
+
+        let left = 5, pulled = 2, toAdd = unitsToFillPar(remaining: 5, removed: 2, par: 10) ?? 0
+        XCTAssertEqual(left - pulled + toAdd, 10, "the slot must end at par")
+    }
+
+    func testEmptyingASlotEntirelyRefillsItWhole() {
+        XCTAssertEqual(unitsToFillPar(remaining: 4, removed: 4, par: 10), 10)
+    }
+
+    // MARK: - Bounding a removal
+
+    /// The server bounds `removed` only by 0...999, so an unchecked entry
+    /// would book a level the slot never physically held.
+    func testARemovalCannotExceedWhatWasFound() {
+        XCTAssertEqual(cappedRemoval(of: 9, foundInSlot: 5), 5)
+    }
+
+    func testARemovalWithinWhatWasFoundIsUnchanged() {
+        XCTAssertEqual(cappedRemoval(of: 2, foundInSlot: 5), 2)
+    }
+
+    func testARemovalCannotGoNegative() {
+        XCTAssertEqual(cappedRemoval(of: -3, foundInSlot: 5), 0)
+    }
+
+    // MARK: - What a reason costs
+
+    /// Mirrors packages/domain/src/visits/removals.ts. The two codebases must
+    /// not drift on which reasons are losses — picking the wrong side does not
+    /// mislabel a row, it removes a real loss from the books.
+    func testBinnedStockIsWrittenOff() {
+        for reason in [RemovalReason.expired, .damaged, .recalled] {
+            XCTAssertEqual(reason.disposition, .writtenOff, "\(reason) is binned")
+        }
+    }
+
+    func testStockBackInTheVanIsStillInventory() {
+        for reason in [RemovalReason.destocked, .transferred] {
+            XCTAssertEqual(reason.disposition, .returnedToStock, "\(reason) is still yours")
+        }
+    }
+
+    /// The wire values the server's enum accepts, exactly.
+    func testTheWireValuesMatchTheServersEnum() {
+        XCTAssertEqual(
+            RemovalReason.allCases.map(\.rawValue),
+            ["expired", "damaged", "recalled", "destocked", "transferred"]
+        )
     }
 }

@@ -195,6 +195,99 @@ final class VisitCaptureModelTests: XCTestCase {
         XCTAssertEqual(model.focus?.slotCode, "A0", "an empty cell holds nothing to focus")
     }
 
+    // MARK: - Removals
+
+    /// The schema defines `remaining` as what was in the slot BEFORE removing
+    /// anything, and makeSubmission drops any line with no count — so a
+    /// removal on an uncounted slot would vanish at submit with no error.
+    func testPullingIsUnavailableUntilTheSlotIsCounted() throws {
+        try startCapture()
+
+        XCTAssertFalse(model.canRecordRemoval)
+
+        model.type(5)
+
+        XCTAssertTrue(model.canRecordRemoval)
+    }
+
+    func testRecordingARemovalStoresBothUnitsAndReason() throws {
+        try startCapture()
+        model.type(5)
+
+        model.recordRemoval(units: 2, reason: .expired)
+
+        XCTAssertEqual(focusedLine?.removed, 2)
+        XCTAssertEqual(focusedLine?.removedReason, "expired")
+    }
+
+    /// The whole reason the arithmetic changed: pull two from a slot of five
+    /// with par ten, and filling to par means adding seven, not five.
+    func testARemovalRaisesTheFillSoTheMachineEndsAtPar() throws {
+        try startCapture()
+        model.type(5)
+        XCTAssertEqual(focusedLine?.added, 5)
+
+        model.recordRemoval(units: 2, reason: .expired)
+
+        XCTAssertEqual(focusedLine?.added, 7)
+        let line = try XCTUnwrap(focusedLine)
+        XCTAssertEqual(
+            line.remaining! - line.removed + line.added!, 10,
+            "levelAfter must land on par"
+        )
+    }
+
+    func testARemovalCannotExceedWhatWasFound() throws {
+        try startCapture()
+        model.type(3)
+
+        model.recordRemoval(units: 9, reason: .damaged)
+
+        XCTAssertEqual(focusedLine?.removed, 3, "you cannot pull more than you found")
+    }
+
+    /// Zero units is not a removal, so there is no reason to keep.
+    func testClearingTheRemovalClearsItsReason() throws {
+        try startCapture()
+        model.type(5)
+        model.recordRemoval(units: 2, reason: .expired)
+
+        model.recordRemoval(units: 0, reason: nil)
+
+        XCTAssertEqual(focusedLine?.removed, 0)
+        XCTAssertNil(focusedLine?.removedReason)
+        XCTAssertEqual(focusedLine?.added, 5, "the fill returns to par − remaining")
+    }
+
+    /// A removal without a count is the silent-loss case, so the count going
+    /// away has to take the removal with it.
+    func testClearingTheCountClearsTheRemoval() throws {
+        try startCapture()
+        model.type(5)
+        model.recordRemoval(units: 2, reason: .expired)
+
+        model.clear(.left)
+
+        XCTAssertEqual(focusedLine?.removed, 0)
+        XCTAssertNil(focusedLine?.removedReason)
+    }
+
+    /// Digits accumulate, so re-counting downward goes through `clear`, which
+    /// takes the removal with it. There is no path that leaves a removal
+    /// larger than the count bounding it.
+    func testRecountingAfterARemovalStartsCleanRatherThanCarryingItDown() throws {
+        try startCapture()
+        model.type(8)
+        model.recordRemoval(units: 5, reason: .destocked)
+
+        model.clear(.left)
+        model.type(3)
+
+        XCTAssertEqual(focusedLine?.remaining, 3)
+        XCTAssertEqual(focusedLine?.removed, 0)
+        XCTAssertNil(focusedLine?.removedReason)
+    }
+
     // MARK: - Submitting
 
     func testSubmitQueuesTheVisit() throws {

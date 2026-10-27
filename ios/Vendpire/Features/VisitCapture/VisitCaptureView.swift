@@ -16,6 +16,7 @@ struct VisitCaptureView: View {
 
     @State private var model = VisitCaptureModel()
     @State private var isConfirmingSubmit = false
+    @State private var isRecordingRemoval = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -64,6 +65,18 @@ struct VisitCaptureView: View {
                 Text(
                     "\(model.totalCount - model.countedCount) slots have no count. "
                         + "They won't be treated as zero — but you also won't know what sold."
+                )
+            }
+        }
+        .sheet(isPresented: $isRecordingRemoval) {
+            if let line = model.focusedLine, let found = line.remaining {
+                RemovalSheet(
+                    slotCode: line.slotCode,
+                    productName: model.productName(for: line),
+                    foundInSlot: found,
+                    initialUnits: line.removed,
+                    initialReason: line.removalReason,
+                    onDone: model.recordRemoval(units:reason:)
                 )
             }
         }
@@ -156,6 +169,12 @@ struct VisitCaptureView: View {
                     isFocused: model.field == .adding
                 )
                 .onTapGesture { model.clear(.adding) }
+
+                PulledButton(
+                    removed: current?.removed ?? 0,
+                    isEnabled: model.canRecordRemoval,
+                    action: { isRecordingRemoval = true }
+                )
             }
         }
         .padding(.horizontal, ShelfLayout.padding)
