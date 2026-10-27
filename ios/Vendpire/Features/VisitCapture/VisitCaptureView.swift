@@ -25,7 +25,10 @@ struct VisitCaptureView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            if let draft {
+            // A machine with no planogram yields a draft with no lines: nothing
+            // to focus, so every key is inert. Saying so beats presenting a
+            // complete interface that does nothing when touched.
+            if let draft, !draft.lines.isEmpty {
                 grid(draft)
                 Spacer(minLength: 0)
                 contextStrip(draft)
@@ -37,7 +40,11 @@ struct VisitCaptureView: View {
                     onNext: advance
                 )
             } else {
-                ContentUnavailableView("Nothing to count", systemImage: "tray")
+                ContentUnavailableView(
+                    "Nothing to count",
+                    systemImage: "tray",
+                    description: Text("\(machine.name) has no planogram yet, so it has no slots to count.")
+                )
             }
         }
         .navigationTitle(machine.name)
