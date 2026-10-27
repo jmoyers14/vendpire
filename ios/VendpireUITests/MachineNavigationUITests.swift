@@ -35,6 +35,22 @@ final class MachineNavigationUITests: XCTestCase {
 
         machine.tap()
 
+        // Count the focused slot, then open the removals sheet — the strip
+        // button is inert until there is a count to bound a removal by.
+        app.buttons["5"].firstMatch.tap()
+        let pulled = app.buttons["Record pulled stock"].firstMatch
+        if pulled.waitForExistence(timeout: 5) {
+            pulled.tap()
+            // The reason groups only appear once units exceed zero, and the
+            // grouping is the part worth looking at.
+            app.buttons["Increment"].firstMatch.tap()
+            let sheet = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+            sheet.name = "removal-sheet"
+            sheet.lifetime = .keepAlways
+            add(sheet)
+            app.buttons["Cancel"].firstMatch.tap()
+        }
+
         let faceBar = app.navigationBars["National 148 Snack Machine"]
         XCTAssertTrue(faceBar.waitForExistence(timeout: 10), "face never appeared")
 
