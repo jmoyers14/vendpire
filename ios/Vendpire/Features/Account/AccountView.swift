@@ -11,6 +11,12 @@ struct AccountView: View {
 
     var body: some View {
         List {
+            Section {
+                NavigationLink("Waiting to sync") {
+                    OutboxReviewView()
+                }
+            }
+
             Section("Status") {
                 switch session.state {
                 case .signedOut:

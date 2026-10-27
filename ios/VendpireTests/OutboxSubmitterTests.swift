@@ -218,6 +218,34 @@ final class OutboxSubmitterTests: XCTestCase {
         XCTAssertEqual(api.submitted, ["first", "arrived-late"])
     }
 
+    /// The needsAttention escape hatch: a person decides the cause is fixed
+    /// and sends the row back through the machine. Retry re-queues and drains
+    /// in one move — a retry that waits for the next tick reads as a dead
+    /// button.
+    func testRetryRequeuesAndDrainsImmediately() async throws {
+        try setUpStore()
+        let item = insert(id: "stuck", status: "needsAttention", countedAt: 100)
+        item.lastMessage = "no such machine"
+
+        await makeSubmitter().retry(item)
+
+        XCTAssertEqual(api.submitted, ["stuck"], "the drain ran without waiting for a tick")
+        XCTAssertEqual(try rowCount(), 0, "accepted on retry, so the row is gone")
+    }
+
+    func testARetryThatFailsAgainLandsBackInNeedsAttention() async throws {
+        try setUpStore()
+        insert(id: "still-stuck", status: "needsAttention", countedAt: 100)
+        api.onSubmit = { _ in .permanent(message: "still no such machine") }
+
+        let item = try item("still-stuck")
+        await makeSubmitter().retry(item)
+
+        XCTAssertEqual(item.status, "needsAttention")
+        XCTAssertEqual(item.lastMessage, "still no such machine")
+        XCTAssertEqual(try rowCount(), 1)
+    }
+
     func testNoFailureEverDeletesARow() async throws {
         for outcome in [SubmitOutcome.retryable, .unauthorized, .noOrganization,
                         .blockedByUpdateFloor, .permanent(message: "bad")] {

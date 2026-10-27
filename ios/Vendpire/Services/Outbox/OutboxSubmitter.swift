@@ -83,6 +83,16 @@ final class OutboxSubmitter {
         context.delete(item)
     }
 
+    /// Sends a `needsAttention` row back through the machine — the operator
+    /// has decided the cause is fixed. Re-queues eligible-now and drains in
+    /// one move: a retry that waits for the next tick reads as a dead button.
+    func retry(_ item: OutboxItem) async {
+        item.status = "queued"
+        item.nextAttemptAt = .distantPast
+        save()
+        await drain()
+    }
+
     /// A force-quit mid-submit leaves a row reading `sending` that nothing
     /// else would ever look at again.
     ///
