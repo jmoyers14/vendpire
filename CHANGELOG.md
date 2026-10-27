@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0](https://github.com/jmoyers14/vendpire/compare/v0.4.0...v0.5.0) (2026-10-26)
+
+
+### Features
+
+* **ios:** fill the mirror from /api/v1 (Phase 7) ([#25](https://github.com/jmoyers14/vendpire/issues/25)) ([2a302bf](https://github.com/jmoyers14/vendpire/commit/2a302bfe9aa2b1373267911fb30a78c9f207b961))
+
 ## [0.4.0](https://github.com/jmoyers14/vendpire/compare/v0.3.0...v0.4.0) (2026-10-22)
 
 
