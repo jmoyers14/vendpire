@@ -29,10 +29,4 @@ enum ShelfLayout {
         let usable = availableWidth - padding * 2 - gaps
         return max(minCellWidth, usable / CGFloat(slotCount))
     }
-
-    static func rowWidth(slotCount: Int, availableWidth: CGFloat) -> CGFloat {
-        guard slotCount > 0 else { return 0 }
-        let cell = cellWidth(slotCount: slotCount, availableWidth: availableWidth)
-        return cell * CGFloat(slotCount) + CGFloat(slotCount - 1) * cellSpacing
-    }
 }

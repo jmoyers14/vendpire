@@ -154,6 +154,36 @@ final class CaptureOrderTests: XCTestCase {
         XCTAssertNil(cursor(["A0"], counted: ["A0"], focus: "A0").firstUncountedSlot)
     }
 
+    // MARK: - What the ADDING field reads
+
+    private func draftLine(remaining: Int?, added: Int?, par: Int?) -> DraftLine {
+        DraftLine(
+            slotCode: "A0", productId: "p-0", remaining: remaining, added: added,
+            removed: 0, removedReason: nil, priceCents: 100, par: par, bestBy: nil
+        )
+    }
+
+    func testASlotWithNoParHasNoFillText() {
+        XCTAssertNil(draftLine(remaining: 4, added: 2, par: nil).fillText)
+    }
+
+    func testAnUncountedSlotShowsTheTarget() {
+        XCTAssertEqual(draftLine(remaining: nil, added: nil, par: 10).fillText, "par 10")
+    }
+
+    func testAFillMeetingParSaysSo() {
+        XCTAssertEqual(draftLine(remaining: 4, added: 6, par: 10).fillText, "fills to par 10")
+    }
+
+    /// "Short" is the spec's word, shared with MachineTriage — one term per concept.
+    func testAFillBelowParIsShort() {
+        XCTAssertEqual(draftLine(remaining: 4, added: 4, par: 10).fillText, "4 of par 10 — short")
+    }
+
+    func testAClearedAddingReadsAsZeroOfPar() {
+        XCTAssertEqual(draftLine(remaining: 4, added: nil, par: 10).fillText, "0 of par 10 — short")
+    }
+
     // MARK: - Fill to par
 
     func testFillingToParIsTheDifference() {

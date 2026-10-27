@@ -64,7 +64,7 @@ final class OfflineDrillTests: XCTestCase {
         return draft.clientRequestId
     }
 
-    func testTwoVisitsCapturedOfflineSurviveAReloadAndDrainOldestFirst() throws {
+    func testTwoVisitsCapturedOfflineSurviveAReloadAndDrainOldestFirst() async throws {
         try setUpStore()
 
         // In the basement. The afternoon machine is counted first, so drain
@@ -75,7 +75,7 @@ final class OfflineDrillTests: XCTestCase {
 
         let api = StubOutboxAPI()
         api.onSubmit = { _ in .retryable }
-        await_(OutboxSubmitter(api: api, context: offline, now: { self.afternoon }, jitter: { 1 }))
+        await OutboxSubmitter(api: api, context: offline, now: { self.afternoon }, jitter: { 1 }).drain()
 
         XCTAssertTrue(api.submitted.isEmpty || api.submitted.count == 1,
                       "a serial drain stops at the first retryable failure")
@@ -89,14 +89,12 @@ final class OfflineDrillTests: XCTestCase {
 
         // Signal returns.
         let online = StubOutboxAPI()
-        await_(
-            OutboxSubmitter(
-                api: online,
-                context: relaunched,
-                now: { self.afternoon.addingTimeInterval(7200) },
-                jitter: { 1 }
-            )
-        )
+        await OutboxSubmitter(
+            api: online,
+            context: relaunched,
+            now: { self.afternoon.addingTimeInterval(7200) },
+            jitter: { 1 }
+        ).drain()
 
         // Captured later-then-earlier, so insertion order and countedAt order
         // disagree. Sold units derive from consecutive visits, which is why
@@ -137,12 +135,5 @@ final class OfflineDrillTests: XCTestCase {
         in context: ModelContext
     ) throws -> Int {
         try context.fetch(FetchDescriptor<Model>()).count
-    }
-
-    /// Drains synchronously from a non-async test.
-    private func await_(_ submitter: OutboxSubmitter) {
-        let done = expectation(description: "drained")
-        Task { await submitter.drain(); done.fulfill() }
-        wait(for: [done], timeout: 5)
     }
 }

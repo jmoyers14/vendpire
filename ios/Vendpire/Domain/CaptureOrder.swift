@@ -89,3 +89,29 @@ func unitsToFillPar(remaining: Int, par: Int?) -> Int? {
     guard let par else { return nil }
     return max(0, par - remaining)
 }
+
+extension DraftLine {
+    /// The countable identity. Slot AND product, because a mixed spiral holds
+    /// two products in one slot and each is counted separately.
+    var slotKey: SlotKey {
+        SlotKey(slotCode: slotCode, productId: productId)
+    }
+
+    /// Counted means `remaining` was typed. A missing count is not a zero.
+    var isCounted: Bool {
+        remaining != nil
+    }
+
+    /// The ADDING field's subtitle: the par target, and whether the fill meets
+    /// it. "Short" is the capture spec's word for a fill below par — the same
+    /// vocabulary as `MachineTriage.shortFillText`, defined in one place.
+    var fillText: String? {
+        guard let par else { return nil }
+        guard let remaining else { return "par \(par)" }
+
+        let toPar = unitsToFillPar(remaining: remaining, par: par) ?? 0
+        return added == toPar
+            ? "fills to par \(par)"
+            : "\(added ?? 0) of par \(par) — short"
+    }
+}

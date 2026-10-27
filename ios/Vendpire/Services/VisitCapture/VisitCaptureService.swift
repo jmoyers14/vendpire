@@ -30,7 +30,7 @@ final class VisitCaptureService {
             // way out of it.
             //
             // This is also why a mis-tap cannot strand a stale `countedAt`.
-            if open.lines.contains(where: { $0.remaining != nil }) {
+            if open.lines.contains(where: \.isCounted) {
                 return open
             }
             context.delete(open)
@@ -70,7 +70,11 @@ final class VisitCaptureService {
         let drafts = try context.fetch(
             FetchDescriptor<VisitDraft>(predicate: #Predicate { $0.machineId == machineId })
         )
-        let queued = Set(try context.fetch(FetchDescriptor<OutboxItem>()).map(\.id))
+        // Only ids — without this the fetch materializes every queued payload
+        // blob just to learn which drafts are submitted.
+        var queuedDescriptor = FetchDescriptor<OutboxItem>()
+        queuedDescriptor.propertiesToFetch = [\.id]
+        let queued = Set(try context.fetch(queuedDescriptor).map(\.id))
 
         return drafts.first { !queued.contains($0.clientRequestId) }
     }
@@ -84,19 +88,22 @@ final class VisitCaptureService {
         return try context.fetch(descriptor).first
     }
 
-    /// Authored order, planogrammed slots only — the same rule `CaptureOrder`
-    /// walks by. Nothing is pre-filled: a missing count is not a zero.
+    /// One line per key in capture order. The walk itself is `CaptureOrder`'s —
+    /// one copy of the authored-order, planogrammed-only rule, so the code the
+    /// order tests pin is the code that runs. Nothing is pre-filled: a missing
+    /// count is not a zero.
     private func draftLines(slots: [[String]], planogramSlots: [PlanogramSlot]) -> [DraftLine] {
         let bySlotCode = Dictionary(
             planogramSlots.map { ($0.slotCode, $0) }
         ) { first, _ in first }
 
-        return slots.flatMap { $0 }.compactMap { slotCode in
-            guard let slot = bySlotCode[slotCode] else { return nil }
+        let order = CaptureOrder(slots: slots, planogramSlots: planogramSlots)
+        return order.keys.compactMap { key in
+            guard let slot = bySlotCode[key.slotCode] else { return nil }
 
             return DraftLine(
-                slotCode: slotCode,
-                productId: slot.productId,
+                slotCode: key.slotCode,
+                productId: key.productId,
                 remaining: nil,
                 added: nil,
                 removed: 0,

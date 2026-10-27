@@ -6,6 +6,17 @@ import XCTest
 /// falls out of the slot count, so the face reads as one cabinet rather than
 /// as rows that happen to sit above each other.
 final class ShelfLayoutTests: XCTestCase {
+    /// What a shelf's cells span in total. Lives here, not in ShelfLayout:
+    /// its only production caller was the deleted read-only face, but the
+    /// properties it expresses — National 148 fitting without a scroll, a
+    /// 10-wide shelf overflowing instead of crushing — are the sizing rules
+    /// that failed on a device and must stay pinned.
+    private func rowWidth(slotCount: Int, availableWidth: CGFloat) -> CGFloat {
+        guard slotCount > 0 else { return 0 }
+        let cell = ShelfLayout.cellWidth(slotCount: slotCount, availableWidth: availableWidth)
+        return cell * CGFloat(slotCount) + CGFloat(slotCount - 1) * ShelfLayout.cellSpacing
+    }
+
     /// An iPhone 17 Pro, which is what `National 148` has to fit on.
     private let screen: CGFloat = 393
 
@@ -21,7 +32,7 @@ final class ShelfLayoutTests: XCTestCase {
     /// The whole point: ragged shelves still line up as a rectangle.
     func testEveryShelfOnNational148SpansTheSameWidth() {
         let widths = [4, 4, 4, 7, 7, 4].map { slotCount in
-            ShelfLayout.rowWidth(slotCount: slotCount, availableWidth: screen)
+            rowWidth(slotCount: slotCount, availableWidth: screen)
         }
 
         for width in widths {
@@ -30,7 +41,7 @@ final class ShelfLayoutTests: XCTestCase {
     }
 
     func testNational148NeedsNoHorizontalScrolling() {
-        let widest = ShelfLayout.rowWidth(slotCount: 7, availableWidth: screen)
+        let widest = rowWidth(slotCount: 7, availableWidth: screen)
 
         XCTAssertLessThanOrEqual(widest, screen)
     }
@@ -41,7 +52,7 @@ final class ShelfLayoutTests: XCTestCase {
         let cell = ShelfLayout.cellWidth(slotCount: 10, availableWidth: screen)
 
         XCTAssertEqual(cell, ShelfLayout.minCellWidth)
-        XCTAssertGreaterThan(ShelfLayout.rowWidth(slotCount: 10, availableWidth: screen), screen)
+        XCTAssertGreaterThan(rowWidth(slotCount: 10, availableWidth: screen), screen)
     }
 
     func testTheControlMachineSpansTheWidthWithTwoWideCells() {
