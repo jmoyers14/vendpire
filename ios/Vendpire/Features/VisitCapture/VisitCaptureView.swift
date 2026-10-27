@@ -50,23 +50,19 @@ struct VisitCaptureView: View {
                     .disabled(model.countedCount == 0)
             }
         }
-        .confirmationDialog(
-            "Submit this visit?",
-            isPresented: $isConfirmingSubmit,
-            titleVisibility: .visible
-        ) {
-            Button("Submit \(model.countedCount) of \(model.totalCount)") {
-                model.submit(context: context)
-                dismiss()
-            }
-            Button("Keep counting", role: .cancel) {}
-        } message: {
-            if model.countedCount < model.totalCount {
-                Text(
-                    "\(model.totalCount - model.countedCount) slots have no count. "
-                        + "They won't be treated as zero — but you also won't know what sold."
-                )
-            }
+        .sheet(isPresented: $isConfirmingSubmit) {
+            @Bindable var model = model
+
+            ReviewSheet(
+                summary: model.reviewSummary,
+                productName: model.productName(forProductId:),
+                notes: $model.notes,
+                onReturnToSlot: { model.focusSlot(code: $0) },
+                onSubmit: {
+                    model.submit(context: context)
+                    dismiss()
+                }
+            )
         }
         .sheet(isPresented: $isRecordingRemoval) {
             if let line = model.focusedLine, let found = line.remaining {
@@ -120,6 +116,7 @@ struct VisitCaptureView: View {
                     slotCode: slotCode,
                     line: lines[slotCode],
                     isFocused: model.focus?.slotCode == slotCode,
+                    isSuspicious: model.isSuspicious(slotCode: slotCode),
                     width: width
                 )
                 .onTapGesture { model.focusSlot(code: slotCode) }
@@ -157,7 +154,7 @@ struct VisitCaptureView: View {
                 FieldBox(
                     label: "LEFT IN SLOT",
                     value: current?.remaining,
-                    subtitle: nil,
+                    subtitle: model.lastLevelText,
                     isFocused: model.field == .left
                 )
                 .onTapGesture { model.clear(.left) }

@@ -26,6 +26,12 @@ final class VisitCaptureModel {
     /// screen is not invalidated by unrelated background syncs.
     private var productNames: [String: String] = [:]
 
+    /// What the previous visit left per key — `levelAfter` of its lines, the
+    /// same arithmetic the P&L runs on. Feeds the strip's "left 6 last time",
+    /// the amber recount warning, and Review's gap rows. Empty on a first
+    /// visit, which warns about nothing.
+    private var lastLevels: [SlotKey: Int] = [:]
+
     // MARK: - Starting
 
     func start(at machine: StoredMachine, context: ModelContext) {
@@ -36,6 +42,14 @@ final class VisitCaptureModel {
 
         let products = (try? context.fetch(FetchDescriptor<StoredProduct>())) ?? []
         productNames = Dictionary(products.map { ($0.id, $0.name) }) { first, _ in first }
+
+        let machineId = machine.id
+        let lastVisit = try? context.fetch(
+            FetchDescriptor<StoredLatestVisit>(predicate: #Predicate { $0.machineId == machineId })
+        ).first
+        lastLevels = Dictionary(
+            (lastVisit?.lines ?? []).map { (SlotKey(slotCode: $0.slotCode, productId: $0.productId), $0.levelAfter) }
+        ) { first, _ in first }
     }
 
     // MARK: - What the screen reads
@@ -63,12 +77,44 @@ final class VisitCaptureModel {
         return draft.lines.first { $0.slotKey == focus }
     }
 
+    /// The strip's subtitle under LEFT. Nil on a first visit.
+    var lastLevelText: String? {
+        guard let focus, let last = lastLevels[focus] else { return nil }
+        return "left \(last) last time"
+    }
+
+    /// More counted than the slot could have held. Warn-only: negative sold is
+    /// legal and the engine never clamps, but a recount now beats a report
+    /// next week.
+    func isSuspicious(slotCode: String) -> Bool {
+        guard let line = draft?.lines.first(where: { $0.slotCode == slotCode }),
+              let remaining = line.remaining,
+              let last = lastLevels[line.slotKey]
+        else { return false }
+
+        return remaining > last
+    }
+
+    var reviewSummary: VisitReviewSummary {
+        VisitReviewSummary(lines: draft?.lines ?? [], lastLevels: lastLevels)
+    }
+
     var focusedProductName: String? {
         focusedLine.map(productName(for:))
     }
 
     func productName(for line: DraftLine) -> String {
-        productNames[line.productId] ?? "Unknown product"
+        productName(forProductId: line.productId)
+    }
+
+    func productName(forProductId productId: String) -> String {
+        productNames[productId] ?? "Unknown product"
+    }
+
+    /// Visit-level notes, edited on Review and submitted with the draft.
+    var notes: String {
+        get { draft?.notes ?? "" }
+        set { draft?.notes = newValue.isEmpty ? nil : newValue }
     }
 
     /// The bar turns amber once `Next` has started hunting gaps.

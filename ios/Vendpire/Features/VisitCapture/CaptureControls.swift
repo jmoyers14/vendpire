@@ -6,6 +6,8 @@ struct CaptureCell: View {
     let slotCode: String
     let line: DraftLine?
     let isFocused: Bool
+    /// More counted than the slot could have held — amber, never blocking.
+    let isSuspicious: Bool
     let width: CGFloat
 
     private var isCountable: Bool { line != nil }
@@ -38,7 +40,9 @@ struct CaptureCell: View {
 
     @ViewBuilder
     private var background: some View {
-        if isCounted {
+        if isSuspicious {
+            RoundedRectangle(cornerRadius: 8).fill(.orange.opacity(0.18))
+        } else if isCounted {
             RoundedRectangle(cornerRadius: 8).fill(.green.opacity(0.14))
         } else if isCountable {
             RoundedRectangle(cornerRadius: 8).fill(.quaternary)

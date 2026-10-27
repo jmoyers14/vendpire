@@ -51,6 +51,14 @@ final class MachineNavigationUITests: XCTestCase {
             app.buttons["Cancel"].firstMatch.tap()
         }
 
+        // Review: gaps individually, warn sections, notes, Submit.
+        app.buttons["Review"].firstMatch.tap()
+        let review = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        review.name = "review-sheet"
+        review.lifetime = .keepAlways
+        add(review)
+        app.buttons["Keep counting"].firstMatch.tap()
+
         let faceBar = app.navigationBars["National 148 Snack Machine"]
         XCTAssertTrue(faceBar.waitForExistence(timeout: 10), "face never appeared")
 
