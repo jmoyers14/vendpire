@@ -15,14 +15,25 @@ final class VisitCaptureService {
         self.now = now
     }
 
-    /// Resumes the machine's open draft, or starts one.
+    /// Resumes the machine's open draft if it holds any counts, otherwise
+    /// starts a fresh one.
     ///
     /// Open means not yet submitted — a draft with no queue row beside it. A
     /// submitted-but-undrained visit must not block a new one: an operator can
     /// service the same machine twice before finding signal.
     func startVisit(at machine: StoredMachine) throws -> VisitDraft {
-        if let resumed = try openDraft(forMachine: machine.id) {
-            return resumed
+        if let open = try openDraft(forMachine: machine.id) {
+            // One counted line is someone's work and must survive. Nothing
+            // counted is not a visit in progress, and resuming it pins the
+            // snapshot taken when it was started — if that was before the
+            // machine had a planogram, the screen has nothing to count and no
+            // way out of it.
+            //
+            // This is also why a mis-tap cannot strand a stale `countedAt`.
+            if open.lines.contains(where: { $0.remaining != nil }) {
+                return open
+            }
+            context.delete(open)
         }
 
         let planogram = try currentPlanogram(forMachine: machine.id)

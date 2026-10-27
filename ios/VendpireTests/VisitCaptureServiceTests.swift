@@ -107,19 +107,6 @@ final class VisitCaptureServiceTests: XCTestCase {
         XCTAssertTrue(draft.lines.allSatisfy { $0.remaining == nil && $0.added == nil })
     }
 
-    func testReturningToTheMachineResumesTheSameDraft() throws {
-        try setUpStore()
-        let machine = insertMachine()
-        insertPlanogram()
-        let service = makeService()
-
-        let first = try service.startVisit(at: machine)
-        let second = try service.startVisit(at: machine)
-
-        XCTAssertEqual(first.clientRequestId, second.clientRequestId)
-        XCTAssertEqual(try drafts().count, 1)
-    }
-
     /// An operator can service one machine twice before finding signal, so a
     /// submitted-but-undrained visit must not block a new one.
     func testASubmittedVisitDoesNotBlockStartingAnother() throws {
@@ -136,6 +123,43 @@ final class VisitCaptureServiceTests: XCTestCase {
 
         XCTAssertNotEqual(afternoon.clientRequestId, morning.clientRequestId)
         XCTAssertEqual(try drafts().count, 2)
+    }
+
+    /// A draft with nothing counted holds no work. Resuming it pins a stale
+    /// snapshot — including, when it was started before the machine had a
+    /// planogram, a draft with no lines that can never be counted or
+    /// submitted. Found on a device: adding the planogram changed nothing
+    /// because the dead draft kept being resumed.
+    func testAnEmptyDraftIsRebuiltRatherThanResumed() throws {
+        try setUpStore()
+        let machine = insertMachine()
+        let service = makeService()
+
+        let beforePlanogram = try service.startVisit(at: machine)
+        XCTAssertTrue(beforePlanogram.lines.isEmpty)
+
+        insertPlanogram()
+        let afterPlanogram = try service.startVisit(at: machine)
+
+        XCTAssertEqual(afterPlanogram.lines.map(\.slotCode), ["A0", "A4"])
+        XCTAssertNotEqual(afterPlanogram.clientRequestId, beforePlanogram.clientRequestId)
+        XCTAssertEqual(try drafts().count, 1, "the dead draft is discarded, not left behind")
+    }
+
+    /// One counted line is someone's work and must survive.
+    func testADraftWithAnyCountIsResumed() throws {
+        try setUpStore()
+        let machine = insertMachine()
+        insertPlanogram()
+        let service = makeService()
+
+        let first = try service.startVisit(at: machine)
+        first.lines[0].remaining = 4
+
+        let resumed = try service.startVisit(at: machine)
+
+        XCTAssertEqual(resumed.clientRequestId, first.clientRequestId)
+        XCTAssertEqual(resumed.lines[0].remaining, 4)
     }
 
     // MARK: - Submitting
