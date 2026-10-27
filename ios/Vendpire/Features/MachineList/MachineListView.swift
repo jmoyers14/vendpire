@@ -40,7 +40,7 @@ struct MachineListView: View {
             }
         }
         .navigationDestination(for: StoredMachine.self) { machine in
-            MachineFaceView(machine: machine)
+            VisitCaptureView(machine: machine)
         }
         .navigationTitle(location.name)
         .navigationBarTitleDisplayMode(.inline)
