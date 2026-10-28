@@ -125,6 +125,16 @@ struct BarcodeNotFoundSheet: View {
 
     // MARK: - Error / conflict
 
+    /// No status code survives to this layer — `attach`/`createUnit`/`createPack`
+    /// all collapse their failure to `error.localizedDescription` — so a
+    /// conflict can only be recognized by its wording. Source of that wording:
+    /// `packages/api/src/services/ProductService/ProductServiceImpl.ts`
+    /// ("already on \"<name>\"" / "is the case code of pack"),
+    /// `packages/api/src/services/PackService/PackServiceImpl.ts`
+    /// ("already on pack" / "unit code of"), and the generic 409 "The barcode
+    /// already belongs to another record" in `routers/products.ts` and
+    /// `routers/packs.ts`. A server-side rewording of any of these breaks this
+    /// match.
     private var isConflict: Bool {
         guard let message = model.errorMessage else { return false }
         return message.localizedCaseInsensitiveContains("already on")
@@ -396,6 +406,12 @@ struct BarcodeNotFoundSheet: View {
     /// The candidate's name seeds both the attach search and the create
     /// form — whichever the operator picks, it is the first guess worth
     /// typing over rather than starting blank.
+    ///
+    /// Deliberately one-shot (`onAppear`, not an observer on `pendingScan`):
+    /// web parity. `BarcodeNotFoundPanel`'s `useState` initializers read the
+    /// candidate prop exactly once too, so a candidate that resolves after
+    /// the panel/sheet is already open never overwrites something the
+    /// operator may have started typing.
     private func seed() {
         guard let scan = model.pendingScan else { return }
         recordKind = scan.likelyCase ? .pack : .unit
