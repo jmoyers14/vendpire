@@ -64,9 +64,26 @@ paths:
           content:
             application/json:
               schema:
-                oneOf:
-                  - $ref: "#/components/schemas/Candidate"
-                  - type: "null"
+                type:
+                  - object
+                  - "null"
+                properties:
+                  name:
+                    type:
+                      - string
+                      - "null"
+                  brand:
+                    type:
+                      - string
+                      - "null"
+                  imageUrl:
+                    type:
+                      - string
+                      - "null"
+                required:
+                  - name
+                  - brand
+                  - imageUrl
         "401":
           description: Authorization not provided
           content: *a2

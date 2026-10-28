@@ -163,11 +163,30 @@ describe("the shapes a Swift client has to decode", () => {
 
   it("serves the barcode candidate as a flat nullable object — no oneOf", () => {
     const document = parse(readFileSync(COMMITTED, "utf8"));
+
+    // Component definition: flat object with nullable properties
     const candidate = document.components.schemas.Candidate;
     expect(candidate.type).toBe("object");
-    expect(Object.keys(candidate.properties).sort()).toEqual(["brand", "imageUrl", "name"]);
+    expect(Object.keys(candidate.properties).sort()).toEqual([
+      "brand",
+      "imageUrl",
+      "name",
+    ]);
+
+    // Response schema: inlined with type: ["object","null"], no $ref/anyOf/oneOf
+    const responseSchema =
+      document.paths["/barcode-candidate"].get.responses["200"].content[
+        "application/json"
+      ].schema;
+    expect(responseSchema.$ref).toBeUndefined();
+    expect(responseSchema.anyOf).toBeUndefined();
+    expect(responseSchema.oneOf).toBeUndefined();
+    expect(responseSchema.type).toEqual(["object", "null"]);
+
+    // Validate with ajv: both null and full candidate object
     const ajv = new Ajv2020({ strict: false });
-    const validate = ajv.compile(candidate);
+    const validate = ajv.compile(responseSchema);
+    expect(validate(null)).toBe(true);
     expect(validate({ name: "Coke Zero 12oz", brand: "Coca-Cola", imageUrl: null })).toBe(true);
   });
 

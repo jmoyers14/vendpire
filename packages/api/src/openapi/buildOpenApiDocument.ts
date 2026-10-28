@@ -24,6 +24,81 @@ function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
+// swift-openapi-generator fights oneOf/anyOf composition, preferring inline
+// schemas. When a response is nullable (anyOf/oneOf with [$ref, null]), inline
+// the referenced schema with type: ["object","null"] so the Swift generator
+// maps it to a plain optional.
+function inlineNullableResponseSchemas<
+  T extends { paths?: unknown; components?: { schemas?: unknown } },
+>(document: T): T {
+  if (!isObject(document.paths) || !isObject(document.components?.schemas)) {
+    return document;
+  }
+
+  const schemas = document.components.schemas as Record<string, unknown>;
+  for (const path of Object.values(document.paths)) {
+    if (!isObject(path)) {
+      continue;
+    }
+    for (const operation of Object.values(path)) {
+      if (!isObject(operation) || !isObject(operation.responses)) {
+        continue;
+      }
+      const responses = operation.responses as Record<string, unknown>;
+      for (const response of Object.values(responses)) {
+        if (!isObject(response) || !isObject(response.content)) {
+          continue;
+        }
+        const content = response.content as Record<string, unknown>;
+        for (const mediaType of Object.values(content)) {
+          if (!isObject(mediaType) || !isObject(mediaType.schema)) {
+            continue;
+          }
+          const schema = mediaType.schema as Record<string, unknown> & {
+            anyOf?: Array<Record<string, unknown>>;
+            oneOf?: Array<Record<string, unknown>>;
+          };
+
+          // Check for [ref, null] pattern in anyOf or oneOf
+          const composition = schema.anyOf || schema.oneOf;
+          if (
+            Array.isArray(composition) &&
+            composition.length === 2
+          ) {
+            const refArm = composition.find(
+              (arm) => typeof (arm as Record<string, unknown>).$ref === "string"
+            ) as Record<string, unknown> | undefined;
+            const nullArm = composition.find(
+              (arm) => (arm as Record<string, unknown>).type === "null"
+            );
+
+            if (refArm && nullArm && typeof refArm.$ref === "string") {
+              // Extract schema name from $ref: "#/components/schemas/Candidate" → "Candidate"
+              const match = refArm.$ref.match(/\/([^/]+)$/);
+              if (match) {
+                const schemaName = match[1];
+                const referencedSchema = schemas[schemaName];
+                if (isObject(referencedSchema)) {
+                  // Inline the schema with nullable type
+                  const inlined = structuredClone(referencedSchema);
+                  delete schema.anyOf;
+                  delete schema.oneOf;
+                  Object.assign(schema, inlined);
+                  // Make the object itself nullable
+                  if (inlined.type === "object") {
+                    schema.type = ["object", "null"];
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  return document;
+}
+
 // trpc-to-openapi reuses one response object across status codes that share
 // an error body, so a description written for one leaks onto the other.
 function relabelErrorResponses<T extends { paths?: unknown }>(document: T): T {
@@ -65,27 +140,18 @@ const override: NonNullable<CreateDocumentOptions["override"]> = (ctx) => {
   if (Array.isArray(schema.anyOf) && schema.anyOf.length === 2) {
     const nullArm = schema.anyOf.find((arm) => arm.type === "null");
     const valueArm = schema.anyOf.find((arm) => arm.type !== "null");
-    if (nullArm && valueArm) {
-      // Handle direct types: e.g., { type: "string" }
-      if (typeof valueArm.type === "string") {
-        delete schema.anyOf;
-        Object.assign(schema, valueArm, { type: [valueArm.type, "null"] });
+    if (nullArm && valueArm && typeof valueArm.type === "string") {
+      delete schema.anyOf;
+      Object.assign(schema, valueArm, { type: [valueArm.type, "null"] });
 
-        // `enum`/`const` constrain every instance, not just the value type, so a
-        // collapsed nullable must admit null explicitly or it contradicts its own `type`.
-        if (Array.isArray(schema.enum)) {
-          schema.enum = [...schema.enum, null];
-        }
-        if ("const" in schema) {
-          schema.enum = [schema.const, null];
-          delete schema.const;
-        }
+      // `enum`/`const` constrain every instance, not just the value type, so a
+      // collapsed nullable must admit null explicitly or it contradicts its own `type`.
+      if (Array.isArray(schema.enum)) {
+        schema.enum = [...schema.enum, null];
       }
-      // Handle references: e.g., { $ref: "#/components/schemas/Candidate" }
-      // Convert nullable refs from anyOf to oneOf so the test passes
-      else if (valueArm.$ref && typeof valueArm.$ref === "string") {
-        schema.oneOf = schema.anyOf;
-        delete schema.anyOf;
+      if ("const" in schema) {
+        schema.enum = [schema.const, null];
+        delete schema.const;
       }
     }
   }
@@ -100,7 +166,7 @@ const override: NonNullable<CreateDocumentOptions["override"]> = (ctx) => {
 
 /** Pure, so the drift test can compare against it. Writing to disk is scripts/generateOpenApi.ts. */
 export function buildOpenApiDocument() {
-  return relabelErrorResponses(generateOpenApiDocument(appRouter, {
+  const generated = generateOpenApiDocument(appRouter, {
     title: "Vendpire",
     description:
       "Sync surface for the Vendpire iOS app. Mirrors procedures the web dashboard calls over tRPC.",
@@ -119,5 +185,7 @@ export function buildOpenApiDocument() {
     // "inline", not "ref": named components come from .meta({ id }) either way,
     // and "ref" also hoists 119 anonymous sub-schemas as __schemaN junk types.
     options: { reused: "inline", override },
-  }));
+  });
+
+  return inlineNullableResponseSchemas(relabelErrorResponses(generated));
 }
