@@ -139,7 +139,10 @@ nonisolated struct RemoteIdentity: Decodable, Sendable {
 /// What an outside barcode database says a scanned code might name. `nil`
 /// fields are a real "we don't know" from that database, not a decode
 /// failure; a `nil` candidate entirely means the code is unrecognized.
-nonisolated struct RemoteCandidate: Decodable, Sendable {
+///
+/// `Equatable` so `PurchaseLogModel.PendingScan` can be — the not-found sheet's
+/// state is diffed by SwiftUI, and the candidate is part of it.
+nonisolated struct RemoteCandidate: Decodable, Equatable, Sendable {
     let name: String?
     let brand: String?
     let imageUrl: String?
