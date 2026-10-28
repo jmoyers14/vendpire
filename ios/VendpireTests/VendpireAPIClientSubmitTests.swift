@@ -32,6 +32,18 @@ final class VendpireAPIClientSubmitTests: XCTestCase {
         return OutboxRequest(kind: "visit", clientRequestId: submission.clientRequestId, payload: payload)
     }
 
+    private func purchaseRequest() throws -> OutboxRequest {
+        let submission = PurchaseSubmission(
+            purchasedAt: Date(timeIntervalSince1970: 1_790_000_000),
+            vendor: "Costco", lines: [], packLines: [
+                .init(packId: String(repeating: "b", count: 24), qty: 1, totalCostCents: 3798),
+            ],
+            receiptTotalCents: nil, notes: nil, clientRequestId: "purchase-req-0001"
+        )
+        return OutboxRequest(kind: "purchase", clientRequestId: submission.clientRequestId,
+                             payload: try PurchaseSubmission.makeEncoder().encode(submission))
+    }
+
     private func makeClient(
         status: Int,
         json: String = "{}"
@@ -46,6 +58,10 @@ final class VendpireAPIClientSubmitTests: XCTestCase {
 
     private func outcome(status: Int, json: String = "{}") async -> SubmitOutcome {
         await makeClient(status: status, json: json).submit(makeRequest())
+    }
+
+    private func purchaseOutcome(status: Int, json: String = "{}") async throws -> SubmitOutcome {
+        await makeClient(status: status, json: json).submit(try purchaseRequest())
     }
 
     /// A full body, so the generated client's own decode runs and the `.ok`
@@ -123,6 +139,41 @@ final class VendpireAPIClientSubmitTests: XCTestCase {
 
         guard case .permanent = await client.submit(broken) else {
             return XCTFail("an undecodable payload must not retry forever")
+        }
+    }
+
+    /// A full body, so the generated client's own decode runs and the `.ok`
+    /// branch is exercised rather than the catch beneath it.
+    func testPurchase200IsAccepted() async throws {
+        let body = #"{"id":"purchase-1","purchasedAt":"2026-10-20T08:00:00Z","vendor":"Costco","lines":[],"receiptTotalCents":null,"notes":null,"clientRequestId":"purchase-req-0001","createdAt":"2026-10-20T08:00:00Z","updatedAt":"2026-10-20T08:00:00Z"}"#
+
+        let result = try await purchaseOutcome(status: 200, json: body)
+
+        XCTAssertEqual(result, .accepted)
+    }
+
+    func testPurchase400IsPermanentWithTheServersMessage() async throws {
+        let body = #"{"message":"Unknown pack: x","code":"BAD_REQUEST"}"#
+
+        let result = try await purchaseOutcome(status: 400, json: body)
+
+        XCTAssertEqual(result, .permanent(message: "Unknown pack: x"))
+    }
+
+    func testPurchase401IsUnauthorized() async throws {
+        let result = try await purchaseOutcome(status: 401, json: #"{"message":"no","code":"UNAUTHORIZED"}"#)
+
+        XCTAssertEqual(result, .unauthorized)
+    }
+
+    /// Today every kind decodes as a visit — this must fail until `submit`
+    /// dispatches on `request.kind`.
+    func testUnknownKindIsPermanentNotCrash() async {
+        let client = makeClient(status: 200)
+        let outcome = await client.submit(OutboxRequest(kind: "mystery", clientRequestId: "x", payload: Data()))
+
+        guard case .permanent = outcome else {
+            return XCTFail("unknown kind must park, not retry: \(outcome)")
         }
     }
 }
