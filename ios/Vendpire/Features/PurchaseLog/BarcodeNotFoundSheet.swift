@@ -191,49 +191,13 @@ struct BarcodeNotFoundSheet: View {
     private var attachMatches: some View {
         let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
         if !trimmedQuery.isEmpty {
-            let matches = model.searchResults(query: query, context: context)
-            if matches.isEmpty {
-                Text("Nothing matches — create it below instead.")
-                    .foregroundStyle(.secondary)
-            } else {
-                ForEach(matches) { item in
-                    Button {
-                        attach(item)
-                    } label: {
-                        attachRow(item)
-                    }
-                    .disabled(isWorking)
-                }
-            }
+            CatalogItemMatches(
+                items: model.searchResults(query: query, context: context),
+                isDisabled: isWorking,
+                emptyText: "Nothing matches — create it below instead.",
+                onSelect: attach
+            )
         }
-    }
-
-    private func attachRow(_ item: CatalogItem) -> some View {
-        HStack(spacing: 10) {
-            Text(item.isPack ? "CASE" : "ITEM")
-                .font(.caption2)
-                .fontWeight(.bold)
-                .padding(.horizontal, 6)
-                .padding(.vertical, 2)
-                .background(
-                    item.isPack ? Color.accentColor.opacity(0.15) : Color.secondary.opacity(0.15),
-                    in: Capsule()
-                )
-            VStack(alignment: .leading, spacing: 1) {
-                Text(item.name)
-                    .foregroundStyle(.primary)
-                Text(attachDetail(item))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            Spacer()
-        }
-    }
-
-    private func attachDetail(_ item: CatalogItem) -> String {
-        let code = item.barcode ?? "no barcode yet"
-        guard case .pack(let units) = item.kind else { return code }
-        return "\(code) · \(units) units"
     }
 
     private func attach(_ item: CatalogItem) {
