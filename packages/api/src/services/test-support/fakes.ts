@@ -364,6 +364,16 @@ export class FakePurchaseRepository implements PurchaseRepository {
   rows: Stored<Purchase>[] = [];
 
   seed(orgId: string, input: PurchaseInput): Purchase {
+    const clash = this.rows.find(
+      (r) => r.orgId === orgId && r.clientRequestId === input.clientRequestId,
+    );
+    // The unique index IS the idempotency guarantee, so the fake raises the same
+    // E11000 the service's create/catch/re-read path exists to handle.
+    if (clash) {
+      throw Object.assign(new Error("E11000 duplicate key error"), {
+        code: 11000,
+      });
+    }
     const row: Stored<Purchase> = {
       ...input,
       id: newId(),
