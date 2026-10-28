@@ -8,4 +8,5 @@ export interface PackService {
   create(orgId: string, input: PackInput): Promise<Pack>;
   update(orgId: string, id: string, input: PackInput): Promise<Pack>;
   remove(orgId: string, id: string): Promise<void>;
+  attachBarcode(orgId: string, id: string, code: string): Promise<Pack>;
 }

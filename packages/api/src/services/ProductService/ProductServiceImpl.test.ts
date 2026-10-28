@@ -101,4 +101,31 @@ describe("ProductService", () => {
     });
     await expect(service.remove(ORG, product.id)).rejects.toThrow(/pack/i);
   });
+
+  describe("attachBarcode", () => {
+    it("sets the normalized upc and keeps every other field", async () => {
+      const created = products.seed(ORG, productInput({ name: "Coke Zero", upc: null }));
+      const updated = await service.attachBarcode(ORG, created.id, "049000042559");
+      expect(updated.upc).toBe("00049000042559");
+      expect(updated.name).toBe("Coke Zero");
+    });
+
+    it("rejects a code already on another product, naming it", async () => {
+      products.seed(ORG, productInput({ name: "Sprite", upc: "00049000042559" }));
+      const target = products.seed(ORG, productInput({ name: "Coke Zero", upc: null }));
+      await expect(service.attachBarcode(ORG, target.id, "049000042559"))
+        .rejects.toThrow('already on "Sprite"');
+    });
+
+    it("rejects an invalid code", async () => {
+      const created = products.seed(ORG, productInput({ upc: null }));
+      await expect(service.attachBarcode(ORG, created.id, "12345"))
+        .rejects.toThrow("Invalid barcode");
+    });
+
+    it("404s on an unknown product", async () => {
+      await expect(service.attachBarcode(ORG, "0".repeat(24), "049000042559"))
+        .rejects.toThrow("Product not found");
+    });
+  });
 });

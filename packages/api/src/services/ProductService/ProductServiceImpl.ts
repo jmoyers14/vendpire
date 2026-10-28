@@ -87,6 +87,28 @@ export class ProductServiceImpl implements ProductService {
   }
 
   /**
+   * Attach a scanned unit code to an existing product, touching nothing else.
+   * Server-side so a stale client mirror can't clobber concurrent edits; the
+   * code goes through the same validate() as create/update.
+   */
+  async attachBarcode(orgId: string, id: string, code: string): Promise<Product> {
+    const product = await this.get(orgId, id);
+    if (!product) {
+      throw new ServiceError("NOT_FOUND", "Product not found");
+    }
+    return this.update(orgId, id, {
+      name: product.name,
+      upc: code,
+      category: product.category,
+      taxClass: product.taxClass,
+      imageUrl: product.imageUrl,
+      defaultPriceCents: product.defaultPriceCents,
+      active: product.active,
+      tracksExpiration: product.tracksExpiration,
+    });
+  }
+
+  /**
    * The unit upc, when present, is validated + normalized to GTIN-14 and must
    * be unique — across products AND against pack barcodes (one code can never
    * mean both a can and a case).

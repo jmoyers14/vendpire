@@ -8,4 +8,5 @@ export interface ProductService {
   create(orgId: string, input: ProductInput): Promise<Product>;
   update(orgId: string, id: string, input: ProductInput): Promise<Product>;
   remove(orgId: string, id: string): Promise<void>;
+  attachBarcode(orgId: string, id: string, code: string): Promise<Product>;
 }

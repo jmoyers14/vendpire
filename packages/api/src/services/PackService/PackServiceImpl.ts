@@ -54,6 +54,19 @@ export class PackServiceImpl implements PackService {
     await this.packs.softDelete(orgId, id);
   }
 
+  async attachBarcode(orgId: string, id: string, code: string): Promise<Pack> {
+    const pack = await this.get(orgId, id);
+    if (!pack) {
+      throw new ServiceError("NOT_FOUND", "Pack not found");
+    }
+    return this.update(orgId, id, {
+      name: pack.name,
+      barcodes: [...pack.barcodes, code],
+      contents: pack.contents.map(({ productId, units }) => ({ productId, units })),
+      active: pack.active,
+    });
+  }
+
   private async validate(
     orgId: string,
     input: PackInput,
