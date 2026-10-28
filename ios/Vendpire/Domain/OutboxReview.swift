@@ -15,7 +15,6 @@ nonisolated struct OutboxReviewRow: Equatable, Sendable, Identifiable {
     /// a person can fix it.
     let detail: String
     let needsAttention: Bool
-    var message: String? { needsAttention ? detail : nil }
 
     /// Oldest observation first — the same order the drain sends in, so the
     /// list reads as the queue it is.

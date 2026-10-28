@@ -221,13 +221,13 @@ final class VisitCaptureModelTests: XCTestCase {
         try insertLastVisit(lines: [priorLine("A0", remaining: 2, added: 5, removed: 1)])
 
         // 2 − 1 + 5 = 6: levelAfter, the same arithmetic the P&L runs on.
-        XCTAssertEqual(restartedModel().lastLevelText, "left 6 last time")
+        XCTAssertEqual(restartedModel().focusedLastLevelText, "left 6 last time")
     }
 
     func testAFirstVisitHasNoLastTimeToShow() throws {
         try startCapture()
 
-        XCTAssertNil(model.lastLevelText)
+        XCTAssertNil(model.focusedLastLevelText)
     }
 
     /// Enter 9 where only 7 could have been: the cell turns amber, warn-only.
@@ -238,8 +238,8 @@ final class VisitCaptureModelTests: XCTestCase {
 
         model.type(9)
 
-        XCTAssertTrue(model.isSuspicious(slotCode: "A0"))
-        XCTAssertFalse(model.isSuspicious(slotCode: "A2"), "no count, no warning")
+        XCTAssertTrue(model.isSuspicious(model.linesBySlotCode["A0"]))
+        XCTAssertFalse(model.isSuspicious(model.linesBySlotCode["A2"]), "no count, no warning")
     }
 
     func testReviewCarriesTheLastLevelsIntoTheGaps() throws {

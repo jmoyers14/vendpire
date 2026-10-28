@@ -40,4 +40,22 @@ final class VisitLevelsTests: XCTestCase {
 
         XCTAssertEqual(line.levelAfter, 0)
     }
+
+    func testADraftLineBooksTheSameLevelItsSubmittedTwinWill() {
+        let draft = DraftLine(
+            slotCode: "A0", productId: "p-1", remaining: 2, added: 8,
+            removed: 1, removedReason: "expired", priceCents: 175, par: 10, bestBy: nil
+        )
+
+        XCTAssertEqual(draft.levelAfter, 9, "remaining − removed + added, the P&L's formula")
+    }
+
+    func testAnUncountedDraftLineHasNoLevel() {
+        let draft = DraftLine(
+            slotCode: "A0", productId: "p-1", remaining: nil, added: nil,
+            removed: 0, removedReason: nil, priceCents: 175, par: 10, bestBy: nil
+        )
+
+        XCTAssertNil(draft.levelAfter, "a missing count is not a zero, so there is no level")
+    }
 }

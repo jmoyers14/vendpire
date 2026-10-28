@@ -75,7 +75,7 @@ final class OutboxReviewTests: XCTestCase {
         )
 
         XCTAssertEqual(rows.filter(\.needsAttention).map(\.id), ["stuck"])
-        XCTAssertEqual(rows.first { $0.needsAttention }?.message, "no such machine")
+        XCTAssertEqual(rows.first { $0.needsAttention }?.detail, "no such machine")
     }
 
     func testAPendingRowDescribesWhereItIsInTheRetryLoop() {

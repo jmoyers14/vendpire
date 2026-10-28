@@ -15,7 +15,7 @@ struct VisitCaptureView: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var model = VisitCaptureModel()
-    @State private var isConfirmingSubmit = false
+    @State private var isReviewing = false
     @State private var isRecordingRemoval = false
 
     var body: some View {
@@ -32,7 +32,7 @@ struct VisitCaptureView: View {
                     nextLabel: model.nextLabel,
                     onDigit: { model.type($0) },
                     onToggle: { model.toggleField() },
-                    onNext: { isConfirmingSubmit = model.advance() }
+                    onNext: { isReviewing = model.advance() }
                 )
             } else {
                 ContentUnavailableView(
@@ -46,11 +46,11 @@ struct VisitCaptureView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Button("Review") { isConfirmingSubmit = true }
+                Button("Review") { isReviewing = true }
                     .disabled(model.countedCount == 0)
             }
         }
-        .sheet(isPresented: $isConfirmingSubmit) {
+        .sheet(isPresented: $isReviewing) {
             @Bindable var model = model
 
             ReviewSheet(
@@ -116,7 +116,7 @@ struct VisitCaptureView: View {
                     slotCode: slotCode,
                     line: lines[slotCode],
                     isFocused: model.focus?.slotCode == slotCode,
-                    isSuspicious: model.isSuspicious(slotCode: slotCode),
+                    isSuspicious: model.isSuspicious(lines[slotCode]),
                     width: width
                 )
                 .onTapGesture { model.focusSlot(code: slotCode) }
@@ -154,7 +154,7 @@ struct VisitCaptureView: View {
                 FieldBox(
                     label: "LEFT IN SLOT",
                     value: current?.remaining,
-                    subtitle: model.lastLevelText,
+                    subtitle: model.focusedLastLevelText,
                     isFocused: model.field == .left
                 )
                 .onTapGesture { model.clear(.left) }

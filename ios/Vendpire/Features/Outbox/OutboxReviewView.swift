@@ -9,7 +9,10 @@ import SwiftUI
 struct OutboxReviewView: View {
     @Environment(OutboxSubmitter.self) private var submitter
 
-    @Query(sort: \OutboxItem.countedAt) private var items: [OutboxItem]
+    // Unsorted on purpose: OutboxReviewRow.rows owns the ordering, and the
+    // tests pin it there. Two sorts would leave a reader checking which one
+    // is load-bearing.
+    @Query private var items: [OutboxItem]
     @Query private var drafts: [VisitDraft]
     @Query private var machines: [StoredMachine]
 
@@ -22,7 +25,11 @@ struct OutboxReviewView: View {
     }
 
     var body: some View {
-        Group {
+        // Computed once: the join sorts and builds dictionaries, and body
+        // would otherwise run it three times per pass.
+        let rows = rows
+
+        return Group {
             if rows.isEmpty {
                 ContentUnavailableView(
                     "Everything has synced",
@@ -30,14 +37,14 @@ struct OutboxReviewView: View {
                     description: Text("Visits you submit appear here until they reach the server.")
                 )
             } else {
-                list
+                list(rows)
             }
         }
         .navigationTitle("Waiting to sync")
         .navigationBarTitleDisplayMode(.inline)
     }
 
-    private var list: some View {
+    private func list(_ rows: [OutboxReviewRow]) -> some View {
         let stuck = rows.filter(\.needsAttention)
         let pending = rows.filter { !$0.needsAttention }
 

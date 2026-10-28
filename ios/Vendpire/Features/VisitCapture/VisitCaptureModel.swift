@@ -8,7 +8,7 @@ import SwiftData
 /// The view renders and forwards taps; the rules live here, where a test can
 /// reach them: digit accumulation and its cap, the fill-to-par recompute on
 /// every keystroke, what clearing a field clears, and what `Next` does to
-/// focus. Presentation state (the confirm dialog) stays in the view.
+/// focus. Presentation state (the review sheet's visibility) stays in the view.
 @MainActor
 @Observable
 final class VisitCaptureModel {
@@ -78,17 +78,19 @@ final class VisitCaptureModel {
     }
 
     /// The strip's subtitle under LEFT. Nil on a first visit.
-    var lastLevelText: String? {
+    var focusedLastLevelText: String? {
         guard let focus, let last = lastLevels[focus] else { return nil }
-        return "left \(last) last time"
+        return lastLevelText(last)
     }
 
     /// More counted than the slot could have held. Warn-only: negative sold is
     /// legal and the engine never clamps, but a recount now beats a report
     /// next week.
-    func isSuspicious(slotCode: String) -> Bool {
-        guard let line = draft?.lines.first(where: { $0.slotCode == slotCode }),
-              let remaining = line.remaining,
+    ///
+    /// Takes the line the cell already holds — re-finding it by slot code is
+    /// the per-cell scan `linesBySlotCode` exists to avoid.
+    func isSuspicious(_ line: DraftLine?) -> Bool {
+        guard let line, let remaining = line.remaining,
               let last = lastLevels[line.slotKey]
         else { return false }
 

@@ -77,8 +77,7 @@ nonisolated struct VisitReviewSummary: Equatable, Sendable {
                 )
             }
 
-            let levelAfter = remaining - line.removed + (line.added ?? 0)
-            if let par = line.par, levelAfter > par {
+            if let par = line.par, let levelAfter = line.levelAfter, levelAfter > par {
                 overPar.append(
                     OverParFill(
                         slotCode: line.slotCode, productId: line.productId,

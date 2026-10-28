@@ -77,7 +77,7 @@ struct ReviewSheet: View {
                         VStack(alignment: .leading, spacing: 1) {
                             Text(productName(gap.productId))
                                 .foregroundStyle(Color.primary)
-                            Text(gap.lastLevel.map { "left \($0) last time" } ?? "never counted")
+                            Text(gap.lastLevel.map(lastLevelText) ?? "never counted")
                                 .font(.caption)
                                 .foregroundStyle(Color.secondary)
                         }
