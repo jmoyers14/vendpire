@@ -392,6 +392,44 @@ final class PurchaseLogModelTests: XCTestCase {
         XCTAssertTrue(model.rows.isEmpty)
     }
 
+    /// The sheet's one-tap recovery is built on this sentence: it names the
+    /// record the code is already on. A runtime enum dump in its place would
+    /// strand the operator.
+    func testAConflictingAttachShowsTheServersSentence() async throws {
+        try makeScreen(products: [makeCoke()])
+        let message = "Barcode 10049000042556 is the case code of pack \"Costco variety case\""
+        api.onAttachProductBarcode = { _, _ in
+            throw VendpireAPIError(statusCode: 409, message: message)
+        }
+
+        model.handleScan(caseCode, context: context)
+        await model.candidateFetch?.value
+        let item = try XCTUnwrap(model.searchResults(query: "coke", context: context).first)
+        await model.attach(to: item, context: context)
+
+        XCTAssertEqual(model.errorMessage, message)
+        XCTAssertEqual(model.errorStatusCode, 409, "the sheet offers the one-tap on the status")
+        XCTAssertNotNil(model.pendingScan, "the sheet stays open so the operator can attach instead")
+    }
+
+    /// A stale 409 would keep offering "use existing instead" against a
+    /// message that is no longer about a conflict.
+    func testTheNextActionClearsTheStatus() async throws {
+        try makeScreen(products: [makeCoke()])
+        api.onAttachProductBarcode = { _, _ in
+            throw VendpireAPIError(statusCode: 409, message: "already on something")
+        }
+
+        model.handleScan(caseCode, context: context)
+        await model.candidateFetch?.value
+        let item = try XCTUnwrap(model.searchResults(query: "coke", context: context).first)
+        await model.attach(to: item, context: context)
+        await model.createUnit(name: "", category: "", priceText: "", context: context)
+
+        XCTAssertEqual(model.errorMessage, "Name and category are required")
+        XCTAssertNil(model.errorStatusCode)
+    }
+
     // MARK: - Creating what the code names
 
     func testCreateUnitUsesTheCandidateImageAndAddsTheRow() async throws {

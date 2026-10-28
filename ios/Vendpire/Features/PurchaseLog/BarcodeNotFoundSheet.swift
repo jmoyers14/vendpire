@@ -35,16 +35,19 @@ struct BarcodeNotFoundSheet: View {
 
     // Attach
     @State private var query = ""
+    @State private var queryTouched = false
 
     // Create — item
     @State private var recordKind: RecordKind = .unit
     @State private var name = ""
+    @State private var itemNameTouched = false
     @State private var category = ""
     @State private var priceText = ""
 
     // Create — pack
     @State private var packName = ""
-    @State private var nameTouched = false
+    @State private var packNameTouched = false
+    @State private var contentNameTouched = false
     @State private var contents: [PurchaseLogModel.NewPackContent] = [
         PurchaseLogModel.NewPackContent(productId: nil, unitsText: "", name: "", category: "", bagCode: "")
     ]
@@ -71,6 +74,10 @@ struct BarcodeNotFoundSheet: View {
         }
         .presentationDetents([.large])
         .onAppear(perform: seed)
+        // The candidate lookup STARTS in the same pass that presents this
+        // sheet, so it always lands after `onAppear`. Without this the prefill
+        // never happened.
+        .onChange(of: model.pendingScan?.candidate) { _, _ in fillUntouchedFields() }
     }
 
     // MARK: - Header
@@ -125,20 +132,26 @@ struct BarcodeNotFoundSheet: View {
 
     // MARK: - Error / conflict
 
-    /// No status code survives to this layer — `attach`/`createUnit`/`createPack`
-    /// all collapse their failure to `error.localizedDescription` — so a
-    /// conflict can only be recognized by its wording. Source of that wording:
+    /// The status is what actually decides this: every catalog failure now
+    /// arrives as a `VendpireAPIError` and the model keeps its code.
+    ///
+    /// The wording match stays as a fallback for a conflict that reaches the
+    /// screen without one — a message surfaced from somewhere other than the
+    /// typed client seam. Source of the wording:
     /// `packages/api/src/services/ProductService/ProductServiceImpl.ts`
-    /// ("already on \"<name>\"" / "is the case code of pack"),
+    /// (`is already on "<name>"`, `is the case code of pack "<name>"`),
     /// `packages/api/src/services/PackService/PackServiceImpl.ts`
-    /// ("already on pack" / "unit code of"), and the generic 409 "The barcode
-    /// already belongs to another record" in `routers/products.ts` and
-    /// `routers/packs.ts`. A server-side rewording of any of these breaks this
-    /// match.
+    /// (`is already on pack "<name>"`, `is the unit code of "<name>"`), and
+    /// the generic 409 "The barcode already belongs to another record" in
+    /// `routers/products.ts` and `routers/packs.ts`.
     private var isConflict: Bool {
+        if model.errorStatusCode == 409 { return true }
+
         guard let message = model.errorMessage else { return false }
         return message.localizedCaseInsensitiveContains("already on")
             || message.localizedCaseInsensitiveContains("already belongs")
+            || message.localizedCaseInsensitiveContains("is the unit code of")
+            || message.localizedCaseInsensitiveContains("is the case code of")
     }
 
     @ViewBuilder
@@ -171,18 +184,31 @@ struct BarcodeNotFoundSheet: View {
     // MARK: - Attach
 
     private var attachSection: some View {
-        Section {
-            TextField("Search your products and cases…", text: $query)
+        Group {
+            Section {
+                TextField(
+                    "Search your products and cases…",
+                    text: makeTouchedBinding(for: $query, touched: $queryTouched)
+                )
                 .autocorrectionDisabled()
-            attachMatches
-        } header: {
-            Text("Add this code to something you already have")
-        } footer: {
-            if isWorking {
-                HStack(spacing: 6) {
-                    ProgressView()
-                    Text("Attaching…")
+                attachMatches
+            } header: {
+                Text("Add this code to something you already have")
+            } footer: {
+                if isWorking {
+                    HStack(spacing: 6) {
+                        ProgressView()
+                        Text("Attaching…")
+                    }
                 }
+            }
+
+            // Searching and finding nothing is the common way into creating,
+            // so the way across is always on screen — not only when the list
+            // comes back empty. `Back` mirrors the web panel's.
+            Section {
+                Button("Create it instead") { mode = .create }
+                Button("Back") { mode = .choose }
             }
         }
     }
@@ -194,7 +220,7 @@ struct BarcodeNotFoundSheet: View {
             CatalogItemMatches(
                 items: model.searchResults(query: query, context: context),
                 isDisabled: isWorking,
-                emptyText: "Nothing matches — create it below instead.",
+                emptyText: "Nothing matches — tap \"Create it instead\" below.",
                 onSelect: attach
             )
         }
@@ -235,13 +261,18 @@ struct BarcodeNotFoundSheet: View {
                     }
                 }
                 .disabled(isWorking)
+                Button("Back") { mode = .choose }
+                    .disabled(isWorking)
             }
         }
     }
 
     private var itemFields: some View {
         Section {
-            TextField("Name, e.g. Coca-Cola Zero 12 oz can", text: $name)
+            TextField(
+                "Name, e.g. Coca-Cola Zero 12 oz can",
+                text: makeTouchedBinding(for: $name, touched: $itemNameTouched)
+            )
             TextField("Category, e.g. drinks", text: $category)
             TextField("Sell price $", text: $priceText)
                 .keyboardType(.decimalPad)
@@ -255,15 +286,18 @@ struct BarcodeNotFoundSheet: View {
             Section {
                 TextField(
                     "e.g. Frito-Lay 30ct variety",
-                    text: Binding(get: { shownPackName }, set: { packName = $0; nameTouched = true })
+                    text: Binding(
+                        get: { shownPackName },
+                        set: { packName = $0; packNameTouched = true }
+                    )
                 )
             } header: {
                 Text("Case name")
             }
 
             Section {
-                ForEach(contents.indices, id: \.self) { index in
-                    contentRow(index: index)
+                ForEach($contents) { content in
+                    contentRow(content, isFirst: contents.first?.id == content.wrappedValue.id)
                 }
                 Button("+ Add another product") {
                     contents.append(
@@ -278,10 +312,18 @@ struct BarcodeNotFoundSheet: View {
         }
     }
 
-    private func contentRow(index: Int) -> some View {
+    /// Bound per element and deleted by id — an index-identified row hands its
+    /// binding to whichever row slides into that index when one is removed.
+    ///
+    /// Only the first row's name is seeded from the candidate, so only it
+    /// tracks being typed in.
+    private func contentRow(
+        _ content: Binding<PurchaseLogModel.NewPackContent>,
+        isFirst: Bool
+    ) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
-                Picker("Product", selection: $contents[index].productId) {
+                Picker("Product", selection: content.productId) {
                     Text("New product…").tag(String?.none)
                     ForEach(products) { product in
                         Text(product.name).tag(String?.some(product.id))
@@ -289,13 +331,14 @@ struct BarcodeNotFoundSheet: View {
                 }
                 .labelsHidden()
 
-                TextField("Units", text: $contents[index].unitsText)
+                TextField("Units", text: content.unitsText)
                     .keyboardType(.numberPad)
                     .frame(width: 70)
 
                 if contents.count > 1 {
                     Button(role: .destructive) {
-                        contents.remove(at: index)
+                        let id = content.wrappedValue.id
+                        contents.removeAll { $0.id == id }
                     } label: {
                         Image(systemName: "xmark.circle")
                     }
@@ -303,13 +346,18 @@ struct BarcodeNotFoundSheet: View {
                 }
             }
 
-            if contents[index].productId == nil {
-                TextField("Name, e.g. Doritos Nacho Cheese", text: $contents[index].name)
-                TextField("Category", text: $contents[index].category)
-                TextField("Bag barcode (optional)", text: $contents[index].bagCode)
+            if content.wrappedValue.productId == nil {
+                TextField(
+                    "Name, e.g. Doritos Nacho Cheese",
+                    text: isFirst
+                        ? makeTouchedBinding(for: content.name, touched: $contentNameTouched)
+                        : content.name
+                )
+                TextField("Category", text: content.category)
+                TextField("Bag barcode (optional)", text: content.bagCode)
                     .font(.system(.body, design: .monospaced))
                     .autocorrectionDisabled()
-                bagCodeHint(for: contents[index].bagCode)
+                bagCodeHint(for: content.wrappedValue.bagCode)
             }
         }
     }
@@ -343,7 +391,7 @@ struct BarcodeNotFoundSheet: View {
     }
 
     private var shownPackName: String {
-        nameTouched ? packName : suggestedPackName
+        packNameTouched ? packName : suggestedPackName
     }
 
     private func contentProductName(_ content: PurchaseLogModel.NewPackContent) -> String {
@@ -367,25 +415,45 @@ struct BarcodeNotFoundSheet: View {
 
     // MARK: - Seeding
 
-    /// The candidate's name seeds both the attach search and the create
-    /// form — whichever the operator picks, it is the first guess worth
-    /// typing over rather than starting blank.
-    ///
-    /// Deliberately one-shot (`onAppear`, not an observer on `pendingScan`):
-    /// web parity. `BarcodeNotFoundPanel`'s `useState` initializers read the
-    /// candidate prop exactly once too, so a candidate that resolves after
-    /// the panel/sheet is already open never overwrites something the
-    /// operator may have started typing.
+    /// What the code itself says: a case-level indicator digit opens the
+    /// create form on "a case". Known before the sheet is on screen, and the
+    /// operator's own pick must survive a late candidate — so this runs once,
+    /// and the candidate fill below runs again.
     private func seed() {
         guard let scan = model.pendingScan else { return }
         recordKind = scan.likelyCase ? .pack : .unit
+        fillUntouchedFields()
+    }
 
-        let suggestion = scan.candidate.map(candidateName) ?? ""
-        query = suggestion
-        name = suggestion
-        if contents.indices.contains(0) {
+    /// The candidate's name seeds the attach search, the item name, and the
+    /// first content row — whichever the operator picks, it is the first guess
+    /// worth typing over rather than starting blank.
+    ///
+    /// Runs again every time the candidate changes, because the lookup starts
+    /// in the same pass that presents the sheet and so always answers after
+    /// it is already on screen. A field the operator has typed in is never
+    /// overwritten — that is what the `*Touched` flags are for, and it is the
+    /// rule the web panel gets for free by reading the prop once.
+    private func fillUntouchedFields() {
+        guard let candidate = model.pendingScan?.candidate else { return }
+        let suggestion = candidateName(candidate)
+
+        if !queryTouched { query = suggestion }
+        if !itemNameTouched { name = suggestion }
+        if !contentNameTouched, contents.indices.contains(0) {
             contents[0].name = suggestion
         }
+    }
+
+    /// A text binding that remembers it was edited.
+    private func makeTouchedBinding(
+        for value: Binding<String>,
+        touched: Binding<Bool>
+    ) -> Binding<String> {
+        Binding(
+            get: { value.wrappedValue },
+            set: { value.wrappedValue = $0; touched.wrappedValue = true }
+        )
     }
 }
 

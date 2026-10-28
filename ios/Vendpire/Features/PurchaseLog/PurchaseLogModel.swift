@@ -45,7 +45,12 @@ final class PurchaseLogModel {
     /// has several, each either an existing product or one being created here
     /// — which is why the new-product fields live on the row rather than on
     /// the sheet.
-    nonisolated struct NewPackContent: Equatable, Sendable {
+    nonisolated struct NewPackContent: Identifiable, Equatable, Sendable {
+        /// Identity only, never ordering: the sheet's rows are bound and
+        /// removed by id so a deletion can't leave a binding pointing at the
+        /// row that slid into its index. Numbering still comes from the
+        /// array's own offsets — see `prepare`.
+        let id = UUID()
         /// An existing product, or nil to create one from the fields below.
         var productId: String?
         var unitsText: String
@@ -66,6 +71,10 @@ final class PurchaseLogModel {
     /// Set means the not-found sheet is up.
     private(set) var pendingScan: PendingScan?
     private(set) var errorMessage: String?
+    /// The status behind `errorMessage`, when it came from the server. 409 is
+    /// the one the sheet acts on: the scanned code is already on another
+    /// record, and attaching to THAT record is the way out.
+    private(set) var errorStatusCode: Int?
 
     /// Minted when the screen opens, not at save time: double-tapping Save
     /// sends the SAME key twice, and the server returns the first purchase
@@ -155,7 +164,7 @@ final class PurchaseLogModel {
     /// a row; a miss parks the code for the sheet; garbage says so and changes
     /// nothing else.
     func handleScan(_ code: String, context: ModelContext) {
-        errorMessage = nil
+        clearError()
 
         let products = storedProducts(in: context)
         let packs = storedPacks(in: context)
@@ -183,7 +192,7 @@ final class PurchaseLogModel {
     /// same product can legitimately appear twice on one receipt at two
     /// prices, and searching for it again is the only way to say so.
     func add(_ item: CatalogItem) {
-        errorMessage = nil
+        clearError()
         // Picking by name answers the same question a parked scan was asking.
         dismissPendingScan()
         rows.append(
@@ -221,7 +230,7 @@ final class PurchaseLogModel {
             errorMessage = Self.notConnectedMessage
             return
         }
-        errorMessage = nil
+        clearError()
 
         do {
             let writer = MirrorWriter(context: context)
@@ -239,10 +248,9 @@ final class PurchaseLogModel {
             }
             dismissPendingScan()
         } catch {
-            // Verbatim, including the server's "already attached to …" — the
-            // record name inside that message is what the sheet's one-tap
-            // recovery is built on. The sheet stays open either way.
-            errorMessage = error.localizedDescription
+            // The sheet stays open either way, showing the server's own
+            // sentence — see `report`.
+            report(error)
         }
     }
 
@@ -259,7 +267,7 @@ final class PurchaseLogModel {
             errorMessage = Self.notConnectedMessage
             return
         }
-        errorMessage = nil
+        clearError()
 
         let productName = name.trimmed
         let productCategory = category.trimmed
@@ -294,7 +302,7 @@ final class PurchaseLogModel {
             addOrIncrementRow(kind: .unit, recordId: created.id, name: created.name)
             dismissPendingScan()
         } catch {
-            errorMessage = error.localizedDescription
+            report(error)
         }
     }
 
@@ -311,7 +319,7 @@ final class PurchaseLogModel {
             errorMessage = Self.notConnectedMessage
             return
         }
-        errorMessage = nil
+        clearError()
 
         let packName = name.trimmed
         guard !packName.isEmpty else {
@@ -355,7 +363,7 @@ final class PurchaseLogModel {
             addOrIncrementRow(kind: .pack, recordId: created.id, name: created.name)
             dismissPendingScan()
         } catch {
-            errorMessage = error.localizedDescription
+            report(error)
         }
     }
 
@@ -369,7 +377,7 @@ final class PurchaseLogModel {
         // double-tap and not a request. Silent: there is nothing to report.
         guard !isSaved else { return false }
 
-        errorMessage = nil
+        clearError()
 
         let vendorName = vendor.trimmed
         guard !vendorName.isEmpty else {
@@ -435,7 +443,7 @@ final class PurchaseLogModel {
             context.insert(item)
             try context.save()
         } catch {
-            errorMessage = error.localizedDescription
+            report(error)
             return false
         }
 
@@ -450,6 +458,22 @@ final class PurchaseLogModel {
     private var middayOnPurchasedDate: Date {
         Calendar.current.date(bySettingHour: 12, minute: 0, second: 0, of: purchasedDate)
             ?? purchasedDate
+    }
+
+    // MARK: - Errors
+
+    private func clearError() {
+        errorMessage = nil
+        errorStatusCode = nil
+    }
+
+    /// The server's own sentence, verbatim — a 409 from the catalog edge names
+    /// the record the scanned code is already on, and that name is what the
+    /// sheet's one-tap recovery offers. The status rides along so the sheet
+    /// can recognise the conflict without matching prose.
+    private func report(_ error: any Error) {
+        errorMessage = error.localizedDescription
+        errorStatusCode = (error as? VendpireAPIError)?.statusCode
     }
 
     // MARK: - Rows
