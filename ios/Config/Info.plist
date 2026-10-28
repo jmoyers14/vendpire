@@ -9,5 +9,7 @@
 	<string>$(CLERK_PUBLISHABLE_KEY)</string>
 	<key>VendpireAPIBaseURL</key>
 	<string>$(VENDPIRE_API_BASE_URL)</string>
+	<key>NSCameraUsageDescription</key>
+	<string>The camera reads barcodes while you log a purchase.</string>
 </dict>
 </plist>
