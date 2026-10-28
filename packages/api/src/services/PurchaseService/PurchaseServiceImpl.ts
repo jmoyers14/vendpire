@@ -27,6 +27,12 @@ import {
   type PurchaseService,
 } from "./PurchaseService.ts";
 
+/** Mongo's duplicate-key error, recognized without importing a driver type. */
+const isDuplicateKey = (error: unknown): boolean =>
+  typeof error === "object" &&
+  error !== null &&
+  (error as { code?: unknown }).code === 11000;
+
 /**
  * Purchase business rules. The important one: pack lines are expanded HERE,
  * not in a client. A receipt line of "2 × Frito-Lay 30ct variety, $37.98"
@@ -85,11 +91,39 @@ export class PurchaseServiceImpl implements PurchaseService {
   }
 
   async create(orgId: string, draft: PurchaseDraft): Promise<Purchase> {
+    // Checked FIRST and returned verbatim — no re-validation. A retrying
+    // client can only act on 200 with the original; re-validating would
+    // reject an already-stored purchase whose product has since been retired.
+    const replay = await this.purchases.findByClientRequestId(
+      orgId,
+      draft.clientRequestId,
+    );
+    if (replay) {
+      return replay;
+    }
+
     const stored = await this.buildStored(orgId, draft);
-    return this.purchases.create(orgId, {
-      ...stored,
-      clientRequestId: draft.clientRequestId,
-    });
+    try {
+      return await this.purchases.create(orgId, {
+        ...stored,
+        clientRequestId: draft.clientRequestId,
+      });
+    } catch (error) {
+      if (!isDuplicateKey(error)) {
+        throw error;
+      }
+      // Two submits of one draft raced past the read above. The unique index
+      // is what actually enforces idempotency; the read is only the cheap path.
+      const winner = await this.purchases.findByClientRequestId(
+        orgId,
+        draft.clientRequestId,
+      );
+      if (!winner) {
+        // Some other unique index rejected this, so it is not ours to swallow.
+        throw error;
+      }
+      return winner;
+    }
   }
 
   async update(
