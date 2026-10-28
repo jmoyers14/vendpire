@@ -166,11 +166,40 @@ final class VendpireAPIClientSubmitTests: XCTestCase {
         XCTAssertEqual(result, .unauthorized)
     }
 
-    /// Today every kind decodes as a visit — this must fail until `submit`
-    /// dispatches on `request.kind`.
-    func testUnknownKindIsPermanentNotCrash() async {
-        let client = makeClient(status: 200)
-        let outcome = await client.submit(OutboxRequest(kind: "mystery", clientRequestId: "x", payload: Data()))
+    /// The payload is a VALID visit — it would decode and succeed on the
+    /// visit path. So a `.permanent` result here can only come from `kind`
+    /// being consulted before any decode is attempted, not from a decode
+    /// failure. The transport asserting it is never invoked rules out the
+    /// other way this could pass by accident: routing to the visit path and
+    /// having the network call itself fail.
+    func testUnknownKindIsParkedWithoutTouchingTheNetwork() async {
+        let submission = VisitSubmission(
+            machineId: "6ac1c6c40bfb1cd4c63d3019",
+            locationId: "6ac1c6c40bfb1cd4c63d3020",
+            planogramId: nil,
+            countedAt: Date(timeIntervalSince1970: 1_800_000_000),
+            lines: [
+                VisitSubmissionLine(
+                    slotCode: "A0", productId: "6ac15fccadd3eb010d071ba2",
+                    remaining: 3, added: 7, removed: 0, removedReason: nil,
+                    priceCents: 175, par: 10, bestBy: nil
+                )
+            ],
+            notes: nil,
+            clientRequestId: "11111111-2222-3333-4444-5555"
+        )
+        let validVisitPayload = try! VisitSubmission.makeEncoder().encode(submission) // swiftlint:disable:this force_try
+        let client = VendpireAPIClient(
+            transport: StubTransport { _, _ in
+                XCTFail("an unrecognised kind must never reach the network")
+                throw CancellationError()
+            },
+            middlewares: []
+        )
+
+        let outcome = await client.submit(
+            OutboxRequest(kind: "mystery", clientRequestId: "x", payload: validVisitPayload)
+        )
 
         guard case .permanent = outcome else {
             return XCTFail("unknown kind must park, not retry: \(outcome)")
