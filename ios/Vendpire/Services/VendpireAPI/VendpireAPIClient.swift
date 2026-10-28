@@ -69,4 +69,34 @@ struct VendpireAPIClient: VendpireAPI {
         let visits = try response.ok.body.json
         return visits.map(RemoteVisit.init)
     }
+
+    func fetchBarcodeCandidate(code: String) async throws -> RemoteCandidate? {
+        let response = try await client.getBarcodeCandidate(query: .init(code: code))
+        let payload = try response.ok.body.json
+        return payload.map(RemoteCandidate.init)
+    }
+
+    func createProduct(_ draft: RemoteProductDraft) async throws -> RemoteProduct {
+        let response = try await client.createProduct(body: .json(.init(draft)))
+        let product = try response.ok.body.json
+        return RemoteProduct(product)
+    }
+
+    func createPack(_ draft: RemotePackDraft) async throws -> RemotePack {
+        let response = try await client.createPack(body: .json(.init(draft)))
+        let pack = try response.ok.body.json
+        return RemotePack(pack)
+    }
+
+    func attachProductBarcode(productId: String, code: String) async throws -> RemoteProduct {
+        let response = try await client.attachProductBarcode(path: .init(id: productId), body: .json(.init(code: code)))
+        let product = try response.ok.body.json
+        return RemoteProduct(product)
+    }
+
+    func attachPackBarcode(packId: String, code: String) async throws -> RemotePack {
+        let response = try await client.attachPackBarcode(path: .init(id: packId), body: .json(.init(code: code)))
+        let pack = try response.ok.body.json
+        return RemotePack(pack)
+    }
 }

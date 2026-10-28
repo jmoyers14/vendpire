@@ -152,6 +152,38 @@ extension RemotePlanogram {
     }
 }
 
+extension RemoteCandidate {
+    /// The response body is `null` for an unrecognized code; the generated
+    /// optional payload already carries that, so the one case worth mapping
+    /// is the object itself — `fetchBarcodeCandidate` maps the `nil` case.
+    init(_ generated: Operations.getBarcodeCandidate.Output.Ok.Body.jsonPayload) {
+        self.init(name: generated.name, brand: generated.brand, imageUrl: generated.imageUrl)
+    }
+}
+
+extension Operations.createProduct.Input.Body.jsonPayload {
+    init(_ draft: RemoteProductDraft) {
+        self.init(
+            name: draft.name,
+            upc: draft.upc,
+            category: draft.category,
+            taxClass: draft.taxClass,
+            imageUrl: draft.imageUrl,
+            defaultPriceCents: draft.defaultPriceCents
+        )
+    }
+}
+
+extension Operations.createPack.Input.Body.jsonPayload {
+    init(_ draft: RemotePackDraft) {
+        self.init(
+            name: draft.name,
+            barcodes: draft.barcodes,
+            contents: draft.contents.map { .init(productId: $0.productId, units: $0.units) }
+        )
+    }
+}
+
 extension RemoteVisit {
     init(_ generated: Components.Schemas.Visit) {
         self.init(
