@@ -80,6 +80,17 @@ extension OutboxItem {
             payload: try VisitSubmission.makeEncoder().encode(visit)
         )
     }
+
+    /// The Phase 9 producer the class doc promised. `countedAt` doubles as the
+    /// queue's ordering date — for a purchase that is when it was bought.
+    convenience init(purchase: PurchaseSubmission) throws {
+        self.init(
+            id: purchase.clientRequestId,
+            kind: "purchase",
+            countedAt: purchase.purchasedAt,
+            payload: try PurchaseSubmission.makeEncoder().encode(purchase)
+        )
+    }
 }
 
 extension OutboxItem {
