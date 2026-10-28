@@ -7,7 +7,7 @@ import { candidateDto } from "../schemas/index.ts";
 // own records are "the catalog"; these are not it.
 export const candidatesRouter = router({
   // External lookup for one code — returns name/brand/image, or null.
-  byUpc: orgProtectedProcedure
+  byCode: orgProtectedProcedure
     .meta({
       openapi: {
         method: "GET",

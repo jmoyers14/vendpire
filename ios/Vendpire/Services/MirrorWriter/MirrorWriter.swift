@@ -146,22 +146,28 @@ final class MirrorWriter {
     /// compiled to the store's query isn't guaranteed to see a row this
     /// context has inserted but not yet saved.
     func upsert(_ remote: RemoteProduct) throws {
-        let existing = try context.fetch(FetchDescriptor<StoredProduct>()).first { $0.id == remote.id }
-        if let existing {
-            existing.update(from: remote)
-        } else {
-            context.insert(StoredProduct(remote))
-        }
-        try context.save()
+        try upsertSingle(remote, id: remote.id, idOfStored: \StoredProduct.id, update: { $0.update(from: $1) }, insert: StoredProduct.init)
     }
 
-    /// Same shape as `upsert(_: RemoteProduct)` — see that doc comment.
     func upsert(_ remote: RemotePack) throws {
-        let existing = try context.fetch(FetchDescriptor<StoredPack>()).first { $0.id == remote.id }
+        try upsertSingle(remote, id: remote.id, idOfStored: \StoredPack.id, update: { $0.update(from: $1) }, insert: StoredPack.init)
+    }
+
+    /// The single-record counterpart of `reconcile` — same closure shape,
+    /// minus the delete-missing step.
+    private func upsertSingle<Model: PersistentModel, Remote>(
+        _ remote: Remote,
+        id: String,
+        idOfStored: KeyPath<Model, String>,
+        update: (Model, Remote) -> Void,
+        insert: (Remote) -> Model
+    ) throws {
+        let existing = try context.fetch(FetchDescriptor<Model>())
+            .first { $0[keyPath: idOfStored] == id }
         if let existing {
-            existing.update(from: remote)
+            update(existing, remote)
         } else {
-            context.insert(StoredPack(remote))
+            context.insert(insert(remote))
         }
         try context.save()
     }

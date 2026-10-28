@@ -66,8 +66,9 @@ struct OutboxReviewView: View {
                                     retry(row)
                                 }
                                 .font(.callout.weight(.medium))
-                                if let item = items.first(where: { $0.id == row.id }), item.kind == "purchase" {
+                                if row.kind == "purchase" {
                                     Button("Discard", role: .destructive) {
+                                        guard let item = items.first(where: { $0.id == row.id }) else { return }
                                         context.delete(item)
                                         try? context.save()
                                     }

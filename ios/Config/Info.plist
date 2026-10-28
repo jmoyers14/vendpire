@@ -11,5 +11,13 @@
 	<string>$(VENDPIRE_API_BASE_URL)</string>
 	<key>NSCameraUsageDescription</key>
 	<string>The camera reads barcodes while you log a purchase.</string>
+	<!-- Debug field-testing talks cleartext HTTP to the Mac's .local name on
+	     the same Wi-Fi; ATS exempts only loopback by default. Local traffic
+	     only — remote URLs stay HTTPS-enforced. -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
 </dict>
 </plist>

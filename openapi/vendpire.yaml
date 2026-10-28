@@ -248,9 +248,9 @@ paths:
         "403":
           description: Insufficient access
           content: *a3
-        "409": &a5
+        "409":
           description: The barcode already belongs to another record
-          content:
+          content: &a5
             application/json:
               schema:
                 $ref: "#/components/schemas/error.CONFLICT"
@@ -309,7 +309,9 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/error.NOT_FOUND"
-        "409": *a5
+        "409":
+          description: The barcode already belongs to another record
+          content: *a5
         "426":
           description: This build is below the supported floor; the client must update.
           content: *a1
@@ -441,7 +443,9 @@ paths:
         "403":
           description: Insufficient access
           content: *a3
-        "409": *a5
+        "409":
+          description: The barcode already belongs to another record
+          content: *a5
         "426":
           description: This build is below the supported floor; the client must update.
           content: *a1
@@ -494,7 +498,9 @@ paths:
         "404":
           description: No such product
           content: *a6
-        "409": *a5
+        "409":
+          description: The barcode already belongs to another record
+          content: *a5
         "426":
           description: This build is below the supported floor; the client must update.
           content: *a1

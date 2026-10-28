@@ -9,6 +9,8 @@ import Foundation
 /// exactly the thing this screen exists to show.
 nonisolated struct OutboxReviewRow: Equatable, Sendable, Identifiable {
     let id: String
+    /// `visit` | `purchase` — decides which affordances a stuck row offers.
+    let kind: String
     let title: String
     let countedAt: Date
     /// Where the row is in the retry loop, or the server's own words when only
@@ -32,6 +34,7 @@ nonisolated struct OutboxReviewRow: Equatable, Sendable, Identifiable {
             .map { item in
                 OutboxReviewRow(
                     id: item.id,
+                    kind: item.kind,
                     title: title(for: item, machineIdByRequest: machineIdByRequest, machineNames: machineNames),
                     countedAt: item.countedAt,
                     detail: detail(for: item),

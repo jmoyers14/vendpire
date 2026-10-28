@@ -132,26 +132,11 @@ struct BarcodeNotFoundSheet: View {
 
     // MARK: - Error / conflict
 
-    /// The status is what actually decides this: every catalog failure now
-    /// arrives as a `VendpireAPIError` and the model keeps its code.
-    ///
-    /// The wording match stays as a fallback for a conflict that reaches the
-    /// screen without one — a message surfaced from somewhere other than the
-    /// typed client seam. Source of the wording:
-    /// `packages/api/src/services/ProductService/ProductServiceImpl.ts`
-    /// (`is already on "<name>"`, `is the case code of pack "<name>"`),
-    /// `packages/api/src/services/PackService/PackServiceImpl.ts`
-    /// (`is already on pack "<name>"`, `is the unit code of "<name>"`), and
-    /// the generic 409 "The barcode already belongs to another record" in
-    /// `routers/products.ts` and `routers/packs.ts`.
+    /// Every catalog failure arrives as a `VendpireAPIError` and the model
+    /// keeps its status code, so no prose matching is needed: 409 means
+    /// another record already owns the code.
     private var isConflict: Bool {
-        if model.errorStatusCode == 409 { return true }
-
-        guard let message = model.errorMessage else { return false }
-        return message.localizedCaseInsensitiveContains("already on")
-            || message.localizedCaseInsensitiveContains("already belongs")
-            || message.localizedCaseInsensitiveContains("is the unit code of")
-            || message.localizedCaseInsensitiveContains("is the case code of")
+        model.errorStatusCode == 409
     }
 
     @ViewBuilder

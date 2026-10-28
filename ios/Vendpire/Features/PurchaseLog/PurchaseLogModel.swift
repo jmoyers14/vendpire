@@ -20,10 +20,6 @@ final class PurchaseLogModel {
     /// Most runs are a Costco trip. A starting point, not a constraint.
     private static let defaultVendor = "Costco"
 
-    /// What a row shows when the mirror has no name for the id — the same
-    /// fallback visit capture uses.
-    private static let unknownProductName = "Unknown product"
-
     /// Said out loud rather than swallowed: without `configure(api:)` the
     /// three network actions can do nothing, and a button that silently does
     /// nothing reads as a missed tap.
@@ -127,7 +123,7 @@ final class PurchaseLogModel {
         guard row.kind == .pack,
               let quantity = Int(row.quantityText.trimmed), quantity >= 1,
               let totalCostCents = Money.parseDollarsToCents(row.totalCostText),
-              let pack = storedPacks(in: context).first(where: { $0.id == row.recordId })
+              let pack = catalog(in: context).packs.first(where: { $0.id == row.recordId })
         else { return nil }
 
         let weights = pack.contents.map { $0.units * quantity }
@@ -135,7 +131,7 @@ final class PurchaseLogModel {
         let names = productNames(in: context)
         return pack.contents.enumerated().map { index, content in
             (
-                name: names[content.productId] ?? Self.unknownProductName,
+                name: names[content.productId] ?? ProductNames.unknown,
                 units: content.units * quantity,
                 cents: shares[index]
             )
@@ -143,10 +139,8 @@ final class PurchaseLogModel {
     }
 
     func searchResults(query: String, context: ModelContext) -> [CatalogItem] {
-        let items = CatalogSearch.items(
-            products: storedProducts(in: context),
-            packs: storedPacks(in: context)
-        )
+        let loaded = catalog(in: context)
+        let items = CatalogSearch.items(products: loaded.products, packs: loaded.packs)
         return CatalogSearch.search(items, query: query)
     }
 
@@ -166,17 +160,16 @@ final class PurchaseLogModel {
     func handleScan(_ code: String, context: ModelContext) {
         clearError()
 
-        let products = storedProducts(in: context)
-        let packs = storedPacks(in: context)
+        let (products, packs) = catalog(in: context)
         switch ScanResolution.resolve(code, products: products, packs: packs) {
         case .product(let id):
-            let name = products.first { $0.id == id }?.name ?? Self.unknownProductName
+            let name = products.first { $0.id == id }?.name ?? ProductNames.unknown
             addOrIncrementRow(kind: .unit, recordId: id, name: name)
             // A resolved scan answers whatever an earlier one parked: the
             // sheet must not sit over a row that is already in the list.
             dismissPendingScan()
         case .pack(let id):
-            let name = packs.first { $0.id == id }?.name ?? Self.unknownProductName
+            let name = packs.first { $0.id == id }?.name ?? ProductNames.unknown
             addOrIncrementRow(kind: .pack, recordId: id, name: name)
             dismissPendingScan()
         case .unknown(let gtin14, let likelyCase):
@@ -231,6 +224,8 @@ final class PurchaseLogModel {
             return
         }
         clearError()
+        // Success or partial failure, anything upserted must be findable.
+        defer { catalogDidChange() }
 
         do {
             let writer = MirrorWriter(context: context)
@@ -287,6 +282,9 @@ final class PurchaseLogModel {
             return
         }
 
+        // Success or partial failure, anything upserted must be findable.
+        defer { catalogDidChange() }
+
         let draft = RemoteProductDraft(
             name: productName,
             upc: scan.gtin14,
@@ -328,6 +326,9 @@ final class PurchaseLogModel {
         }
 
         guard let prepared = prepare(contents) else { return }
+
+        // Success or partial failure, anything upserted must be findable.
+        defer { catalogDidChange() }
 
         do {
             let writer = MirrorWriter(context: context)
@@ -385,40 +386,7 @@ final class PurchaseLogModel {
             return false
         }
 
-        var lines: [PurchaseSubmissionLine] = []
-        var packLines: [PurchaseSubmissionPackLine] = []
-        for (index, row) in rows.enumerated() {
-            let number = index + 1
-            guard let totalCostCents = Money.parseDollarsToCents(row.totalCostText) else {
-                errorMessage = "Line \(number): cost must be a dollar amount"
-                return false
-            }
-            guard let quantity = Int(row.quantityText.trimmed), quantity >= 1 else {
-                let noun = row.kind == .pack ? "cases" : "units"
-                errorMessage = "Line \(number): \(noun) must be a whole number"
-                return false
-            }
-
-            switch row.kind {
-            case .unit:
-                // `packId` stays nil: provenance is a server-side fact about
-                // an expanded pack line, and the phone has no business
-                // claiming one.
-                lines.append(
-                    PurchaseSubmissionLine(
-                        productId: row.recordId, units: quantity,
-                        totalCostCents: totalCostCents, packId: nil
-                    )
-                )
-            case .pack:
-                // Unexpanded, on purpose. `expandPackLines` is the server's.
-                packLines.append(
-                    PurchaseSubmissionPackLine(
-                        packId: row.recordId, qty: quantity, totalCostCents: totalCostCents
-                    )
-                )
-            }
-        }
+        guard let (lines, packLines) = submissionLines() else { return false }
 
         guard !lines.isEmpty || !packLines.isEmpty else {
             errorMessage = "Scan a barcode or add an item to get started"
@@ -449,6 +417,46 @@ final class PurchaseLogModel {
 
         isSaved = true
         return true
+    }
+
+    /// Every row validated and classified, or nil with `errorMessage` naming
+    /// the first bad line. Unit rows keep `packId` nil — provenance is a
+    /// server-side fact about an expanded pack line — and pack rows stay
+    /// unexpanded, on purpose: `expandPackLines` is the server's.
+    private func submissionLines() -> (
+        lines: [PurchaseSubmissionLine], packLines: [PurchaseSubmissionPackLine]
+    )? {
+        var lines: [PurchaseSubmissionLine] = []
+        var packLines: [PurchaseSubmissionPackLine] = []
+        for (index, row) in rows.enumerated() {
+            let number = index + 1
+            guard let totalCostCents = Money.parseDollarsToCents(row.totalCostText) else {
+                errorMessage = "Line \(number): cost must be a dollar amount"
+                return nil
+            }
+            guard let quantity = Int(row.quantityText.trimmed), quantity >= 1 else {
+                let noun = row.kind == .pack ? "cases" : "units"
+                errorMessage = "Line \(number): \(noun) must be a whole number"
+                return nil
+            }
+
+            switch row.kind {
+            case .unit:
+                lines.append(
+                    PurchaseSubmissionLine(
+                        productId: row.recordId, units: quantity,
+                        totalCostCents: totalCostCents, packId: nil
+                    )
+                )
+            case .pack:
+                packLines.append(
+                    PurchaseSubmissionPackLine(
+                        packId: row.recordId, qty: quantity, totalCostCents: totalCostCents
+                    )
+                )
+            }
+        }
+        return (lines, packLines)
     }
 
     /// Midday rather than midnight: the picker yields a bare calendar day, and
@@ -584,16 +592,42 @@ final class PurchaseLogModel {
 
     // MARK: - The mirror
 
-    private func storedProducts(in context: ModelContext) -> [StoredProduct] {
-        (try? context.fetch(FetchDescriptor<StoredProduct>())) ?? []
+    /// Memoized: `searchResults` runs per keystroke and `splitPreview` per
+    /// pack row per render, and neither should hit SwiftData each time. The
+    /// cached objects are live, so field edits show through — only inserts
+    /// and deletes need the memo dropped, via `catalogDidChange()`.
+    @ObservationIgnored
+    private var catalogCache: (products: [StoredProduct], packs: [StoredPack])?
+    @ObservationIgnored
+    private var productNamesCache: [String: String]?
+
+    /// The mirror changed underneath this screen — a refresh landed, or this
+    /// model created or attached a record. Drops the memo so the next read
+    /// refetches.
+    func catalogDidChange() {
+        catalogCache = nil
+        productNamesCache = nil
     }
 
-    private func storedPacks(in context: ModelContext) -> [StoredPack] {
-        (try? context.fetch(FetchDescriptor<StoredPack>())) ?? []
+    private func catalog(
+        in context: ModelContext
+    ) -> (products: [StoredProduct], packs: [StoredPack]) {
+        if let catalogCache { return catalogCache }
+
+        let loaded = (
+            products: (try? context.fetch(FetchDescriptor<StoredProduct>())) ?? [],
+            packs: (try? context.fetch(FetchDescriptor<StoredPack>())) ?? []
+        )
+        catalogCache = loaded
+        return loaded
     }
 
     private func productNames(in context: ModelContext) -> [String: String] {
-        Dictionary(storedProducts(in: context).map { ($0.id, $0.name) }) { first, _ in first }
+        if let productNamesCache { return productNamesCache }
+
+        let names = ProductNames.byId(catalog(in: context).products)
+        productNamesCache = names
+        return names
     }
 }
 

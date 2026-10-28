@@ -71,6 +71,7 @@ struct PurchaseLogView: View {
             // The only refresh trigger in this flow — a per-item miss while
             // scanning stays silent rather than retrying behind the operator.
             await refresher.refresh()
+            model.catalogDidChange()
         }
         .sheet(isPresented: $isScannerSheetPresented, onDismiss: { model.dismissPendingScan() }) {
             // The sheet stays up across scans: a resolved code just adds or

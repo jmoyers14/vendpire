@@ -78,7 +78,7 @@ export function ProductFormScreen({ productId }: { productId?: string }) {
     setError(null);
     setLookingUp(true);
     try {
-      const found = await trpcClient.candidates.byUpc.query({
+      const found = await trpcClient.candidates.byCode.query({
         code: form.upc.trim(),
       });
       if (!found) {

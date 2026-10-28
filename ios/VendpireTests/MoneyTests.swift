@@ -60,18 +60,15 @@ final class MoneyTests: XCTestCase {
     }
 
     /// `Number.parseFloat("12.999")` is 12.999, not NaN — it reads the longest
-    /// numeric prefix and keeps going past the third decimal. The brief's
-    /// worked example ("12.999" → nil) does not match the web's own function;
-    /// this pins the web's actual behavior instead. See task-13-report.md.
+    /// numeric prefix and keeps going past the third decimal. This pins the
+    /// web's actual behavior (packages/web/src/utils/money.ts).
     func testASubCentThirdDigitRoundsRatherThanRejects() {
         XCTAssertEqual(Money.parseDollarsToCents("12.999"), 1300)
     }
 
     /// `Number.parseFloat("$12.99")` is NaN — `$` isn't part of a numeric
-    /// prefix, so the web's `parseDollarsToCents` rejects it too. The brief's
-    /// worked example ("$12.99" → 1299, "strip $ and whitespace") describes
-    /// behavior the web function does not implement; this pins the web's
-    /// actual behavior instead. See task-13-report.md.
+    /// prefix, so the web's `parseDollarsToCents` rejects it too. This pins
+    /// the web's actual behavior (packages/web/src/utils/money.ts).
     func testADollarSignIsNotStrippedAndSoFailsToParse() {
         XCTAssertNil(Money.parseDollarsToCents("$12.99"))
     }
