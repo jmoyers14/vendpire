@@ -183,6 +183,83 @@ paths:
         "500":
           description: Internal server error
           content: *a1
+    post:
+      operationId: createPack
+      summary: Create a way of buying — a case with its own barcodes
+      tags:
+        - packs
+      security:
+        - bearer: []
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                barcodes:
+                  default: []
+                  type: array
+                  items:
+                    type: string
+                    minLength: 1
+                contents:
+                  minItems: 1
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      productId:
+                        type: string
+                        pattern: ^[0-9a-f]{24}$
+                      units:
+                        type: integer
+                        minimum: 1
+                        maximum: 9007199254740991
+                    required:
+                      - productId
+                      - units
+                active:
+                  default: true
+                  type: boolean
+              required:
+                - name
+                - contents
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Pack"
+        "400":
+          description: Invalid input data
+          content: &a4
+            application/json:
+              schema:
+                $ref: "#/components/schemas/error.BAD_REQUEST"
+        "401":
+          description: Authorization not provided
+          content: *a2
+        "403":
+          description: Insufficient access
+          content: *a3
+        "409": &a5
+          description: The barcode already belongs to another record
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/error.CONFLICT"
+        "426":
+          description: This build is below the supported floor; the client must update.
+          content: *a1
+        "500":
+          description: Internal server error
+          content: *a1
   /planograms/current:
     get:
       operationId: listCurrentPlanograms
@@ -235,6 +312,80 @@ paths:
         "403":
           description: Insufficient access
           content: *a3
+        "426":
+          description: This build is below the supported floor; the client must update.
+          content: *a1
+        "500":
+          description: Internal server error
+          content: *a1
+    post:
+      operationId: createProduct
+      summary: Create a sellable unit
+      tags:
+        - products
+      security:
+        - bearer: []
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                upc:
+                  default: null
+                  type:
+                    - string
+                    - "null"
+                category:
+                  type: string
+                  minLength: 1
+                taxClass:
+                  default: null
+                  type:
+                    - string
+                    - "null"
+                imageUrl:
+                  default: null
+                  type:
+                    - string
+                    - "null"
+                  format: uri
+                defaultPriceCents:
+                  type: integer
+                  minimum: 0
+                  maximum: 9007199254740991
+                active:
+                  default: true
+                  type: boolean
+                tracksExpiration:
+                  default: true
+                  type: boolean
+              required:
+                - name
+                - category
+                - defaultPriceCents
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+        "400":
+          description: Invalid input data
+          content: *a4
+        "401":
+          description: Authorization not provided
+          content: *a2
+        "403":
+          description: Insufficient access
+          content: *a3
+        "409": *a5
         "426":
           description: This build is below the supported floor; the client must update.
           content: *a1
@@ -341,10 +492,7 @@ paths:
                 $ref: "#/components/schemas/Purchase"
         "400":
           description: Invalid input data
-          content: &a4
-            application/json:
-              schema:
-                $ref: "#/components/schemas/error.BAD_REQUEST"
+          content: *a4
         "401":
           description: Authorization not provided
           content: *a2
@@ -949,6 +1097,68 @@ components:
         - active
         - createdAt
         - updatedAt
+    error.BAD_REQUEST:
+      type: object
+      properties:
+        message:
+          type: string
+          description: The error message
+          example: Invalid input data
+        code:
+          type: string
+          description: The error code
+          example: BAD_REQUEST
+        issues:
+          description: An array of issues that were responsible for the error
+          example: []
+          type: array
+          items:
+            type: object
+            properties:
+              message:
+                type: string
+            required:
+              - message
+      required:
+        - message
+        - code
+      title: Invalid input data error (400)
+      description: The error information
+      example:
+        code: BAD_REQUEST
+        message: Invalid input data
+        issues: []
+    error.CONFLICT:
+      type: object
+      properties:
+        message:
+          type: string
+          description: The error message
+          example: The barcode already belongs to another record
+        code:
+          type: string
+          description: The error code
+          example: CONFLICT
+        issues:
+          description: An array of issues that were responsible for the error
+          example: []
+          type: array
+          items:
+            type: object
+            properties:
+              message:
+                type: string
+            required:
+              - message
+      required:
+        - message
+        - code
+      title: The barcode already belongs to another record error (409)
+      description: The error information
+      example:
+        code: CONFLICT
+        message: The barcode already belongs to another record
+        issues: []
     Planogram:
       type: object
       properties:
@@ -1106,37 +1316,6 @@ components:
         - clientRequestId
         - createdAt
         - updatedAt
-    error.BAD_REQUEST:
-      type: object
-      properties:
-        message:
-          type: string
-          description: The error message
-          example: Invalid input data
-        code:
-          type: string
-          description: The error code
-          example: BAD_REQUEST
-        issues:
-          description: An array of issues that were responsible for the error
-          example: []
-          type: array
-          items:
-            type: object
-            properties:
-              message:
-                type: string
-            required:
-              - message
-      required:
-        - message
-        - code
-      title: Invalid input data error (400)
-      description: The error information
-      example:
-        code: BAD_REQUEST
-        message: Invalid input data
-        issues: []
     ClientSupport:
       type: object
       properties:

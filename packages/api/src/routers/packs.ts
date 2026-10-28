@@ -47,7 +47,26 @@ export const packsRouter = router({
     ),
 
   create: orgProtectedProcedure
+    .meta({
+      openapi: {
+        method: "POST",
+        path: "/packs",
+        tags: ["packs"],
+        protect: true,
+        operationId: "createPack",
+        summary: "Create a way of buying — a case with its own barcodes",
+        errorResponses: {
+          400: "Invalid input data",
+          401: "Authorization not provided",
+          403: "Insufficient access",
+          409: "The barcode already belongs to another record",
+          426: "This build is below the supported floor; the client must update.",
+          500: "Internal server error",
+        },
+      },
+    })
     .input(packInput)
+    .output(packDto)
     .mutation(async ({ ctx, input }) => {
       const pack = await ctx.services.packService.create(ctx.auth.orgId, input);
       ctx.analytics.capture({

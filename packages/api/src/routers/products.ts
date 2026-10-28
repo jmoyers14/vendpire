@@ -44,7 +44,26 @@ export const productsRouter = router({
     ),
 
   create: orgProtectedProcedure
+    .meta({
+      openapi: {
+        method: "POST",
+        path: "/products",
+        tags: ["products"],
+        protect: true,
+        operationId: "createProduct",
+        summary: "Create a sellable unit",
+        errorResponses: {
+          400: "Invalid input data",
+          401: "Authorization not provided",
+          403: "Insufficient access",
+          409: "The barcode already belongs to another record",
+          426: "This build is below the supported floor; the client must update.",
+          500: "Internal server error",
+        },
+      },
+    })
     .input(productInput)
+    .output(productDto)
     .mutation(async ({ ctx, input }) => {
       const product = await ctx.services.productService.create(
         ctx.auth.orgId,

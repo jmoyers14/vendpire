@@ -60,6 +60,14 @@ describe("the surface's auth posture", () => {
     }
   });
 
+  it("creates products and packs over REST — the scanner's create path", () => {
+    const document = parse(readFileSync(COMMITTED, "utf8"));
+    expect(document.paths["/products"].post.operationId).toBe("createProduct");
+    expect(document.paths["/packs"].post.operationId).toBe("createPack");
+    expect(document.paths["/products"].post.security).toEqual([{ bearer: [] }]);
+    expect(document.paths["/packs"].post.security).toEqual([{ bearer: [] }]);
+  });
+
   it("gives each status its own description — the generator shares one response object", () => {
     const document = parse(readFileSync(COMMITTED, "utf8"));
     const operation = document.paths["/locations"].get;
