@@ -101,4 +101,49 @@ final class OutboxReviewTests: XCTestCase {
 
         XCTAssertEqual(rows.first?.detail, "1 attempt so far")
     }
+
+    func testPurchaseRowIsTitledByVendorAndTotal() throws {
+        let purchase = PurchaseSubmission(
+            purchasedAt: .now,
+            vendor: "Costco",
+            lines: [
+                PurchaseSubmissionLine(productId: "p1", units: 1, totalCostCents: 1299, packId: nil)
+            ],
+            packLines: [
+                PurchaseSubmissionPackLine(packId: "pack1", qty: 1, totalCostCents: 3798)
+            ],
+            receiptTotalCents: nil,
+            notes: nil,
+            clientRequestId: "req-1"
+        )
+
+        let payload = try PurchaseSubmission.makeEncoder().encode(purchase)
+        let rows = OutboxReviewRow.rows(
+            items: [OutboxItem(
+                id: "req-1", kind: "purchase",
+                countedAt: Date(timeIntervalSince1970: 100),
+                payload: payload, status: "queued",
+                attemptCount: 0, lastMessage: nil
+            )],
+            drafts: [],
+            machineNames: [:]
+        )
+
+        XCTAssertEqual(rows.first?.title, "Costco · $50.97")
+    }
+
+    func testUnreadablePurchasePayloadFallsBackToKind() throws {
+        let rows = OutboxReviewRow.rows(
+            items: [OutboxItem(
+                id: "req-1", kind: "purchase",
+                countedAt: Date(timeIntervalSince1970: 100),
+                payload: Data("junk".utf8), status: "queued",
+                attemptCount: 0, lastMessage: nil
+            )],
+            drafts: [],
+            machineNames: [:]
+        )
+
+        XCTAssertEqual(rows.first?.title, "Purchase")
+    }
 }

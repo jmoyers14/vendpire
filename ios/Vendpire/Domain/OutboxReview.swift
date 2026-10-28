@@ -48,6 +48,13 @@ nonisolated struct OutboxReviewRow: Equatable, Sendable, Identifiable {
         if let machineId = machineIdByRequest[item.id], let name = machineNames[machineId] {
             return name
         }
+        if item.kind == "purchase",
+           let purchase = try? PurchaseSubmission.makeDecoder()
+               .decode(PurchaseSubmission.self, from: item.payload) {
+            let total = purchase.lines.reduce(0) { $0 + $1.totalCostCents }
+                + purchase.packLines.reduce(0) { $0 + $1.totalCostCents }
+            return "\(purchase.vendor) · \(Money.formatCents(total))"
+        }
         return item.kind.capitalized
     }
 
