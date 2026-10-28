@@ -435,6 +435,70 @@ final class PurchaseLogModelTests: XCTestCase {
         XCTAssertTrue(model.rows.isEmpty)
     }
 
+    /// A non-blank price that doesn't parse is a typo. Zeroing it silently
+    /// would create a product priced at nothing and say so nowhere.
+    func testCreateUnitRejectsAnUnparseablePrice() async throws {
+        try makeScreen()
+        let calls = CallLog()
+        api.onCreateProduct = { draft in
+            calls.productDrafts.append(draft)
+            return Remote.product(id: "p-new", name: draft.name, upc: draft.upc)
+        }
+
+        model.handleScan(caseCode, context: context)
+        await model.candidateFetch?.value
+        await model.createUnit(
+            name: "Coke Zero", category: "drinks", priceText: "$1.75", context: context
+        )
+
+        XCTAssertEqual(
+            model.errorMessage,
+            "Sell price must be a dollar amount (e.g. 1.75), or left blank"
+        )
+        XCTAssertTrue(calls.productDrafts.isEmpty, "nothing is created on a rejected price")
+        XCTAssertNotNil(model.pendingScan, "the sheet stays open to fix the field")
+        XCTAssertTrue(model.rows.isEmpty)
+    }
+
+    /// Blank still means "decide later" — the planogram slot is where the real
+    /// number is set.
+    func testCreateUnitTreatsABlankPriceAsDecideLater() async throws {
+        try makeScreen()
+        let calls = CallLog()
+        api.onCreateProduct = { draft in
+            calls.productDrafts.append(draft)
+            return Remote.product(id: "p-new", name: draft.name, upc: draft.upc)
+        }
+
+        model.handleScan(caseCode, context: context)
+        await model.candidateFetch?.value
+        await model.createUnit(
+            name: "Coke Zero", category: "drinks", priceText: "  ", context: context
+        )
+
+        XCTAssertNil(model.errorMessage)
+        XCTAssertEqual(calls.productDrafts.first?.defaultPriceCents, 0)
+        XCTAssertEqual(model.rows.first?.recordId, "p-new")
+    }
+
+    /// A button that does nothing reads as a missed tap. Without
+    /// `configure(api:)` the three network actions can do nothing, so they say
+    /// so rather than returning in silence.
+    func testANetworkActionWithoutAnApiSaysSo() async throws {
+        try makeScreen()
+        let unconnected = PurchaseLogModel()
+        unconnected.handleScan(caseCode, context: context)
+        XCTAssertNotNil(unconnected.pendingScan)
+
+        await unconnected.createUnit(
+            name: "Coke Zero", category: "drinks", priceText: "", context: context
+        )
+
+        XCTAssertEqual(unconnected.errorMessage, "Not connected yet — close and reopen the screen")
+        XCTAssertTrue(unconnected.rows.isEmpty)
+        XCTAssertNotNil(unconnected.pendingScan)
+    }
+
     func testCreatePackCreatesItsNewProductsFirst() async throws {
         try makeScreen(products: [makeCoke()])
         let calls = CallLog()
@@ -530,6 +594,32 @@ final class PurchaseLogModelTests: XCTestCase {
         XCTAssertEqual(try fetchStoredProducts().count, 0, "nothing is created once a row fails")
     }
 
+    /// The number has to name the row on screen. A blank row above a bad one
+    /// is dropped by the filter, and counting the survivors would point the
+    /// operator at the wrong field.
+    func testCreatePackNumbersTheRowTheOperatorSees() async throws {
+        try makeScreen()
+
+        model.handleScan(caseCode, context: context)
+        await model.candidateFetch?.value
+        await model.createPack(
+            name: "Costco variety case",
+            contents: [
+                PurchaseLogModel.NewPackContent(
+                    productId: nil, unitsText: "", name: "", category: "", bagCode: ""
+                ),
+                PurchaseLogModel.NewPackContent(
+                    productId: nil, unitsText: "oops", name: "Doritos",
+                    category: "snacks", bagCode: ""
+                ),
+            ],
+            context: context
+        )
+
+        let message = try XCTUnwrap(model.errorMessage)
+        XCTAssertTrue(message.contains("Product 2"), "the number must name the visible row, got: \(message)")
+    }
+
     // MARK: - Manual entry
 
     func testSearchResultsComeFromTheMirror() throws {
@@ -538,6 +628,28 @@ final class PurchaseLogModelTests: XCTestCase {
         let results = model.searchResults(query: "co", context: context)
 
         XCTAssertEqual(results.map(\.recordId), ["p-coke", "k-variety"])
+    }
+
+    func testResolvingAScanClosesAParkedSheet() throws {
+        try makeScreen(products: [makeCoke()])
+        model.handleScan(caseCode, context: context)
+        XCTAssertNotNil(model.pendingScan)
+
+        model.handleScan(cokeUpc, context: context)
+
+        XCTAssertNil(model.pendingScan, "a parked sheet must not sit over a row already in the list")
+        XCTAssertEqual(model.rows.count, 1)
+    }
+
+    func testAManualPickClosesAParkedSheet() throws {
+        try makeScreen(products: [makeCoke()])
+        model.handleScan(caseCode, context: context)
+        let item = try XCTUnwrap(model.searchResults(query: "coke", context: context).first)
+
+        model.add(item)
+
+        XCTAssertNil(model.pendingScan)
+        XCTAssertEqual(model.rows.count, 1)
     }
 
     func testRemoveRowDropsIt() throws {

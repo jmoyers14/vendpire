@@ -24,6 +24,11 @@ final class PurchaseLogModel {
     /// fallback visit capture uses.
     private static let unknownProductName = "Unknown product"
 
+    /// Said out loud rather than swallowed: without `configure(api:)` the
+    /// three network actions can do nothing, and a button that silently does
+    /// nothing reads as a missed tap.
+    private static let notConnectedMessage = "Not connected yet — close and reopen the screen"
+
     /// A scanned code with nothing behind it yet. Held until the not-found
     /// sheet either attaches it to an existing record or creates the one it
     /// belongs to.
@@ -158,9 +163,13 @@ final class PurchaseLogModel {
         case .product(let id):
             let name = products.first { $0.id == id }?.name ?? Self.unknownProductName
             addOrIncrementRow(kind: .unit, recordId: id, name: name)
+            // A resolved scan answers whatever an earlier one parked: the
+            // sheet must not sit over a row that is already in the list.
+            dismissPendingScan()
         case .pack(let id):
             let name = packs.first { $0.id == id }?.name ?? Self.unknownProductName
             addOrIncrementRow(kind: .pack, recordId: id, name: name)
+            dismissPendingScan()
         case .unknown(let gtin14, let likelyCase):
             // Not an error — it is a question the sheet asks.
             pendingScan = PendingScan(gtin14: gtin14, likelyCase: likelyCase, candidate: nil)
@@ -175,6 +184,8 @@ final class PurchaseLogModel {
     /// prices, and searching for it again is the only way to say so.
     func add(_ item: CatalogItem) {
         errorMessage = nil
+        // Picking by name answers the same question a parked scan was asking.
+        dismissPendingScan()
         rows.append(
             PurchaseRow(kind: item.isPack ? .pack : .unit, recordId: item.recordId, name: item.name)
         )
@@ -204,7 +215,12 @@ final class PurchaseLogModel {
     /// Attach the scanned code to a record that already exists, mirror the
     /// updated record, and add its row.
     func attach(to item: CatalogItem, context: ModelContext) async {
-        guard let api, let scan = pendingScan else { return }
+        // No pending scan means no sheet, so nothing asked for this.
+        guard let scan = pendingScan else { return }
+        guard let api else {
+            errorMessage = Self.notConnectedMessage
+            return
+        }
         errorMessage = nil
 
         do {
@@ -237,7 +253,12 @@ final class PurchaseLogModel {
         priceText: String,
         context: ModelContext
     ) async {
-        guard let api, let scan = pendingScan else { return }
+        // No pending scan means no sheet, so nothing asked for this.
+        guard let scan = pendingScan else { return }
+        guard let api else {
+            errorMessage = Self.notConnectedMessage
+            return
+        }
         errorMessage = nil
 
         let productName = name.trimmed
@@ -247,15 +268,24 @@ final class PurchaseLogModel {
             return
         }
 
+        // The price only seeds a planogram slot, where the real number is set,
+        // so a blank field means "decide later" and parses as zero. A non-blank
+        // field that doesn't parse is a typo, not a decision — refusing it
+        // beats silently creating a product priced at nothing.
+        let typedPrice = priceText.trimmed
+        guard let defaultPriceCents = typedPrice.isEmpty ? 0 : Money.parseDollarsToCents(typedPrice)
+        else {
+            errorMessage = "Sell price must be a dollar amount (e.g. 1.75), or left blank"
+            return
+        }
+
         let draft = RemoteProductDraft(
             name: productName,
             upc: scan.gtin14,
             category: productCategory,
             taxClass: nil,
             imageUrl: scan.candidate?.imageUrl,
-            // The price only seeds a planogram slot, where the real number is
-            // set. A blank field means "decide later", not zero-on-purpose.
-            defaultPriceCents: Money.parseDollarsToCents(priceText) ?? 0
+            defaultPriceCents: defaultPriceCents
         )
 
         do {
@@ -275,7 +305,12 @@ final class PurchaseLogModel {
     /// records the operator wanted anyway, and a rerun picks them out of the
     /// mirror rather than duplicating them.
     func createPack(name: String, contents: [NewPackContent], context: ModelContext) async {
-        guard let api, let scan = pendingScan else { return }
+        // No pending scan means no sheet, so nothing asked for this.
+        guard let scan = pendingScan else { return }
+        guard let api else {
+            errorMessage = Self.notConnectedMessage
+            return
+        }
         errorMessage = nil
 
         let packName = name.trimmed
@@ -466,7 +501,10 @@ final class PurchaseLogModel {
 
     /// Nil means validation failed and `errorMessage` says which row.
     private func prepare(_ contents: [NewPackContent]) -> [PreparedContent]? {
-        let entered = contents.filter { content in
+        // Offsets are carried THROUGH the filter: "Product 3" has to name the
+        // third row on screen, not the third row that survived the filter — a
+        // blank row above a bad one would otherwise point at the wrong field.
+        let entered = contents.enumerated().filter { _, content in
             content.productId != nil || !content.unitsText.trimmed.isEmpty
                 || !content.name.trimmed.isEmpty
         }
@@ -476,8 +514,8 @@ final class PurchaseLogModel {
         }
 
         var prepared: [PreparedContent] = []
-        for (index, content) in entered.enumerated() {
-            let number = index + 1
+        for (offset, content) in entered {
+            let number = offset + 1
             guard let units = Int(content.unitsText.trimmed), units >= 1 else {
                 errorMessage = "Product \(number): units must be a whole number"
                 return nil
