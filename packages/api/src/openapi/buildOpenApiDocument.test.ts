@@ -76,6 +76,12 @@ describe("the surface's auth posture", () => {
     expect(document.paths["/packs/{id}/barcode"].put.operationId).toBe("attachPackBarcode");
   });
 
+  it("gives barcode routes route-specific 404 descriptions", () => {
+    const document = parse(readFileSync(COMMITTED, "utf8"));
+    expect(document.paths["/products/{id}/barcode"].put.responses["404"].description).toBe("No such product");
+    expect(document.paths["/packs/{id}/barcode"].put.responses["404"].description).toBe("No such pack");
+  });
+
   it("gives each status its own description — the generator shares one response object", () => {
     const document = parse(readFileSync(COMMITTED, "utf8"));
     const operation = document.paths["/locations"].get;

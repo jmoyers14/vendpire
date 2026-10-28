@@ -16,6 +16,19 @@ const ERROR_DESCRIPTIONS: Record<string, string> = {
   "500": "Internal server error",
 };
 
+// Route-specific error descriptions that override ERROR_DESCRIPTIONS
+const ROUTE_ERROR_DESCRIPTIONS: Record<
+  string,
+  Record<string, string>
+> = {
+  attachProductBarcode: {
+    "404": "No such product",
+  },
+  attachPackBarcode: {
+    "404": "No such pack",
+  },
+};
+
 function isReference(entry: ResponseEntry): boolean {
   return typeof entry.$ref === "string" && entry.description === undefined;
 }
@@ -113,9 +126,15 @@ function relabelErrorResponses<T extends { paths?: unknown }>(document: T): T {
       if (!isObject(operation) || !isObject(operation.responses)) {
         continue;
       }
+      const operationId = operation.operationId as string | undefined;
+      const routeOverrides = operationId
+        ? ROUTE_ERROR_DESCRIPTIONS[operationId]
+        : undefined;
+
       const responses = operation.responses as Record<string, ResponseEntry>;
       for (const [code, response] of Object.entries(responses)) {
-        const description = ERROR_DESCRIPTIONS[code];
+        let description =
+          routeOverrides?.[code] || ERROR_DESCRIPTIONS[code];
         if (!description || isReference(response)) {
           continue;
         }

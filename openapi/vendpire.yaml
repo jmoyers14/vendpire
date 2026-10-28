@@ -304,7 +304,7 @@ paths:
           description: Insufficient access
           content: *a3
         "404":
-          description: Not found
+          description: No such pack
           content: &a6
             application/json:
               schema:
@@ -492,7 +492,7 @@ paths:
           description: Insufficient access
           content: *a3
         "404":
-          description: Not found
+          description: No such product
           content: *a6
         "409": *a5
         "426":
