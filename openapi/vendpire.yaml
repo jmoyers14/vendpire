@@ -43,6 +43,42 @@ paths:
         "500":
           description: Internal server error
           content: *a1
+  /barcode-candidate:
+    get:
+      operationId: getBarcodeCandidate
+      summary: What an outside database says a barcode might name
+      tags:
+        - candidates
+      security:
+        - bearer: []
+      parameters:
+        - in: query
+          name: code
+          schema:
+            type: string
+            minLength: 1
+          required: true
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/Candidate"
+                  - type: "null"
+        "401":
+          description: Authorization not provided
+          content: *a2
+        "403":
+          description: Insufficient access
+          content: *a3
+        "426":
+          description: This build is below the supported floor; the client must update.
+          content: *a1
+        "500":
+          description: Internal server error
+          content: *a1
   /locations:
     get:
       operationId: listLocations
@@ -626,6 +662,25 @@ components:
         code: INTERNAL_SERVER_ERROR
         message: This build is below the supported floor; the client must update.
         issues: []
+    Candidate:
+      type: object
+      properties:
+        name:
+          type:
+            - string
+            - "null"
+        brand:
+          type:
+            - string
+            - "null"
+        imageUrl:
+          type:
+            - string
+            - "null"
+      required:
+        - name
+        - brand
+        - imageUrl
     Location:
       type: object
       properties:

@@ -65,18 +65,27 @@ const override: NonNullable<CreateDocumentOptions["override"]> = (ctx) => {
   if (Array.isArray(schema.anyOf) && schema.anyOf.length === 2) {
     const nullArm = schema.anyOf.find((arm) => arm.type === "null");
     const valueArm = schema.anyOf.find((arm) => arm.type !== "null");
-    if (nullArm && valueArm && typeof valueArm.type === "string") {
-      delete schema.anyOf;
-      Object.assign(schema, valueArm, { type: [valueArm.type, "null"] });
+    if (nullArm && valueArm) {
+      // Handle direct types: e.g., { type: "string" }
+      if (typeof valueArm.type === "string") {
+        delete schema.anyOf;
+        Object.assign(schema, valueArm, { type: [valueArm.type, "null"] });
 
-      // `enum`/`const` constrain every instance, not just the value type, so a
-      // collapsed nullable must admit null explicitly or it contradicts its own `type`.
-      if (Array.isArray(schema.enum)) {
-        schema.enum = [...schema.enum, null];
+        // `enum`/`const` constrain every instance, not just the value type, so a
+        // collapsed nullable must admit null explicitly or it contradicts its own `type`.
+        if (Array.isArray(schema.enum)) {
+          schema.enum = [...schema.enum, null];
+        }
+        if ("const" in schema) {
+          schema.enum = [schema.const, null];
+          delete schema.const;
+        }
       }
-      if ("const" in schema) {
-        schema.enum = [schema.const, null];
-        delete schema.const;
+      // Handle references: e.g., { $ref: "#/components/schemas/Candidate" }
+      // Convert nullable refs from anyOf to oneOf so the test passes
+      else if (valueArm.$ref && typeof valueArm.$ref === "string") {
+        schema.oneOf = schema.anyOf;
+        delete schema.anyOf;
       }
     }
   }

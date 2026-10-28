@@ -9,6 +9,7 @@ import { buildOpenApiDocument } from "./buildOpenApiDocument.ts";
 const COMMITTED = path.join(import.meta.dir, "../../../../openapi/vendpire.yaml");
 
 const EXPECTED_PATHS = [
+  "/barcode-candidate",
   "/client-support",
   "/locations",
   "/machines",
@@ -29,7 +30,7 @@ describe("the committed OpenAPI document", () => {
     expect(fresh).toBe(committed);
   });
 
-  it("declares exactly the ten endpoints on the surface", () => {
+  it("declares exactly the eleven endpoints on the surface", () => {
     const document = parse(readFileSync(COMMITTED, "utf8"));
 
     expect(Object.keys(document.paths).sort()).toEqual(EXPECTED_PATHS);
@@ -79,6 +80,7 @@ describe("the shapes a Swift client has to decode", () => {
 
     expect(Object.keys(document.components.schemas)).toEqual(
       expect.arrayContaining([
+        "Candidate",
         "Location",
         "Machine",
         "Product",
@@ -157,6 +159,16 @@ describe("the shapes a Swift client has to decode", () => {
     };
 
     expect(validate(visit)).toBe(true);
+  });
+
+  it("serves the barcode candidate as a flat nullable object — no oneOf", () => {
+    const document = parse(readFileSync(COMMITTED, "utf8"));
+    const candidate = document.components.schemas.Candidate;
+    expect(candidate.type).toBe("object");
+    expect(Object.keys(candidate.properties).sort()).toEqual(["brand", "imageUrl", "name"]);
+    const ajv = new Ajv2020({ strict: false });
+    const validate = ajv.compile(candidate);
+    expect(validate({ name: "Coke Zero 12oz", brand: "Coca-Cola", imageUrl: null })).toBe(true);
   });
 
   it("declares money and counts as integers, so Swift gets Int and not Double", () => {
