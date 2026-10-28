@@ -15,8 +15,10 @@ const EXPECTED_PATHS = [
   "/machines",
   "/me",
   "/packs",
+  "/packs/{id}/barcode",
   "/planograms/current",
   "/products",
+  "/products/{id}/barcode",
   "/purchases",
   "/visits",
   "/visits/latest",
@@ -30,7 +32,7 @@ describe("the committed OpenAPI document", () => {
     expect(fresh).toBe(committed);
   });
 
-  it("declares exactly the eleven endpoints on the surface", () => {
+  it("declares exactly the thirteen endpoints on the surface", () => {
     const document = parse(readFileSync(COMMITTED, "utf8"));
 
     expect(Object.keys(document.paths).sort()).toEqual(EXPECTED_PATHS);
@@ -55,7 +57,7 @@ describe("the surface's auth posture", () => {
 
     for (const route of EXPECTED_PATHS.filter((p) => p !== "/client-support")) {
       const operation =
-        document.paths[route].get ?? document.paths[route].post;
+        document.paths[route].get ?? document.paths[route].post ?? document.paths[route].put;
       expect(operation.security).toEqual([{ bearer: [] }]);
     }
   });
@@ -66,6 +68,12 @@ describe("the surface's auth posture", () => {
     expect(document.paths["/packs"].post.operationId).toBe("createPack");
     expect(document.paths["/products"].post.security).toEqual([{ bearer: [] }]);
     expect(document.paths["/packs"].post.security).toEqual([{ bearer: [] }]);
+  });
+
+  it("attaches barcodes through narrow PUT routes", () => {
+    const document = parse(readFileSync(COMMITTED, "utf8"));
+    expect(document.paths["/products/{id}/barcode"].put.operationId).toBe("attachProductBarcode");
+    expect(document.paths["/packs/{id}/barcode"].put.operationId).toBe("attachPackBarcode");
   });
 
   it("gives each status its own description — the generator shares one response object", () => {

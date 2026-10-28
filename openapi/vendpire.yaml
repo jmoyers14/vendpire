@@ -260,6 +260,62 @@ paths:
         "500":
           description: Internal server error
           content: *a1
+  /packs/{id}/barcode:
+    put:
+      operationId: attachPackBarcode
+      summary: Attach a scanned unit barcode to an existing pack
+      tags:
+        - packs
+      security:
+        - bearer: []
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: string
+            pattern: ^[0-9a-f]{24}$
+          required: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                code:
+                  type: string
+                  minLength: 1
+              required:
+                - code
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Pack"
+        "400":
+          description: Invalid input data
+          content: *a4
+        "401":
+          description: Authorization not provided
+          content: *a2
+        "403":
+          description: Insufficient access
+          content: *a3
+        "404":
+          description: Not found
+          content: &a6
+            application/json:
+              schema:
+                $ref: "#/components/schemas/error.NOT_FOUND"
+        "409": *a5
+        "426":
+          description: This build is below the supported floor; the client must update.
+          content: *a1
+        "500":
+          description: Internal server error
+          content: *a1
   /planograms/current:
     get:
       operationId: listCurrentPlanograms
@@ -385,6 +441,59 @@ paths:
         "403":
           description: Insufficient access
           content: *a3
+        "409": *a5
+        "426":
+          description: This build is below the supported floor; the client must update.
+          content: *a1
+        "500":
+          description: Internal server error
+          content: *a1
+  /products/{id}/barcode:
+    put:
+      operationId: attachProductBarcode
+      summary: Attach a scanned unit barcode to an existing product
+      tags:
+        - products
+      security:
+        - bearer: []
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: string
+            pattern: ^[0-9a-f]{24}$
+          required: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                code:
+                  type: string
+                  minLength: 1
+              required:
+                - code
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+        "400":
+          description: Invalid input data
+          content: *a4
+        "401":
+          description: Authorization not provided
+          content: *a2
+        "403":
+          description: Insufficient access
+          content: *a3
+        "404":
+          description: Not found
+          content: *a6
         "409": *a5
         "426":
           description: This build is below the supported floor; the client must update.
@@ -537,10 +646,7 @@ paths:
           content: *a4
         "404":
           description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/error.NOT_FOUND"
+          content: *a6
         "500":
           description: Internal server error
           content: *a1
@@ -1159,6 +1265,37 @@ components:
         code: CONFLICT
         message: The barcode already belongs to another record
         issues: []
+    error.NOT_FOUND:
+      type: object
+      properties:
+        message:
+          type: string
+          description: The error message
+          example: No such pack
+        code:
+          type: string
+          description: The error code
+          example: NOT_FOUND
+        issues:
+          description: An array of issues that were responsible for the error
+          example: []
+          type: array
+          items:
+            type: object
+            properties:
+              message:
+                type: string
+            required:
+              - message
+      required:
+        - message
+        - code
+      title: No such pack error (404)
+      description: The error information
+      example:
+        code: NOT_FOUND
+        message: No such pack
+        issues: []
     Planogram:
       type: object
       properties:
@@ -1330,37 +1467,6 @@ components:
       required:
         - updateRequirement
         - updateUrl
-    error.NOT_FOUND:
-      type: object
-      properties:
-        message:
-          type: string
-          description: The error message
-          example: Not found
-        code:
-          type: string
-          description: The error code
-          example: NOT_FOUND
-        issues:
-          description: An array of issues that were responsible for the error
-          example: []
-          type: array
-          items:
-            type: object
-            properties:
-              message:
-                type: string
-            required:
-              - message
-      required:
-        - message
-        - code
-      title: Not found error (404)
-      description: The error information
-      example:
-        code: NOT_FOUND
-        message: Not found
-        issues: []
     Visit:
       type: object
       properties:

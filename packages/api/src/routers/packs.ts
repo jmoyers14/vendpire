@@ -90,4 +90,30 @@ export const packsRouter = router({
     .mutation(({ ctx, input }) =>
       ctx.services.packService.remove(ctx.auth.orgId, input.id),
     ),
+
+  attachBarcode: orgProtectedProcedure
+    .meta({
+      openapi: {
+        method: "PUT",
+        path: "/packs/{id}/barcode",
+        tags: ["packs"],
+        protect: true,
+        operationId: "attachPackBarcode",
+        summary: "Attach a scanned unit barcode to an existing pack",
+        errorResponses: {
+          400: "Invalid input data",
+          401: "Authorization not provided",
+          403: "Insufficient access",
+          404: "No such pack",
+          409: "The barcode already belongs to another record",
+          426: "This build is below the supported floor; the client must update.",
+          500: "Internal server error",
+        },
+      },
+    })
+    .input(z.object({ id: objectId(), code: z.string().min(1) }))
+    .output(packDto)
+    .mutation(({ ctx, input }) =>
+      ctx.services.packService.attachBarcode(ctx.auth.orgId, input.id, input.code),
+    ),
 });

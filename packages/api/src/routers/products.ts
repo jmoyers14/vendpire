@@ -90,4 +90,30 @@ export const productsRouter = router({
     .mutation(({ ctx, input }) =>
       ctx.services.productService.remove(ctx.auth.orgId, input.id),
     ),
+
+  attachBarcode: orgProtectedProcedure
+    .meta({
+      openapi: {
+        method: "PUT",
+        path: "/products/{id}/barcode",
+        tags: ["products"],
+        protect: true,
+        operationId: "attachProductBarcode",
+        summary: "Attach a scanned unit barcode to an existing product",
+        errorResponses: {
+          400: "Invalid input data",
+          401: "Authorization not provided",
+          403: "Insufficient access",
+          404: "No such product",
+          409: "The barcode already belongs to another record",
+          426: "This build is below the supported floor; the client must update.",
+          500: "Internal server error",
+        },
+      },
+    })
+    .input(z.object({ id: objectId(), code: z.string().min(1) }))
+    .output(productDto)
+    .mutation(({ ctx, input }) =>
+      ctx.services.productService.attachBarcode(ctx.auth.orgId, input.id, input.code),
+    ),
 });
