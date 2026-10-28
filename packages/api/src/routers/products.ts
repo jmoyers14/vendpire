@@ -37,20 +37,6 @@ export const productsRouter = router({
     .output(z.array(productDto))
     .query(({ ctx }) => ctx.services.productService.list(ctx.auth.orgId)),
 
-  // External catalog text search — returns ranked matches with barcodes.
-  searchCatalog: orgProtectedProcedure
-    .input(z.object({ query: z.string() }))
-    .query(({ ctx, input }) =>
-      ctx.services.productDataService.search(input.query),
-    ),
-
-  // External catalog lookup for the UPC field — returns name/brand/image.
-  lookupUpc: orgProtectedProcedure
-    .input(z.object({ upc: z.string().min(1) }))
-    .query(({ ctx, input }) =>
-      ctx.services.productDataService.lookup(input.upc),
-    ),
-
   get: orgProtectedProcedure
     .input(z.object({ id: objectId() }))
     .query(({ ctx, input }) =>
