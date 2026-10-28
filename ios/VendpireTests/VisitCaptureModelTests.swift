@@ -195,6 +195,74 @@ final class VisitCaptureModelTests: XCTestCase {
         XCTAssertEqual(model.focus?.slotCode, "A0", "an empty cell holds nothing to focus")
     }
 
+    // MARK: - The last visit
+
+    private func insertLastVisit(lines: [VisitLine]) throws {
+        context.insert(
+            StoredLatestVisit(
+                id: "visit-prior", machineId: "machine-1",
+                countedAt: Date(timeIntervalSince1970: 1_700_000_000),
+                lines: lines
+            )
+        )
+        try context.save()
+    }
+
+    private func priorLine(_ slotCode: String, remaining: Int, added: Int, removed: Int = 0) -> VisitLine {
+        VisitLine(
+            slotCode: slotCode, productId: "p-\(slotCode)",
+            remaining: remaining, added: added, removed: removed
+        )
+    }
+
+    /// The strip's subtitle under LEFT — the spec's "left 6 last time".
+    func testTheStripShowsWhatWeLeftLastTime() throws {
+        try startCapture()
+        try insertLastVisit(lines: [priorLine("A0", remaining: 2, added: 5, removed: 1)])
+
+        // 2 − 1 + 5 = 6: levelAfter, the same arithmetic the P&L runs on.
+        XCTAssertEqual(restartedModel().focusedLastLevelText, "left 6 last time")
+    }
+
+    func testAFirstVisitHasNoLastTimeToShow() throws {
+        try startCapture()
+
+        XCTAssertNil(model.focusedLastLevelText)
+    }
+
+    /// Enter 9 where only 7 could have been: the cell turns amber, warn-only.
+    func testCountingMoreThanWeLeftReadsAsSuspicious() throws {
+        try startCapture()
+        try insertLastVisit(lines: [priorLine("A0", remaining: 0, added: 7)])
+        let model = restartedModel()
+
+        model.type(9)
+
+        XCTAssertTrue(model.isSuspicious(model.linesBySlotCode["A0"]))
+        XCTAssertFalse(model.isSuspicious(model.linesBySlotCode["A2"]), "no count, no warning")
+    }
+
+    func testReviewCarriesTheLastLevelsIntoTheGaps() throws {
+        try startCapture()
+        try insertLastVisit(lines: [priorLine("A2", remaining: 1, added: 5)])
+        let model = restartedModel()
+        model.type(4)  // count A0, leave A2 and A4 as gaps
+
+        let summary = model.reviewSummary
+
+        XCTAssertEqual(summary.gaps.map(\.slotCode), ["A2", "A4"])
+        XCTAssertEqual(summary.gaps.first?.lastLevel, 6)
+    }
+
+    /// The model is created in .task before the mirror rows are inserted by
+    /// these tests, so re-create it the way a fresh screen would.
+    private func restartedModel() -> VisitCaptureModel {
+        let fresh = VisitCaptureModel()
+        let machine = try! context.fetch(FetchDescriptor<StoredMachine>()).first!
+        fresh.start(at: machine, context: context)
+        return fresh
+    }
+
     // MARK: - Removals
 
     /// The schema defines `remaining` as what was in the slot BEFORE removing
