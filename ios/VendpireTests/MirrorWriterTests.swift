@@ -168,6 +168,78 @@ final class MirrorWriterTests: XCTestCase {
         XCTAssertEqual(try count(StoredLatestVisit.self), 0)
     }
 
+    // MARK: - Single-record upsert
+
+    func testUpsertInsertsOneProductWithoutTouchingOthers() throws {
+        try setUpStore()
+        try writer.apply(makeRemoteOrg(), syncedAt: Date(timeIntervalSince1970: 0))
+        let metadataBefore = try XCTUnwrap(try fetch(StoreMetadata.self).first)
+
+        try writer.upsert(RemoteProduct(
+            id: "p2", name: "Coke Zero", upc: "00049000042559", category: "drinks",
+            taxClass: nil, imageUrl: nil, defaultPriceCents: 175, active: true,
+            deletedAt: nil, updatedAt: nil
+        ))
+
+        let products = try fetch(StoredProduct.self)
+        XCTAssertEqual(products.count, 2, "an upsert must never reconcile-delete the rest of the mirror")
+        XCTAssertEqual(products.first { $0.id == "p2" }?.upc, "00049000042559")
+
+        XCTAssertEqual(try count(StoredMachine.self), 1, "upsert must not touch unrelated entities")
+        XCTAssertEqual(try count(StoredLocation.self), 1, "upsert must not touch unrelated entities")
+        XCTAssertEqual(try count(StoredPack.self), 1, "upsert must not touch unrelated entities")
+
+        let metadataAfter = try XCTUnwrap(try fetch(StoreMetadata.self).first)
+        XCTAssertEqual(metadataAfter.lastSyncedAt, metadataBefore.lastSyncedAt, "upsert must not touch sync metadata")
+    }
+
+    func testUpsertUpdatesInPlaceById() throws {
+        try setUpStore()
+        try writer.apply(makeRemoteOrg(), syncedAt: Date(timeIntervalSince1970: 0))
+
+        try writer.upsert(RemoteProduct(
+            id: "product-1", name: "Cinnamon Roll", upc: "00012345678905", category: "snacks",
+            taxClass: nil, imageUrl: nil, defaultPriceCents: 500, active: true,
+            deletedAt: nil, updatedAt: nil
+        ))
+
+        let products = try fetch(StoredProduct.self)
+        XCTAssertEqual(products.count, 1, "updating an existing id must not add a row")
+        XCTAssertEqual(products.first?.upc, "00012345678905")
+    }
+
+    func testUpsertInsertsOnePackWithoutTouchingOthers() throws {
+        try setUpStore()
+        try writer.apply(makeRemoteOrg(), syncedAt: Date(timeIntervalSince1970: 0))
+
+        try writer.upsert(RemotePack(
+            id: "pack-2", name: "Coke Zero case (12)", barcodes: ["00085264790034"],
+            contents: [PackContent(productId: "product-1", units: 12)],
+            active: true, deletedAt: nil, updatedAt: nil
+        ))
+
+        let packs = try fetch(StoredPack.self)
+        XCTAssertEqual(packs.count, 2, "an upsert must never reconcile-delete the rest of the mirror")
+        XCTAssertEqual(packs.first { $0.id == "pack-2" }?.barcodes, ["00085264790034"])
+
+        XCTAssertEqual(try count(StoredProduct.self), 1, "upsert must not touch unrelated entities")
+        XCTAssertEqual(try count(StoredMachine.self), 1, "upsert must not touch unrelated entities")
+    }
+
+    func testUpsertUpdatesPackInPlaceById() throws {
+        try setUpStore()
+        try writer.apply(makeRemoteOrg(), syncedAt: Date(timeIntervalSince1970: 0))
+
+        try writer.upsert(RemotePack(
+            id: "pack-1", name: "Renamed pack", barcodes: [], contents: [],
+            active: true, deletedAt: nil, updatedAt: nil
+        ))
+
+        let packs = try fetch(StoredPack.self)
+        XCTAssertEqual(packs.count, 1, "updating an existing id must not add a row")
+        XCTAssertEqual(packs.first?.name, "Renamed pack")
+    }
+
     // MARK: - Helpers
 
     private func fetch<Model: PersistentModel>(_ type: Model.Type) throws -> [Model] {
