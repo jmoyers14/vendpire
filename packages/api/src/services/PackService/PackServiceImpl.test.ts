@@ -102,9 +102,10 @@ describe("PackService", () => {
     it("appends the normalized code to barcodes", async () => {
       const productId = products.seed(ORG, productInput({})).id;
       const pack = await service.create(ORG, input({ contents: [{ productId, units: 30 }] }));
+      const countBefore = pack.barcodes.length;
       const updated = await service.attachBarcode(ORG, pack.id, "10049000042556");
       expect(updated.barcodes).toContain("10049000042556");
-      expect(updated.barcodes.length).toBe(pack.barcodes.length + 1);
+      expect(updated.barcodes.length).toBe(countBefore + 1);
     });
 
     it("rejects a code that is a product's unit code", async () => {
