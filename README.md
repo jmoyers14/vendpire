@@ -2,7 +2,7 @@
 
 Vending machine route tracker: count-and-fill visit logging, inventory,
 and profit reporting for a small vending operation. Two surfaces share one
-backend — a React web dashboard for desk work and (from Phase 6) a native
+backend — a React web dashboard for desk work and (from Phase 8) a native
 iOS app for offline field work.
 
 ## Stack
@@ -11,7 +11,7 @@ iOS app for offline field work.
 - **API:** tRPC for the web dashboard, with a layered backend
   (data-access repositories → integrations adapters → services) wired
   together with tsyringe DI. A small REST/OpenAPI sync surface for iOS
-  arrives in Phase 5.
+  arrives in Phase 6.
 - **Database:** MongoDB (Mongoose)
 - **Frontend:** React + Vite + Tailwind, TanStack Router + Query
 - **Auth:** Clerk — the Clerk organization IS the business (tenant);
@@ -27,6 +27,7 @@ iOS app for offline field work.
 | `packages/api` | tRPC server entrypoint: context, routers, business services. |
 | `packages/web` | React dashboard. Imports the `AppRouter` **type** only — end-to-end types, zero runtime coupling. |
 | `packages/e2e` | Playwright end-to-end tests. Worker-scoped fixtures boot an isolated stack per worker (in-memory Mongo + api + web), so specs run fully parallel. |
+| `ios/` | Native SwiftUI field app — SwiftData mirror + outbox over `/api/v1` (outside the Bun workspace) |
 
 ## Development
 
