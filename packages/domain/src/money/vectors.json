@@ -1,0 +1,12 @@
+{
+  "comment": "Shared allocation vectors. Read by allocate.test.ts and by ios/VendpireTests/AllocateTests.swift (as the bundle resource allocate-vectors.json, a symlink to this file). The TS implementation is the reference: expected values were produced by running it. Both implementations must pass every case — that is what lets the iOS preview show the numbers the server will store.",
+  "allocate": [
+    { "totalCents": 1699, "weights": [10, 10, 10], "expected": [567, 566, 566], "note": "equal weights, indivisible remainder — tie-break order is part of the contract" },
+    { "totalCents": 3798, "weights": [20, 10], "expected": [2532, 1266], "note": "the variety-case example from the spec" },
+    { "totalCents": 1000, "weights": [1, 1, 1], "expected": [334, 333, 333], "note": "classic 3-way split" },
+    { "totalCents": 0, "weights": [3, 2], "expected": [0, 0], "note": "free is free" },
+    { "totalCents": 500, "weights": [0, 0], "expected": [0, 0], "note": "zero total weight short-circuits to zeros" },
+    { "totalCents": 101, "weights": [1, 1, 1, 1, 1, 1, 1], "expected": [15, 15, 15, 14, 14, 14, 14], "note": "more parts than remainder pennies" },
+    { "totalCents": 2599, "weights": [12, 18, 6], "expected": [866, 1300, 433], "note": "uneven weights" }
+  ]
+}

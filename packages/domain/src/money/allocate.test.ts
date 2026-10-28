@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { allocateProportionally } from "./allocate.ts";
+import vectors from "./vectors.json";
 
 describe("allocateProportionally", () => {
   it("splits evenly when weights are equal", () => {
@@ -20,5 +21,18 @@ describe("allocateProportionally", () => {
   it("handles zero total and zero weights without dividing by zero", () => {
     expect(allocateProportionally(0, [1, 2])).toEqual([0, 0]);
     expect(allocateProportionally(100, [0, 0])).toEqual([0, 0]);
+  });
+});
+
+describe("vectors.json", () => {
+  for (const v of vectors.allocate) {
+    it(`${v.totalCents} across ${JSON.stringify(v.weights)} — ${v.note}`, () => {
+      expect(allocateProportionally(v.totalCents, v.weights)).toEqual(v.expected);
+    });
+  }
+
+  it("covers the degenerate cases", () => {
+    expect(vectors.allocate.some((v) => v.totalCents === 0)).toBe(true);
+    expect(vectors.allocate.some((v) => v.weights.every((w) => w === 0))).toBe(true);
   });
 });
