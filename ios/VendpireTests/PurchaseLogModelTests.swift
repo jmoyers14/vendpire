@@ -91,6 +91,20 @@ final class PurchaseLogModelTests: XCTestCase {
         )
     }
 
+    /// Put a product into the case being created, the way the Search door
+    /// does — no network, no inner resolver.
+    private func addContent(productId: String, name: String, units: String) {
+        model.resolver.addContent(
+            CatalogItem(
+                kind: .unit(imageUrl: nil), recordId: productId, name: name, barcode: nil
+            )
+        )
+        guard let added = model.resolver.contents.last else {
+            return XCTFail("addContent did not append a row")
+        }
+        model.resolver.updateContent(id: added.id, unitsText: units)
+    }
+
     private func fetchOutbox() throws -> [OutboxItem] {
         try context.fetch(FetchDescriptor<OutboxItem>())
     }
@@ -117,8 +131,8 @@ final class PurchaseLogModelTests: XCTestCase {
         XCTAssertEqual(row.name, "Coke Zero", "the row denormalizes the name for display")
         XCTAssertEqual(row.quantityText, "1")
         XCTAssertEqual(row.totalCostText, "")
-        XCTAssertNil(model.pendingScan)
-        XCTAssertNil(model.errorMessage)
+        XCTAssertNil(model.resolver.pendingScan)
+        XCTAssertNil(model.resolver.errorMessage)
     }
 
     /// Scanning the same can twice means two cans, not two lines to reconcile.
@@ -148,13 +162,13 @@ final class PurchaseLogModelTests: XCTestCase {
         try makeScreen(products: [makeCoke()])
 
         model.handleScan(caseCode, context: context)
-        await model.candidateFetch?.value
+        await model.resolver.candidateFetch?.value
 
-        let pending = try XCTUnwrap(model.pendingScan)
+        let pending = try XCTUnwrap(model.resolver.pendingScan)
         XCTAssertEqual(pending.gtin14, "10049000042556")
         XCTAssertTrue(pending.likelyCase)
         XCTAssertTrue(model.rows.isEmpty, "an unknown code adds nothing until the sheet resolves it")
-        XCTAssertNil(model.errorMessage, "not-found is a question, not an error")
+        XCTAssertNil(model.resolver.errorMessage, "not-found is a question, not an error")
     }
 
     /// The candidate is a guess from an outside database. A lookup that fails
@@ -164,11 +178,11 @@ final class PurchaseLogModelTests: XCTestCase {
         api.onFetchBarcodeCandidate = { _ in throw StubError.unreachable }
 
         model.handleScan(caseCode, context: context)
-        await model.candidateFetch?.value
+        await model.resolver.candidateFetch?.value
 
-        XCTAssertNotNil(model.pendingScan)
-        XCTAssertNil(model.pendingScan?.candidate)
-        XCTAssertNil(model.errorMessage)
+        XCTAssertNotNil(model.resolver.pendingScan)
+        XCTAssertNil(model.resolver.pendingScan?.candidate)
+        XCTAssertNil(model.resolver.errorMessage)
     }
 
     func testACandidateLookupFillsTheSheet() async throws {
@@ -178,9 +192,9 @@ final class PurchaseLogModelTests: XCTestCase {
         }
 
         model.handleScan(caseCode, context: context)
-        await model.candidateFetch?.value
+        await model.resolver.candidateFetch?.value
 
-        XCTAssertEqual(model.pendingScan?.candidate?.name, "Coca-Cola Zero")
+        XCTAssertEqual(model.resolver.pendingScan?.candidate?.name, "Coca-Cola Zero")
     }
 
     func testInvalidScanSetsAnErrorAndNothingElse() throws {
@@ -188,10 +202,10 @@ final class PurchaseLogModelTests: XCTestCase {
 
         model.handleScan("12345", context: context)
 
-        let message = try XCTUnwrap(model.errorMessage)
+        let message = try XCTUnwrap(model.resolver.errorMessage)
         XCTAssertTrue(message.contains("12345"), "the operator needs to see which digits failed")
         XCTAssertTrue(model.rows.isEmpty)
-        XCTAssertNil(model.pendingScan)
+        XCTAssertNil(model.resolver.pendingScan)
     }
 
     // MARK: - Reconciliation
@@ -363,13 +377,13 @@ final class PurchaseLogModelTests: XCTestCase {
         }
 
         model.handleScan(caseCode, context: context)
-        await model.candidateFetch?.value
+        await model.resolver.candidateFetch?.value
         let item = try XCTUnwrap(model.searchResults(query: "coke", context: context).first)
-        await model.attach(to: item, context: context)
+        await model.resolver.attach(to: item, context: context)
 
         XCTAssertEqual(calls.attachedProducts.map(\.productId), ["p-coke"])
         XCTAssertEqual(calls.attachedProducts.map(\.code), ["10049000042556"])
-        XCTAssertNil(model.pendingScan, "a resolved scan closes the sheet")
+        XCTAssertNil(model.resolver.pendingScan, "a resolved scan closes the sheet")
         XCTAssertEqual(model.rows.count, 1)
         XCTAssertEqual(model.rows.first?.recordId, "p-coke")
 
@@ -383,12 +397,12 @@ final class PurchaseLogModelTests: XCTestCase {
         api.onAttachProductBarcode = { _, _ in throw StubError.unreachable }
 
         model.handleScan(caseCode, context: context)
-        await model.candidateFetch?.value
+        await model.resolver.candidateFetch?.value
         let item = try XCTUnwrap(model.searchResults(query: "coke", context: context).first)
-        await model.attach(to: item, context: context)
+        await model.resolver.attach(to: item, context: context)
 
-        XCTAssertNotNil(model.errorMessage)
-        XCTAssertNotNil(model.pendingScan, "the sheet stays open so the operator can try again")
+        XCTAssertNotNil(model.resolver.errorMessage)
+        XCTAssertNotNil(model.resolver.pendingScan, "the sheet stays open so the operator can try again")
         XCTAssertTrue(model.rows.isEmpty)
     }
 
@@ -403,13 +417,13 @@ final class PurchaseLogModelTests: XCTestCase {
         }
 
         model.handleScan(caseCode, context: context)
-        await model.candidateFetch?.value
+        await model.resolver.candidateFetch?.value
         let item = try XCTUnwrap(model.searchResults(query: "coke", context: context).first)
-        await model.attach(to: item, context: context)
+        await model.resolver.attach(to: item, context: context)
 
-        XCTAssertEqual(model.errorMessage, message)
-        XCTAssertEqual(model.errorStatusCode, 409, "the sheet offers the one-tap on the status")
-        XCTAssertNotNil(model.pendingScan, "the sheet stays open so the operator can attach instead")
+        XCTAssertEqual(model.resolver.errorMessage, message)
+        XCTAssertEqual(model.resolver.errorStatusCode, 409, "the sheet offers the one-tap on the status")
+        XCTAssertNotNil(model.resolver.pendingScan, "the sheet stays open so the operator can attach instead")
     }
 
     /// A stale 409 would keep offering "use existing instead" against a
@@ -421,13 +435,13 @@ final class PurchaseLogModelTests: XCTestCase {
         }
 
         model.handleScan(caseCode, context: context)
-        await model.candidateFetch?.value
+        await model.resolver.candidateFetch?.value
         let item = try XCTUnwrap(model.searchResults(query: "coke", context: context).first)
-        await model.attach(to: item, context: context)
-        await model.createUnit(name: "", category: "", priceText: "", context: context)
+        await model.resolver.attach(to: item, context: context)
+        await model.resolver.createUnit(name: "", category: "", priceText: "", context: context)
 
-        XCTAssertEqual(model.errorMessage, "Name and category are required")
-        XCTAssertNil(model.errorStatusCode)
+        XCTAssertEqual(model.resolver.errorMessage, "Name and category are required")
+        XCTAssertNil(model.resolver.errorStatusCode)
     }
 
     // MARK: - Creating what the code names
@@ -444,8 +458,8 @@ final class PurchaseLogModelTests: XCTestCase {
         }
 
         model.handleScan(caseCode, context: context)
-        await model.candidateFetch?.value
-        await model.createUnit(
+        await model.resolver.candidateFetch?.value
+        await model.resolver.createUnit(
             name: "Coke Zero", category: "drinks", priceText: "1.75", context: context
         )
 
@@ -456,7 +470,7 @@ final class PurchaseLogModelTests: XCTestCase {
         XCTAssertEqual(draft.imageUrl, "https://x/i.png")
         XCTAssertEqual(draft.defaultPriceCents, 175)
 
-        XCTAssertNil(model.pendingScan)
+        XCTAssertNil(model.resolver.pendingScan)
         XCTAssertEqual(model.rows.first?.recordId, "p-new")
         XCTAssertEqual(try fetchStoredProducts().count, 1, "the new product is mirrored immediately")
     }
@@ -464,12 +478,12 @@ final class PurchaseLogModelTests: XCTestCase {
     func testCreateUnitRequiresANameAndCategory() async throws {
         try makeScreen()
         model.handleScan(caseCode, context: context)
-        await model.candidateFetch?.value
+        await model.resolver.candidateFetch?.value
 
-        await model.createUnit(name: "  ", category: "drinks", priceText: "", context: context)
+        await model.resolver.createUnit(name: "  ", category: "drinks", priceText: "", context: context)
 
-        XCTAssertNotNil(model.errorMessage)
-        XCTAssertNotNil(model.pendingScan)
+        XCTAssertNotNil(model.resolver.errorMessage)
+        XCTAssertNotNil(model.resolver.pendingScan)
         XCTAssertTrue(model.rows.isEmpty)
     }
 
@@ -484,17 +498,17 @@ final class PurchaseLogModelTests: XCTestCase {
         }
 
         model.handleScan(caseCode, context: context)
-        await model.candidateFetch?.value
-        await model.createUnit(
+        await model.resolver.candidateFetch?.value
+        await model.resolver.createUnit(
             name: "Coke Zero", category: "drinks", priceText: "$1.75", context: context
         )
 
         XCTAssertEqual(
-            model.errorMessage,
+            model.resolver.errorMessage,
             "Sell price must be a dollar amount (e.g. 1.75), or left blank"
         )
         XCTAssertTrue(calls.productDrafts.isEmpty, "nothing is created on a rejected price")
-        XCTAssertNotNil(model.pendingScan, "the sheet stays open to fix the field")
+        XCTAssertNotNil(model.resolver.pendingScan, "the sheet stays open to fix the field")
         XCTAssertTrue(model.rows.isEmpty)
     }
 
@@ -509,12 +523,12 @@ final class PurchaseLogModelTests: XCTestCase {
         }
 
         model.handleScan(caseCode, context: context)
-        await model.candidateFetch?.value
-        await model.createUnit(
+        await model.resolver.candidateFetch?.value
+        await model.resolver.createUnit(
             name: "Coke Zero", category: "drinks", priceText: "  ", context: context
         )
 
-        XCTAssertNil(model.errorMessage)
+        XCTAssertNil(model.resolver.errorMessage)
         XCTAssertEqual(calls.productDrafts.first?.defaultPriceCents, 0)
         XCTAssertEqual(model.rows.first?.recordId, "p-new")
     }
@@ -526,19 +540,22 @@ final class PurchaseLogModelTests: XCTestCase {
         try makeScreen()
         let unconnected = PurchaseLogModel()
         unconnected.handleScan(caseCode, context: context)
-        XCTAssertNotNil(unconnected.pendingScan)
+        XCTAssertNotNil(unconnected.resolver.pendingScan)
 
-        await unconnected.createUnit(
+        await unconnected.resolver.createUnit(
             name: "Coke Zero", category: "drinks", priceText: "", context: context
         )
 
-        XCTAssertEqual(unconnected.errorMessage, "Not connected yet — close and reopen the screen")
+        XCTAssertEqual(
+            unconnected.resolver.errorMessage,
+            "Not connected yet — close and reopen the screen"
+        )
         XCTAssertTrue(unconnected.rows.isEmpty)
-        XCTAssertNotNil(unconnected.pendingScan)
+        XCTAssertNotNil(unconnected.resolver.pendingScan)
     }
 
-    func testCreatePackCreatesItsNewProductsFirst() async throws {
-        try makeScreen(products: [makeCoke()])
+    func testCreatePackOnlyCreatesThePack() async throws {
+        try makeScreen(products: [makeCoke(), makeDoritos()])
         let calls = CallLog()
         api.onCreateProduct = { draft in
             calls.productDrafts.append(draft)
@@ -550,40 +567,34 @@ final class PurchaseLogModelTests: XCTestCase {
         }
 
         model.handleScan(caseCode, context: context)
-        await model.candidateFetch?.value
-        await model.createPack(
-            name: "Costco variety case",
-            contents: [
-                PurchaseLogModel.NewPackContent(
-                    productId: "p-coke", unitsText: "20", name: "", category: "", bagCode: ""
-                ),
-                PurchaseLogModel.NewPackContent(
-                    productId: nil, unitsText: "10", name: "Doritos Nacho Cheese",
-                    category: "snacks", bagCode: bagCode
-                ),
-            ],
-            context: context
-        )
+        await model.resolver.candidateFetch?.value
+        addContent(productId: "p-coke", name: "Coke Zero", units: "20")
+        addContent(productId: "p-doritos", name: "Doritos Nacho Cheese", units: "10")
 
-        XCTAssertEqual(calls.productDrafts.count, 1, "only the row without a product id is created")
-        XCTAssertEqual(calls.productDrafts.first?.upc, "00012345678905", "the bag keeps its OWN code")
+        await model.resolver.createPack(name: "Costco variety case", context: context)
+
+        XCTAssertTrue(
+            calls.productDrafts.isEmpty,
+            "every row already holds a real product — createPack creates only the pack"
+        )
 
         let draft = try XCTUnwrap(calls.packDrafts.first)
         XCTAssertEqual(draft.name, "Costco variety case")
         XCTAssertEqual(draft.barcodes, ["10049000042556"], "the scanned code belongs to the case")
         XCTAssertEqual(
             draft.contents,
-            [PackContent(productId: "p-coke", units: 20), PackContent(productId: "p-new", units: 10)]
+            [PackContent(productId: "p-coke", units: 20), PackContent(productId: "p-doritos", units: 10)]
         )
-        XCTAssertNil(model.pendingScan)
+        XCTAssertNil(model.resolver.pendingScan)
         XCTAssertEqual(model.rows.first?.kind, .pack)
         XCTAssertEqual(model.rows.first?.recordId, "k-new")
     }
 
-    /// A failure partway leaves the products behind — they are records the
-    /// operator wanted anyway, and a rerun picks them out of the mirror
-    /// rather than duplicating them.
-    func testCreatePackKeepsProductsCreatedBeforeTheFailure() async throws {
+    /// A failure partway leaves the product behind — it is a record the
+    /// operator wanted anyway, and a rerun picks it out of the mirror rather
+    /// than duplicating it. The creation just happens earlier now, when the
+    /// row was resolved rather than when the pack was saved.
+    func testAProductCreatedForTheCaseStaysWhenThePackFails() async throws {
         try makeScreen()
         api.onCreateProduct = { draft in
             Remote.product(id: "p-new", name: draft.name, upc: draft.upc)
@@ -591,71 +602,189 @@ final class PurchaseLogModelTests: XCTestCase {
         api.onCreatePack = { _ in throw StubError.unreachable }
 
         model.handleScan(caseCode, context: context)
-        await model.candidateFetch?.value
-        await model.createPack(
-            name: "Costco variety case",
-            contents: [
-                PurchaseLogModel.NewPackContent(
-                    productId: nil, unitsText: "10", name: "Doritos Nacho Cheese",
-                    category: "snacks", bagCode: ""
-                )
-            ],
-            context: context
+        await model.resolver.candidateFetch?.value
+
+        model.resolver.beginContentResolution(through: .blankCreate)
+        let inner = try XCTUnwrap(model.resolver.contentResolver)
+        await inner.createUnit(
+            name: "Doritos Nacho Cheese", category: "snacks", priceText: "", context: context
         )
 
-        XCTAssertNotNil(model.errorMessage)
-        XCTAssertNotNil(model.pendingScan, "the sheet stays open to retry")
+        XCTAssertEqual(model.resolver.contents.map(\.productId), ["p-new"])
+        let row = try XCTUnwrap(model.resolver.contents.first)
+        model.resolver.updateContent(id: row.id, unitsText: "10")
+
+        await model.resolver.createPack(name: "Costco variety case", context: context)
+
+        XCTAssertNotNil(model.resolver.errorMessage)
+        XCTAssertNotNil(model.resolver.pendingScan, "the sheet stays open to retry")
         XCTAssertEqual(
             try fetchStoredProducts().map(\.id), ["p-new"],
             "the product that was created stays created"
         )
     }
 
-    func testCreatePackRejectsAnUnparseableBagCode() async throws {
-        try makeScreen()
+    /// The number has to name the row on screen.
+    func testCreatePackNumbersTheRowTheOperatorSees() async throws {
+        try makeScreen(products: [makeCoke(), makeDoritos()])
 
         model.handleScan(caseCode, context: context)
-        await model.candidateFetch?.value
-        await model.createPack(
-            name: "Costco variety case",
-            contents: [
-                PurchaseLogModel.NewPackContent(
-                    productId: nil, unitsText: "10", name: "Doritos",
-                    category: "snacks", bagCode: "12345"
-                )
-            ],
-            context: context
-        )
+        await model.resolver.candidateFetch?.value
+        addContent(productId: "p-coke", name: "Coke Zero", units: "20")
+        addContent(productId: "p-doritos", name: "Doritos Nacho Cheese", units: "oops")
 
-        let message = try XCTUnwrap(model.errorMessage)
-        XCTAssertTrue(message.contains("Product 1"), "the error names the row, got: \(message)")
-        XCTAssertEqual(try fetchStoredProducts().count, 0, "nothing is created once a row fails")
+        await model.resolver.createPack(name: "Costco variety case", context: context)
+
+        let message = try XCTUnwrap(model.resolver.errorMessage)
+        XCTAssertTrue(
+            message.contains("Product 2"),
+            "the number must name the visible row, got: \(message)"
+        )
     }
 
-    /// The number has to name the row on screen. A blank row above a bad one
-    /// is dropped by the filter, and counting the survivors would point the
-    /// operator at the wrong field.
-    func testCreatePackNumbersTheRowTheOperatorSees() async throws {
+    func testCreatePackRefusesACaseWithNothingInIt() async throws {
         try makeScreen()
 
         model.handleScan(caseCode, context: context)
-        await model.candidateFetch?.value
-        await model.createPack(
-            name: "Costco variety case",
-            contents: [
-                PurchaseLogModel.NewPackContent(
-                    productId: nil, unitsText: "", name: "", category: "", bagCode: ""
-                ),
-                PurchaseLogModel.NewPackContent(
-                    productId: nil, unitsText: "oops", name: "Doritos",
-                    category: "snacks", bagCode: ""
-                ),
-            ],
-            context: context
+        await model.resolver.candidateFetch?.value
+        await model.resolver.createPack(name: "Costco variety case", context: context)
+
+        XCTAssertEqual(model.resolver.errorMessage, "Add at least one product to the case")
+    }
+
+    // MARK: - One level down: a product inside the case
+
+    func testAnInnerScanOfAKnownProductBecomesAContentRow() async throws {
+        try makeScreen(products: [makeCoke()])
+
+        model.handleScan(caseCode, context: context)
+        await model.resolver.candidateFetch?.value
+        model.resolver.beginContentResolution(through: .scanner)
+        let inner = try XCTUnwrap(model.resolver.contentResolver)
+
+        inner.resolve(cokeUpc, context: context)
+
+        XCTAssertEqual(model.resolver.contents.map(\.productId), ["p-coke"])
+        XCTAssertEqual(model.resolver.contents.first?.name, "Coke Zero")
+        XCTAssertNil(model.resolver.contentResolver, "the inner flow closes once it has an answer")
+        XCTAssertTrue(model.rows.isEmpty, "an inner scan fills a content row, never a purchase row")
+    }
+
+    /// A case cannot contain a case, and the likeliest cause is the operator
+    /// scanning the outer box a second time.
+    func testAnInnerScanRefusesACaseCode() async throws {
+        try makeScreen(products: [makeCoke()], packs: [makeVarietyCase()])
+
+        // A code the mirror doesn't know, so the outer sheet parks it.
+        model.handleScan(bagCode, context: context)
+        await model.resolver.candidateFetch?.value
+        model.resolver.beginContentResolution(through: .scanner)
+        let inner = try XCTUnwrap(model.resolver.contentResolver)
+
+        inner.resolve(caseCode, context: context)
+
+        let message = try XCTUnwrap(inner.errorMessage)
+        XCTAssertTrue(message.contains("case, not an item"), "got: \(message)")
+        XCTAssertTrue(model.resolver.contents.isEmpty, "the row is left alone")
+        XCTAssertNotNil(model.resolver.contentResolver, "the inner flow stays open to rescan")
+    }
+
+    func testAnInnerScanRefusesAnInvalidCode() async throws {
+        try makeScreen()
+
+        model.handleScan(caseCode, context: context)
+        await model.resolver.candidateFetch?.value
+        model.resolver.beginContentResolution(through: .scanner)
+        let inner = try XCTUnwrap(model.resolver.contentResolver)
+
+        inner.resolve("12345", context: context)
+
+        let message = try XCTUnwrap(inner.errorMessage)
+        XCTAssertTrue(message.contains("isn't a valid barcode"), "got: \(message)")
+        XCTAssertTrue(model.resolver.contents.isEmpty)
+    }
+
+    /// Two resolvers, two pending slots. Sharing one would destroy the case's
+    /// own code — and with it the reason the outer sheet is open at all.
+    func testAnInnerScanLeavesTheOuterPendingScanAlone() async throws {
+        try makeScreen(products: [makeCoke()])
+
+        model.handleScan(caseCode, context: context)
+        await model.resolver.candidateFetch?.value
+        let outerCode = try XCTUnwrap(model.resolver.pendingScan).gtin14
+
+        model.resolver.beginContentResolution(through: .scanner)
+        let inner = try XCTUnwrap(model.resolver.contentResolver)
+        inner.resolve(bagCode, context: context)
+        await inner.candidateFetch?.value
+
+        XCTAssertEqual(inner.pendingScan?.gtin14, "00012345678905")
+        XCTAssertEqual(
+            model.resolver.pendingScan?.gtin14, outerCode,
+            "the case's own code survives an inner scan"
+        )
+    }
+
+    func testTheNoBarcodeDoorCreatesAProductWithNoUpc() async throws {
+        try makeScreen()
+        let calls = CallLog()
+        api.onCreateProduct = { draft in
+            calls.productDrafts.append(draft)
+            return Remote.product(id: "p-loose", name: draft.name, upc: draft.upc)
+        }
+
+        model.handleScan(caseCode, context: context)
+        await model.resolver.candidateFetch?.value
+        model.resolver.beginContentResolution(through: .blankCreate)
+        let inner = try XCTUnwrap(model.resolver.contentResolver)
+
+        await inner.createUnit(
+            name: "Loose candy", category: "snacks", priceText: "", context: context
         )
 
-        let message = try XCTUnwrap(model.errorMessage)
-        XCTAssertTrue(message.contains("Product 2"), "the number must name the visible row, got: \(message)")
+        let draft = try XCTUnwrap(calls.productDrafts.first)
+        XCTAssertNil(draft.upc, "a bag with no barcode of its own gets none")
+        XCTAssertEqual(model.resolver.contents.map(\.productId), ["p-loose"])
+    }
+
+    /// One MirrorCatalog, not three: a product created one level down has to be
+    /// findable on the screen above without waiting for a refresh.
+    func testAProductCreatedInsideACaseIsSearchableOnTheScreen() async throws {
+        try makeScreen()
+        api.onCreateProduct = { draft in
+            Remote.product(id: "p-new", name: draft.name, upc: draft.upc)
+        }
+
+        model.handleScan(caseCode, context: context)
+        await model.resolver.candidateFetch?.value
+        model.resolver.beginContentResolution(through: .blankCreate)
+        let inner = try XCTUnwrap(model.resolver.contentResolver)
+        await inner.createUnit(
+            name: "Doritos Nacho Cheese", category: "snacks", priceText: "", context: context
+        )
+
+        XCTAssertEqual(
+            model.searchResults(query: "Doritos", context: context).map(\.recordId), ["p-new"],
+            "the screen's own search sees it immediately"
+        )
+    }
+
+    func testRescanningAProductAlreadyInTheCaseChangesNothing() async throws {
+        try makeScreen(products: [makeCoke()])
+
+        model.handleScan(caseCode, context: context)
+        await model.resolver.candidateFetch?.value
+
+        for _ in 0..<2 {
+            model.resolver.beginContentResolution(through: .scanner)
+            let inner = try XCTUnwrap(model.resolver.contentResolver)
+            inner.resolve(cokeUpc, context: context)
+        }
+
+        XCTAssertEqual(
+            model.resolver.contents.map(\.productId), ["p-coke"],
+            "units are typed per row, so a second row for one product only confuses the split"
+        )
     }
 
     // MARK: - Manual entry
@@ -671,11 +800,11 @@ final class PurchaseLogModelTests: XCTestCase {
     func testResolvingAScanClosesAParkedSheet() throws {
         try makeScreen(products: [makeCoke()])
         model.handleScan(caseCode, context: context)
-        XCTAssertNotNil(model.pendingScan)
+        XCTAssertNotNil(model.resolver.pendingScan)
 
         model.handleScan(cokeUpc, context: context)
 
-        XCTAssertNil(model.pendingScan, "a parked sheet must not sit over a row already in the list")
+        XCTAssertNil(model.resolver.pendingScan, "a parked sheet must not sit over a row already in the list")
         XCTAssertEqual(model.rows.count, 1)
     }
 
@@ -686,7 +815,7 @@ final class PurchaseLogModelTests: XCTestCase {
 
         model.add(item)
 
-        XCTAssertNil(model.pendingScan)
+        XCTAssertNil(model.resolver.pendingScan)
         XCTAssertEqual(model.rows.count, 1)
     }
 

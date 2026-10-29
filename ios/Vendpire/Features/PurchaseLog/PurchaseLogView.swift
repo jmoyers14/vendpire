@@ -73,15 +73,23 @@ struct PurchaseLogView: View {
             await refresher.refresh()
             model.catalogDidChange()
         }
-        .sheet(isPresented: $isScannerSheetPresented, onDismiss: { model.dismissPendingScan() }) {
+        .sheet(
+            isPresented: $isScannerSheetPresented,
+            onDismiss: { model.resolver.dismissPendingScan() }
+        ) {
             // The sheet stays up across scans: a resolved code just adds or
             // bumps a row and keeps scanning, and only an unknown one swaps
-            // this content for the not-found sheet.
-            if model.pendingScan != nil {
-                BarcodeNotFoundSheet(model: model)
-            } else {
-                BarcodeScannerView(onScan: { code in model.handleScan(code, context: context) })
-                    .presentationDetents([.medium])
+            // the camera for the question. A NavigationStack because the
+            // create-a-case step pushes the inner flow onto it.
+            NavigationStack {
+                BarcodeResolutionFlow(model: model.resolver)
+                    .toolbar {
+                        // Stays reachable from the pushed inner flow too, where
+                        // Back goes up one level and this leaves entirely.
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Cancel") { isScannerSheetPresented = false }
+                        }
+                    }
             }
         }
         .sheet(isPresented: $isAddSheetPresented) {

@@ -1,36 +1,68 @@
 import SwiftData
 import SwiftUI
 
+/// Camera until a code needs a human, then the question. Both levels of the
+/// flow present this, which is why the switch lives here rather than in the
+/// purchase screen that used to own it.
+struct BarcodeResolutionFlow: View {
+    let model: BarcodeResolutionModel
+    /// Skip the camera and open straight on the create form — the inner
+    /// editor's "this bag has no barcode at all" door.
+    var startsBlank = false
+
+    @Environment(\.modelContext) private var context
+
+    var body: some View {
+        if startsBlank {
+            BarcodeResolutionSheet(model: model, initialMode: .create)
+        } else if model.pendingScan != nil {
+            BarcodeResolutionSheet(model: model)
+        } else {
+            BarcodeScannerView(onScan: { code in model.resolve(code, context: context) })
+                .presentationDetents([.medium])
+                .overlay(alignment: .bottom) { scanError }
+        }
+    }
+
+    /// A refused scan has to be visible without leaving the camera — the
+    /// operator's hands are full and the next item is already coming up.
+    @ViewBuilder
+    private var scanError: some View {
+        if let message = model.errorMessage {
+            Text(message)
+                .font(.footnote)
+                .multilineTextAlignment(.center)
+                .padding(10)
+                .background(.red.opacity(0.9), in: RoundedRectangle(cornerRadius: 8))
+                .foregroundStyle(.white)
+                .padding()
+        }
+    }
+}
+
 /// What to do with a scanned code nobody recognises: phone-shaped port of the
 /// web's `BarcodeNotFoundPanel`. Attach and create are explicit peers — the
-/// choose screen never defaults into either, because the right answer isn't
+/// choose step never defaults into either, because the right answer isn't
 /// guessable from the code. CSV-imported products arrive with no barcode, so
 /// the thing just scanned is often already here under a name worth checking
 /// for first.
 ///
 /// Every rule — validation, the conflict text, the actual network calls —
-/// lives in `PurchaseLogModel`. This view is layout and bindings only.
-struct BarcodeNotFoundSheet: View {
-    @Bindable var model: PurchaseLogModel
-
-    @Environment(\.modelContext) private var context
-
-    /// Existing products, for the pack-contents picker. A plain mirror read,
-    /// not a model rule — `model.searchResults` is for the attach list, which
-    /// is name-filtered and mixes in packs; this is the raw product list a
-    /// `Picker` needs.
-    @Query(filter: #Predicate<StoredProduct> { $0.active }, sort: \StoredProduct.name)
-    private var products: [StoredProduct]
-
-    private enum Mode {
+/// lives in `BarcodeResolutionModel`. This view is layout and bindings only.
+struct BarcodeResolutionSheet: View {
+    enum Mode {
         case choose, attach, create
     }
+
+    let model: BarcodeResolutionModel
+
+    @Environment(\.modelContext) private var context
 
     private enum RecordKind {
         case unit, pack
     }
 
-    @State private var mode: Mode = .choose
+    @State private var mode: Mode
     @State private var isWorking = false
 
     // Attach
@@ -44,52 +76,68 @@ struct BarcodeNotFoundSheet: View {
     @State private var category = ""
     @State private var priceText = ""
 
-    // Create — pack
+    // Create — case
     @State private var packName = ""
     @State private var packNameTouched = false
-    @State private var contentNameTouched = false
-    @State private var contents: [PurchaseLogModel.NewPackContent] = [
-        PurchaseLogModel.NewPackContent(productId: nil, unitsText: "", name: "", category: "", bagCode: "")
-    ]
+    @State private var contentQuery = ""
+    @State private var isSearchingContents = false
+
+    init(model: BarcodeResolutionModel, initialMode: Mode = .choose) {
+        self.model = model
+        _mode = State(initialValue: initialMode)
+    }
 
     var body: some View {
-        NavigationStack {
-            Form {
-                errorSection
-                headerSection
+        Form {
+            errorSection
+            headerSection
 
-                switch mode {
-                case .choose: chooseSection
-                case .attach: attachSection
-                case .create: createSection
-                }
-            }
-            .navigationTitle("Barcode not found")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { model.dismissPendingScan() }
-                }
+            switch mode {
+            case .choose: chooseSection
+            case .attach: attachSection
+            case .create: createSection
             }
         }
+        .navigationTitle(model.pendingScan == nil ? "New product" : "Barcode not found")
+        .navigationBarTitleDisplayMode(.inline)
         .presentationDetents([.large])
         .onAppear(perform: seed)
         // The candidate lookup STARTS in the same pass that presents this
         // sheet, so it always lands after `onAppear`. Without this the prefill
         // never happened.
         .onChange(of: model.pendingScan?.candidate) { _, _ in fillUntouchedFields() }
+        // One product of the case, resolved by the same tree one level down.
+        // Pushed rather than presented: this form's state has to survive the
+        // round trip, and a sheet over a Form in a sheet fights detents.
+        .navigationDestination(isPresented: contentFlowBinding) {
+            if let inner = model.contentResolver {
+                BarcodeResolutionFlow(model: inner, startsBlank: model.contentDoor == .blankCreate)
+            }
+        }
+    }
+
+    private var contentFlowBinding: Binding<Bool> {
+        Binding(
+            get: { model.contentResolver != nil },
+            set: { isPresented in
+                if !isPresented { model.endContentResolution() }
+            }
+        )
     }
 
     // MARK: - Header
 
+    @ViewBuilder
     private var headerSection: some View {
-        Section {
-            Text(model.pendingScan?.gtin14 ?? "")
-                .font(.system(.body, design: .monospaced))
-                .foregroundStyle(.secondary)
+        if let scan = model.pendingScan {
+            Section {
+                Text(scan.gtin14)
+                    .font(.system(.body, design: .monospaced))
+                    .foregroundStyle(.secondary)
 
-            if let candidate = model.pendingScan?.candidate, candidate.name != nil {
-                maybeCard(candidate)
+                if let candidate = scan.candidate, candidate.name != nil {
+                    maybeCard(candidate)
+                }
             }
         }
     }
@@ -159,7 +207,9 @@ struct BarcodeNotFoundSheet: View {
 
     private var chooseSection: some View {
         Section {
-            Button("It's already in my catalog") { mode = .attach }
+            Button(model.allowsPacks ? "It's already in my catalog" : "It's already a product I have") {
+                mode = .attach
+            }
             Button("Create it") { mode = .create }
         } footer: {
             Text("Your imported products arrived without barcodes — check before creating a duplicate.")
@@ -172,7 +222,9 @@ struct BarcodeNotFoundSheet: View {
         Group {
             Section {
                 TextField(
-                    "Search your products and cases…",
+                    model.allowsPacks
+                        ? "Search your products and cases…"
+                        : "Search your products…",
                     text: makeTouchedBinding(for: $query, touched: $queryTouched)
                 )
                 .autocorrectionDisabled()
@@ -223,15 +275,20 @@ struct BarcodeNotFoundSheet: View {
 
     private var createSection: some View {
         Group {
-            Section {
-                Picker("What is it?", selection: $recordKind) {
-                    Text("Item").tag(RecordKind.unit)
-                    Text("Case").tag(RecordKind.pack)
+            // Only a resolver that may answer with a pack can offer to create
+            // one. One level down this control is absent, which is what stops
+            // a case from containing a case.
+            if model.allowsPacks {
+                Section {
+                    Picker("What is it?", selection: $recordKind) {
+                        Text("Item").tag(RecordKind.unit)
+                        Text("Case").tag(RecordKind.pack)
+                    }
+                    .pickerStyle(.segmented)
                 }
-                .pickerStyle(.segmented)
             }
 
-            if recordKind == .unit {
+            if recordKind == .unit || !model.allowsPacks {
                 itemFields
             } else {
                 packFields
@@ -242,12 +299,14 @@ struct BarcodeNotFoundSheet: View {
                     if isWorking {
                         ProgressView()
                     } else {
-                        Text("Add to purchase")
+                        Text(model.allowsPacks ? "Add to purchase" : "Add to the case")
                     }
                 }
                 .disabled(isWorking)
-                Button("Back") { mode = .choose }
-                    .disabled(isWorking)
+                if model.pendingScan != nil {
+                    Button("Back") { mode = .choose }
+                        .disabled(isWorking)
+                }
             }
         }
     }
@@ -266,6 +325,8 @@ struct BarcodeNotFoundSheet: View {
         }
     }
 
+    // MARK: - Create a case
+
     private var packFields: some View {
         Group {
             Section {
@@ -281,81 +342,98 @@ struct BarcodeNotFoundSheet: View {
             }
 
             Section {
-                ForEach($contents) { content in
-                    contentRow(content, isFirst: contents.first?.id == content.wrappedValue.id)
+                ForEach(model.contents) { content in
+                    contentRow(content)
                 }
-                Button("+ Add another product") {
-                    contents.append(
-                        PurchaseLogModel.NewPackContent(
-                            productId: nil, unitsText: "", name: "", category: "", bagCode: ""
-                        )
-                    )
-                }
+                addContentDoors
             } header: {
                 Text("What's inside one case, in sellable units")
+            } footer: {
+                Text("Scan the bags inside, or pick products you already have.")
+            }
+
+            if isSearchingContents {
+                contentSearchSection
             }
         }
     }
 
-    /// Bound per element and deleted by id — an index-identified row hands its
-    /// binding to whichever row slides into that index when one is removed.
-    ///
-    /// Only the first row's name is seeded from the candidate, so only it
-    /// tracks being typed in.
+    /// A resolved row: the product is settled, so only its unit count is still
+    /// a question.
     private func contentRow(
-        _ content: Binding<PurchaseLogModel.NewPackContent>,
-        isFirst: Bool
+        _ content: BarcodeResolutionModel.PackContentDraft
     ) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack {
-                Picker("Product", selection: content.productId) {
-                    Text("New product…").tag(String?.none)
-                    ForEach(products) { product in
-                        Text(product.name).tag(String?.some(product.id))
-                    }
-                }
-                .labelsHidden()
-
-                TextField("Units", text: content.unitsText)
-                    .keyboardType(.numberPad)
-                    .frame(width: 70)
-
-                if contents.count > 1 {
-                    Button(role: .destructive) {
-                        let id = content.wrappedValue.id
-                        contents.removeAll { $0.id == id }
-                    } label: {
-                        Image(systemName: "xmark.circle")
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-
-            if content.wrappedValue.productId == nil {
-                TextField(
-                    "Name, e.g. Doritos Nacho Cheese",
-                    text: isFirst
-                        ? makeTouchedBinding(for: content.name, touched: $contentNameTouched)
-                        : content.name
+        HStack {
+            Text(content.name)
+                .lineLimit(2)
+            Spacer()
+            TextField(
+                "Units",
+                text: Binding(
+                    get: { content.unitsText },
+                    set: { model.updateContent(id: content.id, unitsText: $0) }
                 )
-                TextField("Category", text: content.category)
-                TextField("Bag barcode (optional)", text: content.bagCode)
-                    .font(.system(.body, design: .monospaced))
-                    .autocorrectionDisabled()
-                bagCodeHint(for: content.wrappedValue.bagCode)
+            )
+            .keyboardType(.numberPad)
+            .multilineTextAlignment(.trailing)
+            .frame(width: 70)
+
+            Button(role: .destructive) {
+                model.removeContent(id: content.id)
+            } label: {
+                Image(systemName: "xmark.circle")
             }
+            .buttonStyle(.plain)
         }
     }
 
-    /// The single bag's own code — never the case code just scanned. Checked
-    /// inline so a typo is caught before `createPack` rejects the whole row.
-    @ViewBuilder
-    private func bagCodeHint(for bagCode: String) -> some View {
-        let trimmed = bagCode.trimmingCharacters(in: .whitespaces)
-        if !trimmed.isEmpty, Gtin.normalize(trimmed) == nil {
-            Text("Doesn't look like a valid barcode")
-                .font(.caption)
-                .foregroundStyle(.red)
+    /// The three ways a product gets into the case. All three end with a real
+    /// product, which is why a row can never be blank.
+    private var addContentDoors: some View {
+        HStack(spacing: 16) {
+            if BarcodeScannerView.isSupported {
+                Button {
+                    model.beginContentResolution(through: .scanner)
+                } label: {
+                    Label("Scan", systemImage: "barcode.viewfinder")
+                }
+            }
+            Button {
+                isSearchingContents.toggle()
+                contentQuery = ""
+            } label: {
+                Label("Search", systemImage: "magnifyingglass")
+            }
+            Button {
+                model.beginContentResolution(through: .blankCreate)
+            } label: {
+                Label("New", systemImage: "plus.circle")
+            }
+        }
+        .buttonStyle(.borderless)
+        .font(.subheadline)
+    }
+
+    /// Picking a product already in the catalog needs no network and no
+    /// resolver — it is just a name search over the mirror, products only.
+    private var contentSearchSection: some View {
+        Section {
+            TextField("Search your products…", text: $contentQuery)
+                .autocorrectionDisabled()
+            if !contentQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                CatalogItemMatches(
+                    items: model.contentSearchResults(query: contentQuery, context: context),
+                    isDisabled: false,
+                    emptyText: "Nothing matches — scan it, or tap \"New\".",
+                    onSelect: { item in
+                        model.addContent(item)
+                        isSearchingContents = false
+                        contentQuery = ""
+                    }
+                )
+            }
+        } header: {
+            Text("Add a product you already have")
         }
     }
 
@@ -363,12 +441,11 @@ struct BarcodeNotFoundSheet: View {
     /// unit count; a variety pack falls back to the outside guess. Only a
     /// suggestion — `shownPackName` stops showing it once the field is edited.
     private var suggestedPackName: String {
-        if contents.count == 1 {
-            let only = contents[0]
-            let label = contentProductName(only)
+        if model.contents.count == 1 {
+            let only = model.contents[0]
             let units = only.unitsText.trimmingCharacters(in: .whitespaces)
-            if !label.isEmpty, !units.isEmpty {
-                return "\(label) — case (\(units))"
+            if !only.name.isEmpty, !units.isEmpty {
+                return "\(only.name) — case (\(units))"
             }
         }
         guard let candidate = model.pendingScan?.candidate else { return "" }
@@ -379,20 +456,15 @@ struct BarcodeNotFoundSheet: View {
         packNameTouched ? packName : suggestedPackName
     }
 
-    private func contentProductName(_ content: PurchaseLogModel.NewPackContent) -> String {
-        if let productId = content.productId {
-            return products.first { $0.id == productId }?.name ?? ""
-        }
-        return content.name.trimmingCharacters(in: .whitespaces)
-    }
-
     private func create() {
         isWorking = true
         Task {
-            if recordKind == .unit {
-                await model.createUnit(name: name, category: category, priceText: priceText, context: context)
+            if recordKind == .unit || !model.allowsPacks {
+                await model.createUnit(
+                    name: name, category: category, priceText: priceText, context: context
+                )
             } else {
-                await model.createPack(name: shownPackName, contents: contents, context: context)
+                await model.createPack(name: shownPackName, context: context)
             }
             isWorking = false
         }
@@ -406,13 +478,13 @@ struct BarcodeNotFoundSheet: View {
     /// and the candidate fill below runs again.
     private func seed() {
         guard let scan = model.pendingScan else { return }
-        recordKind = scan.likelyCase ? .pack : .unit
+        recordKind = scan.likelyCase && model.allowsPacks ? .pack : .unit
         fillUntouchedFields()
     }
 
-    /// The candidate's name seeds the attach search, the item name, and the
-    /// first content row — whichever the operator picks, it is the first guess
-    /// worth typing over rather than starting blank.
+    /// The candidate's name seeds the attach search and the item name —
+    /// whichever the operator picks, it is the first guess worth typing over
+    /// rather than starting blank.
     ///
     /// Runs again every time the candidate changes, because the lookup starts
     /// in the same pass that presents the sheet and so always answers after
@@ -425,9 +497,6 @@ struct BarcodeNotFoundSheet: View {
 
         if !queryTouched { query = suggestion }
         if !itemNameTouched { name = suggestion }
-        if !contentNameTouched, contents.indices.contains(0) {
-            contents[0].name = suggestion
-        }
     }
 
     /// A text binding that remembers it was edited.
@@ -440,16 +509,4 @@ struct BarcodeNotFoundSheet: View {
             set: { value.wrappedValue = $0; touched.wrappedValue = true }
         )
     }
-}
-
-#Preview {
-    let container = try! VendpireStore.makeInMemoryContainer()
-    let context = ModelContext(container)
-    let model = PurchaseLogModel()
-    // A valid, unrecognized UPC-A: no api configured, so the candidate lookup
-    // is a no-op and the sheet opens straight to "choose".
-    model.handleScan("012345678905", context: context)
-
-    return BarcodeNotFoundSheet(model: model)
-        .modelContainer(container)
 }
