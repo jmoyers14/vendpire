@@ -20,4 +20,5 @@ export * from "./visits/anomalies.ts";
 export * from "./visits/sold.ts";
 export * from "./visits/expiration.ts";
 export * from "./costs/unitCost.ts";
+export * from "./costs/suggestedPrice.ts";
 export * from "./pnl/pnl.ts";

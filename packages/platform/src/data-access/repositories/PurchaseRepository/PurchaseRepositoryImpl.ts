@@ -1,6 +1,6 @@
 import { injectable } from "tsyringe";
 import type { Types } from "mongoose";
-import type { CostBasisLine } from "@vendpire/domain";
+import type { CostBasisLine, ReplacementCostLine } from "@vendpire/domain";
 import { PurchaseModel } from "../../models/Purchase.ts";
 import { toId } from "../ids.ts";
 import type {
@@ -115,6 +115,29 @@ export class PurchaseRepositoryImpl implements PurchaseRepository {
         productId: toId(line.productId),
         units: line.units,
         totalCostCents: line.totalCostCents,
+      })),
+    );
+  }
+
+  async findReplacementCostLines(orgId: string): Promise<ReplacementCostLine[]> {
+    // Three fields wider than the cost basis: pricing has to say WHICH purchase
+    // set the cost ("Costco, Oct 24"), and `purchaseId` is what breaks a tie
+    // between two receipts sharing a date.
+    const docs = await PurchaseModel.find(
+      { orgId, deletedAt: null },
+      { lines: 1, purchasedAt: 1, vendor: 1 },
+    ).lean<
+      Pick<PurchaseDoc, "_id" | "purchasedAt" | "vendor" | "lines">[]
+    >();
+
+    return docs.flatMap((doc) =>
+      doc.lines.map((line) => ({
+        productId: toId(line.productId),
+        purchaseId: toId(doc._id),
+        units: line.units,
+        totalCostCents: line.totalCostCents,
+        purchasedAt: doc.purchasedAt.toISOString(),
+        vendor: doc.vendor,
       })),
     );
   }
