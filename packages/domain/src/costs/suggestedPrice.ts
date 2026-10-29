@@ -11,11 +11,15 @@ import type { Cents } from "../types/index.ts";
  */
 
 /**
- * Vending rule of thumb: ~3x replacement cost, which lands near a 65-70% gross
- * margin once rounded. A constant rather than an org setting while there is one
- * operator; `Organization.ts` is where it goes when that changes.
+ * Starting point: 2.25x replacement cost, landing near a 55% gross margin once
+ * rounded. A constant rather than an org setting while there is one operator;
+ * `Organization.ts` is where it goes when that changes.
+ *
+ * Deliberately a first guess. Most of the catalog has no sell price yet, so the
+ * suggestion's job right now is to turn a known cost into a defensible opening
+ * price — not to grade prices that do not exist.
  */
-export const TARGET_MARKUP = 3.0;
+export const TARGET_MARKUP = 2.25;
 
 /** Quarters — what coin mechs take and what vending prices read as. */
 export const PRICE_INCREMENT_CENTS = 25;

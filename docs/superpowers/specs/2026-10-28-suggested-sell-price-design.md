@@ -35,33 +35,39 @@ Nothing in `unitCost.ts` changes.
 ## The rule
 
 ```
-suggested = ceilToQuarter(replacementUnitCost × 3.0)
+suggested = ceilToQuarter(replacementUnitCost × 2.25)
 ```
 
-**3.0× hardcoded** as `TARGET_MARKUP` in the domain, not an org setting. There
-is one operator; if 3.0 is wrong that is a one-line change and the feedback loop
-is a week. Revisit when a second org disagrees — `Organization.ts` is already
+**2.25× hardcoded** as `TARGET_MARKUP` in the domain, not an org setting. There
+is one operator; if 2.25 is wrong that is a one-line change and the feedback
+loop is a week. Revisit when a second org disagrees — `Organization.ts` is already
 documented as the place to hang business-level settings, so the move is cheap
 when it is warranted.
+
+2.25 is an explicit first guess, not a derived number. Almost nothing in the
+catalog has a sell price yet, so there is no existing pricing to calibrate
+against — the suggestion's job is to turn a known cost into a defensible
+opening price, and the number gets revisited once there are prices to compare
+it to.
 
 **Rounded up to the nearest $0.25.** Quarters are what coin mechs take and what
 vending prices read as. Rounding *up* rather than to-nearest means the
 suggestion never lands under the markup it claims.
 
-| cost | × 3.0 | suggest |
+| cost | × 2.25 | suggest |
 |---|---|---|
-| 0.33 | 0.99 | 1.00 |
-| 0.55 | 1.65 | 1.75 |
-| 0.58 | 1.74 | 1.75 |
-| 0.72 | 2.16 | 2.25 |
-| 1.10 | 3.30 | 3.50 |
+| 0.33 | 0.74 | 0.75 |
+| 0.55 | 1.24 | 1.25 |
+| 0.58 | 1.31 | 1.50 |
+| 0.72 | 1.62 | 1.75 |
+| 1.10 | 2.48 | 2.50 |
 
 ## `domain/src/costs/suggestedPrice.ts`
 
 A new pure module beside `unitCost.ts`, exported from the barrel.
 
 ```ts
-export const TARGET_MARKUP = 3.0;
+export const TARGET_MARKUP = 2.25;
 export const PRICE_INCREMENT_CENTS = 25;
 
 /** One purchase line, carrying when and from whom. */
@@ -85,8 +91,8 @@ export interface ReplacementCost {
 buildReplacementCosts(lines): Map<string, ReplacementCost>
 replacementCostCentsForDisplay(cost): Cents
 suggestedPriceCents(cost): Cents
-markupAtPrice(priceCents, cost): number
-marginFractionAtPrice(priceCents, cost): number
+markupAtPrice(priceCents, cost): number | null
+marginFractionAtPrice(priceCents, cost): number | null
 ```
 
 Three conventions carried over from `unitCost.ts`, because the two modules sit
@@ -127,7 +133,7 @@ A zero-cost line (a free sample) is kept: paying nothing is a fact worth showing
 ## `PurchaseRepository.findReplacementCostLines(orgId)`
 
 A sibling to `findCostBasisLines`: the same flattened, unpaginated all-lines
-read, projected to the five fields pricing needs. It carries `purchasedAt`,
+read, projected to the six fields pricing needs. It carries `purchasedAt`,
 `vendor` and the purchase `_id`, which COGS has no use for.
 
 `findCostBasisLines` is **not** modified. Leaving the P&L read path untouched is
@@ -148,11 +154,18 @@ to test. Worth doing when purchase volume makes the full read hurt; not now.
 A new tRPC query:
 
 ```ts
-{ productId, lastPaid: { unitCostCents, purchasedAt, vendor } | null,
-  suggestedPriceCents: number | null }[]
+{ productId, units, totalCostCents, purchasedAt, vendor,
+  suggestedPriceCents }[]
 ```
 
-The client joins to products by `productId`.
+The client joins to products by `productId`. Products never purchased are
+ABSENT from the array rather than present with nulls, so the join turning up
+nothing is what puts a dash in the row — the same discipline as the map.
+
+`units` and `totalCostCents` are returned rather than a unit cost so the web can
+call `markupAtPrice` and `marginFractionAtPrice` against any candidate price.
+That is what makes the form's margin line recompute as you type; `@vendpire/domain`
+is browser-runnable, so both sides share one implementation of the arithmetic.
 
 **Not folded into `products.list`.** `schemas/product.ts` pins the DTO to the
 platform `Product` type with an `Assert<Equal<>>`, and cost is deliberately not
@@ -188,12 +201,12 @@ to suppress and no empty state to design.
 
 ```
 Default price
-┌──────────────┐
-│ $ 1.50       │
-└──────────────┘
-Last paid $0.58/unit · Costco, Oct 24
-Suggest $1.75 (3.0×)        [ Use $1.75 ]
-At $1.50 you keep $0.92 — 61% margin
+┌──────────────────┐
+│ $ 1.25           │
+└──────────────────┘
+Last paid $0.58/unit · Costco · 10/24/2026
+Suggest $1.50          [ Use $1.50 ]
+At $1.25 you keep +$0.67 — 53% margin, under target
 ```
 
 **The last line recomputes as you type.** That is what makes this a pricing tool
@@ -212,15 +225,21 @@ alone is absent when the suggestion would be $0.00.
 
 ```
 Product          Cost   Price  Margin  Suggest
-Cheez-It 2oz     0.58   1.50    61%    1.75 ⚠
-Coke 12oz        0.33   1.25    73%    1.00
-Doritos 2.5oz    0.55   1.75    69%    1.75
-Snickers         0.72   1.50    52%    2.25 ⚠
-Gum 15ct          —     1.00     —      —
+Cheez-It 2oz     0.58    1.50    61%    1.50
+Snickers         0.72    1.50    52%    1.75 ⚠
+Fritos 2oz       0.95    0.00     —     2.25
+Gum 15ct          —      1.00     —      —
 ```
 
-This is the screen that answers "which of the things I just entered are priced
-wrong?". ⚠ marks a row whose current price is under the 3.0× target.
+This is the screen that answers "what did the things I just entered cost me,
+and what should I charge?". ⚠ marks a row whose current price is under the
+2.25× target.
+
+**An unpriced product is not flagged.** Most of the catalog has no sell price,
+so `defaultPriceCents` is 0 — and "below your markup target" is the wrong thing
+to say about a product nobody has priced at all. The $0.00 in the price column
+is the thing to notice. A free product (zero cost) is likewise unflagged: there
+is no multiple of zero to fall short of.
 
 Three columns means raising the table's `min-w` from `36rem` to about `52rem`.
 `TableScroll` already handles the overflow, so narrow screens scroll rather than
@@ -279,7 +298,8 @@ Repository, integration:
 Web, pure:
 
 - A row with no purchase renders dashes in all three derived columns
-- The under-target flag is set below 3.0× and clear at or above it
+- The under-target flag is set below 2.25× and clear at or above it
+- An unpriced product is not flagged, and neither is a free one
 
 ## Out of scope
 

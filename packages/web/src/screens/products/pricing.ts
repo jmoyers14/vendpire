@@ -67,7 +67,9 @@ export const buildPricingDisplay = (
       priceCents - pricing.totalCostCents / pricing.units,
     ),
     markup,
-    // A free product is never under target: there is no multiple of zero.
-    isUnderTarget: markup !== null && markup < TARGET_MARKUP,
+    // Two non-flags, for opposite reasons: a free product has no multiple of
+    // zero to fall short of, and an UNPRICED one is not mispriced — the $0.00
+    // in the price column is the thing to notice, not a markup warning.
+    isUnderTarget: priceCents > 0 && markup !== null && markup < TARGET_MARKUP,
   };
 };

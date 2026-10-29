@@ -8,7 +8,7 @@ const CHEEZ_IT: ProductPricing = {
   totalCostCents: 1749,
   purchasedAt: "2026-10-24T00:00:00.000Z",
   vendor: "Costco",
-  suggestedPriceCents: 175,
+  suggestedPriceCents: 150,
 };
 
 const FREE_SAMPLE: ProductPricing = {
@@ -35,7 +35,7 @@ describe("buildPricingDisplay", () => {
     const display = buildPricingDisplay(CHEEZ_IT, 150);
 
     expect(display.unitCostCents).toBe(58);
-    expect(display.suggestedPriceCents).toBe(175);
+    expect(display.suggestedPriceCents).toBe(150);
     expect(display.marginFraction).toBeCloseTo(0.6113, 4);
     expect(display.markup).toBeCloseTo(2.573, 3);
   });
@@ -51,19 +51,26 @@ describe("buildPricingDisplay", () => {
   });
 
   it("flags a price below the target markup", () => {
-    expect(buildPricingDisplay(CHEEZ_IT, 150).isUnderTarget).toBe(true);
+    expect(buildPricingDisplay(CHEEZ_IT, 125).isUnderTarget).toBe(true);
   });
 
   it("clears the flag at the suggested price", () => {
     // The suggestion has to pass its own test, or the list would flag rows that
     // are priced exactly as the app told the operator to price them.
-    expect(buildPricingDisplay(CHEEZ_IT, 175).isUnderTarget).toBe(false);
+    expect(buildPricingDisplay(CHEEZ_IT, 150).isUnderTarget).toBe(false);
   });
 
   it("has no margin to report at an empty price field", () => {
     const display = buildPricingDisplay(CHEEZ_IT, 0);
 
     expect(display.marginFraction).toBeNull();
+  });
+
+  it("does not call an unpriced product under target", () => {
+    // Most of a real catalog has no price yet. "Below your markup target" is
+    // the wrong thing to say about a product nobody has priced at all — the
+    // $0.00 in the price column already says it.
+    expect(buildPricingDisplay(CHEEZ_IT, 0).isUnderTarget).toBe(false);
   });
 
   it("suggests nothing for a free product, and does not flag it", () => {

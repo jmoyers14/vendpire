@@ -130,19 +130,19 @@ describe("replacementCostCentsForDisplay", () => {
 
 describe("suggestedPriceCents", () => {
   it.each([
-    [36, 1199, 100],
-    [40, 2200, 175],
-    [30, 1749, 175],
-    [24, 1728, 225],
-    [10, 1100, 350],
+    [36, 1199, 75],
+    [40, 2200, 125],
+    [30, 1749, 150],
+    [24, 1728, 175],
+    [10, 1100, 250],
   ])("prices %i units at %i cents to %i", (units, totalCostCents, expected) => {
     expect(suggestedPriceCents(costOf(units, totalCostCents))).toBe(expected);
   });
 
   it("leaves a cost already landing on a quarter alone", () => {
-    // 50c x 3.0 = $1.50 exactly. Rounding up unconditionally would say $1.75
-    // and quietly overshoot the target it claims to hit.
-    expect(suggestedPriceCents(costOf(12, 600))).toBe(150);
+    // $1.00 x 2.25 = $2.25 exactly. Rounding up unconditionally would say
+    // $2.50 and quietly overshoot the target it claims to hit.
+    expect(suggestedPriceCents(costOf(12, 1200))).toBe(225);
   });
 
   it("never suggests a price below the target markup", () => {

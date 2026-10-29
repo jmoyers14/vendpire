@@ -50,8 +50,8 @@ describe("PricingService", () => {
       totalCostCents: 1439,
       purchasedAt: "2026-10-24T00:00:00.000Z",
       vendor: "Costco",
-      // 1439/36 = 39.97c; x3 = $1.20, up to the next quarter.
-      suggestedPriceCents: 125,
+      // 1439/36 = 39.97c; x2.25 = 90c, up to the next quarter.
+      suggestedPriceCents: 100,
     });
   });
 
