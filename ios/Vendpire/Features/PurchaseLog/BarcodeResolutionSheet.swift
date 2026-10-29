@@ -19,7 +19,6 @@ struct BarcodeResolutionFlow: View {
             BarcodeResolutionSheet(model: model)
         } else {
             BarcodeScannerView(onScan: { code in model.resolve(code, context: context) })
-                .presentationDetents([.medium])
                 .overlay(alignment: .bottom) { scanError }
         }
     }
@@ -100,7 +99,6 @@ struct BarcodeResolutionSheet: View {
         }
         .navigationTitle(model.pendingScan == nil ? "New product" : "Barcode not found")
         .navigationBarTitleDisplayMode(.inline)
-        .presentationDetents([.large])
         .onAppear(perform: seed)
         // The candidate lookup STARTS in the same pass that presents this
         // sheet, so it always lands after `onAppear`. Without this the prefill

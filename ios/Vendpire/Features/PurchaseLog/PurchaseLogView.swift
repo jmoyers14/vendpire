@@ -91,6 +91,12 @@ struct PurchaseLogView: View {
                         }
                     }
             }
+            // One detent for the whole flow, declared on the sheet's root
+            // where presentation modifiers actually take effect. A per-branch
+            // detent inside the NavigationStack left the sheet stuck at the
+            // camera's height, with the not-found question's buttons below the
+            // fold and the drag going to the sheet instead of the form.
+            .presentationDetents([.large])
         }
         .sheet(isPresented: $isAddSheetPresented) {
             AddCatalogItemSheet(model: model)
