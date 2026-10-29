@@ -1,0 +1,74 @@
+name: pr-title
+
+# Squash-merging makes the PR TITLE the only commit message that reaches main,
+# so the title is what release-please parses. A prose title is unreleasable: the
+# `feat:` commits on the branch are discarded by the squash, release-please finds
+# no bumpable change, and the run succeeds in ~10s having done nothing.
+#
+# That is not hypothetical — #27 through #33 all landed with prose titles, and
+# the version sat at 0.5.0 while four PRs' worth of features went unreleased.
+# Nothing failed loudly; the release simply never appeared. This job is the loud
+# failure.
+#
+# `types` below mirrors `changelog-sections` in release-please-config.json. Keep
+# them in step: a type accepted here but unknown there lands a commit that
+# release-please silently ignores, which is the same hole in a new shape. Only
+# feat/fix/perf/revert bump a version; the rest are valid but hidden.
+#
+# `pull_request`, not `pull_request_target`: the latter always runs the workflow
+# from the BASE branch, so this job could not have run on the PR that introduced
+# it. It needs no secrets and never checks out PR code — the title comes from the
+# event payload — so the escalated context buys nothing here.
+#
+# `synchronize` is load-bearing despite a push never changing the title. A
+# required status check must have run against the head SHA, so without it a new
+# push leaves no check for that commit and the PR blocks forever.
+
+on:
+  pull_request:
+    types:
+      - opened
+      - edited
+      - reopened
+      - synchronize
+
+permissions:
+  pull-requests: read
+
+jobs:
+  lint:
+    name: conventional title
+    runs-on: ubuntu-latest
+    steps:
+      - uses: amannn/action-semantic-pull-request@v5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          types: |
+            feat
+            fix
+            perf
+            revert
+            refactor
+            docs
+            chore
+            test
+            build
+            ci
+            style
+          # Scopes are optional, but a typo'd one is worth catching: these are
+          # the workspace packages plus ios, which is where scopes have been
+          # drawn from so far.
+          scopes: |
+            api
+            web
+            domain
+            platform
+            worker
+            e2e
+            ios
+          requireScope: false
+          # Reject "feat: Add thing" — main's history is lowercase throughout.
+          subjectPattern: ^(?![A-Z]).+$
+          subjectPatternError: |
+            The subject "{subject}" in "{title}" should start lowercase.
