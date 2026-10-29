@@ -123,12 +123,12 @@ final class PurchaseLogModel {
         guard row.kind == .pack,
               let quantity = Int(row.quantityText.trimmed), quantity >= 1,
               let totalCostCents = Money.parseDollarsToCents(row.totalCostText),
-              let pack = catalog(in: context).packs.first(where: { $0.id == row.recordId })
+              let pack = catalog.packs(in: context).first(where: { $0.id == row.recordId })
         else { return nil }
 
         let weights = pack.contents.map { $0.units * quantity }
         let shares = Allocate.proportionally(totalCents: totalCostCents, weights: weights)
-        let names = productNames(in: context)
+        let names = catalog.productNames(in: context)
         return pack.contents.enumerated().map { index, content in
             (
                 name: names[content.productId] ?? ProductNames.unknown,
@@ -139,9 +139,7 @@ final class PurchaseLogModel {
     }
 
     func searchResults(query: String, context: ModelContext) -> [CatalogItem] {
-        let loaded = catalog(in: context)
-        let items = CatalogSearch.items(products: loaded.products, packs: loaded.packs)
-        return CatalogSearch.search(items, query: query)
+        CatalogSearch.search(catalog.items(in: context), query: query)
     }
 
     // MARK: - Wiring
@@ -160,7 +158,8 @@ final class PurchaseLogModel {
     func handleScan(_ code: String, context: ModelContext) {
         clearError()
 
-        let (products, packs) = catalog(in: context)
+        let products = catalog.products(in: context)
+        let packs = catalog.packs(in: context)
         switch ScanResolution.resolve(code, products: products, packs: packs) {
         case .product(let id):
             let name = products.first { $0.id == id }?.name ?? ProductNames.unknown
@@ -592,42 +591,15 @@ final class PurchaseLogModel {
 
     // MARK: - The mirror
 
-    /// Memoized: `searchResults` runs per keystroke and `splitPreview` per
-    /// pack row per render, and neither should hit SwiftData each time. The
-    /// cached objects are live, so field edits show through — only inserts
-    /// and deletes need the memo dropped, via `catalogDidChange()`.
+    /// Shared with every resolver this screen opens, so a product created one
+    /// level down is findable here without a refresh. See `MirrorCatalog`.
     @ObservationIgnored
-    private var catalogCache: (products: [StoredProduct], packs: [StoredPack])?
-    @ObservationIgnored
-    private var productNamesCache: [String: String]?
+    let catalog = MirrorCatalog()
 
-    /// The mirror changed underneath this screen — a refresh landed, or this
-    /// model created or attached a record. Drops the memo so the next read
-    /// refetches.
+    /// The mirror changed underneath this screen — a refresh landed, or a
+    /// resolver created or attached a record.
     func catalogDidChange() {
-        catalogCache = nil
-        productNamesCache = nil
-    }
-
-    private func catalog(
-        in context: ModelContext
-    ) -> (products: [StoredProduct], packs: [StoredPack]) {
-        if let catalogCache { return catalogCache }
-
-        let loaded = (
-            products: (try? context.fetch(FetchDescriptor<StoredProduct>())) ?? [],
-            packs: (try? context.fetch(FetchDescriptor<StoredPack>())) ?? []
-        )
-        catalogCache = loaded
-        return loaded
-    }
-
-    private func productNames(in context: ModelContext) -> [String: String] {
-        if let productNamesCache { return productNamesCache }
-
-        let names = ProductNames.byId(catalog(in: context).products)
-        productNamesCache = names
-        return names
+        catalog.didChange()
     }
 }
 
