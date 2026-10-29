@@ -10,14 +10,17 @@ import {
   SearchInput,
   TableScroll,
 } from "../../ui.tsx";
-import { formatCents } from "../../utils/money.ts";
+import type { ApiProductPricing } from "../../apiTypes.ts";
+import { formatCents, formatPercent } from "../../utils/money.ts";
 import { matchesSearch } from "../../utils/textMatch.ts";
 import { queryClient, trpc } from "../../trpc.ts";
+import { buildPricingDisplay } from "./pricing.ts";
 
 export function ProductsScreen() {
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const products = useQuery(trpc.products.list.queryOptions());
+  const pricing = useQuery(trpc.products.pricing.queryOptions());
 
   const all = products.data ?? [];
   // Name, category and UPC — the three things on screen, so what you type
@@ -28,6 +31,10 @@ export function ProductsScreen() {
       `${product.name} ${product.category} ${product.upc ?? ""}`,
       query,
     ),
+  );
+
+  const pricingByProduct = new Map(
+    (pricing.data ?? []).map((row) => [row.productId, row]),
   );
 
   const remove = useMutation(
@@ -72,13 +79,16 @@ export function ProductsScreen() {
         <p className="text-gray-400">Loading…</p>
       ) : rows.length > 0 ? (
         <TableScroll>
-          <table className="w-full min-w-[36rem] border-collapse text-sm">
+          <table className="w-full min-w-[52rem] border-collapse text-sm">
             <thead>
               <tr className="border-b border-gray-200 bg-gray-50 text-left text-gray-600">
                 <th className="w-12 px-4 py-2" />
                 <th className="px-4 py-2 font-medium">Name</th>
                 <th className="px-4 py-2 font-medium">Category</th>
+                <th className="px-4 py-2 font-medium">Cost</th>
                 <th className="px-4 py-2 font-medium">Price</th>
+                <th className="px-4 py-2 font-medium">Margin</th>
+                <th className="px-4 py-2 font-medium">Suggest</th>
                 <th className="px-4 py-2 font-medium">UPC</th>
                 <th className="px-4 py-2" />
               </tr>
@@ -101,9 +111,10 @@ export function ProductsScreen() {
                     {product.name}
                   </td>
                   <td className="px-4 py-2 text-gray-600">{product.category}</td>
-                  <td className="px-4 py-2 text-gray-600">
-                    {formatCents(product.defaultPriceCents)}
-                  </td>
+                  <PricingCells
+                    pricing={pricingByProduct.get(product.id)}
+                    priceCents={product.defaultPriceCents}
+                  />
                   <td className="px-4 py-2 font-mono text-gray-600">
                     {product.upc ?? "—"}
                   </td>
@@ -138,5 +149,43 @@ export function ProductsScreen() {
         </EmptyState>
       )}
     </Page>
+  );
+}
+
+/**
+ * The Cost, Price, Margin and Suggest cells, in that order — the four `<th>`s
+ * in this screen's thead are their counterpart. A product with no purchase
+ * history shows dashes; there is nothing to say about it.
+ */
+function PricingCells({
+  pricing,
+  priceCents,
+}: {
+  pricing: ApiProductPricing | undefined;
+  priceCents: number;
+}) {
+  const display = pricing ? buildPricingDisplay(pricing, priceCents) : null;
+  const margin = display?.marginFraction ?? null;
+  const suggestion = display?.suggestedPriceCents ?? null;
+  const cell = "px-4 py-2 text-gray-600";
+
+  return (
+    <>
+      <td className={cell}>
+        {display ? formatCents(display.unitCostCents) : "—"}
+      </td>
+      <td className={cell}>{formatCents(priceCents)}</td>
+      <td className={cell}>{margin !== null ? formatPercent(margin) : "—"}</td>
+      <td className={cell}>
+        {suggestion !== null ? (
+          <span className={display?.isUnderTarget ? "text-amber-700" : undefined}>
+            {formatCents(suggestion)}
+            {display?.isUnderTarget ? " ⚠" : null}
+          </span>
+        ) : (
+          "—"
+        )}
+      </td>
+    </>
   );
 }

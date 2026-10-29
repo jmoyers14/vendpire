@@ -1,4 +1,4 @@
-import type { CostBasisLine } from "@vendpire/domain";
+import type { CostBasisLine, ReplacementCostLine } from "@vendpire/domain";
 import type {
   Location,
   LocationInput,
@@ -414,6 +414,20 @@ export class FakePurchaseRepository implements PurchaseRepository {
           productId: line.productId,
           units: line.units,
           totalCostCents: line.totalCostCents,
+        })),
+      );
+  }
+  async findReplacementCostLines(orgId: string): Promise<ReplacementCostLine[]> {
+    return this.rows
+      .filter((r) => r.orgId === orgId && !r.deleted)
+      .flatMap((r) =>
+        r.lines.map((line) => ({
+          productId: line.productId,
+          purchaseId: r.id,
+          units: line.units,
+          totalCostCents: line.totalCostCents,
+          purchasedAt: r.purchasedAt,
+          vendor: r.vendor,
         })),
       );
   }

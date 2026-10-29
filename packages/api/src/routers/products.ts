@@ -37,6 +37,12 @@ export const productsRouter = router({
     .output(z.array(productDto))
     .query(({ ctx }) => ctx.services.productService.list(ctx.auth.orgId)),
 
+  // What each product last cost and what to charge for it; join to `list` on
+  // productId. Not folded into `list`: productDto is pinned to `Product`.
+  pricing: orgProtectedProcedure
+    .input(z.void())
+    .query(({ ctx }) => ctx.services.pricingService.list(ctx.auth.orgId)),
+
   // External catalog text search — returns ranked matches with barcodes.
   searchCatalog: orgProtectedProcedure
     .input(z.object({ query: z.string() }))

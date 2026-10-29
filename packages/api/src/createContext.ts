@@ -7,6 +7,7 @@ import {
   MACHINE_SERVICE_TOKEN,
   MACHINE_TEMPLATE_SERVICE_TOKEN,
   PRODUCT_SERVICE_TOKEN,
+  PRICING_SERVICE_TOKEN,
   PRODUCT_DATA_SERVICE_TOKEN,
   BARCODE_RESOLVER_SERVICE_TOKEN,
   PLANOGRAM_SERVICE_TOKEN,
@@ -27,6 +28,7 @@ import type { LocationService } from "./services/LocationService/LocationService
 import type { MachineService } from "./services/MachineService/MachineService.ts";
 import type { MachineTemplateService } from "./services/MachineTemplateService/MachineTemplateService.ts";
 import type { ProductService } from "./services/ProductService/ProductService.ts";
+import type { PricingService } from "./services/PricingService/PricingService.ts";
 import type { ProductDataService } from "./services/ProductDataService/ProductDataService.ts";
 import type { BarcodeResolverService } from "./services/BarcodeResolverService/BarcodeResolverService.ts";
 import type { PlanogramService } from "./services/PlanogramService/PlanogramService.ts";
@@ -96,6 +98,7 @@ export async function createContext(
         MACHINE_TEMPLATE_SERVICE_TOKEN,
       ),
       productService: container.resolve<ProductService>(PRODUCT_SERVICE_TOKEN),
+      pricingService: container.resolve<PricingService>(PRICING_SERVICE_TOKEN),
       productDataService: container.resolve<ProductDataService>(
         PRODUCT_DATA_SERVICE_TOKEN,
       ),

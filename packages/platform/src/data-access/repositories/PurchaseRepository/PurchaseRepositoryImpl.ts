@@ -1,6 +1,6 @@
 import { injectable } from "tsyringe";
 import type { Types } from "mongoose";
-import type { CostBasisLine } from "@vendpire/domain";
+import type { CostBasisLine, ReplacementCostLine } from "@vendpire/domain";
 import { PurchaseModel } from "../../models/Purchase.ts";
 import { toId } from "../ids.ts";
 import type {
@@ -117,6 +117,28 @@ export class PurchaseRepositoryImpl implements PurchaseRepository {
         totalCostCents: line.totalCostCents,
       })),
     );
+  }
+
+  async findReplacementCostLines(orgId: string): Promise<ReplacementCostLine[]> {
+    const docs = await PurchaseModel.find(
+      { orgId, deletedAt: null },
+      { lines: 1, purchasedAt: 1, vendor: 1 },
+    ).lean<Pick<PurchaseDoc, "_id" | "purchasedAt" | "vendor" | "lines">[]>();
+
+    return docs.flatMap((doc) => {
+      // Per document, not per line — a 20-line receipt converted these 20 times.
+      const purchaseId = toId(doc._id);
+      const purchasedAt = doc.purchasedAt.toISOString();
+
+      return doc.lines.map((line) => ({
+        productId: toId(line.productId),
+        purchaseId,
+        units: line.units,
+        totalCostCents: line.totalCostCents,
+        purchasedAt,
+        vendor: doc.vendor,
+      }));
+    });
   }
 
   async findByClientRequestId(
