@@ -3,7 +3,6 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { CatalogSearch } from "./CatalogSearch.tsx";
 import { PricingHint } from "./PricingHint.tsx";
-import { indexPricing } from "./pricing.ts";
 import { Button, checkboxClass, ErrorNote, inputClass, Page, PageTitle } from "../../ui.tsx";
 import { centsToInput, parseDollarsToCents } from "../../utils/money.ts";
 import { queryClient, trpc, trpcClient } from "../../trpc.ts";
@@ -186,12 +185,8 @@ export function ProductFormScreen({ productId }: { productId?: string }) {
               onChange={(e) => set({ price: e.target.value })}
             />
             <PricingHint
-              pricing={
-                productId
-                  ? indexPricing(pricing.data ?? []).get(productId)
-                  : undefined
-              }
-              priceCents={parseDollarsToCents(form.price)}
+              pricing={pricing.data?.find((row) => row.productId === productId)}
+              priceCents={parseDollarsToCents(form.price) ?? 0}
               onUse={(cents) => set({ price: centsToInput(cents) })}
             />
           </div>

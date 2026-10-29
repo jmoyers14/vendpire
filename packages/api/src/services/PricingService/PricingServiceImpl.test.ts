@@ -74,7 +74,7 @@ describe("PricingService", () => {
     const [pricing] = await service.list(ORG);
 
     expect(pricing?.totalCostCents).toBe(0);
-    expect(pricing?.suggestedPriceCents).toBe(0);
+    expect(pricing?.suggestedPriceCents).toBeNull();
   });
 
   it("never reaches across the org boundary", async () => {

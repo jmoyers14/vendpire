@@ -10,11 +10,11 @@ import {
   SearchInput,
   TableScroll,
 } from "../../ui.tsx";
-import { formatCents } from "../../utils/money.ts";
-import { buildPricingDisplay, indexPricing } from "./pricing.ts";
-import type { ProductPricing } from "./pricing.ts";
+import type { ApiProductPricing } from "../../apiTypes.ts";
+import { formatCents, formatPercent } from "../../utils/money.ts";
 import { matchesSearch } from "../../utils/textMatch.ts";
 import { queryClient, trpc } from "../../trpc.ts";
+import { buildPricingDisplay } from "./pricing.ts";
 
 export function ProductsScreen() {
   const [error, setError] = useState<string | null>(null);
@@ -33,7 +33,9 @@ export function ProductsScreen() {
     ),
   );
 
-  const pricingByProduct = indexPricing(pricing.data ?? []);
+  const pricingByProduct = new Map(
+    (pricing.data ?? []).map((row) => [row.productId, row]),
+  );
 
   const remove = useMutation(
     trpc.products.remove.mutationOptions({
@@ -151,37 +153,37 @@ export function ProductsScreen() {
 }
 
 /**
- * Cost, price, margin and suggestion for one row. A product with no purchase
- * history shows dashes rather than zeroes — there is nothing to say about it.
+ * The Cost, Price, Margin and Suggest cells, in that order — the four `<th>`s
+ * in this screen's thead are their counterpart. A product with no purchase
+ * history shows dashes; there is nothing to say about it.
  */
 function PricingCells({
   pricing,
   priceCents,
 }: {
-  pricing: ProductPricing | undefined;
+  pricing: ApiProductPricing | undefined;
   priceCents: number;
 }) {
   const display = pricing ? buildPricingDisplay(pricing, priceCents) : null;
+  const margin = display?.marginFraction ?? null;
+  const suggestion = display?.suggestedPriceCents ?? null;
+  const cell = "px-4 py-2 text-gray-600";
 
   return (
     <>
-      <td className="px-4 py-2 text-gray-600">
+      <td className={cell}>
         {display ? formatCents(display.unitCostCents) : "—"}
       </td>
-      <td className="px-4 py-2 text-gray-600">{formatCents(priceCents)}</td>
-      <td className="px-4 py-2 text-gray-600">
-        {display?.marginFraction == null
-          ? "—"
-          : `${Math.round(display.marginFraction * 100)}%`}
-      </td>
-      <td className="px-4 py-2 text-gray-600">
-        {display?.suggestedPriceCents == null ? (
-          "—"
-        ) : (
-          <span className={display.isUnderTarget ? "text-amber-700" : undefined}>
-            {formatCents(display.suggestedPriceCents)}
-            {display.isUnderTarget ? " ⚠" : null}
+      <td className={cell}>{formatCents(priceCents)}</td>
+      <td className={cell}>{margin !== null ? formatPercent(margin) : "—"}</td>
+      <td className={cell}>
+        {suggestion !== null ? (
+          <span className={display?.isUnderTarget ? "text-amber-700" : undefined}>
+            {formatCents(suggestion)}
+            {display?.isUnderTarget ? " ⚠" : null}
           </span>
+        ) : (
+          "—"
         )}
       </td>
     </>

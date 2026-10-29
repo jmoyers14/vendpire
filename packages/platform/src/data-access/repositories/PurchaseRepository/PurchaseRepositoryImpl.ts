@@ -120,26 +120,25 @@ export class PurchaseRepositoryImpl implements PurchaseRepository {
   }
 
   async findReplacementCostLines(orgId: string): Promise<ReplacementCostLine[]> {
-    // Three fields wider than the cost basis: pricing has to say WHICH purchase
-    // set the cost ("Costco, Oct 24"), and `purchaseId` is what breaks a tie
-    // between two receipts sharing a date.
     const docs = await PurchaseModel.find(
       { orgId, deletedAt: null },
       { lines: 1, purchasedAt: 1, vendor: 1 },
-    ).lean<
-      Pick<PurchaseDoc, "_id" | "purchasedAt" | "vendor" | "lines">[]
-    >();
+    ).lean<Pick<PurchaseDoc, "_id" | "purchasedAt" | "vendor" | "lines">[]>();
 
-    return docs.flatMap((doc) =>
-      doc.lines.map((line) => ({
+    return docs.flatMap((doc) => {
+      // Per document, not per line — a 20-line receipt converted these 20 times.
+      const purchaseId = toId(doc._id);
+      const purchasedAt = doc.purchasedAt.toISOString();
+
+      return doc.lines.map((line) => ({
         productId: toId(line.productId),
-        purchaseId: toId(doc._id),
+        purchaseId,
         units: line.units,
         totalCostCents: line.totalCostCents,
-        purchasedAt: doc.purchasedAt.toISOString(),
+        purchasedAt,
         vendor: doc.vendor,
-      })),
-    );
+      }));
+    });
   }
 
   async findByClientRequestId(

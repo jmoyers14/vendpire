@@ -31,12 +31,9 @@ export interface PurchaseRepository {
    */
   findCostBasisLines(orgId: string): Promise<CostBasisLine[]>;
   /**
-   * The same flattened read, for the PRICING basis rather than the COGS one —
-   * every live line plus its purchase's id, date and vendor.
-   *
-   * A sibling rather than extra fields on findCostBasisLines: there are two
-   * cost bases (all-time average for COGS, latest purchase for pricing) and two
-   * named reads say so, while leaving the P&L path untouched.
+   * The same flattened read for the PRICING basis — every live line plus its
+   * purchase's id, date and vendor. A sibling rather than extra fields on
+   * findCostBasisLines, so the P&L read path keeps its narrow projection.
    */
   findReplacementCostLines(orgId: string): Promise<ReplacementCostLine[]>;
   /**

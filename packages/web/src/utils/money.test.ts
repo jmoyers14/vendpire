@@ -4,6 +4,7 @@ import {
   centsToInput,
   formatBps,
   formatCents,
+  formatPercent,
   formatSignedCents,
   parseDollarsToCents,
   parsePercentToBps,
@@ -65,6 +66,16 @@ describe("bpsToInput", () => {
     for (const bps of [1, 1000, 1050, 10000]) {
       expect(parsePercentToBps(bpsToInput(bps))).toBe(bps);
     }
+  });
+});
+
+describe("formatPercent", () => {
+  it("renders a fraction as a whole percent", () => {
+    expect(formatPercent(0.6113)).toBe("61%");
+  });
+
+  it("keeps a negative margin negative", () => {
+    expect(formatPercent(-0.166)).toBe("-17%");
   });
 });
 

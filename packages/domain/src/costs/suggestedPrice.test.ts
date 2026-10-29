@@ -1,10 +1,12 @@
 import { describe, expect, it } from "bun:test";
 import {
   buildReplacementCosts,
+  grossPerUnitCentsAtPrice,
+  isUnderTargetMarkup,
   markupAtPrice,
   marginFractionAtPrice,
   replacementCostCentsForDisplay,
-  suggestedPriceCents,
+  suggestedPriceCentsFor,
   TARGET_MARKUP,
 } from "./suggestedPrice.ts";
 import type { ReplacementCost, ReplacementCostLine } from "./suggestedPrice.ts";
@@ -34,8 +36,6 @@ const costOf = (units: number, totalCostCents: number): ReplacementCost => ({
 
 describe("buildReplacementCosts", () => {
   it("takes the latest purchase, not an average of the history", () => {
-    // The whole reason this module exists beside unitCost.ts: the question is
-    // what the next case costs, not what every case has averaged.
     const costs = buildReplacementCosts([
       line("coke", 36, 1199, "2026-08-01T00:00:00.000Z"),
       line("coke", 36, 1439, "2026-10-24T00:00:00.000Z"),
@@ -93,8 +93,6 @@ describe("buildReplacementCosts", () => {
   });
 
   it("breaks a shared purchasedAt on purchaseId, descending", () => {
-    // purchasedAt is not unique — several supply runs share a date — so without
-    // a second key "the latest line" is not a well-defined rule.
     const costs = buildReplacementCosts([
       line("coke", 36, 1199, "2026-10-24T00:00:00.000Z", "aaa"),
       line("coke", 36, 1439, "2026-10-24T00:00:00.000Z", "bbb"),
@@ -128,7 +126,7 @@ describe("replacementCostCentsForDisplay", () => {
   });
 });
 
-describe("suggestedPriceCents", () => {
+describe("suggestedPriceCentsFor", () => {
   it.each([
     [36, 1199, 75],
     [40, 2200, 125],
@@ -136,27 +134,28 @@ describe("suggestedPriceCents", () => {
     [24, 1728, 175],
     [10, 1100, 250],
   ])("prices %i units at %i cents to %i", (units, totalCostCents, expected) => {
-    expect(suggestedPriceCents(costOf(units, totalCostCents))).toBe(expected);
+    expect(suggestedPriceCentsFor(costOf(units, totalCostCents))).toBe(expected);
   });
 
   it("leaves a cost already landing on a quarter alone", () => {
-    // $1.00 x 2.25 = $2.25 exactly. Rounding up unconditionally would say
-    // $2.50 and quietly overshoot the target it claims to hit.
-    expect(suggestedPriceCents(costOf(12, 1200))).toBe(225);
+    // $1.00 x 2.25 = $2.25 exactly; rounding up again would overshoot.
+    expect(suggestedPriceCentsFor(costOf(12, 1200))).toBe(225);
   });
 
   it("never suggests a price below the target markup", () => {
     for (let totalCostCents = 1; totalCostCents <= 400; totalCostCents++) {
       const cost = costOf(7, totalCostCents);
-      const markup = markupAtPrice(suggestedPriceCents(cost), cost);
+      const suggested = suggestedPriceCentsFor(cost);
 
-      expect(markup).not.toBeNull();
-      expect(markup as number).toBeGreaterThanOrEqual(TARGET_MARKUP);
+      expect(suggested).not.toBeNull();
+      expect(markupAtPrice(suggested as number, cost)).toBeGreaterThanOrEqual(
+        TARGET_MARKUP,
+      );
     }
   });
 
   it("suggests nothing for a free product", () => {
-    expect(suggestedPriceCents(costOf(12, 0))).toBe(0);
+    expect(suggestedPriceCentsFor(costOf(12, 0))).toBeNull();
   });
 });
 
@@ -183,5 +182,36 @@ describe("marginFractionAtPrice", () => {
     // The product form recomputes this on every keystroke, and an empty field
     // parses to zero.
     expect(marginFractionAtPrice(0, costOf(30, 1749))).toBeNull();
+  });
+});
+
+describe("grossPerUnitCentsAtPrice", () => {
+  it("reports what a unit keeps at the current price", () => {
+    // $1.50 against a 58.3c unit cost, from the unrounded basis.
+    expect(grossPerUnitCentsAtPrice(150, costOf(30, 1749))).toBe(92);
+  });
+
+  it("reports a loss per unit when the price is under cost", () => {
+    expect(grossPerUnitCentsAtPrice(50, costOf(30, 1749))).toBe(-8);
+  });
+});
+
+describe("isUnderTargetMarkup", () => {
+  it("flags a price below the target markup", () => {
+    expect(isUnderTargetMarkup(125, costOf(30, 1749))).toBe(true);
+  });
+
+  it("clears at the suggested price", () => {
+    // The suggestion has to pass its own test, or every row the app priced
+    // would come back flagged.
+    expect(isUnderTargetMarkup(150, costOf(30, 1749))).toBe(false);
+  });
+
+  it("does not flag an unpriced product", () => {
+    expect(isUnderTargetMarkup(0, costOf(30, 1749))).toBe(false);
+  });
+
+  it("does not flag a free product", () => {
+    expect(isUnderTargetMarkup(100, costOf(12, 0))).toBe(false);
   });
 });

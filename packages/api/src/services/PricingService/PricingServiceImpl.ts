@@ -1,13 +1,10 @@
 import { inject, injectable } from "tsyringe";
-import { buildReplacementCosts, suggestedPriceCents } from "@vendpire/domain";
+import { buildReplacementCosts, suggestedPriceCentsFor } from "@vendpire/domain";
 import { PURCHASE_REPOSITORY_TOKEN } from "@vendpire/platform";
 import type { PurchaseRepository } from "@vendpire/platform";
 import type { PricingService, ProductPricing } from "./PricingService.ts";
 
-/**
- * Turns purchase history into a suggested sell price. Reads purchases only —
- * the caller joins to products by id, so this never needs the catalog.
- */
+/** Reads purchases only — the caller joins to products by id. */
 @injectable()
 export class PricingServiceImpl implements PricingService {
   constructor(
@@ -25,7 +22,7 @@ export class PricingServiceImpl implements PricingService {
       totalCostCents: cost.totalCostCents,
       purchasedAt: cost.purchasedAt,
       vendor: cost.vendor,
-      suggestedPriceCents: suggestedPriceCents(cost),
+      suggestedPriceCents: suggestedPriceCentsFor(cost),
     }));
   }
 }

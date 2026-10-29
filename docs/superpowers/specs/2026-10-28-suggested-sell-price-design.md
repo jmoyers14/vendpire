@@ -68,14 +68,11 @@ A new pure module beside `unitCost.ts`, exported from the barrel.
 
 ```ts
 export const TARGET_MARKUP = 2.25;
-export const PRICE_INCREMENT_CENTS = 25;
+const PRICE_INCREMENT_CENTS = 25;        // module-private
 
-/** One purchase line, carrying when and from whom. */
-export interface ReplacementCostLine {
-  readonly productId: string;
+/** A CostBasisLine plus which purchase it came from. */
+export interface ReplacementCostLine extends CostBasisLine {
   readonly purchaseId: string;
-  readonly units: number;
-  readonly totalCostCents: Cents;
   readonly purchasedAt: string;
   readonly vendor: string;
 }
@@ -90,9 +87,11 @@ export interface ReplacementCost {
 
 buildReplacementCosts(lines): Map<string, ReplacementCost>
 replacementCostCentsForDisplay(cost): Cents
-suggestedPriceCents(cost): Cents
+suggestedPriceCentsFor(cost): Cents | null
 markupAtPrice(priceCents, cost): number | null
 marginFractionAtPrice(priceCents, cost): number | null
+grossPerUnitCentsAtPrice(priceCents, cost): Cents
+isUnderTargetMarkup(priceCents, cost): boolean
 ```
 
 Three conventions carried over from `unitCost.ts`, because the two modules sit
@@ -128,7 +127,12 @@ and it makes `buildReplacementCosts` independent of input order and therefore
 testable without a Mongo harness.
 
 A zero-cost line (a free sample) is kept: paying nothing is a fact worth showing.
-`suggestedPriceCents` returns 0 for it and the UI suppresses a $0.00 suggestion.
+`suggestedPriceCentsFor` returns `null` for it — not 0 — so no caller has to
+know a sentinel, matching `markupAtPrice` and `marginFractionAtPrice`.
+
+**Every figure, including the policy, is a domain function.** `grossPerUnitCentsAtPrice`
+and `isUnderTargetMarkup` live here rather than in the web layer, because
+`TARGET_MARKUP` does and because iOS shares this package via ported fixtures.
 
 ## `PurchaseRepository.findReplacementCostLines(orgId)`
 
@@ -155,7 +159,7 @@ A new tRPC query:
 
 ```ts
 { productId, units, totalCostCents, purchasedAt, vendor,
-  suggestedPriceCents }[]
+  suggestedPriceCents: Cents | null }[]
 ```
 
 The client joins to products by `productId`. Products never purchased are
@@ -251,10 +255,14 @@ this feature has no business touching.
 promises filtering never reorders it. The ⚠ marker is enough to scan a catalog
 this size, and sorting is a separate decision about the whole table.
 
-Row shaping lives in `screens/products/pricing.ts` with a unit test, mirroring
-`screens/visits/pnlRows.ts`. It joins products to pricing and derives the
-per-row display values; the arithmetic itself stays in the domain so web and any
-future caller cannot drift.
+Row shaping lives in `screens/products/pricing.ts` with a unit test.
+`buildPricingDisplay` is pure assembly — every field is one domain call — so web
+and iOS cannot drift on the arithmetic or on what counts as under target.
+
+The wire type is `ApiProductPricing` in `apiTypes.ts`, derived from the router
+rather than hand-written, per the rule that file states. A hand-written clone of
+a whole endpoint output is not the `Pick`-at-the-consumer case that `pnlRows`'
+two-field `VisitLike` is.
 
 ## Where it lives
 

@@ -45,6 +45,13 @@ export const parseDollarsToCents = (text: string): number | null => {
   return Math.round(value * CENTS_PER_DOLLAR);
 };
 
+/**
+ * Render a fraction as a whole percent: 0.6113 -> "61%". Distinct from
+ * formatBps, which takes basis points — the domain returns fractions.
+ */
+export const formatPercent = (fraction: number): string =>
+  `${Math.round(fraction * 100)}%`;
+
 /** Render basis points as "10%". */
 export const formatBps = (bps: number): string =>
   `${(bps / BPS_PER_PERCENT).toLocaleString()}%`;

@@ -37,14 +37,8 @@ export const productsRouter = router({
     .output(z.array(productDto))
     .query(({ ctx }) => ctx.services.productService.list(ctx.auth.orgId)),
 
-  /**
-   * What each product last cost to buy, and what to charge for it. Keyed by
-   * productId for the caller to join against `list`; products never purchased
-   * are absent rather than present with nulls.
-   *
-   * Deliberately not folded into `list`: `productDto` is pinned to the platform
-   * `Product` type, which has no cost on it on purpose.
-   */
+  // What each product last cost and what to charge for it; join to `list` on
+  // productId. Not folded into `list`: productDto is pinned to `Product`.
   pricing: orgProtectedProcedure
     .input(z.void())
     .query(({ ctx }) => ctx.services.pricingService.list(ctx.auth.orgId)),

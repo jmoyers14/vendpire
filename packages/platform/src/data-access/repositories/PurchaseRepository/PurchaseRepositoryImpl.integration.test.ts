@@ -289,7 +289,7 @@ describe.skipIf(!ENABLED)("PurchaseRepositoryImpl against MongoDB", () => {
   // parent purchase's id, date and vendor.
   describe("findReplacementCostLines", () => {
     it("carries each line's purchase id, date and vendor", async () => {
-      const id = await PurchaseModel.create({
+      const doc = await PurchaseModel.create({
         orgId: ORG,
         purchasedAt: SHARED,
         vendor: "Costco",
@@ -298,26 +298,21 @@ describe.skipIf(!ENABLED)("PurchaseRepositoryImpl against MongoDB", () => {
           { productId: oidHex("p2"), units: 12, totalCostCents: 699 },
         ],
         clientRequestId: "repl_1",
-      }).then((doc) => String(doc._id));
+      });
 
       const lines = await repo.findReplacementCostLines(ORG);
 
       expect(lines).toHaveLength(2);
       expect(lines).toContainEqual({
         productId: oidHex("p1"),
-        purchaseId: id,
+        purchaseId: String(doc._id),
         units: 30,
         totalCostCents: 1749,
         purchasedAt: SHARED.toISOString(),
         vendor: "Costco",
       });
-    });
-
-    it("projects to exactly the six fields the pricing engine reads", async () => {
-      await seed(SHARED);
-
-      const lines = await repo.findReplacementCostLines(ORG);
-
+      // Exactly six — a stray `packId` or `notes` would mean the projection
+      // isn't doing anything.
       expect(Object.keys(lines[0] as object).sort()).toEqual([
         "productId",
         "purchaseId",

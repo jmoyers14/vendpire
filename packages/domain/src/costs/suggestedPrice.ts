@@ -1,38 +1,24 @@
 import type { Cents } from "../types/index.ts";
+import type { CostBasisLine } from "./unitCost.ts";
 
 /**
- * A suggested sell price, derived from what the product cost to buy LAST —
- * replacement cost, not the all-time weighted average in `unitCost.ts`.
- *
- * The two bases answer different questions and both are right. COGS asks what
- * the units already sold actually cost, and has to let a late receipt correct
- * history. Pricing asks what the next case will cost, where an average that
- * drags a retired case price forward is just wrong.
+ * Suggested sell price from the LAST purchase — replacement cost, not the
+ * all-time average in `unitCost.ts`. COGS lets a late receipt correct history;
+ * pricing asks what the next case will cost.
  */
 
 /**
- * Starting point: 2.25x replacement cost, landing near a 55% gross margin once
- * rounded. A constant rather than an org setting while there is one operator;
- * `Organization.ts` is where it goes when that changes.
- *
- * Deliberately a first guess. Most of the catalog has no sell price yet, so the
- * suggestion's job right now is to turn a known cost into a defensible opening
- * price — not to grade prices that do not exist.
+ * 2.25x replacement cost, landing near a 55% margin after rounding. A constant
+ * while there is one operator; it moves to `Organization.ts` when that changes.
  */
 export const TARGET_MARKUP = 2.25;
 
 /** Quarters — what coin mechs take and what vending prices read as. */
-export const PRICE_INCREMENT_CENTS = 25;
+const PRICE_INCREMENT_CENTS = 25;
 
-/**
- * One purchase line, carrying when and from whom. Mirrors a `Purchase.lines[]`
- * entry plus its parent's id, date and vendor.
- */
-export interface ReplacementCostLine {
-  readonly productId: string;
+/** A `CostBasisLine` plus which purchase it came from. */
+export interface ReplacementCostLine extends CostBasisLine {
   readonly purchaseId: string;
-  readonly units: number;
-  readonly totalCostCents: Cents;
   readonly purchasedAt: string;
   readonly vendor: string;
 }
@@ -62,8 +48,8 @@ const isNewer = (line: ReplacementCostLine, held: ReplacementCostLine) => {
 
 /**
  * Index the latest purchase line per product. A product with no usable line is
- * ABSENT rather than present with a zero — the same honest-unknown discipline
- * `buildCostBasis` keeps, and a fresh catalog is mostly absences.
+ * ABSENT rather than present with a zero, as `buildCostBasis` leaves it — a
+ * fresh catalog is mostly absences.
  */
 export const buildReplacementCosts = (
   lines: readonly ReplacementCostLine[],
@@ -102,13 +88,17 @@ export const replacementCostCentsForDisplay = (cost: ReplacementCost): Cents =>
 
 /**
  * The smallest price point at or above `TARGET_MARKUP` x replacement cost.
+ * Null for a free product, which has no markup to take.
  *
- * Divides once, against the increment, so no intermediate per-unit cost is
- * rounded on the way. Rounding UP rather than to-nearest is what lets the
- * suggestion promise the markup it names; a cost already landing on a quarter
- * is left where it is.
+ * Rounding UP rather than to-nearest is what lets the suggestion promise the
+ * markup it names; a cost already landing on a quarter is left where it is.
  */
-export const suggestedPriceCents = (cost: ReplacementCost): Cents => {
+export const suggestedPriceCentsFor = (
+  cost: ReplacementCost,
+): Cents | null => {
+  if (cost.totalCostCents <= 0) {
+    return null;
+  }
   const increments = Math.ceil(
     (cost.totalCostCents * TARGET_MARKUP) /
       (PRICE_INCREMENT_CENTS * cost.units),
@@ -131,11 +121,9 @@ export const markupAtPrice = (
 };
 
 /**
- * Gross margin at `priceCents`, as a fraction. Negative when the price is under
- * cost — never clamped, because selling at a loss is the thing worth seeing.
- *
- * Null at a zero price: the product form recomputes this on every keystroke and
- * an empty field parses to zero.
+ * Gross margin at `priceCents`, as a fraction. Null at a zero price, since an
+ * empty price field parses to zero. Negative when the price is under cost —
+ * never clamped, because selling at a loss is the thing worth seeing.
  */
 export const marginFractionAtPrice = (
   priceCents: Cents,
@@ -145,4 +133,23 @@ export const marginFractionAtPrice = (
     return null;
   }
   return 1 - cost.totalCostCents / (cost.units * priceCents);
+};
+
+/** Gross profit on one unit. Negative when the price is under cost. */
+export const grossPerUnitCentsAtPrice = (
+  priceCents: Cents,
+  cost: ReplacementCost,
+): Cents => Math.round(priceCents - cost.totalCostCents / cost.units);
+
+/**
+ * Whether `priceCents` falls short of `TARGET_MARKUP`. False for an unpriced
+ * product — the $0.00 is the thing to notice, not a markup warning — and for a
+ * free one, which has no multiple of zero to fall short of.
+ */
+export const isUnderTargetMarkup = (
+  priceCents: Cents,
+  cost: ReplacementCost,
+): boolean => {
+  const markup = markupAtPrice(priceCents, cost);
+  return priceCents > 0 && markup !== null && markup < TARGET_MARKUP;
 };
