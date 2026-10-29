@@ -2,6 +2,8 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { CatalogSearch } from "./CatalogSearch.tsx";
+import { PricingHint } from "./PricingHint.tsx";
+import { indexPricing } from "./pricing.ts";
 import { Button, checkboxClass, ErrorNote, inputClass, Page, PageTitle } from "../../ui.tsx";
 import { centsToInput, parseDollarsToCents } from "../../utils/money.ts";
 import { queryClient, trpc, trpcClient } from "../../trpc.ts";
@@ -36,6 +38,12 @@ export function ProductFormScreen({ productId }: { productId?: string }) {
 
   const existing = useQuery({
     ...trpc.products.get.queryOptions({ id: productId ?? "" }),
+    enabled: Boolean(productId),
+  });
+
+  // Edit only: a product being created has no purchase history by definition.
+  const pricing = useQuery({
+    ...trpc.products.pricing.queryOptions(),
     enabled: Boolean(productId),
   });
 
@@ -170,12 +178,23 @@ export function ProductFormScreen({ productId }: { productId?: string }) {
             value={form.category}
             onChange={(e) => set({ category: e.target.value })}
           />
-          <input
-            className={inputClass}
-            placeholder="Sell price in dollars * (e.g. 1.75)"
-            value={form.price}
-            onChange={(e) => set({ price: e.target.value })}
-          />
+          <div>
+            <input
+              className={inputClass}
+              placeholder="Sell price in dollars * (e.g. 1.75)"
+              value={form.price}
+              onChange={(e) => set({ price: e.target.value })}
+            />
+            <PricingHint
+              pricing={
+                productId
+                  ? indexPricing(pricing.data ?? []).get(productId)
+                  : undefined
+              }
+              priceCents={parseDollarsToCents(form.price)}
+              onUse={(cents) => set({ price: centsToInput(cents) })}
+            />
+          </div>
         </div>
         <div className="grid grid-cols-2 gap-2">
           <div className="flex gap-1">

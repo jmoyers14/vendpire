@@ -11,6 +11,8 @@ import {
   TableScroll,
 } from "../../ui.tsx";
 import { formatCents } from "../../utils/money.ts";
+import { buildPricingDisplay, indexPricing } from "./pricing.ts";
+import type { ProductPricing } from "./pricing.ts";
 import { matchesSearch } from "../../utils/textMatch.ts";
 import { queryClient, trpc } from "../../trpc.ts";
 
@@ -18,6 +20,7 @@ export function ProductsScreen() {
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const products = useQuery(trpc.products.list.queryOptions());
+  const pricing = useQuery(trpc.products.pricing.queryOptions());
 
   const all = products.data ?? [];
   // Name, category and UPC — the three things on screen, so what you type
@@ -29,6 +32,8 @@ export function ProductsScreen() {
       query,
     ),
   );
+
+  const pricingByProduct = indexPricing(pricing.data ?? []);
 
   const remove = useMutation(
     trpc.products.remove.mutationOptions({
@@ -72,13 +77,16 @@ export function ProductsScreen() {
         <p className="text-gray-400">Loading…</p>
       ) : rows.length > 0 ? (
         <TableScroll>
-          <table className="w-full min-w-[36rem] border-collapse text-sm">
+          <table className="w-full min-w-[52rem] border-collapse text-sm">
             <thead>
               <tr className="border-b border-gray-200 bg-gray-50 text-left text-gray-600">
                 <th className="w-12 px-4 py-2" />
                 <th className="px-4 py-2 font-medium">Name</th>
                 <th className="px-4 py-2 font-medium">Category</th>
+                <th className="px-4 py-2 font-medium">Cost</th>
                 <th className="px-4 py-2 font-medium">Price</th>
+                <th className="px-4 py-2 font-medium">Margin</th>
+                <th className="px-4 py-2 font-medium">Suggest</th>
                 <th className="px-4 py-2 font-medium">UPC</th>
                 <th className="px-4 py-2" />
               </tr>
@@ -101,9 +109,10 @@ export function ProductsScreen() {
                     {product.name}
                   </td>
                   <td className="px-4 py-2 text-gray-600">{product.category}</td>
-                  <td className="px-4 py-2 text-gray-600">
-                    {formatCents(product.defaultPriceCents)}
-                  </td>
+                  <PricingCells
+                    pricing={pricingByProduct.get(product.id)}
+                    priceCents={product.defaultPriceCents}
+                  />
                   <td className="px-4 py-2 font-mono text-gray-600">
                     {product.upc ?? "—"}
                   </td>
@@ -138,5 +147,43 @@ export function ProductsScreen() {
         </EmptyState>
       )}
     </Page>
+  );
+}
+
+/**
+ * Cost, price, margin and suggestion for one row. A product with no purchase
+ * history shows dashes rather than zeroes — there is nothing to say about it.
+ */
+function PricingCells({
+  pricing,
+  priceCents,
+}: {
+  pricing: ProductPricing | undefined;
+  priceCents: number;
+}) {
+  const display = pricing ? buildPricingDisplay(pricing, priceCents) : null;
+
+  return (
+    <>
+      <td className="px-4 py-2 text-gray-600">
+        {display ? formatCents(display.unitCostCents) : "—"}
+      </td>
+      <td className="px-4 py-2 text-gray-600">{formatCents(priceCents)}</td>
+      <td className="px-4 py-2 text-gray-600">
+        {display?.marginFraction == null
+          ? "—"
+          : `${Math.round(display.marginFraction * 100)}%`}
+      </td>
+      <td className="px-4 py-2 text-gray-600">
+        {display?.suggestedPriceCents == null ? (
+          "—"
+        ) : (
+          <span className={display.isUnderTarget ? "text-amber-700" : undefined}>
+            {formatCents(display.suggestedPriceCents)}
+            {display.isUnderTarget ? " ⚠" : null}
+          </span>
+        )}
+      </td>
+    </>
   );
 }
