@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.0](https://github.com/jmoyers14/vendpire/compare/v0.6.0...v0.7.0) (2026-10-30)
+
+
+### Features
+
+* **web:** planogram drafts, machine name, and product search ([#37](https://github.com/jmoyers14/vendpire/issues/37)) ([34704fc](https://github.com/jmoyers14/vendpire/commit/34704fc74a2a7819226fc84f7ed0b13d16a96e56))
+
 ## [0.6.0](https://github.com/jmoyers14/vendpire/compare/v0.5.0...v0.6.0) (2026-10-29)
 
 
