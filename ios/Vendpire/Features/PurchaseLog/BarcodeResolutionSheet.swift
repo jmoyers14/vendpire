@@ -46,22 +46,40 @@ struct BarcodeResolutionFlow: View {
 /// the thing just scanned is often already here under a name worth checking
 /// for first.
 ///
+/// Navigation is a real push, not a mode switch: choosing attach or create
+/// pushes to its own screen with the system back button, same mechanics as
+/// the content flow one level down. At most one of `destination` /
+/// `createKind` is non-nil at a time; swapping which one IS the navigation,
+/// handled by `NavigationStack` as a pop-and-push in one transaction.
+///
 /// Every rule — validation, the conflict text, the actual network calls —
 /// lives in `BarcodeResolutionModel`. This view is layout and bindings only.
 struct BarcodeResolutionSheet: View {
     enum Mode {
-        case choose, attach, create
+        case choose, create
     }
 
     let model: BarcodeResolutionModel
 
     @Environment(\.modelContext) private var context
 
-    private enum RecordKind {
-        case unit, pack
+    /// Where "Attach" / "Create" push to. `.createKind` only exists when
+    /// `model.allowsPacks` — one level down, there is no case to fork into.
+    private enum Destination: Hashable {
+        case attach
+        case createKind
+        case createItem
+        case createPack
     }
 
-    @State private var mode: Mode
+    /// One level deeper than `destination`, reachable only through
+    /// `.createKind` — "is it a single item, or a case?"
+    private enum CreateKind: Hashable {
+        case item, pack
+    }
+
+    @State private var destination: Destination?
+    @State private var createKind: CreateKind?
     @State private var isWorking = false
 
     // Attach
@@ -69,7 +87,6 @@ struct BarcodeResolutionSheet: View {
     @State private var queryTouched = false
 
     // Create — item
-    @State private var recordKind: RecordKind = .unit
     @State private var name = ""
     @State private var itemNameTouched = false
     @State private var category = ""
@@ -83,26 +100,29 @@ struct BarcodeResolutionSheet: View {
 
     init(model: BarcodeResolutionModel, initialMode: Mode = .choose) {
         self.model = model
-        _mode = State(initialValue: initialMode)
+        switch initialMode {
+        case .choose:
+            _destination = State(initialValue: nil)
+        case .create:
+            _destination = State(initialValue: model.allowsPacks ? .createKind : .createItem)
+        }
     }
 
     var body: some View {
         Form {
             errorSection
-            headerSection
-
-            switch mode {
-            case .choose: chooseSection
-            case .attach: attachSection
-            case .create: createSection
+            codeSection
+            if destination == nil {
+                maybeCardSection
+                chooseSection
             }
         }
         .navigationTitle(model.pendingScan == nil ? "New product" : "Barcode not found")
         .navigationBarTitleDisplayMode(.inline)
-        .onAppear(perform: seed)
+        .onAppear(perform: fillUntouchedFields)
         // The candidate lookup STARTS in the same pass that presents this
-        // sheet, so it always lands after `onAppear`. Without this the prefill
-        // never happened.
+        // sheet, so it always lands after `onAppear`. Without this the
+        // prefill never happened.
         .onChange(of: model.pendingScan?.candidate) { _, _ in fillUntouchedFields() }
         // One product of the case, resolved by the same tree one level down.
         // Pushed rather than presented: this form's state has to survive the
@@ -112,6 +132,11 @@ struct BarcodeResolutionSheet: View {
                 BarcodeResolutionFlow(model: inner, startsBlank: model.contentDoor == .blankCreate)
             }
         }
+        .navigationDestination(isPresented: destinationBinding(.attach)) { attachDestination }
+        .navigationDestination(isPresented: destinationBinding(.createKind)) { createKindDestination }
+        .navigationDestination(isPresented: createKindBinding(.item)) { createItemDestination }
+        .navigationDestination(isPresented: destinationBinding(.createItem)) { createItemDestination }
+        .navigationDestination(isPresented: createKindBinding(.pack)) { createPackDestination }
     }
 
     private var contentFlowBinding: Binding<Bool> {
@@ -123,19 +148,70 @@ struct BarcodeResolutionSheet: View {
         )
     }
 
-    // MARK: - Header
+    /// A push driven by `destination`, and a pop that only clears it when
+    /// nothing else has already taken its place — a direct jump from one
+    /// destination to another (see `jumpToAttach`/`jumpToCreate`) fires both
+    /// an old binding's pop and a new binding's push in the same tick.
+    private func destinationBinding(_ value: Destination) -> Binding<Bool> {
+        Binding(
+            get: { destination == value },
+            set: { isPresented in
+                if isPresented {
+                    destination = value
+                } else if destination == value {
+                    destination = nil
+                }
+            }
+        )
+    }
+
+    private func createKindBinding(_ value: CreateKind) -> Binding<Bool> {
+        Binding(
+            get: { createKind == value },
+            set: { isPresented in
+                if isPresented {
+                    createKind = value
+                } else if createKind == value {
+                    createKind = nil
+                }
+            }
+        )
+    }
+
+    /// The server named the record the scanned code is already on — the
+    /// fastest way out is picking it from the attach list, from wherever in
+    /// the tree the conflict was hit.
+    private func jumpToAttach() {
+        createKind = nil
+        destination = .attach
+    }
+
+    /// Searching and finding nothing is the common way into creating, so the
+    /// way across is always on screen, not only once the list comes back
+    /// empty.
+    private func jumpToCreate() {
+        createKind = nil
+        destination = model.allowsPacks ? .createKind : .createItem
+    }
+
+    // MARK: - Shared sections
 
     @ViewBuilder
-    private var headerSection: some View {
+    private var codeSection: some View {
         if let scan = model.pendingScan {
             Section {
                 Text(scan.gtin14)
                     .font(.system(.body, design: .monospaced))
                     .foregroundStyle(.secondary)
+            }
+        }
+    }
 
-                if let candidate = scan.candidate, candidate.name != nil {
-                    maybeCard(candidate)
-                }
+    @ViewBuilder
+    private var maybeCardSection: some View {
+        if let candidate = model.pendingScan?.candidate, candidate.name != nil {
+            Section {
+                maybeCard(candidate)
             }
         }
     }
@@ -176,8 +252,6 @@ struct BarcodeResolutionSheet: View {
         return "\(brand) \(name)"
     }
 
-    // MARK: - Error / conflict
-
     /// Every catalog failure arrives as a `VendpireAPIError` and the model
     /// keeps its status code, so no prose matching is needed: 409 means
     /// another record already owns the code.
@@ -191,24 +265,21 @@ struct BarcodeResolutionSheet: View {
             Section {
                 Text(message)
                     .foregroundStyle(.red)
-                // The server names the record the code is already on; the
-                // fastest way out is picking it from the attach list rather
-                // than retyping the search.
                 if isConflict {
-                    Button("Use existing instead") { mode = .attach }
+                    Button("Use existing instead") { jumpToAttach() }
                 }
             }
         }
     }
 
-    // MARK: - Choose
+    // MARK: - Choose (root)
 
     private var chooseSection: some View {
         Section {
             Button(model.allowsPacks ? "It's already in my catalog" : "It's already a product I have") {
-                mode = .attach
+                destination = .attach
             }
-            Button("Create it") { mode = .create }
+            Button("Create it") { jumpToCreate() }
         } footer: {
             Text("Your imported products arrived without barcodes — check before creating a duplicate.")
         }
@@ -216,8 +287,10 @@ struct BarcodeResolutionSheet: View {
 
     // MARK: - Attach
 
-    private var attachSection: some View {
-        Group {
+    private var attachDestination: some View {
+        Form {
+            errorSection
+            codeSection
             Section {
                 TextField(
                     model.allowsPacks
@@ -239,13 +312,13 @@ struct BarcodeResolutionSheet: View {
             }
 
             // Searching and finding nothing is the common way into creating,
-            // so the way across is always on screen — not only when the list
-            // comes back empty. `Back` mirrors the web panel's.
+            // so the way across is always on screen.
             Section {
-                Button("Create it instead") { mode = .create }
-                Button("Back") { mode = .choose }
+                Button("Create it instead") { jumpToCreate() }
             }
         }
+        .navigationTitle("Search your catalog")
+        .navigationBarTitleDisplayMode(.inline)
     }
 
     @ViewBuilder
@@ -269,31 +342,44 @@ struct BarcodeResolutionSheet: View {
         }
     }
 
-    // MARK: - Create
+    // MARK: - Create: item or case?
 
-    private var createSection: some View {
-        Group {
-            // Only a resolver that may answer with a pack can offer to create
-            // one. One level down this control is absent, which is what stops
-            // a case from containing a case.
-            if model.allowsPacks {
-                Section {
-                    Picker("What is it?", selection: $recordKind) {
-                        Text("Item").tag(RecordKind.unit)
-                        Text("Case").tag(RecordKind.pack)
-                    }
-                    .pickerStyle(.segmented)
-                }
+    /// Only a resolver that may answer with a pack reaches this page. One
+    /// level down it is absent, which is what stops a case from containing a
+    /// case — `createItem` is pushed directly from `choose` there instead.
+    private var createKindDestination: some View {
+        Form {
+            errorSection
+            codeSection
+            Section {
+                Button("It's a single item") { createKind = .item }
+                Button("It's a case of items") { createKind = .pack }
             }
+        }
+        .navigationTitle("Item, or a case?")
+        .navigationBarTitleDisplayMode(.inline)
+    }
 
-            if recordKind == .unit || !model.allowsPacks {
-                itemFields
-            } else {
-                packFields
+    // MARK: - Create: item
+
+    private var createItemDestination: some View {
+        Form {
+            errorSection
+            codeSection
+            Section {
+                TextField(
+                    "Name, e.g. Coca-Cola Zero 12 oz can",
+                    text: makeTouchedBinding(for: $name, touched: $itemNameTouched)
+                )
+                TextField("Category, e.g. drinks", text: $category)
+                TextField("Sell price $", text: $priceText)
+                    .keyboardType(.decimalPad)
+            } footer: {
+                Text("Optional — set it on the planogram later.")
             }
 
             Section {
-                Button(action: create) {
+                Button(action: submitItem) {
                     if isWorking {
                         ProgressView()
                     } else {
@@ -301,32 +387,26 @@ struct BarcodeResolutionSheet: View {
                     }
                 }
                 .disabled(isWorking)
-                if model.pendingScan != nil {
-                    Button("Back") { mode = .choose }
-                        .disabled(isWorking)
-                }
             }
         }
+        .navigationTitle("New product")
+        .navigationBarTitleDisplayMode(.inline)
     }
 
-    private var itemFields: some View {
-        Section {
-            TextField(
-                "Name, e.g. Coca-Cola Zero 12 oz can",
-                text: makeTouchedBinding(for: $name, touched: $itemNameTouched)
-            )
-            TextField("Category, e.g. drinks", text: $category)
-            TextField("Sell price $", text: $priceText)
-                .keyboardType(.decimalPad)
-        } footer: {
-            Text("Optional — set it on the planogram later.")
+    private func submitItem() {
+        isWorking = true
+        Task {
+            await model.createUnit(name: name, category: category, priceText: priceText, context: context)
+            isWorking = false
         }
     }
 
-    // MARK: - Create a case
+    // MARK: - Create: case
 
-    private var packFields: some View {
-        Group {
+    private var createPackDestination: some View {
+        Form {
+            errorSection
+            codeSection
             Section {
                 TextField(
                     "e.g. Frito-Lay 30ct variety",
@@ -353,11 +433,24 @@ struct BarcodeResolutionSheet: View {
             if isSearchingContents {
                 contentSearchSection
             }
+
+            Section {
+                Button(action: submitPack) {
+                    if isWorking {
+                        ProgressView()
+                    } else {
+                        Text("Add to purchase")
+                    }
+                }
+                .disabled(isWorking)
+            }
         }
+        .navigationTitle("New case")
+        .navigationBarTitleDisplayMode(.inline)
     }
 
-    /// A resolved row: the product is settled, so only its unit count is still
-    /// a question.
+    /// A resolved row: the product is settled, so only its unit count is
+    /// still a question.
     private func contentRow(
         _ content: BarcodeResolutionModel.PackContentDraft
     ) -> some View {
@@ -454,38 +547,22 @@ struct BarcodeResolutionSheet: View {
         packNameTouched ? packName : suggestedPackName
     }
 
-    private func create() {
+    private func submitPack() {
         isWorking = true
         Task {
-            if recordKind == .unit || !model.allowsPacks {
-                await model.createUnit(
-                    name: name, category: category, priceText: priceText, context: context
-                )
-            } else {
-                await model.createPack(name: shownPackName, context: context)
-            }
+            await model.createPack(name: shownPackName, context: context)
             isWorking = false
         }
     }
 
     // MARK: - Seeding
 
-    /// What the code itself says: a case-level indicator digit opens the
-    /// create form on "a case". Known before the sheet is on screen, and the
-    /// operator's own pick must survive a late candidate — so this runs once,
-    /// and the candidate fill below runs again.
-    private func seed() {
-        guard let scan = model.pendingScan else { return }
-        recordKind = scan.likelyCase && model.allowsPacks ? .pack : .unit
-        fillUntouchedFields()
-    }
-
     /// The candidate's name seeds the attach search and the item name —
     /// whichever the operator picks, it is the first guess worth typing over
     /// rather than starting blank.
     ///
     /// Runs again every time the candidate changes, because the lookup starts
-    /// in the same pass that presents the sheet and so always answers after
+    /// in the same pass that presents this sheet and so always answers after
     /// it is already on screen. A field the operator has typed in is never
     /// overwritten — that is what the `*Touched` flags are for, and it is the
     /// rule the web panel gets for free by reading the prop once.
