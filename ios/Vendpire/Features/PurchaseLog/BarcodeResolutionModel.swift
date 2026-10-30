@@ -62,6 +62,13 @@ final class BarcodeResolutionModel {
     @ObservationIgnored
     var onResolve: ((CatalogItem) -> Void)?
 
+    /// "It's a case of items" committed to on the spot: there is nothing to
+    /// resolve yet, so this hands the caller a dedicated resolver carrying
+    /// the scanned code and candidate, for a draft row to hold onto until the
+    /// case's contents are done. See `commitPendingCase`.
+    @ObservationIgnored
+    var onCommitPackDraft: ((BarcodeResolutionModel) -> Void)?
+
     /// Set means the sheet is up.
     private(set) var pendingScan: PendingScan?
     private(set) var errorMessage: String?
@@ -148,6 +155,19 @@ final class BarcodeResolutionModel {
         candidateFetch?.cancel()
         candidateFetch = nil
         pendingScan = nil
+    }
+
+    /// Committing to "a case" is immediate and creates nothing: a dedicated
+    /// resolver carries the scanned code and candidate off to whoever is
+    /// tracking draft rows, and this one resets to resolve the next scan —
+    /// the same screen's sheet never has to close.
+    func commitPendingCase() {
+        guard let scan = pendingScan else { return }
+        let draft = BarcodeResolutionModel(allowsPacks: true, catalog: catalog)
+        draft.pendingScan = scan
+        if let api { draft.configure(api: api) }
+        dismissPendingScan()
+        onCommitPackDraft?(draft)
     }
 
     /// The name-ranked list the attach step picks from — packs included only

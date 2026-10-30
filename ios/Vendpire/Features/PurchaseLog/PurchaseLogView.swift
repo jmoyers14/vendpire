@@ -123,10 +123,7 @@ struct PurchaseLogView: View {
 
     private func rowView(_ row: PurchaseRow) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 8) {
-                KindBadge(isPack: row.isPack)
-                Text(row.name)
-            }
+            rowNameLine(row)
 
             HStack(spacing: 12) {
                 TextField(
@@ -160,6 +157,36 @@ struct PurchaseLogView: View {
                 model.removeRow(id: row.id)
             } label: {
                 Label("Delete", systemImage: "trash")
+            }
+        }
+    }
+
+    /// A `.packDraft` row is the one kind that navigates — tapping its name
+    /// opens `CaseContentsView` on the resolver `commitPackDraft` stashed,
+    /// any number of times, until the case is finally created. Every other
+    /// row is just a badge and a name.
+    @ViewBuilder
+    private func rowNameLine(_ row: PurchaseRow) -> some View {
+        if row.kind == .packDraft, let draftResolver = model.packDrafts[row.recordId] {
+            NavigationLink {
+                CaseContentsView(resolver: draftResolver)
+            } label: {
+                HStack(spacing: 8) {
+                    KindBadge(isPack: true)
+                    Text(row.name)
+                    Text("Add contents")
+                        .font(.caption2)
+                        .fontWeight(.bold)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.orange.opacity(0.15), in: Capsule())
+                        .foregroundStyle(.orange)
+                }
+            }
+        } else {
+            HStack(spacing: 8) {
+                KindBadge(isPack: row.isPack)
+                Text(row.name)
             }
         }
     }

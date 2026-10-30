@@ -28,6 +28,11 @@ final class PurchaseLogModel {
     var receiptTotalText: String = ""
 
     private(set) var rows: [PurchaseRow] = []
+    /// One entry per `.packDraft` row, keyed by its `recordId` — the
+    /// resolver `commitPendingCase` detached, still collecting that case's
+    /// contents. Removed once `createPack` succeeds and the row becomes a
+    /// real `.pack`, or if the row itself is deleted.
+    private(set) var packDrafts: [String: BarcodeResolutionModel] = [:]
     /// Only this screen's own complaints — a blank vendor, a half-typed line, a
     /// draft that wouldn't encode. Everything a scan can go wrong with belongs
     /// to `resolver`, and the sheet reads it there.
@@ -65,6 +70,9 @@ final class PurchaseLogModel {
                 recordId: item.recordId,
                 name: item.name
             )
+        }
+        resolver.onCommitPackDraft = { [weak self] draft in
+            self?.commitPackDraft(draft)
         }
     }
 
@@ -160,6 +168,9 @@ final class PurchaseLogModel {
     }
 
     func removeRow(id: UUID) {
+        if let row = rows.first(where: { $0.id == id }), row.kind == .packDraft {
+            packDrafts[row.recordId] = nil
+        }
         rows.removeAll { $0.id == id }
     }
 
@@ -225,6 +236,10 @@ final class PurchaseLogModel {
         var packLines: [PurchaseSubmissionPackLine] = []
         for (index, row) in rows.enumerated() {
             let number = index + 1
+            guard row.kind != .packDraft else {
+                errorMessage = "Line \(number): this case still needs its contents — tap it to finish"
+                return nil
+            }
             guard let totalCostCents = Money.parseDollarsToCents(row.totalCostText) else {
                 errorMessage = "Line \(number): cost must be a dollar amount"
                 return nil
@@ -249,6 +264,8 @@ final class PurchaseLogModel {
                         packId: row.recordId, qty: quantity, totalCostCents: totalCostCents
                     )
                 )
+            case .packDraft:
+                preconditionFailure("the guard above returns before a draft row reaches this switch")
             }
         }
         return (lines, packLines)
@@ -288,6 +305,38 @@ final class PurchaseLogModel {
         }
 
         rows[index].quantityText = String((Int(rows[index].quantityText.trimmed) ?? 0) + 1)
+    }
+
+    /// "It's a case of items": a flagged row appears now, holding onto the
+    /// detached resolver until its contents are done. Wiring `onResolve`
+    /// here, rather than in `BarcodeResolutionModel`, is what lets the same
+    /// resolver type serve both the shared scan-everything resolver and a
+    /// one-off draft without knowing which it is.
+    private func commitPackDraft(_ draft: BarcodeResolutionModel) {
+        let draftId = UUID().uuidString
+        draft.onResolve = { [weak self] item in
+            self?.resolveDraft(draftId, into: item)
+        }
+        packDrafts[draftId] = draft
+        rows.append(PurchaseRow(kind: .packDraft, recordId: draftId, name: "New case"))
+    }
+
+    /// `createPack` succeeded: the draft becomes a real row, keeping
+    /// whatever quantity or cost the operator already typed in rather than
+    /// starting the line over.
+    private func resolveDraft(_ draftId: String, into item: CatalogItem) {
+        packDrafts[draftId] = nil
+        guard let index = rows.firstIndex(where: { $0.kind == .packDraft && $0.recordId == draftId })
+        else { return }
+
+        rows[index] = PurchaseRow(
+            id: rows[index].id,
+            kind: .pack,
+            recordId: item.recordId,
+            name: item.name,
+            quantityText: rows[index].quantityText,
+            totalCostText: rows[index].totalCostText
+        )
     }
 
     // MARK: - The mirror

@@ -12,11 +12,17 @@ nonisolated struct PurchaseRow: Equatable, Identifiable, Sendable {
     enum Kind: Equatable, Sendable {
         case unit
         case pack
+        /// A case committed to, but not yet created — nothing to resolve to
+        /// a mirror record until its contents are done. `PurchaseLogModel`
+        /// resolves it into a real `.pack` row once `createPack` succeeds.
+        case packDraft
     }
 
     let id: UUID
     let kind: Kind
-    /// A `StoredProduct.id` for `.unit`, a `StoredPack.id` for `.pack`.
+    /// A `StoredProduct.id` for `.unit`, a `StoredPack.id` for `.pack`, the
+    /// draft's own id for `.packDraft` — the key into
+    /// `PurchaseLogModel.packDrafts`.
     let recordId: String
     /// Denormalized when the row was added, so rendering a row never goes back
     /// to the mirror — and a record renamed mid-entry keeps the name the
@@ -44,5 +50,5 @@ nonisolated struct PurchaseRow: Equatable, Identifiable, Sendable {
         self.totalCostText = totalCostText
     }
 
-    var isPack: Bool { kind == .pack }
+    var isPack: Bool { kind == .pack || kind == .packDraft }
 }

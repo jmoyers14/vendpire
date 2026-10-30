@@ -49,8 +49,15 @@ struct BarcodeResolutionFlow: View {
 /// Navigation is a real push, not a mode switch: choosing attach or create
 /// pushes to its own screen with the system back button, same mechanics as
 /// the content flow one level down. At most one of `destination` /
-/// `createKind` is non-nil at a time; swapping which one IS the navigation,
-/// handled by `NavigationStack` as a pop-and-push in one transaction.
+/// `isCreatingItemFromKind` is non-nil/true at a time; swapping which one IS
+/// the navigation, handled by `NavigationStack` as a pop-and-push in one
+/// transaction.
+///
+/// "It's a case of items" is terminal here, not a push: it commits on the
+/// spot through `BarcodeResolutionModel.commitPendingCase()`, which hands a
+/// detached resolver to `PurchaseLogModel` for a draft row. The case's name
+/// and contents live on `CaseContentsView`, reached later from that row —
+/// never from this sheet.
 ///
 /// Every rule — validation, the conflict text, the actual network calls —
 /// lives in `BarcodeResolutionModel`. This view is layout and bindings only.
@@ -69,17 +76,12 @@ struct BarcodeResolutionSheet: View {
         case attach
         case createKind
         case createItem
-        case createPack
-    }
-
-    /// One level deeper than `destination`, reachable only through
-    /// `.createKind` — "is it a single item, or a case?"
-    private enum CreateKind: Hashable {
-        case item, pack
     }
 
     @State private var destination: Destination?
-    @State private var createKind: CreateKind?
+    /// One level deeper than `destination`, reachable only through
+    /// `.createKind` — "It's a single item" pushes `createItem` from there.
+    @State private var isCreatingItemFromKind = false
     @State private var isWorking = false
 
     // Attach
@@ -91,12 +93,6 @@ struct BarcodeResolutionSheet: View {
     @State private var itemNameTouched = false
     @State private var category = ""
     @State private var priceText = ""
-
-    // Create — case
-    @State private var packName = ""
-    @State private var packNameTouched = false
-    @State private var contentQuery = ""
-    @State private var isSearchingContents = false
 
     init(model: BarcodeResolutionModel, initialMode: Mode = .choose) {
         self.model = model
@@ -134,9 +130,8 @@ struct BarcodeResolutionSheet: View {
         }
         .navigationDestination(isPresented: destinationBinding(.attach)) { attachDestination }
         .navigationDestination(isPresented: destinationBinding(.createKind)) { createKindDestination }
-        .navigationDestination(isPresented: createKindBinding(.item)) { createItemDestination }
+        .navigationDestination(isPresented: $isCreatingItemFromKind) { createItemDestination }
         .navigationDestination(isPresented: destinationBinding(.createItem)) { createItemDestination }
-        .navigationDestination(isPresented: createKindBinding(.pack)) { createPackDestination }
     }
 
     private var contentFlowBinding: Binding<Bool> {
@@ -165,24 +160,11 @@ struct BarcodeResolutionSheet: View {
         )
     }
 
-    private func createKindBinding(_ value: CreateKind) -> Binding<Bool> {
-        Binding(
-            get: { createKind == value },
-            set: { isPresented in
-                if isPresented {
-                    createKind = value
-                } else if createKind == value {
-                    createKind = nil
-                }
-            }
-        )
-    }
-
     /// The server named the record the scanned code is already on — the
     /// fastest way out is picking it from the attach list, from wherever in
     /// the tree the conflict was hit.
     private func jumpToAttach() {
-        createKind = nil
+        isCreatingItemFromKind = false
         destination = .attach
     }
 
@@ -190,7 +172,7 @@ struct BarcodeResolutionSheet: View {
     /// way across is always on screen, not only once the list comes back
     /// empty.
     private func jumpToCreate() {
-        createKind = nil
+        isCreatingItemFromKind = false
         destination = model.allowsPacks ? .createKind : .createItem
     }
 
@@ -230,7 +212,7 @@ struct BarcodeResolutionSheet: View {
                     Text("Maybe")
                         .font(.caption)
                         .fontWeight(.bold)
-                    Text(candidateName(candidate))
+                    Text(candidate.displayName)
                         .font(.subheadline)
                         .lineLimit(2)
                 }
@@ -240,16 +222,6 @@ struct BarcodeResolutionSheet: View {
                 .font(.footnote)
                 .foregroundStyle(.secondary)
         }
-    }
-
-    /// Brand-first, unless the name already says the brand — ported from the
-    /// web panel's `candidateName`.
-    private func candidateName(_ candidate: RemoteCandidate) -> String {
-        guard let name = candidate.name else { return "" }
-        guard let brand = candidate.brand, !name.localizedCaseInsensitiveContains(brand) else {
-            return name
-        }
-        return "\(brand) \(name)"
     }
 
     /// Every catalog failure arrives as a `VendpireAPIError` and the model
@@ -352,8 +324,8 @@ struct BarcodeResolutionSheet: View {
             errorSection
             codeSection
             Section {
-                Button("It's a single item") { createKind = .item }
-                Button("It's a case of items") { createKind = .pack }
+                Button("It's a single item") { isCreatingItemFromKind = true }
+                Button("It's a case of items") { model.commitPendingCase() }
             }
         }
         .navigationTitle("Item, or a case?")
@@ -401,160 +373,6 @@ struct BarcodeResolutionSheet: View {
         }
     }
 
-    // MARK: - Create: case
-
-    private var createPackDestination: some View {
-        Form {
-            errorSection
-            codeSection
-            Section {
-                TextField(
-                    "e.g. Frito-Lay 30ct variety",
-                    text: Binding(
-                        get: { shownPackName },
-                        set: { packName = $0; packNameTouched = true }
-                    )
-                )
-            } header: {
-                Text("Case name")
-            }
-
-            Section {
-                ForEach(model.contents) { content in
-                    contentRow(content)
-                }
-                addContentDoors
-            } header: {
-                Text("What's inside one case, in sellable units")
-            } footer: {
-                Text("Scan the bags inside, or pick products you already have.")
-            }
-
-            if isSearchingContents {
-                contentSearchSection
-            }
-
-            Section {
-                Button(action: submitPack) {
-                    if isWorking {
-                        ProgressView()
-                    } else {
-                        Text("Add to purchase")
-                    }
-                }
-                .disabled(isWorking)
-            }
-        }
-        .navigationTitle("New case")
-        .navigationBarTitleDisplayMode(.inline)
-    }
-
-    /// A resolved row: the product is settled, so only its unit count is
-    /// still a question.
-    private func contentRow(
-        _ content: BarcodeResolutionModel.PackContentDraft
-    ) -> some View {
-        HStack {
-            Text(content.name)
-                .lineLimit(2)
-            Spacer()
-            TextField(
-                "Units",
-                text: Binding(
-                    get: { content.unitsText },
-                    set: { model.updateContent(id: content.id, unitsText: $0) }
-                )
-            )
-            .keyboardType(.numberPad)
-            .multilineTextAlignment(.trailing)
-            .frame(width: 70)
-
-            Button(role: .destructive) {
-                model.removeContent(id: content.id)
-            } label: {
-                Image(systemName: "xmark.circle")
-            }
-            .buttonStyle(.plain)
-        }
-    }
-
-    /// The three ways a product gets into the case. All three end with a real
-    /// product, which is why a row can never be blank.
-    private var addContentDoors: some View {
-        HStack(spacing: 16) {
-            if BarcodeScannerView.isSupported {
-                Button {
-                    model.beginContentResolution(through: .scanner)
-                } label: {
-                    Label("Scan", systemImage: "barcode.viewfinder")
-                }
-            }
-            Button {
-                isSearchingContents.toggle()
-                contentQuery = ""
-            } label: {
-                Label("Search", systemImage: "magnifyingglass")
-            }
-            Button {
-                model.beginContentResolution(through: .blankCreate)
-            } label: {
-                Label("New", systemImage: "plus.circle")
-            }
-        }
-        .buttonStyle(.borderless)
-        .font(.subheadline)
-    }
-
-    /// Picking a product already in the catalog needs no network and no
-    /// resolver — it is just a name search over the mirror, products only.
-    private var contentSearchSection: some View {
-        Section {
-            TextField("Search your products…", text: $contentQuery)
-                .autocorrectionDisabled()
-            if !contentQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                CatalogItemMatches(
-                    items: model.contentSearchResults(query: contentQuery, context: context),
-                    isDisabled: false,
-                    emptyText: "Nothing matches — scan it, or tap \"New\".",
-                    onSelect: { item in
-                        model.addContent(item)
-                        isSearchingContents = false
-                        contentQuery = ""
-                    }
-                )
-            }
-        } header: {
-            Text("Add a product you already have")
-        }
-    }
-
-    /// Single-content case names itself precisely from its own product and
-    /// unit count; a variety pack falls back to the outside guess. Only a
-    /// suggestion — `shownPackName` stops showing it once the field is edited.
-    private var suggestedPackName: String {
-        if model.contents.count == 1 {
-            let only = model.contents[0]
-            let units = only.unitsText.trimmingCharacters(in: .whitespaces)
-            if !only.name.isEmpty, !units.isEmpty {
-                return "\(only.name) — case (\(units))"
-            }
-        }
-        guard let candidate = model.pendingScan?.candidate else { return "" }
-        return candidateName(candidate)
-    }
-
-    private var shownPackName: String {
-        packNameTouched ? packName : suggestedPackName
-    }
-
-    private func submitPack() {
-        isWorking = true
-        Task {
-            await model.createPack(name: shownPackName, context: context)
-            isWorking = false
-        }
-    }
-
     // MARK: - Seeding
 
     /// The candidate's name seeds the attach search and the item name —
@@ -568,7 +386,7 @@ struct BarcodeResolutionSheet: View {
     /// rule the web panel gets for free by reading the prop once.
     private func fillUntouchedFields() {
         guard let candidate = model.pendingScan?.candidate else { return }
-        let suggestion = candidateName(candidate)
+        let suggestion = candidate.displayName
 
         if !queryTouched { query = suggestion }
         if !itemNameTouched { name = suggestion }

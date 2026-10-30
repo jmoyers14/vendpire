@@ -828,4 +828,115 @@ final class PurchaseLogModelTests: XCTestCase {
 
         XCTAssertTrue(model.rows.isEmpty)
     }
+
+    // MARK: - Draft cases
+
+    /// "It's a case of items" commits on the spot: a flagged row lands now,
+    /// well before the case has a name or anything inside it.
+    func testCommittingACaseAddsAFlaggedDraftRow() async throws {
+        try makeScreen()
+        model.handleScan(caseCode, context: context)
+        await model.resolver.candidateFetch?.value
+
+        model.resolver.commitPendingCase()
+
+        XCTAssertEqual(model.rows.count, 1)
+        let row = try XCTUnwrap(model.rows.first)
+        XCTAssertEqual(row.kind, .packDraft)
+        XCTAssertEqual(row.name, "New case")
+        XCTAssertEqual(row.quantityText, "1")
+        XCTAssertTrue(row.isPack, "a draft still reads as a case, not a unit")
+
+        let draft = try XCTUnwrap(model.packDrafts[row.recordId])
+        XCTAssertEqual(draft.pendingScan?.gtin14, caseCode)
+        XCTAssertTrue(draft.allowsPacks)
+    }
+
+    /// The resolver that asked goes right back to resolving the next scan —
+    /// the sheet never has to close for this, and nothing about it should
+    /// still be "thinking about" the case that was just handed off.
+    func testCommittingACaseLeavesTheSharedResolverReadyForTheNextScan() async throws {
+        try makeScreen(products: [makeCoke()])
+        model.handleScan(caseCode, context: context)
+        await model.resolver.candidateFetch?.value
+
+        model.resolver.commitPendingCase()
+        XCTAssertNil(model.resolver.pendingScan)
+
+        model.handleScan(cokeUpc, context: context)
+
+        XCTAssertEqual(model.rows.map(\.kind), [.packDraft, .unit])
+    }
+
+    /// Finishing the case in `CaseContentsView` resolves the draft into a
+    /// real row — keeping whatever quantity or cost the operator already
+    /// typed in, rather than starting the line over.
+    func testFinishingADraftReplacesItsRowKeepingQuantityAndCost() async throws {
+        try makeScreen(products: [makeCoke()])
+        api.onCreatePack = { draft in Remote.pack(id: "k-new", name: draft.name, contents: draft.contents) }
+
+        model.handleScan(caseCode, context: context)
+        await model.resolver.candidateFetch?.value
+        model.resolver.commitPendingCase()
+
+        let draftRow = try XCTUnwrap(model.rows.first)
+        model.updateRow(id: draftRow.id, quantityText: "3", totalCostText: "19.99")
+        let draft = try XCTUnwrap(model.packDrafts[draftRow.recordId])
+        addContent(to: draft, productId: "p-coke", name: "Coke Zero", units: "20")
+
+        await draft.createPack(name: "Costco variety case", context: context)
+
+        XCTAssertEqual(model.rows.count, 1, "the draft is replaced in place, not appended alongside")
+        let resolved = try XCTUnwrap(model.rows.first)
+        XCTAssertEqual(resolved.id, draftRow.id)
+        XCTAssertEqual(resolved.kind, .pack)
+        XCTAssertEqual(resolved.recordId, "k-new")
+        XCTAssertEqual(resolved.name, "Costco variety case")
+        XCTAssertEqual(resolved.quantityText, "3", "already-typed quantity survives")
+        XCTAssertEqual(resolved.totalCostText, "19.99", "already-typed cost survives")
+        XCTAssertNil(model.packDrafts[draftRow.recordId], "a resolved draft is not still tracked")
+    }
+
+    /// A case with nothing in it yet must not reach the server as a line —
+    /// `createPack` was never even called.
+    func testSaveRefusesAnEmptyDraftCase() async throws {
+        try makeScreen()
+        model.handleScan(caseCode, context: context)
+        await model.resolver.candidateFetch?.value
+        model.resolver.commitPendingCase()
+        model.vendor = "Costco"
+
+        XCTAssertFalse(model.save(context: context))
+        let message = try XCTUnwrap(model.errorMessage)
+        XCTAssertTrue(message.contains("contents"), "got: \(message)")
+        XCTAssertTrue(try fetchOutbox().isEmpty)
+    }
+
+    /// Deleting a draft row has to drop its resolver too, or a finished case
+    /// elsewhere could resurrect a row nothing points at anymore.
+    func testRemovingADraftRowDropsItsResolverToo() async throws {
+        try makeScreen()
+        model.handleScan(caseCode, context: context)
+        await model.resolver.candidateFetch?.value
+        model.resolver.commitPendingCase()
+        let row = try XCTUnwrap(model.rows.first)
+
+        model.removeRow(id: row.id)
+
+        XCTAssertTrue(model.rows.isEmpty)
+        XCTAssertTrue(model.packDrafts.isEmpty)
+    }
+
+    /// Put a product into a specific draft's case, the way the Search door
+    /// does — no network, no inner resolver. Like `addContent`, but for a
+    /// resolver that was detached rather than `model.resolver` itself.
+    private func addContent(to draft: BarcodeResolutionModel, productId: String, name: String, units: String) {
+        draft.addContent(
+            CatalogItem(kind: .unit(imageUrl: nil), recordId: productId, name: name, barcode: nil)
+        )
+        guard let added = draft.contents.last else {
+            return XCTFail("addContent did not append a row")
+        }
+        draft.updateContent(id: added.id, unitsText: units)
+    }
 }

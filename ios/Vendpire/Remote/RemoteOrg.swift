@@ -146,6 +146,15 @@ nonisolated struct RemoteCandidate: Decodable, Equatable, Sendable {
     let name: String?
     let brand: String?
     let imageUrl: String?
+
+    /// Brand-first, unless the name already says the brand — ported from the
+    /// web panel's `candidateName`. Shared by every screen that seeds a
+    /// field from this guess, so the rule can't drift between them.
+    var displayName: String {
+        guard let name else { return "" }
+        guard let brand, !name.localizedCaseInsensitiveContains(brand) else { return name }
+        return "\(brand) \(name)"
+    }
 }
 
 /// What the scanner has in hand to create a product. `active` and
