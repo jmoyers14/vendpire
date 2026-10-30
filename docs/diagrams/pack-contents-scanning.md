@@ -147,6 +147,62 @@ where today it creates nothing. That matches the stance `createPack` already
 takes on partial failure — those are records the operator wanted, and a rerun
 picks them out of the mirror instead of duplicating them.
 
+## The UX surfaces
+
+> **Status.** Proposed, not built. A companion to the tree above: where the
+> tree fixes *what* each resolver decides, this fixes *where on screen* that
+> decision happens.
+
+| Surface | Kind | Appears when |
+|---|---|---|
+| Purchase Log | screen, root | always |
+| Case Contents | screen, pushed | a case row is tapped |
+| Resolution sheet | sheet, fixed-large detent | either resolver hits `notFound` |
+
+One sheet component serves both resolvers. `allowsPacks` doesn't just change
+which branches it offers — it changes how deep it can go.
+
+**The sheet has its own push navigation**, not a single scrolling form. Its
+root page holds the Maybe card and the attach-or-create choice; picking either
+pushes to a dedicated page with a back chevron, same mechanics as a
+`NavigationStack`, just scoped to the sheet:
+
+```
+root → Attach                              (1 push)
+root → Create → Item                       (outer: 2 pushes)
+root → Create → Case                       (outer: 1 push, commits immediately)
+root → Create                              (inner: 1 push — no item/case fork)
+```
+
+Picking "Case" on the kind page commits on the spot — no further push, no name
+field. Everything else that reaches a name field pushes one level deeper than
+that.
+
+**A case appears in the Purchase Log before its contents do.** Committing
+"Case" doesn't open Case Contents — it closes the sheet and drops a row into
+the purchase list immediately, flagged with an amber **Add contents** badge
+(distinct from the red-orange **New** badge used elsewhere for a just-created
+product, so "needs attention" never reads as "informational"). That row stays
+tappable forever, filled or not, so a case can be revisited and edited later.
+Tapping it — now or on a later pass — is what pushes Case Contents.
+
+This is what makes the abandonment cost in the section above a non-issue in
+practice: a half-filled case is never silent data loss, it's a row sitting in
+the list with a badge on it, exactly as discoverable as any other unfinished
+work.
+
+**Two independent steppers per case.** The purchase row's stepper counts how
+many of that case were bought; each content row's stepper, one level down in
+Case Contents, counts units of that product *inside one case*. Same control
+both places — a stepper with the number tappable to type an exact value
+instead of tapping `+` repeatedly.
+
+**Still open:**
+- A case has no name until it has contents — "New case" is a placeholder, not
+  a decision. The tree never asks for one.
+- Save-time validation when a case is still empty — block the save, or warn
+  and allow saving anyway — is unresolved.
+
 ## The two codes, still two codes
 
 The warning from [barcode-resolution.md](barcode-resolution.md) holds and gets
