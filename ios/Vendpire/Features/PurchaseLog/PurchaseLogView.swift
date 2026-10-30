@@ -75,14 +75,25 @@ struct PurchaseLogView: View {
         }
         .sheet(
             isPresented: $isScannerSheetPresented,
-            onDismiss: { model.resolver.dismissPendingScan() }
+            onDismiss: {
+                model.resolver.dismissPendingScan()
+                // The card lives over the camera, so it has nothing left to
+                // say once the camera is gone — and Undo must not outlive the
+                // screen that explains what it would undo.
+                model.clearScanConfirmation()
+            }
         ) {
             // The sheet stays up across scans: a resolved code just adds or
             // bumps a row and keeps scanning, and only an unknown one swaps
             // the camera for the question. A NavigationStack because the
             // create-a-case step pushes the inner flow onto it.
             NavigationStack {
-                BarcodeResolutionFlow(model: model.resolver)
+                BarcodeResolutionFlow(
+                    model: model.resolver,
+                    confirmation: model.scanConfirmation,
+                    itemCount: model.rows.count,
+                    onUndo: { model.undoLastScan() }
+                )
                     .toolbar {
                         // Stays reachable from the pushed inner flow too, where
                         // Back goes up one level and this leaves entirely.

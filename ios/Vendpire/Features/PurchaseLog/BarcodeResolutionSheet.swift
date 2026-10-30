@@ -9,6 +9,13 @@ struct BarcodeResolutionFlow: View {
     /// Skip the camera and open straight on the create form — the inner
     /// editor's "this bag has no barcode at all" door.
     var startsBlank = false
+    /// What the last scan put on the purchase. Nil one level down, where the
+    /// contents list is already on screen doing the same job.
+    var confirmation: ScanConfirmation?
+    /// Lines so far — cumulative proof the scanner is working, which a card
+    /// showing only the most recent scan can't give on its own.
+    var itemCount: Int?
+    var onUndo: (() -> Void)?
 
     @Environment(\.modelContext) private var context
 
@@ -19,14 +26,19 @@ struct BarcodeResolutionFlow: View {
             BarcodeResolutionSheet(model: model)
         } else {
             BarcodeScannerView(onScan: { code in model.resolve(code, context: context) })
-                .overlay(alignment: .bottom) { scanError }
+                .overlay(alignment: .top) { itemCountBadge }
+                .overlay(alignment: .bottom) { scanFeedback }
+                // Hands are busy and the eyes are on the cart as often as the
+                // screen, so the fastest "got it" is one you feel.
+                .sensoryFeedback(.success, trigger: confirmation?.id)
+                .sensoryFeedback(.error, trigger: model.errorMessage)
         }
     }
 
-    /// A refused scan has to be visible without leaving the camera — the
-    /// operator's hands are full and the next item is already coming up.
+    /// A refusal outranks a confirmation: it is the one that needs acting on,
+    /// and the scan it refused put nothing on the purchase to report.
     @ViewBuilder
-    private var scanError: some View {
+    private var scanFeedback: some View {
         if let message = model.errorMessage {
             Text(message)
                 .font(.footnote)
@@ -35,6 +47,54 @@ struct BarcodeResolutionFlow: View {
                 .background(.red.opacity(0.9), in: RoundedRectangle(cornerRadius: 8))
                 .foregroundStyle(.white)
                 .padding()
+        } else if let confirmation {
+            confirmationCard(confirmation)
+        }
+    }
+
+    /// Stays up until the next scan replaces it. Undo is here rather than a
+    /// confirm step before the add, because confirming costs a tap on every
+    /// one of thirty items and undoing costs one on the rare mistake.
+    private func confirmationCard(_ confirmation: ScanConfirmation) -> some View {
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 8) {
+                    KindBadge(isPack: confirmation.isPack)
+                    Text(confirmation.name)
+                        .font(.subheadline)
+                        .lineLimit(1)
+                }
+                // The count, not just the name: a rescan bumps an existing
+                // row, and that is the mistake worth catching early.
+                Text("\(confirmation.quantity) × on this purchase")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer(minLength: 0)
+
+            if let onUndo {
+                Button("Undo", action: onUndo)
+                    .font(.subheadline.weight(.semibold))
+                    .buttonStyle(.borderless)
+            }
+        }
+        .padding(12)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
+        .padding()
+        .transition(.move(edge: .bottom).combined(with: .opacity))
+        .animation(.snappy, value: confirmation.id)
+    }
+
+    @ViewBuilder
+    private var itemCountBadge: some View {
+        if let itemCount, itemCount > 0 {
+            Text(itemCount == 1 ? "1 item" : "\(itemCount) items")
+                .font(.caption.weight(.semibold))
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(.regularMaterial, in: Capsule())
+                .padding(.top, 8)
         }
     }
 }

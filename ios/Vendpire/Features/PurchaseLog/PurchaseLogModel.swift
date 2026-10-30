@@ -300,11 +300,48 @@ final class PurchaseLogModel {
     private func addOrIncrementRow(kind: PurchaseRow.Kind, recordId: String, name: String) {
         guard let index = rows.firstIndex(where: { $0.kind == kind && $0.recordId == recordId })
         else {
-            rows.append(PurchaseRow(kind: kind, recordId: recordId, name: name))
+            let row = PurchaseRow(kind: kind, recordId: recordId, name: name)
+            rows.append(row)
+            scanConfirmation = ScanConfirmation(
+                rowId: row.id, name: name, isPack: row.isPack, quantity: 1, effect: .added
+            )
             return
         }
 
-        rows[index].quantityText = String((Int(rows[index].quantityText.trimmed) ?? 0) + 1)
+        let quantity = (Int(rows[index].quantityText.trimmed) ?? 0) + 1
+        rows[index].quantityText = String(quantity)
+        scanConfirmation = ScanConfirmation(
+            rowId: rows[index].id, name: name, isPack: rows[index].isPack,
+            quantity: quantity, effect: .incremented
+        )
+    }
+
+    // MARK: - Telling the operator it worked
+
+    /// What the last scan did, for the card over the camera. Replaced by the
+    /// next scan rather than timed out: standing evidence of the last action
+    /// beats a flash that can be missed while looking at the cart.
+    private(set) var scanConfirmation: ScanConfirmation?
+
+    /// Reverse the last scan. An increment steps back down instead of
+    /// removing the row, because undoing an accidental double-scan must not
+    /// discard the first one.
+    func undoLastScan() {
+        guard let confirmation = scanConfirmation else { return }
+        scanConfirmation = nil
+
+        guard let index = rows.firstIndex(where: { $0.id == confirmation.rowId }) else { return }
+        switch confirmation.effect {
+        case .added:
+            rows.remove(at: index)
+        case .incremented:
+            rows[index].quantityText = String(max(confirmation.quantity - 1, 1))
+        }
+    }
+
+    /// The scanner closed, so there is nothing left to confirm.
+    func clearScanConfirmation() {
+        scanConfirmation = nil
     }
 
     /// "It's a case of items": a flagged row appears now, holding onto the

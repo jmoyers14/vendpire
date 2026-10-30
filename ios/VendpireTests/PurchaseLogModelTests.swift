@@ -787,6 +787,82 @@ final class PurchaseLogModelTests: XCTestCase {
         )
     }
 
+    // MARK: - Telling the operator it worked
+
+    /// The scanner is opaque and stays up across a whole cart, so a scan that
+    /// worked must say so — silence is indistinguishable from a dead scanner.
+    func testAKnownScanReportsWhatItAdded() throws {
+        try makeScreen(products: [makeCoke()])
+
+        model.handleScan(cokeUpc, context: context)
+
+        let confirmation = try XCTUnwrap(model.scanConfirmation)
+        XCTAssertEqual(confirmation.name, "Coke Zero")
+        XCTAssertEqual(confirmation.quantity, 1)
+        XCTAssertEqual(confirmation.effect, .added)
+        XCTAssertFalse(confirmation.isPack)
+    }
+
+    /// The count is the point: a rescan bumps an existing row, and without a
+    /// number on the card that is invisible until the receipt won't add up.
+    func testARescanReportsTheBumpedCount() throws {
+        try makeScreen(products: [makeCoke()])
+
+        model.handleScan(cokeUpc, context: context)
+        let first = try XCTUnwrap(model.scanConfirmation)
+        model.handleScan(cokeUpc, context: context)
+
+        let second = try XCTUnwrap(model.scanConfirmation)
+        XCTAssertEqual(second.quantity, 2)
+        XCTAssertEqual(second.effect, .incremented)
+        XCTAssertNotEqual(second.id, first.id, "a fresh id re-fires the haptic and the animation")
+        XCTAssertEqual(model.rows.count, 1, "still one row, not two")
+    }
+
+    func testAPackScanReportsItselfAsACase() throws {
+        try makeScreen(products: [makeCoke()], packs: [makeVarietyCase()])
+
+        model.handleScan(caseCode, context: context)
+
+        let confirmation = try XCTUnwrap(model.scanConfirmation)
+        XCTAssertTrue(confirmation.isPack, "the badge is how scanning a case by mistake gets caught")
+    }
+
+    func testUndoingAnAddRemovesTheRow() throws {
+        try makeScreen(products: [makeCoke()])
+        model.handleScan(cokeUpc, context: context)
+
+        model.undoLastScan()
+
+        XCTAssertTrue(model.rows.isEmpty)
+        XCTAssertNil(model.scanConfirmation)
+    }
+
+    /// Undoing a double-scan must step the count back, not delete the row —
+    /// removing it would throw away the first scan as well.
+    func testUndoingARescanStepsTheCountBackInstead() throws {
+        try makeScreen(products: [makeCoke()])
+        model.handleScan(cokeUpc, context: context)
+        model.handleScan(cokeUpc, context: context)
+
+        model.undoLastScan()
+
+        XCTAssertEqual(model.rows.count, 1, "the row the first scan made stays")
+        XCTAssertEqual(model.rows.first?.quantityText, "1")
+        XCTAssertNil(model.scanConfirmation)
+    }
+
+    func testUndoWithNothingScannedChangesNothing() throws {
+        try makeScreen(products: [makeCoke()])
+        model.add(
+            CatalogItem(kind: .unit(imageUrl: nil), recordId: "p-coke", name: "Coke Zero", barcode: nil)
+        )
+
+        model.undoLastScan()
+
+        XCTAssertEqual(model.rows.count, 1, "a manual pick is not the last SCAN and Undo must not eat it")
+    }
+
     // MARK: - Manual entry
 
     func testSearchResultsComeFromTheMirror() throws {
