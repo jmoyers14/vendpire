@@ -9,34 +9,31 @@ import {
   PageTitle,
   SlotFaceGrid,
 } from "../../ui.tsx";
-import type { ApiProduct } from "../../apiTypes.ts";
 import {
   centsToInput,
   formatCents,
   parseDollarsToCents,
 } from "../../utils/money.ts";
 import { queryClient, trpc } from "../../trpc.ts";
-
-interface SlotRow {
-  slotCode: string;
-  productId: string;
-  par: string;
-  price: string;
-}
-
-/** What the slot editor reads of a product, derived so a rename breaks here. */
-type SlotProductOption = Pick<ApiProduct, "id" | "name" | "defaultPriceCents">;
+import {
+  buildEditorSlots,
+  type DraftSlot,
+  usePlanogramDraft,
+} from "./planogramDraft.ts";
+import { ProductCombobox, type ProductOption } from "./ProductCombobox.tsx";
 
 /**
  * A machine's planogram: the current version, its history, and an editor that
  * saves a NEW immutable version (prefilled from the current one, so a weekly
- * tweak is edit-two-rows-and-save).
+ * tweak is edit-two-rows-and-save). Edits autosave as a local draft.
  */
 export function MachinePlanogramsScreen({ machineId }: { machineId: string }) {
   const [error, setError] = useState<string | null>(null);
-  const [editing, setEditing] = useState(false);
-  const [rows, setRows] = useState<SlotRow[]>([]);
+  // Null while not editing.
+  const [rows, setRows] = useState<DraftSlot[] | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
+  const { draft, save: saveDraft, discard: discardDraft } =
+    usePlanogramDraft(machineId);
 
   const machine = useQuery(trpc.machines.get.queryOptions({ id: machineId }));
   const products = useQuery(trpc.products.list.queryOptions());
@@ -44,26 +41,47 @@ export function MachinePlanogramsScreen({ machineId }: { machineId: string }) {
     trpc.planograms.listByMachine.queryOptions({ machineId }),
   );
   const current = versions.data?.[0] ?? null;
+  const isLoaded = machine.data !== undefined && versions.data !== undefined;
+  const machineName = machine.data?.name ?? "…";
 
-  // Entering edit mode: prefill one row per machine slot from the current
-  // version (empty product = slot left unassigned, filtered out on save).
-  useEffect(() => {
-    if (!editing || !machine.data) {
+  // Prefer the draft; otherwise prefill from the current version (an empty
+  // product means the slot is left unassigned and is dropped on save).
+  const startEditing = () => {
+    if (!machine.data) {
       return;
     }
-    setSelected(machine.data.slots.flat()[0] ?? null);
-    setRows(
-      machine.data.slots.flat().map((slotCode) => {
-        const slot = current?.slots.find((s) => s.slotCode === slotCode);
-        return {
-          slotCode,
-          productId: slot?.productId ?? "",
-          par: slot ? String(slot.par) : "",
-          price: slot ? centsToInput(slot.priceCents) : "",
-        };
-      }),
-    );
-  }, [editing, machine.data, current]);
+    const slotCodes = machine.data.slots.flat();
+    const startingSlots =
+      draft ??
+      (current?.slots ?? []).map((slot) => ({
+        slotCode: slot.slotCode,
+        productId: slot.productId,
+        par: String(slot.par),
+        price: centsToInput(slot.priceCents),
+      }));
+    setSelected(slotCodes[0] ?? null);
+    setRows(buildEditorSlots(slotCodes, startingSlots));
+  };
+
+  // Coming back to the screen with a draft drops you straight into it.
+  useEffect(() => {
+    if (isLoaded && draft) {
+      startEditing();
+    }
+  }, [isLoaded]);
+
+  const updateRows = (next: DraftSlot[]) => {
+    setRows(next);
+    saveDraft(next);
+  };
+
+  const closeEditor = ({ keepDraft }: { keepDraft: boolean }) => {
+    if (!keepDraft) {
+      discardDraft();
+    }
+    setRows(null);
+    setError(null);
+  };
 
   const create = useMutation(
     trpc.planograms.create.mutationOptions({
@@ -71,8 +89,7 @@ export function MachinePlanogramsScreen({ machineId }: { machineId: string }) {
         queryClient.invalidateQueries({
           queryKey: trpc.planograms.listByMachine.queryKey({ machineId }),
         });
-        setEditing(false);
-        setError(null);
+        closeEditor({ keepDraft: false });
       },
       onError: (e) => setError(e.message),
     }),
@@ -82,6 +99,9 @@ export function MachinePlanogramsScreen({ machineId }: { machineId: string }) {
     products.data?.find((product) => product.id === id)?.name ?? id;
 
   const save = () => {
+    if (!rows) {
+      return;
+    }
     setError(null);
     const slots = [];
     for (const row of rows) {
@@ -107,12 +127,18 @@ export function MachinePlanogramsScreen({ machineId }: { machineId: string }) {
     create.mutate({ machineId, slots });
   };
 
+  const title = rows
+    ? `${current ? "New planogram version" : "New planogram"} for ${machineName}`
+    : `Planogram — ${machineName}`;
+  let startLabel = current ? "New Version" : "Set Up Planogram";
+  if (draft) {
+    startLabel = "Resume Draft";
+  }
+
   return (
     <Page max="4xl" className="space-y-4">
       <div className="flex items-center justify-between">
-        <PageTitle>
-          Planogram — {machine.data?.name ?? "…"}
-        </PageTitle>
+        <PageTitle>{title}</PageTitle>
         <Link to="/machines" className="text-sm text-gray-600 hover:text-gray-800">
           ← Machines
         </Link>
@@ -120,8 +146,13 @@ export function MachinePlanogramsScreen({ machineId }: { machineId: string }) {
 
       <ErrorNote message={error} />
 
-      {editing ? (
+      {rows ? (
         <div className="space-y-3">
+          <p className="text-sm text-gray-600">
+            Changes are kept as a draft on this device until you save the new
+            version.
+          </p>
+
           {/* The machine face — click a cell to edit that slot. */}
           <SlotFaceGrid
             shelves={machine.data?.slots ?? []}
@@ -163,7 +194,7 @@ export function MachinePlanogramsScreen({ machineId }: { machineId: string }) {
               row={rows.find((r) => r.slotCode === selected)}
               products={products.data ?? []}
               onChange={(patch) =>
-                setRows(
+                updateRows(
                   rows.map((r) =>
                     r.slotCode === selected ? { ...r, ...patch } : r,
                   ),
@@ -188,9 +219,16 @@ export function MachinePlanogramsScreen({ machineId }: { machineId: string }) {
             <Button
               variant="secondary"
               size="sm"
-              onClick={() => setEditing(false)}
+              onClick={() => closeEditor({ keepDraft: true })}
             >
-              Cancel
+              Save Draft
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => closeEditor({ keepDraft: false })}
+            >
+              Discard Draft
             </Button>
           </div>
         </div>
@@ -204,9 +242,10 @@ export function MachinePlanogramsScreen({ machineId }: { machineId: string }) {
             </p>
             <Button
               size="sm"
-              onClick={() => setEditing(true)}
+              onClick={startEditing}
+              disabled={!machine.data}
             >
-              {current ? "New Version" : "Set Up Planogram"}
+              {startLabel}
             </Button>
           </div>
 
@@ -265,9 +304,9 @@ export function MachinePlanogramsScreen({ machineId }: { machineId: string }) {
 
 interface SlotEditPanelProps {
   slotCode: string;
-  row: SlotRow | undefined;
-  products: SlotProductOption[];
-  onChange: (patch: Partial<SlotRow>) => void;
+  row: DraftSlot | undefined;
+  products: ProductOption[];
+  onChange: (patch: Partial<DraftSlot>) => void;
   onNext: () => void;
 }
 
@@ -289,28 +328,20 @@ function SlotEditPanel({
       <span className="pb-2 font-mono text-sm font-medium text-gray-800">
         {slotCode}
       </span>
-      <label className="min-w-48 flex-1 text-xs text-gray-600">
+      <div className="min-w-48 flex-1 text-xs text-gray-600">
         Product
-        <select
-          className={inputClass}
-          value={row?.productId ?? ""}
-          onChange={(e) => {
-            const product = products.find((p) => p.id === e.target.value);
+        <ProductCombobox
+          products={products}
+          productId={row?.productId ?? ""}
+          onPick={(product) =>
             onChange({
-              productId: e.target.value,
-              price: product ? centsToInput(product.defaultPriceCents) : "",
+              productId: product.id,
+              price: centsToInput(product.defaultPriceCents),
               par: row?.par || "10",
-            });
-          }}
-        >
-          <option value="">— empty —</option>
-          {products.map((product) => (
-            <option key={product.id} value={product.id}>
-              {product.name}
-            </option>
-          ))}
-        </select>
-      </label>
+            })
+          }
+        />
+      </div>
       <label className="w-20 text-xs text-gray-600">
         Par
         <input
