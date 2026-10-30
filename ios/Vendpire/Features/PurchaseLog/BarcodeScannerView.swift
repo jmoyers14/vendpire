@@ -3,8 +3,10 @@ import Vision
 import VisionKit
 
 /// Continuous barcode scanning for working through a cart: the scanner stays
-/// up and each NEW tracked code fires once. VisionKit tracks items, so a can
-/// held in frame doesn't re-fire; moving to the next item does.
+/// up and each code fires once, with repeats inside `ScanGate`'s refractory
+/// period treated as the same item being re-recognised rather than a second
+/// one. VisionKit's own item tracking is not enough to tell those apart — see
+/// `ScanGate`.
 struct BarcodeScannerView: UIViewControllerRepresentable {
     let onScan: (String) -> Void
 
@@ -31,16 +33,15 @@ struct BarcodeScannerView: UIViewControllerRepresentable {
 
     final class Coordinator: NSObject, DataScannerViewControllerDelegate {
         private let onScan: (String) -> Void
-        private var seen: Set<UUID> = []
+        private var gate = ScanGate()
         init(onScan: @escaping (String) -> Void) { self.onScan = onScan }
 
         func dataScanner(_ scanner: DataScannerViewController,
                          didAdd addedItems: [RecognizedItem], allItems: [RecognizedItem]) {
             for item in addedItems {
                 guard case .barcode(let barcode) = item,
-                      !seen.contains(item.id),
-                      let payload = barcode.payloadStringValue else { continue }
-                seen.insert(item.id)
+                      let payload = barcode.payloadStringValue,
+                      gate.shouldAccept(payload) else { continue }
                 onScan(payload)
             }
         }
