@@ -27,6 +27,13 @@ describe("the @vendpire/domain barrel", () => {
     "buildCostBasis",
     "cogsForUnits",
     "unitCostCentsForDisplay",
+    "buildReplacementCosts",
+    "replacementCostCentsForDisplay",
+    "suggestedPriceCentsFor",
+    "markupAtPrice",
+    "marginFractionAtPrice",
+    "grossPerUnitCentsAtPrice",
+    "isUnderTargetMarkup",
     "buildIntervalPnl",
     "buildPnlTotals",
   ]) {

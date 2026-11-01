@@ -9,6 +9,7 @@ export const LOCATION_SERVICE_TOKEN = "LocationService";
 export const MACHINE_SERVICE_TOKEN = "MachineService";
 export const MACHINE_TEMPLATE_SERVICE_TOKEN = "MachineTemplateService";
 export const PRODUCT_SERVICE_TOKEN = "ProductService";
+export const PRICING_SERVICE_TOKEN = "PricingService";
 export const PRODUCT_DATA_SERVICE_TOKEN = "ProductDataService";
 export const BARCODE_RESOLVER_SERVICE_TOKEN = "BarcodeResolverService";
 export const PLANOGRAM_SERVICE_TOKEN = "PlanogramService";

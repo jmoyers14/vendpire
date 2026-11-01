@@ -284,6 +284,59 @@ describe.skipIf(!ENABLED)("PurchaseRepositoryImpl against MongoDB", () => {
     });
   });
 
+  // The pricing read's correctness is also entirely in its projection, and it
+  // reaches for three fields the cost basis deliberately leaves behind: the
+  // parent purchase's id, date and vendor.
+  describe("findReplacementCostLines", () => {
+    it("carries each line's purchase id, date and vendor", async () => {
+      const doc = await PurchaseModel.create({
+        orgId: ORG,
+        purchasedAt: SHARED,
+        vendor: "Costco",
+        lines: [
+          { productId: oidHex("p1"), units: 30, totalCostCents: 1749 },
+          { productId: oidHex("p2"), units: 12, totalCostCents: 699 },
+        ],
+        clientRequestId: "repl_1",
+      });
+
+      const lines = await repo.findReplacementCostLines(ORG);
+
+      expect(lines).toHaveLength(2);
+      expect(lines).toContainEqual({
+        productId: oidHex("p1"),
+        purchaseId: String(doc._id),
+        units: 30,
+        totalCostCents: 1749,
+        purchasedAt: SHARED.toISOString(),
+        vendor: "Costco",
+      });
+      // Exactly six — a stray `packId` or `notes` would mean the projection
+      // isn't doing anything.
+      expect(Object.keys(lines[0] as object).sort()).toEqual([
+        "productId",
+        "purchaseId",
+        "purchasedAt",
+        "totalCostCents",
+        "units",
+        "vendor",
+      ]);
+    });
+
+    // A receipt entered in error never happened, so it must not set the price
+    // of anything.
+    it("excludes a soft-deleted purchase's lines", async () => {
+      const id = await seed(SHARED);
+      await repo.softDelete(ORG, id);
+      expect(await repo.findReplacementCostLines(ORG)).toEqual([]);
+    });
+
+    it("never reaches across the org boundary", async () => {
+      await seed(SHARED);
+      expect(await repo.findReplacementCostLines("org_2")).toEqual([]);
+    });
+  });
+
   // The only way to catch a future index regression: without {orgId,
   // purchasedAt, _id} the planner has to insert a blocking SORT over the whole
   // org's purchases on every page.

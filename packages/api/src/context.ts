@@ -9,6 +9,7 @@ import type { LocationService } from "./services/LocationService/LocationService
 import type { MachineService } from "./services/MachineService/MachineService.ts";
 import type { MachineTemplateService } from "./services/MachineTemplateService/MachineTemplateService.ts";
 import type { ProductService } from "./services/ProductService/ProductService.ts";
+import type { PricingService } from "./services/PricingService/PricingService.ts";
 import type { ProductDataService } from "./services/ProductDataService/ProductDataService.ts";
 import type { BarcodeResolverService } from "./services/BarcodeResolverService/BarcodeResolverService.ts";
 import type { PlanogramService } from "./services/PlanogramService/PlanogramService.ts";
@@ -53,6 +54,7 @@ export interface Context {
     machineService: MachineService;
     machineTemplateService: MachineTemplateService;
     productService: ProductService;
+    pricingService: PricingService;
     productDataService: ProductDataService;
     barcodeResolverService: BarcodeResolverService;
     planogramService: PlanogramService;

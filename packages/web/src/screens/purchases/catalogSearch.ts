@@ -8,6 +8,7 @@
  */
 
 import type { ApiPack, ApiProduct } from "../../apiTypes.ts";
+import { rankByName } from "../../utils/textMatch.ts";
 
 /**
  * What this module needs of a record, derived from the wire type so a server
@@ -85,58 +86,12 @@ export const buildCatalogItems = (
   ...packs.filter(isActive).map(toPackItem),
 ];
 
-/**
- * Lower is better. Ranks where the term lands, so "coke" puts "Coke Zero"
- * above "Diet Coke" above "Costco Coke Variety".
- */
-const scoreTerm = (name: string, term: string): number | null => {
-  const index = name.indexOf(term);
-  if (index === -1) {
-    return null;
-  }
-  if (index === 0) {
-    return name.length === term.length ? 0 : 1;
-  }
-  return name[index - 1] === " " ? 2 : 3;
-};
-
-/**
- * Every term must appear somewhere in the name, so "coke case" narrows rather
- * than widens. Ties break toward the shorter name — the more specific match.
- */
+/** Ranked by name — see rankByName for how matches order. */
 export const searchCatalogItems = (
   items: CatalogItem[],
   query: string,
   limit: number = DEFAULT_SEARCH_LIMIT,
-): CatalogItem[] => {
-  const terms = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
-  if (terms.length === 0) {
-    return [];
-  }
-
-  const scored: { item: CatalogItem; score: number }[] = [];
-  for (const item of items) {
-    const name = item.name.toLowerCase();
-    let total = 0;
-    let matchedAll = true;
-    for (const term of terms) {
-      const score = scoreTerm(name, term);
-      if (score === null) {
-        matchedAll = false;
-        break;
-      }
-      total += score;
-    }
-    if (matchedAll) {
-      scored.push({ item, score: total });
-    }
-  }
-
-  return scored
-    .sort((a, b) => a.score - b.score || a.item.name.length - b.item.name.length)
-    .slice(0, limit)
-    .map((entry) => entry.item);
-};
+): CatalogItem[] => rankByName(items, query, limit);
 
 /**
  * A scanner only ever emits digits, so anything with a letter in it is a

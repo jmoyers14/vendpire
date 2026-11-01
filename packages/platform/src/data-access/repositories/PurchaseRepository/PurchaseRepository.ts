@@ -1,4 +1,4 @@
-import type { CostBasisLine } from "@vendpire/domain";
+import type { CostBasisLine, ReplacementCostLine } from "@vendpire/domain";
 import type {
   Purchase,
   PurchaseInput,
@@ -30,6 +30,12 @@ export interface PurchaseRepository {
    * date window would stop a late receipt correcting what it should.
    */
   findCostBasisLines(orgId: string): Promise<CostBasisLine[]>;
+  /**
+   * The same flattened read for the PRICING basis — every live line plus its
+   * purchase's id, date and vendor. A sibling rather than extra fields on
+   * findCostBasisLines, so the P&L read path keeps its narrow projection.
+   */
+  findReplacementCostLines(orgId: string): Promise<ReplacementCostLine[]>;
   /**
    * The idempotency read, for clients that submit a key (the phone). Returns
    * null for the web's keyless purchases — a null key matches nothing.

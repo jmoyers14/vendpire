@@ -24,6 +24,7 @@ import type { AppRouter } from "@vendpire/api";
 type Outputs = inferRouterOutputs<AppRouter>;
 
 export type ApiProduct = Outputs["products"]["list"][number];
+export type ApiProductPricing = Outputs["products"]["pricing"][number];
 export type ApiPack = Outputs["packs"]["list"][number];
 export type ApiPackContent = ApiPack["contents"][number];
 export type ApiPurchase = NonNullable<Outputs["purchases"]["get"]>;

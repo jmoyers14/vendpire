@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.7.0](https://github.com/jmoyers14/vendpire/compare/v0.6.0...v0.7.0) (2026-10-30)
+
+
+### Features
+
+* **web:** planogram drafts, machine name, and product search ([#37](https://github.com/jmoyers14/vendpire/issues/37)) ([34704fc](https://github.com/jmoyers14/vendpire/commit/34704fc74a2a7819226fc84f7ed0b13d16a96e56))
+
+## [0.6.0](https://github.com/jmoyers14/vendpire/compare/v0.5.0...v0.6.0) (2026-10-29)
+
+
+### Features
+
+* release visit capture and suggested sell price ([#30](https://github.com/jmoyers14/vendpire/issues/30)-[#33](https://github.com/jmoyers14/vendpire/issues/33)) ([#35](https://github.com/jmoyers14/vendpire/issues/35)) ([ae70b4c](https://github.com/jmoyers14/vendpire/commit/ae70b4c4a489b35309ff9112c461bef5eb2c4f32))
+
 ## [0.5.0](https://github.com/jmoyers14/vendpire/compare/v0.4.0...v0.5.0) (2026-10-26)
 
 
