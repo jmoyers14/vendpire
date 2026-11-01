@@ -1,16 +1,10 @@
 import SwiftUI
 
-/// Who and when, settled before the camera comes up.
+/// Who and when, settled before the camera comes up — the vendor is the only
+/// keyboard work in an otherwise keyboard-free pass.
 ///
-/// Both values used to be rows at the top of `PurchaseLogView`, sitting between
-/// the operator and the item rows they spend the whole session in — and the
-/// vendor is the only keyboard work in an otherwise keyboard-free pass. Asking
-/// for it first puts the typing in one place and makes a vendor-less purchase
-/// unreachable rather than merely refused at save.
-///
-/// This screen constructs `PurchaseLogModel` and hands it down, which is what
-/// makes Back a real edit instead of a restart: the model outlives the pop, so
-/// rows scanned before a vendor correction are still there coming forward.
+/// Constructs `PurchaseLogModel` and hands it down, so the model outlives a pop
+/// and Back is a real edit rather than a restart.
 struct PurchaseSetupView: View {
     @State private var model = PurchaseLogModel()
     @State private var hasStartedScanning = false
@@ -45,9 +39,8 @@ struct PurchaseSetupView: View {
         .navigationTitle("Log Purchase")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
-            // Only on the way in. Coming back from the purchase screen to fix a
-            // vendor must not overwrite what is already typed, and must not
-            // raise the keyboard over a value that is only being read.
+            // Only on the way in: coming back to fix a vendor must not overwrite
+            // what is typed, or raise the keyboard over a value being read.
             if model.vendor.isEmpty {
                 model.vendor = lastVendor
                 isVendorFocused = model.vendor.isEmpty

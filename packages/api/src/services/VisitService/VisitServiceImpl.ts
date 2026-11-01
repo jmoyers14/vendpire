@@ -31,7 +31,7 @@ import type {
   VisitRange,
   VisitRepository,
 } from "@vendpire/platform";
-import { ServiceError } from "../errors.ts";
+import { isDuplicateKey, ServiceError } from "../errors.ts";
 import { buildExpiringReport, type PopulatedVisit } from "./expiringReport.ts";
 import {
   DEFAULT_VISIT_LIST_LIMIT,
@@ -48,12 +48,6 @@ import {
 /** Slack for drifting phone clocks. Beyond it, a future-stamped visit becomes
  *  the predecessor of every real visit after it and poisons their baselines. */
 const MAX_FUTURE_MS = 2 * 60 * 60 * 1000;
-
-/** Mongo's duplicate-key error, recognized without importing a driver type. */
-const isDuplicateKey = (error: unknown): boolean =>
-  typeof error === "object" &&
-  error !== null &&
-  (error as { code?: unknown }).code === 11000;
 
 /**
  * Visit business rules. Two shapes run through all of them:

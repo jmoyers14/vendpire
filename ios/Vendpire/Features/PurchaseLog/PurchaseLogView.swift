@@ -73,15 +73,13 @@ struct PurchaseLogView: View {
             // The only refresh trigger in this flow — a per-item miss while
             // scanning stays silent rather than retrying behind the operator.
             await refresher.refresh()
-            model.catalogDidChange()
+            model.invalidateCatalog()
         }
         .sheet(
             isPresented: $isScannerSheetPresented,
             onDismiss: {
                 model.resolver.dismissPendingScan()
-                // The card lives over the camera, so it has nothing left to
-                // say once the camera is gone — and Undo must not outlive the
-                // screen that explains what it would undo.
+                // Undo must not outlive the card that explains what it undoes.
                 model.clearScanConfirmation()
             }
         ) {
@@ -104,11 +102,8 @@ struct PurchaseLogView: View {
                         }
                     }
             }
-            // One detent for the whole flow, declared on the sheet's root
-            // where presentation modifiers actually take effect. A per-branch
-            // detent inside the NavigationStack left the sheet stuck at the
-            // camera's height, with the not-found question's buttons below the
-            // fold and the drag going to the sheet instead of the form.
+            // On the sheet's root, where presentation modifiers take effect —
+            // a per-branch detent pinned the sheet to the camera's height.
             .presentationDetents([.large])
         }
         .sheet(isPresented: $isAddSheetPresented) {
@@ -116,10 +111,8 @@ struct PurchaseLogView: View {
         }
     }
 
-    /// "Costco · Oct 30" — what the setup screen settled, kept in sight so the
-    /// operator can see what they are logging against. A plain title, not a
-    /// button: Back is the one way to change it, and a second editor here would
-    /// mean two ways to change one value.
+    /// "Costco · Oct 30" — a plain title, not a button: Back is the one way to
+    /// change it.
     private var purchaseSummary: String {
         let day = model.purchasedDate.formatted(.dateTime.month(.abbreviated).day())
         return "\(model.vendor) · \(day)"
@@ -183,10 +176,8 @@ struct PurchaseLogView: View {
         }
     }
 
-    /// A `.packDraft` row is the one kind that navigates — tapping its name
-    /// opens `CaseContentsView` on the resolver `commitPackDraft` stashed,
-    /// any number of times, until the case is finally created. Every other
-    /// row is just a badge and a name.
+    /// A `.packDraft` row is the one kind that navigates: tapping its name
+    /// reopens `CaseContentsView` until the case is finally created.
     @ViewBuilder
     private func rowNameLine(_ row: PurchaseRow) -> some View {
         if row.kind == .packDraft, let draftResolver = model.packDrafts[row.recordId] {
@@ -196,13 +187,7 @@ struct PurchaseLogView: View {
                 HStack(spacing: 8) {
                     KindBadge(isPack: true)
                     Text(row.name)
-                    Text("Add contents")
-                        .font(.caption2)
-                        .fontWeight(.bold)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(Color.orange.opacity(0.15), in: Capsule())
-                        .foregroundStyle(.orange)
+                    Pill(text: "Add contents", tint: .orange)
                 }
             }
         } else {
@@ -240,9 +225,8 @@ struct PurchaseLogView: View {
     }
 }
 
-/// "Add without scanning": the same name-filtered catalog list Task 16's
-/// not-found sheet uses to attach a code, reused here to add a row with no
-/// code involved at all.
+/// "Add without scanning": the name-filtered catalog list the not-found sheet
+/// uses to attach a code, reused to add a row with no code involved.
 private struct AddCatalogItemSheet: View {
     let model: PurchaseLogModel
 
@@ -273,7 +257,7 @@ private struct AddCatalogItemSheet: View {
 
     @ViewBuilder
     private var matches: some View {
-        let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedQuery = query.trimmed
         if !trimmedQuery.isEmpty {
             CatalogItemMatches(
                 items: model.searchResults(query: query, context: context),

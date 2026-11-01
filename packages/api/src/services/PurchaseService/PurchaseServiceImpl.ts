@@ -15,7 +15,7 @@ import type {
   PurchaseRepository,
   PurchaseUpdate,
 } from "@vendpire/platform";
-import { ServiceError } from "../errors.ts";
+import { isDuplicateKey, ServiceError } from "../errors.ts";
 import { decodePurchaseCursor, encodePurchaseCursor } from "./cursor.ts";
 import {
   DEFAULT_PURCHASE_PAGE_SIZE,
@@ -26,12 +26,6 @@ import {
   type PurchasePackLine,
   type PurchaseService,
 } from "./PurchaseService.ts";
-
-/** Mongo's duplicate-key error, recognized without importing a driver type. */
-const isDuplicateKey = (error: unknown): boolean =>
-  typeof error === "object" &&
-  error !== null &&
-  (error as { code?: unknown }).code === 11000;
 
 /**
  * Purchase business rules. The important one: pack lines are expanded HERE,

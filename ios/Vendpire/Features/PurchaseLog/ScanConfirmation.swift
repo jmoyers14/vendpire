@@ -1,23 +1,15 @@
 import Foundation
 
-/// What the last scan did to the purchase, shown over the camera so that a
-/// successful scan is never silent. The scanner stays up across a whole cart,
-/// which means the work happens behind an opaque viewfinder — and a scan that
-/// quietly worked is indistinguishable from a scanner that has stopped
-/// working.
+/// What the last scan did to the purchase, shown over the camera: behind an
+/// opaque viewfinder, a scan that quietly worked looks like a dead scanner.
 ///
-/// Carries `effect` because Undo has to reverse the right thing. Removing a
-/// row that an *earlier* scan created would throw that scan away too, so an
-/// increment steps the count back down instead.
+/// Carries `effect` because Undo has to reverse the right thing — an increment
+/// steps the count back down rather than removing the row.
 nonisolated struct ScanConfirmation: Equatable, Identifiable, Sendable {
     enum Effect: Equatable, Sendable {
-        /// The scan created the row.
         case added
-        /// The row was already there and the scan bumped its count.
         case incremented
-        /// The operator said the code was a case. The row is on the purchase
-        /// but unfinished — it has no contents yet, so it has no count to talk
-        /// about either.
+        /// A case, on the purchase but unfinished: no contents yet, so no count.
         case caseStarted
     }
 
@@ -27,9 +19,8 @@ nonisolated struct ScanConfirmation: Equatable, Identifiable, Sendable {
     let rowId: UUID
     let name: String
     let isPack: Bool
-    /// The row's quantity AFTER the scan. The reason the card shows a number
-    /// at all: an accidental rescan is otherwise invisible until the receipt
-    /// refuses to add up, and by then the cart is unpacked.
+    /// Quantity AFTER the scan — what makes an accidental rescan visible before
+    /// the receipt refuses to add up.
     let quantity: Int
     let effect: Effect
 }

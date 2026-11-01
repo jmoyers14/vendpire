@@ -9,7 +9,7 @@ import {
   inputClass,
   labelClass,
 } from "../../ui.tsx";
-import type { ApiPack, ApiProduct } from "../../apiTypes.ts";
+import type { ApiCandidate, ApiPack, ApiProduct } from "../../apiTypes.ts";
 import { parseDollarsToCents } from "../../utils/money.ts";
 import {
   type CatalogItem,
@@ -18,12 +18,6 @@ import {
   isUnitItem,
   searchCatalogItems,
 } from "./catalogSearch.ts";
-
-export interface CatalogCandidate {
-  name: string | null;
-  brand: string | null;
-  imageUrl: string | null;
-}
 
 export interface CreatedUnit {
   kind: "unit";
@@ -52,7 +46,7 @@ export const isCreatedUnit = (
 interface BarcodeNotFoundPanelProps {
   gtin14: string;
   /** Present when an outside catalog recognised the code. */
-  candidate: CatalogCandidate | null;
+  candidate: ApiCandidate | null;
   /** From normalizeGtin: a case-level code, so open on "a case". */
   likelyCase: boolean;
   products: ApiProduct[];
@@ -87,7 +81,7 @@ const EMPTY_CONTENT: ContentRow = {
   bagCode: "",
 };
 
-const candidateName = (candidate: CatalogCandidate | null): string => {
+const candidateName = (candidate: ApiCandidate | null): string => {
   if (!candidate?.name) {
     return "";
   }

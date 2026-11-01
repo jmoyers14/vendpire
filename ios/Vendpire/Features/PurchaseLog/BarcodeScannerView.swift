@@ -41,7 +41,7 @@ struct BarcodeScannerView: UIViewControllerRepresentable {
             for item in addedItems {
                 guard case .barcode(let barcode) = item,
                       let payload = barcode.payloadStringValue,
-                      gate.shouldAccept(payload) else { continue }
+                      gate.accept(payload) else { continue }
                 onScan(payload)
             }
         }

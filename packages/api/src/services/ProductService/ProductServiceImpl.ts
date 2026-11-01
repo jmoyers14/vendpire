@@ -96,16 +96,11 @@ export class ProductServiceImpl implements ProductService {
     if (!product) {
       throw new ServiceError("NOT_FOUND", "Product not found");
     }
-    return this.update(orgId, id, {
-      name: product.name,
-      upc: code,
-      category: product.category,
-      taxClass: product.taxClass,
-      imageUrl: product.imageUrl,
-      defaultPriceCents: product.defaultPriceCents,
-      active: product.active,
-      tracksExpiration: product.tracksExpiration,
-    });
+    // Spread rather than a hand-written field list: `ProductInput` is
+    // `Omit<Product, "id" | "createdAt" | "updatedAt">`, so a field added to
+    // `Product` later would otherwise be reset on every attach.
+    const { id: _id, createdAt: _createdAt, updatedAt: _updatedAt, ...input } = product;
+    return this.update(orgId, id, { ...input, upc: code });
   }
 
   /**
@@ -125,14 +120,18 @@ export class ProductServiceImpl implements ProductService {
         throw new ServiceError("BAD_REQUEST", `Invalid barcode: ${data.upc}`);
       }
       data.upc = normalized.gtin14;
-      const productWithCode = await this.products.findByUpc(orgId, data.upc);
+      // Neither lookup depends on the other; the product conflict is still
+      // reported first, so the message precedence is unchanged.
+      const [productWithCode, packWithCode] = await Promise.all([
+        this.products.findByUpc(orgId, data.upc),
+        this.packs.findByBarcode(orgId, data.upc),
+      ]);
       if (productWithCode && productWithCode.id !== excludeId) {
         throw new ServiceError(
           "CONFLICT",
           `Barcode ${data.upc} is already on "${productWithCode.name}"`,
         );
       }
-      const packWithCode = await this.packs.findByBarcode(orgId, data.upc);
       if (packWithCode) {
         throw new ServiceError(
           "CONFLICT",

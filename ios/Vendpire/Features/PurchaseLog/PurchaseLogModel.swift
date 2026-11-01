@@ -1,27 +1,18 @@
 import Foundation
 import SwiftData
 
-/// The purchase screen's state and every mutation of it — the `VisitCaptureModel`
-/// pattern applied to the receiving side: `@MainActor @Observable`, zero-arg
-/// init, `ModelContext` passed per call.
+/// The purchase screen's state and every mutation of it.
 ///
-/// Two rules run through all of it:
-///
-/// - **The phone never splits money.** Unit rows become `lines`, pack rows
-///   become `packLines`, and the server's `expandPackLines` stays the only
-///   thing that turns a case into per-product cost. `Allocate` appears here
-///   once, in `splitPreview`, and that number is never submitted.
-/// - **`clientRequestId` is minted once, in `init`.** A second successful save
-///   is impossible: the screen dismisses on the first one, so a later call is
-///   a double-tap rather than a request.
+/// The phone never splits money: unit rows become `lines`, pack rows become
+/// `packLines`, and the server's `expandPackLines` is the only thing that turns
+/// a case into per-product cost. `Allocate` appears here once, in
+/// `splitPreview`, and that number is never submitted.
 @MainActor
 @Observable
 final class PurchaseLogModel {
     // MARK: - Entry state
 
-    /// Supplied by `PurchaseSetupView` before this screen is reachable. Starts
-    /// empty rather than at a guessed default: vendors vary, and a stale name
-    /// that looks settled is worse than a blank one the setup screen insists on.
+    /// Supplied by `PurchaseSetupView` before this screen is reachable.
     var vendor: String = ""
     var purchasedDate: Date = Date()
     var notes: String = ""
@@ -50,7 +41,7 @@ final class PurchaseLogModel {
     /// Shared with the resolver, so a record created down inside a case is
     /// findable up here without a refresh. See `MirrorCatalog`.
     @ObservationIgnored
-    let catalog: MirrorCatalog
+    private let catalog: MirrorCatalog
 
     /// Turning a scanned code into something this screen can list. Packs are a
     /// legal answer here — a case is a perfectly normal thing to buy.
@@ -169,6 +160,8 @@ final class PurchaseLogModel {
 
     func removeRow(id: UUID) {
         if let row = rows.first(where: { $0.id == id }), row.kind == .packDraft {
+            // Takes the in-flight candidate lookup with it.
+            packDrafts[row.recordId]?.dismissPendingScan()
             packDrafts[row.recordId] = nil
         }
         rows.removeAll { $0.id == id }
@@ -180,8 +173,6 @@ final class PurchaseLogModel {
     /// only when a draft actually reached the outbox — the view dismisses on
     /// that.
     func save(context: ModelContext) -> Bool {
-        // The screen dismisses on the first success, so a later call is a
-        // double-tap and not a request. Silent: there is nothing to report.
         guard !isSaved else { return false }
 
         clearError()
@@ -192,7 +183,7 @@ final class PurchaseLogModel {
             return false
         }
 
-        guard let (lines, packLines) = submissionLines() else { return false }
+        guard let (lines, packLines) = validateRows() else { return false }
 
         guard !lines.isEmpty || !packLines.isEmpty else {
             errorMessage = "Scan a barcode or add an item to get started"
@@ -217,7 +208,9 @@ final class PurchaseLogModel {
             context.insert(item)
             try context.save()
         } catch {
-            report(error)
+            // Local failures only — the draft wouldn't encode, or the context
+            // wouldn't save. Server sentences belong to the resolver.
+            errorMessage = error.localizedDescription
             return false
         }
 
@@ -229,7 +222,7 @@ final class PurchaseLogModel {
     /// the first bad line. Unit rows keep `packId` nil — provenance is a
     /// server-side fact about an expanded pack line — and pack rows stay
     /// unexpanded, on purpose: `expandPackLines` is the server's.
-    private func submissionLines() -> (
+    private func validateRows() -> (
         lines: [PurchaseSubmissionLine], packLines: [PurchaseSubmissionPackLine]
     )? {
         var lines: [PurchaseSubmissionLine] = []
@@ -286,13 +279,6 @@ final class PurchaseLogModel {
         errorMessage = nil
     }
 
-    /// Only ever a local failure now — the draft wouldn't encode, or the
-    /// context wouldn't save. Server sentences belong to the resolver, which
-    /// keeps the status code alongside them.
-    private func report(_ error: any Error) {
-        errorMessage = error.localizedDescription
-    }
-
     // MARK: - Rows
 
     /// A second scan of the same thing means two of it, not a second line to
@@ -319,8 +305,8 @@ final class PurchaseLogModel {
     // MARK: - Telling the operator it worked
 
     /// What the last scan did, for the card over the camera. Replaced by the
-    /// next scan rather than timed out: standing evidence of the last action
-    /// beats a flash that can be missed while looking at the cart.
+    /// next scan rather than timed out — a flash can be missed while looking
+    /// at the cart.
     private(set) var scanConfirmation: ScanConfirmation?
 
     /// Reverse the last scan. An increment steps back down instead of
@@ -390,9 +376,7 @@ final class PurchaseLogModel {
 
     // MARK: - The mirror
 
-    /// The mirror changed underneath this screen — a refresh landed, or a
-    /// resolver created or attached a record.
-    func catalogDidChange() {
-        catalog.didChange()
+    func invalidateCatalog() {
+        catalog.invalidate()
     }
 }

@@ -1,49 +1,38 @@
 import Foundation
 import SwiftData
 
-/// One scanned code turned into one `CatalogItem`, by whatever route it takes:
-/// a mirror hit, a code attached to a record that already existed, or a record
-/// created on the spot.
+/// One scanned code turned into one `CatalogItem` — by a mirror hit, by
+/// attaching the code to a record that already existed, or by creating one.
 ///
-/// The same tree runs at two levels. The purchase screen holds one that may
-/// answer with a pack; the case-contents editor holds one that may not, because
-/// a case cannot contain a case. `allowsPacks` is the only difference, and it is
-/// also what bounds the nesting: a resolver that cannot answer with a pack never
-/// offers to create one, so there is no third level and no depth guard.
-///
-/// The outcome is *reported*, never applied — `onResolve` is how a caller says
-/// what a resolved item means to it. That is what lets one type serve a purchase
-/// row and a pack content row without knowing about either.
+/// `allowsPacks` is the only difference between the two levels, and it is also
+/// what bounds the nesting: a resolver that cannot answer with a pack never
+/// offers to create one. The outcome is reported through `onResolve`, never
+/// applied, so one type serves both a purchase row and a pack content row.
 @MainActor
 @Observable
 final class BarcodeResolutionModel {
-    /// Said out loud rather than swallowed: without `configure(api:)` the
-    /// network actions can do nothing, and a button that silently does nothing
-    /// reads as a missed tap.
+    /// Without `configure(api:)` the network actions can do nothing, and a
+    /// silent no-op reads as a missed tap.
     private static let notConnectedMessage = "Not connected yet — close and reopen the screen"
 
     /// A scanned code with nothing behind it yet. Held until the sheet either
     /// attaches it to an existing record or creates the one it belongs to.
     nonisolated struct PendingScan: Equatable, Sendable {
         let gtin14: String
-        /// A case-level code, so the sheet opens on "a case".
+        /// A case-level GTIN-14. Carried for the sheet to lean on; it does
+        /// not pick a branch today.
         let likelyCase: Bool
         /// What an outside barcode database guessed, when it recognised the
         /// code. Arrives late, or never.
         var candidate: RemoteCandidate?
     }
 
-    /// One product inside a case being created, as the editor collects it.
-    ///
-    /// `productId` is not optional because a row is only appended once a
-    /// product resolves — the scan / search / create doors live on the editor,
-    /// not inside an empty row waiting to be filled. A row therefore cannot be
-    /// blank, which is why there is no "new product" sentinel and no blank-row
-    /// filter.
+    /// One product inside a case being created. `productId` is non-optional
+    /// because a row is only appended once a product resolves, so a row can
+    /// never be blank.
     nonisolated struct PackContentDraft: Identifiable, Equatable, Sendable {
-        /// Identity only, never ordering: rows are bound and removed by id so a
-        /// deletion can't leave a binding pointing at the row that slid into
-        /// its index. Numbering still comes from the array's own offsets.
+        /// Identity only: binding by id keeps a deletion from re-pointing a
+        /// binding at the row that slid into its index.
         let id = UUID()
         let productId: String
         /// Denormalized when the row was added, so rendering never goes back to
@@ -72,11 +61,9 @@ final class BarcodeResolutionModel {
     /// Set means the sheet is up.
     private(set) var pendingScan: PendingScan?
 
-    /// A fresh id on every read the scanner let through, whatever it turned
-    /// out to be. Feedback hangs off this rather than off the outcome: an
-    /// unknown code replaces the camera with a question and adds nothing to
-    /// the purchase, so anything tied to a resolved item stays silent on the
-    /// one path where the operator most needs to know the read landed.
+    /// A fresh id on every read the scanner let through. Feedback hangs off the
+    /// read, not the outcome — an unknown code adds nothing to report but still
+    /// has to buzz.
     private(set) var lastReadId: UUID?
     private(set) var errorMessage: String?
     /// The status behind `errorMessage`, when it came from the server. 409 is
@@ -178,10 +165,15 @@ final class BarcodeResolutionModel {
         onCommitPackDraft?(draft)
     }
 
-    /// The name-ranked list the attach step picks from — packs included only
-    /// where a pack is a legal answer.
-    func searchResults(query: String, context: ModelContext) -> [CatalogItem] {
-        let items = catalog.items(in: context, includingPacks: allowsPacks)
+    /// The name-ranked list the attach step picks from. Packs are included
+    /// where a pack is a legal answer; the contents search passes `false`
+    /// explicitly, because a case cannot contain a case.
+    func searchResults(
+        query: String,
+        context: ModelContext,
+        includingPacks: Bool? = nil
+    ) -> [CatalogItem] {
+        let items = catalog.items(in: context, includingPacks: includingPacks ?? allowsPacks)
         return CatalogSearch.search(items, query: query)
     }
 
@@ -198,7 +190,7 @@ final class BarcodeResolutionModel {
         }
         clearError()
         // Success or partial failure, anything upserted must be findable.
-        defer { catalog.didChange() }
+        defer { catalog.invalidate() }
 
         do {
             let writer = MirrorWriter(context: context)
@@ -257,7 +249,7 @@ final class BarcodeResolutionModel {
         }
 
         // Success or partial failure, anything upserted must be findable.
-        defer { catalog.didChange() }
+        defer { catalog.invalidate() }
 
         let draft = RemoteProductDraft(
             name: productName,
@@ -295,9 +287,9 @@ final class BarcodeResolutionModel {
             return
         }
 
-        guard let packContents = preparedContents() else { return }
+        guard let packContents = validateContents() else { return }
 
-        defer { catalog.didChange() }
+        defer { catalog.invalidate() }
 
         do {
             let draft = RemotePackDraft(
@@ -313,7 +305,7 @@ final class BarcodeResolutionModel {
 
     /// Every row's units parsed, or nil with `errorMessage` naming the row the
     /// operator sees.
-    private func preparedContents() -> [PackContent]? {
+    private func validateContents() -> [PackContent]? {
         guard !contents.isEmpty else {
             errorMessage = "Add at least one product to the case"
             return nil
@@ -363,14 +355,6 @@ final class BarcodeResolutionModel {
         contents.append(
             PackContentDraft(productId: item.recordId, name: item.name, unitsText: "")
         )
-    }
-
-    /// Products only, whatever this resolver itself allows: a case cannot
-    /// contain a case, so the contents search must never offer one even though
-    /// the resolver holding it answers with packs quite happily.
-    func contentSearchResults(query: String, context: ModelContext) -> [CatalogItem] {
-        let items = catalog.items(in: context, includingPacks: false)
-        return CatalogSearch.search(items, query: query)
     }
 
     func updateContent(id: UUID, unitsText: String) {
@@ -426,21 +410,11 @@ final class BarcodeResolutionModel {
     // MARK: - Items
 
     private func item(for product: StoredProduct) -> CatalogItem {
-        CatalogItem(
-            kind: .unit(imageUrl: product.imageUrl),
-            recordId: product.id,
-            name: product.name,
-            barcode: product.upc
-        )
+        CatalogSearch.item(for: product)
     }
 
     private func item(for pack: StoredPack) -> CatalogItem {
-        CatalogItem(
-            kind: .pack(units: pack.contents.reduce(0) { $0 + $1.units }),
-            recordId: pack.id,
-            name: pack.name,
-            barcode: pack.barcodes.first
-        )
+        CatalogSearch.item(for: pack)
     }
 
     private func item(for product: RemoteProduct) -> CatalogItem {

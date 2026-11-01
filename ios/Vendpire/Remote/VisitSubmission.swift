@@ -7,7 +7,7 @@ import Foundation
 /// Also what `OutboxItem.payload` holds, which is why the coding strategy is
 /// pinned below: the build that decodes a draft may not be the one that
 /// wrote it.
-nonisolated struct VisitSubmission: Codable, Equatable, Sendable {
+nonisolated struct VisitSubmission: OutboxPayload, Equatable, Sendable {
     let machineId: String
     let locationId: String
     let planogramId: String?
@@ -37,9 +37,12 @@ nonisolated struct VisitSubmissionLine: Codable, Equatable, Sendable {
     let bestBy: String?
 }
 
-extension VisitSubmission {
-    /// Pinned, not defaulted: a queued payload outlives the launch that wrote
-    /// it, so a silent strategy change would orphan a draft.
+/// A draft queued in the outbox. The coding strategy is pinned, not defaulted:
+/// a queued payload outlives the launch that wrote it, so a silent strategy
+/// change would orphan a draft.
+protocol OutboxPayload: Codable {}
+
+extension OutboxPayload {
     static func makeEncoder() -> JSONEncoder {
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601

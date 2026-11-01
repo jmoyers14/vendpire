@@ -25,14 +25,18 @@ describe("allocateProportionally", () => {
 });
 
 describe("vectors.json", () => {
-  for (const v of vectors.allocate) {
-    it(`${v.totalCents} across ${JSON.stringify(v.weights)} — ${v.note}`, () => {
-      expect(allocateProportionally(v.totalCents, v.weights)).toEqual(v.expected);
+  for (const vector of vectors.allocate) {
+    it(`${vector.totalCents} across ${JSON.stringify(vector.weights)} — ${vector.note}`, () => {
+      expect(allocateProportionally(vector.totalCents, vector.weights)).toEqual(
+        vector.expected,
+      );
     });
   }
 
   it("covers the degenerate cases", () => {
-    expect(vectors.allocate.some((v) => v.totalCents === 0)).toBe(true);
-    expect(vectors.allocate.some((v) => v.weights.every((w) => w === 0))).toBe(true);
+    expect(vectors.allocate.some((vector) => vector.totalCents === 0)).toBe(true);
+    expect(
+      vectors.allocate.some((vector) => vector.weights.every((weight) => weight === 0)),
+    ).toBe(true);
   });
 });

@@ -21,8 +21,7 @@ struct BarcodeResolutionFlow: View {
 
     var body: some View {
         // Grouped so the feedback below survives the swap from camera to
-        // question — a modifier on the branches would leave with the camera,
-        // in the same pass as the read that needs reporting.
+        // question, which happens in the same pass as the read it reports.
         Group {
             if startsBlank {
                 BarcodeResolutionSheet(model: model, initialMode: .create)
@@ -32,19 +31,14 @@ struct BarcodeResolutionFlow: View {
                 BarcodeScannerView(onScan: { code in model.resolve(code, context: context) })
                     .overlay(alignment: .top) { itemCountBadge }
                     .overlay(alignment: .bottom) { scanFeedback }
-                    // Pinned, because this branch declares no title and so
-                    // falls back to `.automatic` — a large-title bar. Nothing
-                    // showed until a child with an explicit `.inline` title had
-                    // been pushed and popped; UIKit then recomputed the root's
-                    // bar, honoured `.automatic`, and left the large-title area
-                    // as a band of white between Cancel and the camera.
+                    // Pinned: this branch sets no title, and `.automatic`
+                    // leaves a blank large-title band over the camera.
                     .navigationBarTitleDisplayMode(.inline)
             }
         }
-        // Hands are busy and the eyes are on the cart as often as the screen,
-        // so the fastest "got it" is one you feel. On the read, not on the
-        // outcome: a code the mirror knows is read and added in the same
-        // instant, and a code it doesn't has nothing else to buzz about.
+        // Eyes are on the cart as often as the screen, so the fastest "got it"
+        // is one you feel. On the read, not the outcome: an unknown code has
+        // nothing else to buzz about.
         .sensoryFeedback(trigger: model.lastReadId) { _, _ in
             model.errorMessage == nil ? .success : .error
         }
@@ -100,8 +94,8 @@ struct BarcodeResolutionFlow: View {
     }
 
     /// The count, not just the name: a rescan bumps an existing row, and that
-    /// is the mistake worth catching early. A case has no count to report —
-    /// it commits before it has any contents — so it says what it still owes.
+    /// is the mistake worth catching early. A case commits before it has any
+    /// contents, so it reports what it still owes instead.
     private func detail(_ confirmation: ScanConfirmation) -> String {
         switch confirmation.effect {
         case .added, .incremented:
@@ -124,29 +118,15 @@ struct BarcodeResolutionFlow: View {
     }
 }
 
-/// What to do with a scanned code nobody recognises: phone-shaped port of the
-/// web's `BarcodeNotFoundPanel`. Attach and create are explicit peers — the
-/// choose step never defaults into either, because the right answer isn't
-/// guessable from the code. CSV-imported products arrive with no barcode, so
-/// the thing just scanned is often already here under a name worth checking
-/// for first.
+/// What to do with a scanned code nobody recognises: a phone-shaped port of
+/// the web's `BarcodeNotFoundPanel`. Attach and create are explicit peers,
+/// because the right answer isn't guessable from the code — CSV-imported
+/// products arrive with no barcode, so the thing just scanned is often already
+/// here under a name worth checking first.
 ///
-/// Navigation is a real push, not a mode switch: choosing attach or create
-/// pushes to its own screen with the system back button. One destination
-/// modifier per level — `destination` for everything this screen pushes,
-/// `isCreatingItemFromKind` declared one level up on the question itself —
-/// because same-level destinations compete for the same slot in the stack.
-/// Jumping straight from one branch to another (`jumpToAttach` /
-/// `jumpToCreate`) is a pop-and-push in one transaction.
-///
-/// "It's a case of items" is terminal here, not a push: it commits on the
-/// spot through `BarcodeResolutionModel.commitPendingCase()`, which hands a
-/// detached resolver to `PurchaseLogModel` for a draft row. The case's name
-/// and contents live on `CaseContentsView`, reached later from that row —
-/// never from this sheet.
-///
-/// Every rule — validation, the conflict text, the actual network calls —
-/// lives in `BarcodeResolutionModel`. This view is layout and bindings only.
+/// One `navigationDestination` per level: same-level destinations compete for
+/// the same slot in the stack. Layout and bindings only — every rule lives in
+/// `BarcodeResolutionModel`.
 struct BarcodeResolutionSheet: View {
     enum Mode {
         case choose, create
@@ -192,8 +172,8 @@ struct BarcodeResolutionSheet: View {
 
     var body: some View {
         Form {
-            errorSection
-            codeSection
+            ResolverErrorSection(model: model, onUseExisting: jumpToAttach)
+            ScannedCodeSection(model: model)
             if destination == nil {
                 maybeCardSection
                 chooseSection
@@ -202,15 +182,10 @@ struct BarcodeResolutionSheet: View {
         .navigationTitle(model.pendingScan == nil ? "New product" : "Barcode not found")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear(perform: fillUntouchedFields)
-        // The candidate lookup STARTS in the same pass that presents this
-        // sheet, so it always lands after `onAppear`. Without this the
-        // prefill never happened.
         .onChange(of: model.pendingScan?.candidate) { _, _ in fillUntouchedFields() }
-        // Every branch off this screen, in one modifier. Several
-        // `navigationDestination`s on one view are ordered by how the
-        // modifiers nest rather than by the flow, which is what put "Item, or
-        // a case?" on screen twice: "It's a single item" pushed the new-product
-        // form from HERE while the question was still presented from here too.
+        // Every branch off this screen in one modifier: sibling
+        // `navigationDestination`s are ordered by modifier nesting, not by the
+        // flow.
         .navigationDestination(item: $destination) { pushed in
             switch pushed {
             case .attach: attachDestination
@@ -228,23 +203,14 @@ struct BarcodeResolutionSheet: View {
         destination = .attach
     }
 
-    /// Back to the camera, from however deep the flow got.
-    ///
-    /// Every way out of here — attach, create, "it's a case" — clears the
-    /// model's pending scan, and that is what swaps this whole sheet back for
-    /// the scanner. But a pushed screen does not pop just because the view
-    /// that pushed it was removed: it stays on the stack and re-renders
-    /// against a model that has moved on, which is how "Item, or a case?"
-    /// came back a second time with no code at the top and dead buttons.
-    /// Called before handing over, so the pop and the swap land in one render.
+    /// Back to the camera, from however deep the flow got. A pushed screen does
+    /// not pop just because the view that pushed it went away, so this runs
+    /// before handing over and the pop and the swap land in one render.
     private func collapseToRoot() {
         isCreatingItemFromKind = false
         destination = nil
     }
 
-    /// Searching and finding nothing is the common way into creating, so the
-    /// way across is always on screen, not only once the list comes back
-    /// empty.
     private func jumpToCreate() {
         isCreatingItemFromKind = false
         destination = model.allowsPacks ? .createKind : .createItem
@@ -252,16 +218,6 @@ struct BarcodeResolutionSheet: View {
 
     // MARK: - Shared sections
 
-    @ViewBuilder
-    private var codeSection: some View {
-        if let scan = model.pendingScan {
-            Section {
-                Text(scan.gtin14)
-                    .font(.system(.body, design: .monospaced))
-                    .foregroundStyle(.secondary)
-            }
-        }
-    }
 
     @ViewBuilder
     private var maybeCardSection: some View {
@@ -298,25 +254,6 @@ struct BarcodeResolutionSheet: View {
         }
     }
 
-    /// Every catalog failure arrives as a `VendpireAPIError` and the model
-    /// keeps its status code, so no prose matching is needed: 409 means
-    /// another record already owns the code.
-    private var isConflict: Bool {
-        model.errorStatusCode == 409
-    }
-
-    @ViewBuilder
-    private var errorSection: some View {
-        if let message = model.errorMessage {
-            Section {
-                Text(message)
-                    .foregroundStyle(.red)
-                if isConflict {
-                    Button("Use existing instead") { jumpToAttach() }
-                }
-            }
-        }
-    }
 
     // MARK: - Choose (root)
 
@@ -335,14 +272,14 @@ struct BarcodeResolutionSheet: View {
 
     private var attachDestination: some View {
         Form {
-            errorSection
-            codeSection
+            ResolverErrorSection(model: model, onUseExisting: jumpToAttach)
+            ScannedCodeSection(model: model)
             Section {
                 TextField(
                     model.allowsPacks
                         ? "Search your products and cases…"
                         : "Search your products…",
-                    text: makeTouchedBinding(for: $query, touched: $queryTouched)
+                    text: $query.touching($queryTouched)
                 )
                 .autocorrectionDisabled()
                 attachMatches
@@ -369,7 +306,7 @@ struct BarcodeResolutionSheet: View {
 
     @ViewBuilder
     private var attachMatches: some View {
-        let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedQuery = query.trimmed
         if !trimmedQuery.isEmpty {
             CatalogItemMatches(
                 items: model.searchResults(query: query, context: context),
@@ -391,13 +328,12 @@ struct BarcodeResolutionSheet: View {
 
     // MARK: - Create: item or case?
 
-    /// Only a resolver that may answer with a pack reaches this page. One
-    /// level down it is absent, which is what stops a case from containing a
-    /// case — `createItem` is pushed directly from `choose` there instead.
+    /// Only a resolver that may answer with a pack reaches this page — which is
+    /// what stops a case from containing a case.
     private var createKindDestination: some View {
         Form {
-            errorSection
-            codeSection
+            ResolverErrorSection(model: model, onUseExisting: jumpToAttach)
+            ScannedCodeSection(model: model)
             Section {
                 Button("It's a single item") { isCreatingItemFromKind = true }
                 Button("It's a case of items") {
@@ -408,8 +344,8 @@ struct BarcodeResolutionSheet: View {
         }
         .navigationTitle("Item, or a case?")
         .navigationBarTitleDisplayMode(.inline)
-        // Declared here, on the screen it pushes from, so the new-product form
-        // lands above this question instead of beside it.
+        // On the screen it pushes from, so the form lands above this question
+        // rather than beside it.
         .navigationDestination(isPresented: $isCreatingItemFromKind) { createItemDestination }
     }
 
@@ -417,12 +353,12 @@ struct BarcodeResolutionSheet: View {
 
     private var createItemDestination: some View {
         Form {
-            errorSection
-            codeSection
+            ResolverErrorSection(model: model, onUseExisting: jumpToAttach)
+            ScannedCodeSection(model: model)
             Section {
                 TextField(
                     "Name, e.g. Coca-Cola Zero 12 oz can",
-                    text: makeTouchedBinding(for: $name, touched: $itemNameTouched)
+                    text: $name.touching($itemNameTouched)
                 )
                 TextField("Category, e.g. drinks", text: $category)
                 TextField("Sell price $", text: $priceText)
@@ -457,15 +393,10 @@ struct BarcodeResolutionSheet: View {
 
     // MARK: - Seeding
 
-    /// The candidate's name seeds the attach search and the item name —
-    /// whichever the operator picks, it is the first guess worth typing over
-    /// rather than starting blank.
-    ///
-    /// Runs again every time the candidate changes, because the lookup starts
-    /// in the same pass that presents this sheet and so always answers after
-    /// it is already on screen. A field the operator has typed in is never
-    /// overwritten — that is what the `*Touched` flags are for, and it is the
-    /// rule the web panel gets for free by reading the prop once.
+    /// The candidate's name seeds the attach search and the item name. Re-runs
+    /// on every candidate change, since the lookup starts in the same pass that
+    /// presents this sheet; the `*Touched` flags keep it off a field the
+    /// operator has typed in.
     private func fillUntouchedFields() {
         guard let candidate = model.pendingScan?.candidate else { return }
         let suggestion = candidate.displayName
@@ -474,14 +405,4 @@ struct BarcodeResolutionSheet: View {
         if !itemNameTouched { name = suggestion }
     }
 
-    /// A text binding that remembers it was edited.
-    private func makeTouchedBinding(
-        for value: Binding<String>,
-        touched: Binding<Bool>
-    ) -> Binding<String> {
-        Binding(
-            get: { value.wrappedValue },
-            set: { value.wrappedValue = $0; touched.wrappedValue = true }
-        )
-    }
 }

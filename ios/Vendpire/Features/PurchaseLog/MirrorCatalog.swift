@@ -1,26 +1,25 @@
 import SwiftData
 
-/// The device's mirrored catalog, read once per pass rather than per keystroke:
-/// a search runs on every character typed and a split preview on every pack row
-/// per render, and neither should reach SwiftData each time.
+/// The device's mirrored catalog, read once per pass rather than per keystroke
+/// — a search runs on every character typed.
 ///
-/// A reference type on purpose. The purchase screen and both of its resolvers
-/// share ONE of these, because a product created or attached one level down has
-/// to be findable everywhere above it — and three private caches cannot
-/// invalidate each other.
-///
-/// The cached models are live, so field edits show through. Only inserts and
-/// deletes need `didChange()`.
+/// A reference type on purpose: the purchase screen and both resolvers share
+/// ONE, so a record created a level down is findable above. The cached models
+/// are live, so only inserts and deletes need `invalidate()`.
 @MainActor
 final class MirrorCatalog {
     private var loaded: (products: [StoredProduct], packs: [StoredPack])?
     private var namesById: [String: String]?
+    private var itemsWithPacks: [CatalogItem]?
+    private var productItems: [CatalogItem]?
 
     /// A record was inserted or deleted underneath the screen — a refresh
     /// landed, or a resolver created or attached something.
-    func didChange() {
+    func invalidate() {
         loaded = nil
         namesById = nil
+        itemsWithPacks = nil
+        productItems = nil
     }
 
     func products(in context: ModelContext) -> [StoredProduct] {
@@ -32,13 +31,23 @@ final class MirrorCatalog {
     }
 
     /// Both catalogs flattened into one ranked-search-ready list — or products
-    /// alone, for a caller that cannot accept a pack as an answer.
+    /// alone, for a caller that cannot accept a pack as an answer. Memoized
+    /// like the fetch behind it: this is what runs on every keystroke.
     func items(in context: ModelContext, includingPacks: Bool = true) -> [CatalogItem] {
+        if includingPacks, let itemsWithPacks { return itemsWithPacks }
+        if !includingPacks, let productItems { return productItems }
+
         let catalog = read(in: context)
-        return CatalogSearch.items(
+        let items = CatalogSearch.items(
             products: catalog.products,
             packs: includingPacks ? catalog.packs : []
         )
+        if includingPacks {
+            itemsWithPacks = items
+        } else {
+            productItems = items
+        }
+        return items
     }
 
     func productNames(in context: ModelContext) -> [String: String] {

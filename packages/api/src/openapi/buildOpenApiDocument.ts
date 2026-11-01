@@ -28,22 +28,14 @@ const ERROR_DESCRIPTIONS: Record<string, string> = {
  * objects by status code, so the first route generated wins the text for
  * every other route sharing that code.
  */
-function routeErrorDescriptions(): Map<string, Record<string, string>> {
+function buildErrorDescriptionsByOperationId(): Map<string, Record<string, string>> {
   const byOperationId = new Map<string, Record<string, string>>();
   forEachOpenApiProcedure(appRouter._def.procedures, ({ meta }) => {
     const { operationId, errorResponses } = meta.openapi;
     if (!operationId || !errorResponses || Array.isArray(errorResponses)) {
       return;
     }
-    const overrides: Record<string, string> = {};
-    for (const [code, description] of Object.entries(errorResponses)) {
-      if (description !== ERROR_DESCRIPTIONS[code]) {
-        overrides[code] = description;
-      }
-    }
-    if (Object.keys(overrides).length > 0) {
-      byOperationId.set(operationId, overrides);
-    }
+    byOperationId.set(operationId, errorResponses as Record<string, string>);
   });
   return byOperationId;
 }
@@ -56,7 +48,7 @@ function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
-function* operations(paths: unknown): Generator<Record<string, unknown>> {
+function* operationsIn(paths: unknown): Generator<Record<string, unknown>> {
   if (!isObject(paths)) {
     return;
   }
@@ -72,8 +64,8 @@ function* operations(paths: unknown): Generator<Record<string, unknown>> {
   }
 }
 
-function* responseSchemas(paths: unknown): Generator<SchemaRecord> {
-  for (const operation of operations(paths)) {
+function* responseSchemasIn(paths: unknown): Generator<SchemaRecord> {
+  for (const operation of operationsIn(paths)) {
     for (const response of Object.values(
       operation.responses as Record<string, unknown>,
     )) {
@@ -97,12 +89,12 @@ function inlineIfNullableRef(
   if (!Array.isArray(composition) || composition.length !== 2) {
     return;
   }
-  const refArm = composition.find((arm) => typeof arm.$ref === "string");
-  const nullArm = composition.find((arm) => arm.type === "null");
-  if (!refArm || !nullArm || typeof refArm.$ref !== "string") {
+  const ref = composition.find((arm) => typeof arm.$ref === "string")?.$ref;
+  const hasNullArm = composition.some((arm) => arm.type === "null");
+  if (typeof ref !== "string" || !hasNullArm) {
     return;
   }
-  const schemaName = refArm.$ref.match(/\/([^/]+)$/)?.[1];
+  const schemaName = ref.match(/\/([^/]+)$/)?.[1];
   if (!schemaName) {
     return;
   }
@@ -130,7 +122,7 @@ function inlineNullableResponseSchemas<
     return document;
   }
   const schemas = document.components.schemas as Record<string, unknown>;
-  for (const schema of responseSchemas(document.paths)) {
+  for (const schema of responseSchemasIn(document.paths)) {
     inlineIfNullableRef(schema, schemas);
   }
   return document;
@@ -139,8 +131,8 @@ function inlineNullableResponseSchemas<
 // trpc-to-openapi reuses one response object across status codes that share
 // an error body, so a description written for one leaks onto the other.
 function relabelErrorResponses<T extends { paths?: unknown }>(document: T): T {
-  const overridesByOperationId = routeErrorDescriptions();
-  for (const operation of operations(document.paths)) {
+  const overridesByOperationId = buildErrorDescriptionsByOperationId();
+  for (const operation of operationsIn(document.paths)) {
     const operationId = operation.operationId as string | undefined;
     const routeOverrides = operationId
       ? overridesByOperationId.get(operationId)

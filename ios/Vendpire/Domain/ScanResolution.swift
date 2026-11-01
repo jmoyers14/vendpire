@@ -1,12 +1,10 @@
 import Foundation
 
-/// What a scanned (or typed) code resolves to against the device's mirrored
-/// catalog — the resolver's first two arms, relocated on-device so a scan
-/// during capture doesn't need a round trip.
+/// What a scanned or typed code resolves to against the device's mirrored
+/// catalog, so a scan needs no round trip.
 ///
-/// Precedence matches the server exactly: a product wins over a pack when a
-/// code somehow lands on both, because a product is always what a human
-/// counted, and a pack is only ever a receiving aid.
+/// A product wins over a pack when a code lands on both, matching the server's
+/// precedence.
 nonisolated enum ScanResolution: Equatable, Sendable {
     case product(id: String)
     case pack(id: String)

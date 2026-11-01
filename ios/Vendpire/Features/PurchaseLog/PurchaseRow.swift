@@ -1,13 +1,11 @@
 import Foundation
 
-/// One line of the purchase being entered — either loose units of a product or
-/// N of a pack, whichever the scanned code turned out to be. The web's `Row`
-/// union, flattened: one struct with a `kind`, because SwiftUI's `ForEach`
-/// wants a single `Identifiable` element type.
+/// One line of the purchase being entered — loose units of a product, or N of
+/// a pack. The web's `Row` union flattened into one struct with a `kind`,
+/// because `ForEach` wants a single `Identifiable` element type.
 ///
-/// Counts and costs are text because they back text fields. They become numbers
-/// only at save, where a half-typed one is rejected by line number rather than
-/// quietly coerced to zero.
+/// Counts and costs are text because they back text fields; they become numbers
+/// only at save, where a half-typed one is rejected by line number.
 nonisolated struct PurchaseRow: Equatable, Identifiable, Sendable {
     enum Kind: Equatable, Sendable {
         case unit

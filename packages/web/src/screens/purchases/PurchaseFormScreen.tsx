@@ -3,14 +3,13 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import {
   BarcodeNotFoundPanel,
-  type CatalogCandidate,
   type CreatedForPurchase,
   isCreatedUnit,
 } from "./BarcodeNotFoundPanel.tsx";
 import { PurchaseLineRow } from "./PurchaseLineRow.tsx";
 import { ReceiptReconciliation } from "./ReceiptReconciliation.tsx";
 import { ScanOrSearchInput } from "./ScanOrSearchInput.tsx";
-import type { ApiPack, ApiProduct } from "../../apiTypes.ts";
+import type { ApiCandidate, ApiPack, ApiProduct } from "../../apiTypes.ts";
 import { previewPackSplit } from "./packSplit.ts";
 import {
   isPackRow,
@@ -53,7 +52,7 @@ type PackOption = Pick<ApiPack, "id" | "name" | "contents">;
 interface PendingCode {
   gtin14: string;
   /** What an outside catalog guessed, when it recognised the code. */
-  candidate: CatalogCandidate | null;
+  candidate: ApiCandidate | null;
   /** A case-level code, so the panel opens on "a case". */
   likelyCase: boolean;
 }

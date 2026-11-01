@@ -1,17 +1,12 @@
 import SwiftData
 import SwiftUI
 
-/// Filling in what's inside a case already sitting on the purchase as a
-/// draft row — reached by tapping that row, any number of times, until
-/// `createPack` finally runs. Nothing here blocks leaving early: a swipe
-/// back (or the system back button) just leaves the draft exactly as it
-/// was, still flagged on the purchase screen.
+/// Filling in what's inside a case already on the purchase as a draft row,
+/// reached by tapping that row until `createPack` finally runs. Leaving early
+/// is free: the draft stays as it was, still flagged on the purchase screen.
 ///
-/// `resolver` is the one `BarcodeResolutionModel.commitPendingCase()`
-/// detached — it already knows the scanned code and the outside guess, if
-/// one landed. Everything here is the same "create a case" page the
-/// resolution sheet used to hold inline, just promoted to its own screen so
-/// a half-filled case is never lost between scans.
+/// `resolver` is the one `commitPendingCase()` detached — it already knows the
+/// scanned code and the outside guess.
 struct CaseContentsView: View {
     let resolver: BarcodeResolutionModel
 
@@ -26,13 +21,14 @@ struct CaseContentsView: View {
 
     var body: some View {
         Form {
-            errorSection
-            codeSection
+            ResolverErrorSection(model: resolver)
+            ScannedCodeSection(model: resolver)
 
             Section {
                 TextField(
                     "e.g. Frito-Lay 30ct variety",
-                    text: Binding(get: { shownPackName }, set: { packName = $0; packNameTouched = true })
+                    text: Binding(get: { shownPackName }, set: { packName = $0 })
+                        .touching($packNameTouched)
                 )
             } header: {
                 Text("Case name")
@@ -82,26 +78,6 @@ struct CaseContentsView: View {
         )
     }
 
-    @ViewBuilder
-    private var codeSection: some View {
-        if let scan = resolver.pendingScan {
-            Section {
-                Text(scan.gtin14)
-                    .font(.system(.body, design: .monospaced))
-                    .foregroundStyle(.secondary)
-            }
-        }
-    }
-
-    @ViewBuilder
-    private var errorSection: some View {
-        if let message = resolver.errorMessage {
-            Section {
-                Text(message)
-                    .foregroundStyle(.red)
-            }
-        }
-    }
 
     /// A resolved row: the product is settled, so only its unit count is
     /// still a question.
@@ -163,9 +139,11 @@ struct CaseContentsView: View {
         Section {
             TextField("Search your products…", text: $contentQuery)
                 .autocorrectionDisabled()
-            if !contentQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            if !contentQuery.trimmed.isEmpty {
                 CatalogItemMatches(
-                    items: resolver.contentSearchResults(query: contentQuery, context: context),
+                    items: resolver.searchResults(
+                        query: contentQuery, context: context, includingPacks: false
+                    ),
                     isDisabled: false,
                     emptyText: "Nothing matches — scan it, or tap \"New\".",
                     onSelect: { item in
@@ -187,7 +165,7 @@ struct CaseContentsView: View {
     private var suggestedPackName: String {
         if resolver.contents.count == 1 {
             let only = resolver.contents[0]
-            let units = only.unitsText.trimmingCharacters(in: .whitespaces)
+            let units = only.unitsText.trimmed
             if !only.name.isEmpty, !units.isEmpty {
                 return "\(only.name) — case (\(units))"
             }
