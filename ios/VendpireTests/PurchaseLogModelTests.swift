@@ -994,6 +994,55 @@ final class PurchaseLogModelTests: XCTestCase {
         XCTAssertTrue(draft.allowsPacks)
     }
 
+    /// Committing a case drops the sheet back to the camera, so the card is
+    /// the only thing that says a row landed at all.
+    func testCommittingACaseReportsItselfOnTheCard() async throws {
+        try makeScreen()
+        model.handleScan(caseCode, context: context)
+        await model.resolver.candidateFetch?.value
+
+        model.resolver.commitPendingCase()
+
+        let row = try XCTUnwrap(model.rows.first)
+        let confirmation = try XCTUnwrap(model.scanConfirmation)
+        XCTAssertEqual(confirmation.rowId, row.id)
+        XCTAssertEqual(confirmation.effect, .caseStarted)
+        XCTAssertEqual(confirmation.name, "New case")
+        XCTAssertTrue(confirmation.isPack, "the badge is what distinguishes it from a unit")
+    }
+
+    /// "New case" says nothing about which box is on the purchase. When the
+    /// outside guess landed, it names the row and the card both.
+    func testACommittedCaseTakesItsNameFromTheOutsideGuess() async throws {
+        try makeScreen()
+        api.onFetchBarcodeCandidate = { _ in
+            RemoteCandidate(name: "30ct Variety", brand: "Frito-Lay", imageUrl: nil)
+        }
+        model.handleScan(caseCode, context: context)
+        await model.resolver.candidateFetch?.value
+
+        model.resolver.commitPendingCase()
+
+        let row = try XCTUnwrap(model.rows.first)
+        XCTAssertEqual(row.name, "Frito-Lay 30ct Variety")
+        XCTAssertEqual(model.scanConfirmation?.name, "Frito-Lay 30ct Variety")
+    }
+
+    /// Undo has to take the resolver with the row. Leaving it behind would
+    /// strand a case nothing on screen can reach or finish.
+    func testUndoingACommittedCaseTakesItsDraftWithIt() async throws {
+        try makeScreen()
+        model.handleScan(caseCode, context: context)
+        await model.resolver.candidateFetch?.value
+        model.resolver.commitPendingCase()
+
+        model.undoLastScan()
+
+        XCTAssertTrue(model.rows.isEmpty)
+        XCTAssertTrue(model.packDrafts.isEmpty, "the draft resolver goes with its row")
+        XCTAssertNil(model.scanConfirmation)
+    }
+
     /// The resolver that asked goes right back to resolving the next scan —
     /// the sheet never has to close for this, and nothing about it should
     /// still be "thinking about" the case that was just handed off.

@@ -330,11 +330,12 @@ final class PurchaseLogModel {
         guard let confirmation = scanConfirmation else { return }
         scanConfirmation = nil
 
-        guard let index = rows.firstIndex(where: { $0.id == confirmation.rowId }) else { return }
         switch confirmation.effect {
-        case .added:
-            rows.remove(at: index)
+        case .added, .caseStarted:
+            // Through `removeRow` so a draft case also gives up its resolver.
+            removeRow(id: confirmation.rowId)
         case .incremented:
+            guard let index = rows.firstIndex(where: { $0.id == confirmation.rowId }) else { return }
             rows[index].quantityText = String(max(confirmation.quantity - 1, 1))
         }
     }
@@ -355,7 +356,18 @@ final class PurchaseLogModel {
             self?.resolveDraft(draftId, into: item)
         }
         packDrafts[draftId] = draft
-        rows.append(PurchaseRow(kind: .packDraft, recordId: draftId, name: "New case"))
+
+        // The outside guess when one landed: "Frito-Lay 30ct variety" tells the
+        // operator which box they just committed to, where "New case" doesn't.
+        let candidateName = draft.pendingScan?.candidate?.displayName ?? ""
+        let name = candidateName.trimmed.isEmpty ? "New case" : candidateName
+        let row = PurchaseRow(kind: .packDraft, recordId: draftId, name: name)
+        rows.append(row)
+        // Committing a case drops the sheet straight back to the camera, which
+        // on its own looks like the tap did nothing.
+        scanConfirmation = ScanConfirmation(
+            rowId: row.id, name: name, isPack: true, quantity: 1, effect: .caseStarted
+        )
     }
 
     /// `createPack` succeeded: the draft becomes a real row, keeping

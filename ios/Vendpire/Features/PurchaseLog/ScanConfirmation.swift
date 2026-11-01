@@ -15,6 +15,10 @@ nonisolated struct ScanConfirmation: Equatable, Identifiable, Sendable {
         case added
         /// The row was already there and the scan bumped its count.
         case incremented
+        /// The operator said the code was a case. The row is on the purchase
+        /// but unfinished — it has no contents yet, so it has no count to talk
+        /// about either.
+        case caseStarted
     }
 
     /// New for every scan, so the card re-animates and the haptic re-fires

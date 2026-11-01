@@ -72,9 +72,7 @@ struct BarcodeResolutionFlow: View {
                         .font(.subheadline)
                         .lineLimit(1)
                 }
-                // The count, not just the name: a rescan bumps an existing
-                // row, and that is the mistake worth catching early.
-                Text("\(confirmation.quantity) × on this purchase")
+                Text(detail(confirmation))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -92,6 +90,18 @@ struct BarcodeResolutionFlow: View {
         .padding()
         .transition(.move(edge: .bottom).combined(with: .opacity))
         .animation(.snappy, value: confirmation.id)
+    }
+
+    /// The count, not just the name: a rescan bumps an existing row, and that
+    /// is the mistake worth catching early. A case has no count to report —
+    /// it commits before it has any contents — so it says what it still owes.
+    private func detail(_ confirmation: ScanConfirmation) -> String {
+        switch confirmation.effect {
+        case .added, .incremented:
+            return "\(confirmation.quantity) × on this purchase"
+        case .caseStarted:
+            return "On the purchase · still needs its contents"
+        }
     }
 
     @ViewBuilder
