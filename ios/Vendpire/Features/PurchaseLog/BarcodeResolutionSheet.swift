@@ -211,6 +211,20 @@ struct BarcodeResolutionSheet: View {
         destination = .attach
     }
 
+    /// Back to the camera, from however deep the flow got.
+    ///
+    /// Every way out of here — attach, create, "it's a case" — clears the
+    /// model's pending scan, and that is what swaps this whole sheet back for
+    /// the scanner. But a pushed screen does not pop just because the view
+    /// that pushed it was removed: it stays on the stack and re-renders
+    /// against a model that has moved on, which is how "Item, or a case?"
+    /// came back a second time with no code at the top and dead buttons.
+    /// Called before handing over, so the pop and the swap land in one render.
+    private func collapseToRoot() {
+        isCreatingItemFromKind = false
+        destination = nil
+    }
+
     /// Searching and finding nothing is the common way into creating, so the
     /// way across is always on screen, not only once the list comes back
     /// empty.
@@ -354,6 +368,7 @@ struct BarcodeResolutionSheet: View {
         Task {
             await model.attach(to: item, context: context)
             isWorking = false
+            if model.errorMessage == nil { collapseToRoot() }
         }
     }
 
@@ -368,7 +383,10 @@ struct BarcodeResolutionSheet: View {
             codeSection
             Section {
                 Button("It's a single item") { isCreatingItemFromKind = true }
-                Button("It's a case of items") { model.commitPendingCase() }
+                Button("It's a case of items") {
+                    collapseToRoot()
+                    model.commitPendingCase()
+                }
             }
         }
         .navigationTitle("Item, or a case?")
@@ -416,6 +434,7 @@ struct BarcodeResolutionSheet: View {
         Task {
             await model.createUnit(name: name, category: category, priceText: priceText, context: context)
             isWorking = false
+            if model.errorMessage == nil { collapseToRoot() }
         }
     }
 
