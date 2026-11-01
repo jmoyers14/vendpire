@@ -122,6 +122,9 @@ final class BarcodeResolutionModel {
         clearError()
         lastReadId = UUID()
 
+        // Unfiltered on purpose, unlike `CatalogSearch.items`: a box in the cart
+        // is a fact, so a retired product still resolves by scan even though
+        // the search list no longer offers it.
         let products = catalog.products(in: context)
         let packs = catalog.packs(in: context)
         switch ScanResolution.resolve(code, products: products, packs: packs) {

@@ -882,6 +882,26 @@ final class PurchaseLogModelTests: XCTestCase {
         XCTAssertEqual(model.rows.count, 1, "a manual pick is not the last SCAN and Undo must not eat it")
     }
 
+    /// The deliberate asymmetry with `CatalogSearch.items`, which hides
+    /// retired records. Scanning is evidence the box is in the cart; refusing
+    /// it would leave the operator with a receipt they cannot enter.
+    func testScanningARetiredProductStillResolvesIt() throws {
+        let retired = StoredProduct(
+            id: "p-coke", name: "Coke Zero", upc: "00049000042559",
+            category: "drinks", defaultPriceCents: 175, active: false
+        )
+        try makeScreen(products: [retired])
+
+        model.handleScan(cokeUpc, context: context)
+
+        XCTAssertEqual(model.rows.map(\.recordId), ["p-coke"])
+        XCTAssertNil(model.resolver.pendingScan, "a retired hit is still a hit, not a question")
+        XCTAssertTrue(
+            model.searchResults(query: "coke", context: context).isEmpty,
+            "and yet the search list still refuses to offer it"
+        )
+    }
+
     // MARK: - Telling the operator the code was read
 
     /// The haptic hangs off `lastReadId`, so every accepted read has to bump
