@@ -61,6 +61,9 @@ final class PurchaseLogModelTests: XCTestCase {
         api = StubVendpireAPI()
         model = PurchaseLogModel()
         model.configure(api: api)
+        // What `PurchaseSetupView` settles before this screen is reachable.
+        // Tests that are about the blank-vendor refusal clear it themselves.
+        model.vendor = "Costco"
     }
 
     // MARK: - Seeds
@@ -227,6 +230,22 @@ final class PurchaseLogModelTests: XCTestCase {
     }
 
     // MARK: - Saving
+
+    /// `PurchaseSetupView` makes this unreachable — it will not push the
+    /// purchase screen without a vendor — but the guard behind it is the
+    /// backstop, and a backstop has to name the problem rather than fail quiet.
+    func testSaveRefusesABlankVendor() throws {
+        try makeScreen(products: [makeCoke()])
+        model.handleScan(cokeUpc, context: context)
+        let row = try XCTUnwrap(model.rows.first)
+        model.updateRow(id: row.id, totalCostText: "1.99")
+        model.vendor = "   "
+
+        XCTAssertFalse(model.save(context: context))
+
+        XCTAssertNotNil(model.errorMessage)
+        XCTAssertEqual(try fetchOutbox().count, 0, "a rejected draft must not reach the outbox")
+    }
 
     func testSaveRejectsAHalfTypedRow() throws {
         try makeScreen(products: [makeCoke(), makeDoritos()])
@@ -1027,7 +1046,6 @@ final class PurchaseLogModelTests: XCTestCase {
         model.handleScan(caseCode, context: context)
         await model.resolver.candidateFetch?.value
         model.resolver.commitPendingCase()
-        model.vendor = "Costco"
 
         XCTAssertFalse(model.save(context: context))
         let message = try XCTUnwrap(model.errorMessage)

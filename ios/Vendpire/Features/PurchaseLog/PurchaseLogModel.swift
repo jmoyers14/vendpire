@@ -17,12 +17,12 @@ import SwiftData
 @MainActor
 @Observable
 final class PurchaseLogModel {
-    /// Most runs are a Costco trip. A starting point, not a constraint.
-    private static let defaultVendor = "Costco"
-
     // MARK: - Entry state
 
-    var vendor: String = PurchaseLogModel.defaultVendor
+    /// Supplied by `PurchaseSetupView` before this screen is reachable. Starts
+    /// empty rather than at a guessed default: vendors vary, and a stale name
+    /// that looks settled is worse than a blank one the setup screen insists on.
+    var vendor: String = ""
     var purchasedDate: Date = Date()
     var notes: String = ""
     var receiptTotalText: String = ""
@@ -383,9 +383,4 @@ final class PurchaseLogModel {
     func catalogDidChange() {
         catalog.didChange()
     }
-}
-
-private extension String {
-    /// Text fields arrive with whatever the keyboard left behind.
-    var trimmed: String { trimmingCharacters(in: .whitespacesAndNewlines) }
 }

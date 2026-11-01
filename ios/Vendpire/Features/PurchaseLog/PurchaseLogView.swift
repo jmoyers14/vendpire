@@ -4,6 +4,10 @@ import SwiftUI
 /// Logging a purchase: scan a cart, or pick items by name, read totals off
 /// the receipt, save.
 ///
+/// Opens on Scan. Vendor and date are already settled by `PurchaseSetupView`,
+/// which owns the model and pushes this — so Back is how they get corrected,
+/// and the pair stays in view as this screen's title.
+///
 /// Layout only: every rule lives in `PurchaseLogModel`, where tests reach it.
 struct PurchaseLogView: View {
     @Environment(\.modelContext) private var context
@@ -11,17 +15,15 @@ struct PurchaseLogView: View {
     @Environment(MirrorRefresher.self) private var refresher
     @Environment(\.vendpireAPI) private var api
 
-    @State private var model = PurchaseLogModel()
+    /// Owned by `PurchaseSetupView`. `@Bindable` rather than a plain `let`
+    /// because the receipt and notes fields still bind straight to it.
+    @Bindable var model: PurchaseLogModel
+
     @State private var isScannerSheetPresented = false
     @State private var isAddSheetPresented = false
 
     var body: some View {
         Form {
-            Section {
-                DatePicker("Date", selection: $model.purchasedDate, displayedComponents: .date)
-                TextField("Vendor", text: $model.vendor)
-            }
-
             Section {
                 scanButton
                 Button("Add without scanning") { isAddSheetPresented = true }
@@ -64,7 +66,7 @@ struct PurchaseLogView: View {
                 .buttonStyle(.borderedProminent)
             }
         }
-        .navigationTitle("Log Purchase")
+        .navigationTitle(purchaseSummary)
         .navigationBarTitleDisplayMode(.inline)
         .task {
             if let api { model.configure(api: api) }
@@ -112,6 +114,15 @@ struct PurchaseLogView: View {
         .sheet(isPresented: $isAddSheetPresented) {
             AddCatalogItemSheet(model: model)
         }
+    }
+
+    /// "Costco · Oct 30" — what the setup screen settled, kept in sight so the
+    /// operator can see what they are logging against. A plain title, not a
+    /// button: Back is the one way to change it, and a second editor here would
+    /// mean two ways to change one value.
+    private var purchaseSummary: String {
+        let day = model.purchasedDate.formatted(.dateTime.month(.abbreviated).day())
+        return "\(model.vendor) · \(day)"
     }
 
     // MARK: - Scan

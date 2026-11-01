@@ -49,7 +49,7 @@ struct LocationListView: View {
             .navigationTitle("Locations")
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    NavigationLink(destination: PurchaseLogView()) {
+                    NavigationLink(destination: PurchaseSetupView()) {
                         Image(systemName: "cart.badge.plus")
                     }
                     .accessibilityLabel("Log Purchase")
