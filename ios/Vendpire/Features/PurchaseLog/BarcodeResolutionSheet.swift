@@ -32,6 +32,13 @@ struct BarcodeResolutionFlow: View {
                 BarcodeScannerView(onScan: { code in model.resolve(code, context: context) })
                     .overlay(alignment: .top) { itemCountBadge }
                     .overlay(alignment: .bottom) { scanFeedback }
+                    // Pinned, because this branch declares no title and so
+                    // falls back to `.automatic` — a large-title bar. Nothing
+                    // showed until a child with an explicit `.inline` title had
+                    // been pushed and popped; UIKit then recomputed the root's
+                    // bar, honoured `.automatic`, and left the large-title area
+                    // as a band of white between Cancel and the camera.
+                    .navigationBarTitleDisplayMode(.inline)
             }
         }
         // Hands are busy and the eyes are on the cart as often as the screen,
