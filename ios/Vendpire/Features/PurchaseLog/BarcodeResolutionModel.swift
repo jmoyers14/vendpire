@@ -71,6 +71,13 @@ final class BarcodeResolutionModel {
 
     /// Set means the sheet is up.
     private(set) var pendingScan: PendingScan?
+
+    /// A fresh id on every read the scanner let through, whatever it turned
+    /// out to be. Feedback hangs off this rather than off the outcome: an
+    /// unknown code replaces the camera with a question and adds nothing to
+    /// the purchase, so anything tied to a resolved item stays silent on the
+    /// one path where the operator most needs to know the read landed.
+    private(set) var lastReadId: UUID?
     private(set) var errorMessage: String?
     /// The status behind `errorMessage`, when it came from the server. 409 is
     /// the one the sheet acts on: the scanned code is already on another
@@ -126,6 +133,7 @@ final class BarcodeResolutionModel {
     /// nothing else.
     func resolve(_ code: String, context: ModelContext) {
         clearError()
+        lastReadId = UUID()
 
         let products = catalog.products(in: context)
         let packs = catalog.packs(in: context)

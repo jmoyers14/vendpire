@@ -20,18 +20,26 @@ struct BarcodeResolutionFlow: View {
     @Environment(\.modelContext) private var context
 
     var body: some View {
-        if startsBlank {
-            BarcodeResolutionSheet(model: model, initialMode: .create)
-        } else if model.pendingScan != nil {
-            BarcodeResolutionSheet(model: model)
-        } else {
-            BarcodeScannerView(onScan: { code in model.resolve(code, context: context) })
-                .overlay(alignment: .top) { itemCountBadge }
-                .overlay(alignment: .bottom) { scanFeedback }
-                // Hands are busy and the eyes are on the cart as often as the
-                // screen, so the fastest "got it" is one you feel.
-                .sensoryFeedback(.success, trigger: confirmation?.id)
-                .sensoryFeedback(.error, trigger: model.errorMessage)
+        // Grouped so the feedback below survives the swap from camera to
+        // question — a modifier on the branches would leave with the camera,
+        // in the same pass as the read that needs reporting.
+        Group {
+            if startsBlank {
+                BarcodeResolutionSheet(model: model, initialMode: .create)
+            } else if model.pendingScan != nil {
+                BarcodeResolutionSheet(model: model)
+            } else {
+                BarcodeScannerView(onScan: { code in model.resolve(code, context: context) })
+                    .overlay(alignment: .top) { itemCountBadge }
+                    .overlay(alignment: .bottom) { scanFeedback }
+            }
+        }
+        // Hands are busy and the eyes are on the cart as often as the screen,
+        // so the fastest "got it" is one you feel. On the read, not on the
+        // outcome: a code the mirror knows is read and added in the same
+        // instant, and a code it doesn't has nothing else to buzz about.
+        .sensoryFeedback(trigger: model.lastReadId) { _, _ in
+            model.errorMessage == nil ? .success : .error
         }
     }
 
@@ -107,11 +115,12 @@ struct BarcodeResolutionFlow: View {
 /// for first.
 ///
 /// Navigation is a real push, not a mode switch: choosing attach or create
-/// pushes to its own screen with the system back button, same mechanics as
-/// the content flow one level down. At most one of `destination` /
-/// `isCreatingItemFromKind` is non-nil/true at a time; swapping which one IS
-/// the navigation, handled by `NavigationStack` as a pop-and-push in one
-/// transaction.
+/// pushes to its own screen with the system back button. One destination
+/// modifier per level — `destination` for everything this screen pushes,
+/// `isCreatingItemFromKind` declared one level up on the question itself —
+/// because same-level destinations compete for the same slot in the stack.
+/// Jumping straight from one branch to another (`jumpToAttach` /
+/// `jumpToCreate`) is a pop-and-push in one transaction.
 ///
 /// "It's a case of items" is terminal here, not a push: it commits on the
 /// spot through `BarcodeResolutionModel.commitPendingCase()`, which hands a
@@ -180,44 +189,18 @@ struct BarcodeResolutionSheet: View {
         // sheet, so it always lands after `onAppear`. Without this the
         // prefill never happened.
         .onChange(of: model.pendingScan?.candidate) { _, _ in fillUntouchedFields() }
-        // One product of the case, resolved by the same tree one level down.
-        // Pushed rather than presented: this form's state has to survive the
-        // round trip, and a sheet over a Form in a sheet fights detents.
-        .navigationDestination(isPresented: contentFlowBinding) {
-            if let inner = model.contentResolver {
-                BarcodeResolutionFlow(model: inner, startsBlank: model.contentDoor == .blankCreate)
+        // Every branch off this screen, in one modifier. Several
+        // `navigationDestination`s on one view are ordered by how the
+        // modifiers nest rather than by the flow, which is what put "Item, or
+        // a case?" on screen twice: "It's a single item" pushed the new-product
+        // form from HERE while the question was still presented from here too.
+        .navigationDestination(item: $destination) { pushed in
+            switch pushed {
+            case .attach: attachDestination
+            case .createKind: createKindDestination
+            case .createItem: createItemDestination
             }
         }
-        .navigationDestination(isPresented: destinationBinding(.attach)) { attachDestination }
-        .navigationDestination(isPresented: destinationBinding(.createKind)) { createKindDestination }
-        .navigationDestination(isPresented: $isCreatingItemFromKind) { createItemDestination }
-        .navigationDestination(isPresented: destinationBinding(.createItem)) { createItemDestination }
-    }
-
-    private var contentFlowBinding: Binding<Bool> {
-        Binding(
-            get: { model.contentResolver != nil },
-            set: { isPresented in
-                if !isPresented { model.endContentResolution() }
-            }
-        )
-    }
-
-    /// A push driven by `destination`, and a pop that only clears it when
-    /// nothing else has already taken its place — a direct jump from one
-    /// destination to another (see `jumpToAttach`/`jumpToCreate`) fires both
-    /// an old binding's pop and a new binding's push in the same tick.
-    private func destinationBinding(_ value: Destination) -> Binding<Bool> {
-        Binding(
-            get: { destination == value },
-            set: { isPresented in
-                if isPresented {
-                    destination = value
-                } else if destination == value {
-                    destination = nil
-                }
-            }
-        )
     }
 
     /// The server named the record the scanned code is already on — the
@@ -390,6 +373,9 @@ struct BarcodeResolutionSheet: View {
         }
         .navigationTitle("Item, or a case?")
         .navigationBarTitleDisplayMode(.inline)
+        // Declared here, on the screen it pushes from, so the new-product form
+        // lands above this question instead of beside it.
+        .navigationDestination(isPresented: $isCreatingItemFromKind) { createItemDestination }
     }
 
     // MARK: - Create: item

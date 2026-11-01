@@ -863,6 +863,53 @@ final class PurchaseLogModelTests: XCTestCase {
         XCTAssertEqual(model.rows.count, 1, "a manual pick is not the last SCAN and Undo must not eat it")
     }
 
+    // MARK: - Telling the operator the code was read
+
+    /// The haptic hangs off `lastReadId`, so every accepted read has to bump
+    /// it — including the ones that put nothing on the purchase.
+    func testAKnownScanCountsAsARead() throws {
+        try makeScreen(products: [makeCoke()])
+
+        model.handleScan(cokeUpc, context: context)
+
+        XCTAssertNotNil(model.resolver.lastReadId)
+    }
+
+    /// The unknown path is the one that needed this: it swaps the camera for a
+    /// question and adds no row, so a confirmation-shaped signal never fires.
+    func testAnUnknownCodeCountsAsAReadToo() throws {
+        try makeScreen(products: [makeCoke()])
+
+        model.handleScan(caseCode, context: context)
+
+        XCTAssertNotNil(model.resolver.pendingScan, "unknown, so the sheet is asking")
+        XCTAssertNil(model.scanConfirmation, "nothing landed on the purchase to confirm")
+        XCTAssertNotNil(model.resolver.lastReadId, "and yet the read happened")
+    }
+
+    /// A trigger only fires on change, so two reads of the same code must not
+    /// share an id — that is the rescan the operator least expects to feel.
+    func testASecondReadOfTheSameCodeGetsAFreshId() throws {
+        try makeScreen(products: [makeCoke()])
+        model.handleScan(cokeUpc, context: context)
+        let first = try XCTUnwrap(model.resolver.lastReadId)
+
+        model.handleScan(cokeUpc, context: context)
+
+        XCTAssertNotEqual(model.resolver.lastReadId, first)
+    }
+
+    /// Garbage is a read as well — it just pairs with an error message, which
+    /// is what turns the buzz from a success into a refusal.
+    func testAnUnreadableCodeIsAReadPairedWithAnError() throws {
+        try makeScreen(products: [makeCoke()])
+
+        model.handleScan("12345", context: context)
+
+        XCTAssertNotNil(model.resolver.lastReadId)
+        XCTAssertNotNil(model.resolver.errorMessage)
+    }
+
     // MARK: - Manual entry
 
     func testSearchResultsComeFromTheMirror() throws {
