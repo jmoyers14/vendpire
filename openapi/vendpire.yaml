@@ -43,25 +43,20 @@ paths:
         "500":
           description: Internal server error
           content: *a1
-  /client-support:
+  /barcode-candidate:
     get:
-      operationId: getClientSupport
-      summary: Whether this iOS build is still supported
+      operationId: getBarcodeCandidate
+      summary: What an outside database says a barcode might name
       tags:
-        - system
+        - candidates
+      security:
+        - bearer: []
       parameters:
         - in: query
-          name: platform
+          name: code
           schema:
             type: string
-            const: ios
-          required: true
-        - in: query
-          name: build
-          schema:
-            type: integer
-            minimum: 0
-            maximum: 9007199254740991
+            minLength: 1
           required: true
       responses:
         "200":
@@ -69,19 +64,35 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ClientSupport"
-        "400":
-          description: Invalid input data
-          content: &a4
-            application/json:
-              schema:
-                $ref: "#/components/schemas/error.BAD_REQUEST"
-        "404":
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/error.NOT_FOUND"
+                type:
+                  - object
+                  - "null"
+                properties:
+                  name:
+                    type:
+                      - string
+                      - "null"
+                  brand:
+                    type:
+                      - string
+                      - "null"
+                  imageUrl:
+                    type:
+                      - string
+                      - "null"
+                required:
+                  - name
+                  - brand
+                  - imageUrl
+        "401":
+          description: Authorization not provided
+          content: *a2
+        "403":
+          description: Insufficient access
+          content: *a3
+        "426":
+          description: This build is below the supported floor; the client must update.
+          content: *a1
         "500":
           description: Internal server error
           content: *a1
@@ -143,12 +154,12 @@ paths:
         "500":
           description: Internal server error
           content: *a1
-  /products:
+  /packs:
     get:
-      operationId: listProducts
-      summary: Every product in the organization
+      operationId: listPacks
+      summary: Every pack in the organization
       tags:
-        - products
+        - packs
       security:
         - bearer: []
       responses:
@@ -159,13 +170,148 @@ paths:
               schema:
                 type: array
                 items:
-                  $ref: "#/components/schemas/Product"
+                  $ref: "#/components/schemas/Pack"
         "401":
           description: Authorization not provided
           content: *a2
         "403":
           description: Insufficient access
           content: *a3
+        "426":
+          description: This build is below the supported floor; the client must update.
+          content: *a1
+        "500":
+          description: Internal server error
+          content: *a1
+    post:
+      operationId: createPack
+      summary: Create a way of buying — a case with its own barcodes
+      tags:
+        - packs
+      security:
+        - bearer: []
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                barcodes:
+                  default: []
+                  type: array
+                  items:
+                    type: string
+                    minLength: 1
+                contents:
+                  minItems: 1
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      productId:
+                        type: string
+                        pattern: ^[0-9a-f]{24}$
+                      units:
+                        type: integer
+                        minimum: 1
+                        maximum: 9007199254740991
+                    required:
+                      - productId
+                      - units
+                active:
+                  default: true
+                  type: boolean
+              required:
+                - name
+                - contents
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Pack"
+        "400":
+          description: Invalid input data
+          content: &a4
+            application/json:
+              schema:
+                $ref: "#/components/schemas/error.BAD_REQUEST"
+        "401":
+          description: Authorization not provided
+          content: *a2
+        "403":
+          description: Insufficient access
+          content: *a3
+        "409":
+          description: The barcode already belongs to another record
+          content: &a5
+            application/json:
+              schema:
+                $ref: "#/components/schemas/error.CONFLICT"
+        "426":
+          description: This build is below the supported floor; the client must update.
+          content: *a1
+        "500":
+          description: Internal server error
+          content: *a1
+  /packs/{id}/barcode:
+    put:
+      operationId: attachPackBarcode
+      summary: Attach a scanned unit barcode to an existing pack
+      tags:
+        - packs
+      security:
+        - bearer: []
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: string
+            pattern: ^[0-9a-f]{24}$
+          required: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                code:
+                  type: string
+                  minLength: 1
+              required:
+                - code
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Pack"
+        "400":
+          description: Invalid input data
+          content: *a4
+        "401":
+          description: Authorization not provided
+          content: *a2
+        "403":
+          description: Insufficient access
+          content: *a3
+        "404":
+          description: No such pack
+          content: &a6
+            application/json:
+              schema:
+                $ref: "#/components/schemas/error.NOT_FOUND"
+        "409":
+          description: The barcode already belongs to another record
+          content: *a5
         "426":
           description: This build is below the supported floor; the client must update.
           content: *a1
@@ -195,6 +341,166 @@ paths:
         "403":
           description: Insufficient access
           content: *a3
+        "426":
+          description: This build is below the supported floor; the client must update.
+          content: *a1
+        "500":
+          description: Internal server error
+          content: *a1
+  /products:
+    get:
+      operationId: listProducts
+      summary: Every product in the organization
+      tags:
+        - products
+      security:
+        - bearer: []
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Product"
+        "401":
+          description: Authorization not provided
+          content: *a2
+        "403":
+          description: Insufficient access
+          content: *a3
+        "426":
+          description: This build is below the supported floor; the client must update.
+          content: *a1
+        "500":
+          description: Internal server error
+          content: *a1
+    post:
+      operationId: createProduct
+      summary: Create a sellable unit
+      tags:
+        - products
+      security:
+        - bearer: []
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                upc:
+                  default: null
+                  type:
+                    - string
+                    - "null"
+                category:
+                  type: string
+                  minLength: 1
+                taxClass:
+                  default: null
+                  type:
+                    - string
+                    - "null"
+                imageUrl:
+                  default: null
+                  type:
+                    - string
+                    - "null"
+                  format: uri
+                defaultPriceCents:
+                  type: integer
+                  minimum: 0
+                  maximum: 9007199254740991
+                active:
+                  default: true
+                  type: boolean
+                tracksExpiration:
+                  default: true
+                  type: boolean
+              required:
+                - name
+                - category
+                - defaultPriceCents
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+        "400":
+          description: Invalid input data
+          content: *a4
+        "401":
+          description: Authorization not provided
+          content: *a2
+        "403":
+          description: Insufficient access
+          content: *a3
+        "409":
+          description: The barcode already belongs to another record
+          content: *a5
+        "426":
+          description: This build is below the supported floor; the client must update.
+          content: *a1
+        "500":
+          description: Internal server error
+          content: *a1
+  /products/{id}/barcode:
+    put:
+      operationId: attachProductBarcode
+      summary: Attach a scanned unit barcode to an existing product
+      tags:
+        - products
+      security:
+        - bearer: []
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: string
+            pattern: ^[0-9a-f]{24}$
+          required: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                code:
+                  type: string
+                  minLength: 1
+              required:
+                - code
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+        "400":
+          description: Invalid input data
+          content: *a4
+        "401":
+          description: Authorization not provided
+          content: *a2
+        "403":
+          description: Insufficient access
+          content: *a3
+        "404":
+          description: No such product
+          content: *a6
+        "409":
+          description: The barcode already belongs to another record
+          content: *a5
         "426":
           description: This build is below the supported floor; the client must update.
           content: *a1
@@ -311,6 +617,42 @@ paths:
         "426":
           description: This build is below the supported floor; the client must update.
           content: *a1
+        "500":
+          description: Internal server error
+          content: *a1
+  /client-support:
+    get:
+      operationId: getClientSupport
+      summary: Whether this iOS build is still supported
+      tags:
+        - system
+      parameters:
+        - in: query
+          name: platform
+          schema:
+            type: string
+            const: ios
+          required: true
+        - in: query
+          name: build
+          schema:
+            type: integer
+            minimum: 0
+            maximum: 9007199254740991
+          required: true
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClientSupport"
+        "400":
+          description: Invalid input data
+          content: *a4
+        "404":
+          description: Not found
+          content: *a6
         "500":
           description: Internal server error
           content: *a1
@@ -477,35 +819,6 @@ paths:
         "500":
           description: Internal server error
           content: *a1
-  /packs:
-    get:
-      operationId: listPacks
-      summary: Every pack in the organization
-      tags:
-        - packs
-      security:
-        - bearer: []
-      responses:
-        "200":
-          description: Successful response
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/Pack"
-        "401":
-          description: Authorization not provided
-          content: *a2
-        "403":
-          description: Insufficient access
-          content: *a3
-        "426":
-          description: This build is below the supported floor; the client must update.
-          content: *a1
-        "500":
-          description: Internal server error
-          content: *a1
 components:
   schemas:
     Identity:
@@ -626,82 +939,25 @@ components:
         code: INTERNAL_SERVER_ERROR
         message: This build is below the supported floor; the client must update.
         issues: []
-    ClientSupport:
+    Candidate:
       type: object
       properties:
-        updateRequirement:
-          type: string
-          enum:
-            - none
-            - recommended
-            - required
-        updateUrl:
-          type: string
+        name:
+          type:
+            - string
+            - "null"
+        brand:
+          type:
+            - string
+            - "null"
+        imageUrl:
+          type:
+            - string
+            - "null"
       required:
-        - updateRequirement
-        - updateUrl
-    error.BAD_REQUEST:
-      type: object
-      properties:
-        message:
-          type: string
-          description: The error message
-          example: Invalid input data
-        code:
-          type: string
-          description: The error code
-          example: BAD_REQUEST
-        issues:
-          description: An array of issues that were responsible for the error
-          example: []
-          type: array
-          items:
-            type: object
-            properties:
-              message:
-                type: string
-            required:
-              - message
-      required:
-        - message
-        - code
-      title: Invalid input data error (400)
-      description: The error information
-      example:
-        code: BAD_REQUEST
-        message: Invalid input data
-        issues: []
-    error.NOT_FOUND:
-      type: object
-      properties:
-        message:
-          type: string
-          description: The error message
-          example: Not found
-        code:
-          type: string
-          description: The error code
-          example: NOT_FOUND
-        issues:
-          description: An array of issues that were responsible for the error
-          example: []
-          type: array
-          items:
-            type: object
-            properties:
-              message:
-                type: string
-            required:
-              - message
-      required:
-        - message
-        - code
-      title: Not found error (404)
-      description: The error information
-      example:
-        code: NOT_FOUND
-        message: Not found
-        issues: []
+        - name
+        - brand
+        - imageUrl
     Location:
       type: object
       properties:
@@ -911,6 +1167,187 @@ components:
         - active
         - createdAt
         - updatedAt
+    Pack:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        barcodes:
+          type: array
+          items:
+            type: string
+          description: Case-level barcodes, normalized to GTIN-14.
+        contents:
+          type: array
+          items:
+            type: object
+            properties:
+              productId:
+                type: string
+              units:
+                type: integer
+                minimum: -9007199254740991
+                maximum: 9007199254740991
+            required:
+              - productId
+              - units
+        active:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - barcodes
+        - contents
+        - active
+        - createdAt
+        - updatedAt
+    error.BAD_REQUEST:
+      type: object
+      properties:
+        message:
+          type: string
+          description: The error message
+          example: Invalid input data
+        code:
+          type: string
+          description: The error code
+          example: BAD_REQUEST
+        issues:
+          description: An array of issues that were responsible for the error
+          example: []
+          type: array
+          items:
+            type: object
+            properties:
+              message:
+                type: string
+            required:
+              - message
+      required:
+        - message
+        - code
+      title: Invalid input data error (400)
+      description: The error information
+      example:
+        code: BAD_REQUEST
+        message: Invalid input data
+        issues: []
+    error.CONFLICT:
+      type: object
+      properties:
+        message:
+          type: string
+          description: The error message
+          example: The barcode already belongs to another record
+        code:
+          type: string
+          description: The error code
+          example: CONFLICT
+        issues:
+          description: An array of issues that were responsible for the error
+          example: []
+          type: array
+          items:
+            type: object
+            properties:
+              message:
+                type: string
+            required:
+              - message
+      required:
+        - message
+        - code
+      title: The barcode already belongs to another record error (409)
+      description: The error information
+      example:
+        code: CONFLICT
+        message: The barcode already belongs to another record
+        issues: []
+    error.NOT_FOUND:
+      type: object
+      properties:
+        message:
+          type: string
+          description: The error message
+          example: No such pack
+        code:
+          type: string
+          description: The error code
+          example: NOT_FOUND
+        issues:
+          description: An array of issues that were responsible for the error
+          example: []
+          type: array
+          items:
+            type: object
+            properties:
+              message:
+                type: string
+            required:
+              - message
+      required:
+        - message
+        - code
+      title: No such pack error (404)
+      description: The error information
+      example:
+        code: NOT_FOUND
+        message: No such pack
+        issues: []
+    Planogram:
+      type: object
+      properties:
+        id:
+          type: string
+        machineId:
+          type: string
+        effectiveFrom:
+          type: string
+          format: date-time
+        slots:
+          type: array
+          items:
+            type: object
+            properties:
+              slotCode:
+                type: string
+              productId:
+                type: string
+              par:
+                type: integer
+                minimum: -9007199254740991
+                maximum: 9007199254740991
+                description: Units the slot holds when full — the refill target.
+              priceCents:
+                type: integer
+                minimum: -9007199254740991
+                maximum: 9007199254740991
+            required:
+              - slotCode
+              - productId
+              - par
+              - priceCents
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - machineId
+        - effectiveFrom
+        - slots
+        - createdAt
+        - updatedAt
     Product:
       type: object
       properties:
@@ -957,52 +1394,6 @@ components:
         - defaultPriceCents
         - active
         - tracksExpiration
-        - createdAt
-        - updatedAt
-    Planogram:
-      type: object
-      properties:
-        id:
-          type: string
-        machineId:
-          type: string
-        effectiveFrom:
-          type: string
-          format: date-time
-        slots:
-          type: array
-          items:
-            type: object
-            properties:
-              slotCode:
-                type: string
-              productId:
-                type: string
-              par:
-                type: integer
-                minimum: -9007199254740991
-                maximum: 9007199254740991
-                description: Units the slot holds when full — the refill target.
-              priceCents:
-                type: integer
-                minimum: -9007199254740991
-                maximum: 9007199254740991
-            required:
-              - slotCode
-              - productId
-              - par
-              - priceCents
-        createdAt:
-          type: string
-          format: date-time
-        updatedAt:
-          type: string
-          format: date-time
-      required:
-        - id
-        - machineId
-        - effectiveFrom
-        - slots
         - createdAt
         - updatedAt
     Purchase:
@@ -1068,6 +1459,20 @@ components:
         - clientRequestId
         - createdAt
         - updatedAt
+    ClientSupport:
+      type: object
+      properties:
+        updateRequirement:
+          type: string
+          enum:
+            - none
+            - recommended
+            - required
+        updateUrl:
+          type: string
+      required:
+        - updateRequirement
+        - updateUrl
     Visit:
       type: object
       properties:
@@ -1173,48 +1578,6 @@ components:
         - lines
         - notes
         - clientRequestId
-        - createdAt
-        - updatedAt
-    Pack:
-      type: object
-      properties:
-        id:
-          type: string
-        name:
-          type: string
-        barcodes:
-          type: array
-          items:
-            type: string
-          description: Case-level barcodes, normalized to GTIN-14.
-        contents:
-          type: array
-          items:
-            type: object
-            properties:
-              productId:
-                type: string
-              units:
-                type: integer
-                minimum: -9007199254740991
-                maximum: 9007199254740991
-            required:
-              - productId
-              - units
-        active:
-          type: boolean
-        createdAt:
-          type: string
-          format: date-time
-        updatedAt:
-          type: string
-          format: date-time
-      required:
-        - id
-        - name
-        - barcodes
-        - contents
-        - active
         - createdAt
         - updatedAt
   securitySchemes:

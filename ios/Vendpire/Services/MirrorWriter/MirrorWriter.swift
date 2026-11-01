@@ -134,6 +134,44 @@ final class MirrorWriter {
         }
     }
 
+    // MARK: - Single-record upsert
+
+    /// One record in, nothing else touched. `apply`'s `reconcile` deletes rows
+    /// absent from its payload, so it must never be fed a single record — this
+    /// is the path for a product or pack created or attached mid-purchase,
+    /// where the rest of the mirror is untouched and must stay that way.
+    ///
+    /// Filters in Swift after a plain `fetch()`, the same way `reconcile`
+    /// below does, rather than a `#Predicate` fetch on `id`: a predicate
+    /// compiled to the store's query isn't guaranteed to see a row this
+    /// context has inserted but not yet saved.
+    func upsert(_ remote: RemoteProduct) throws {
+        try upsertSingle(remote, id: remote.id, idOfStored: \StoredProduct.id, update: { $0.update(from: $1) }, insert: StoredProduct.init)
+    }
+
+    func upsert(_ remote: RemotePack) throws {
+        try upsertSingle(remote, id: remote.id, idOfStored: \StoredPack.id, update: { $0.update(from: $1) }, insert: StoredPack.init)
+    }
+
+    /// The single-record counterpart of `reconcile` — same closure shape,
+    /// minus the delete-missing step.
+    private func upsertSingle<Model: PersistentModel, Remote>(
+        _ remote: Remote,
+        id: String,
+        idOfStored: KeyPath<Model, String>,
+        update: (Model, Remote) -> Void,
+        insert: (Remote) -> Model
+    ) throws {
+        let existing = try context.fetch(FetchDescriptor<Model>())
+            .first { $0[keyPath: idOfStored] == id }
+        if let existing {
+            update(existing, remote)
+        } else {
+            context.insert(insert(remote))
+        }
+        try context.save()
+    }
+
     // MARK: - Upsert and remove
 
     private func reconcile<Model: PersistentModel, Remote>(

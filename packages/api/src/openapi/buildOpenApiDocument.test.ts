@@ -9,17 +9,23 @@ import { buildOpenApiDocument } from "./buildOpenApiDocument.ts";
 const COMMITTED = path.join(import.meta.dir, "../../../../openapi/vendpire.yaml");
 
 const EXPECTED_PATHS = [
+  "/barcode-candidate",
   "/client-support",
   "/locations",
   "/machines",
   "/me",
   "/packs",
+  "/packs/{id}/barcode",
   "/planograms/current",
   "/products",
+  "/products/{id}/barcode",
   "/purchases",
   "/visits",
   "/visits/latest",
 ];
+
+// Read once: every assertion below only reads it.
+const document = parse(readFileSync(COMMITTED, "utf8"));
 
 describe("the committed OpenAPI document", () => {
   it("matches a fresh generation, so a schema change cannot ship un-regenerated", () => {
@@ -29,34 +35,46 @@ describe("the committed OpenAPI document", () => {
     expect(fresh).toBe(committed);
   });
 
-  it("declares exactly the ten endpoints on the surface", () => {
-    const document = parse(readFileSync(COMMITTED, "utf8"));
-
+  it("declares exactly the thirteen endpoints on the surface", () => {
     expect(Object.keys(document.paths).sort()).toEqual(EXPECTED_PATHS);
   });
 
   it("says it is OpenAPI 3.1 — the 3.0 target silently emits 3.1 syntax", () => {
-    const document = parse(readFileSync(COMMITTED, "utf8"));
-
     expect(document.openapi).toBe("3.1.0");
   });
 });
 
 describe("the surface's auth posture", () => {
   it("leaves client-support unsecured, or the wall cannot explain itself", () => {
-    const document = parse(readFileSync(COMMITTED, "utf8"));
-
     expect(document.paths["/client-support"].get.security).toBeUndefined();
   });
 
   it("secures every other endpoint", () => {
-    const document = parse(readFileSync(COMMITTED, "utf8"));
-
     for (const route of EXPECTED_PATHS.filter((p) => p !== "/client-support")) {
       const operation =
-        document.paths[route].get ?? document.paths[route].post;
+        document.paths[route].get ?? document.paths[route].post ?? document.paths[route].put;
       expect(operation.security).toEqual([{ bearer: [] }]);
     }
+  });
+
+  it("creates products and packs over REST — the scanner's create path", () => {
+    const document = parse(readFileSync(COMMITTED, "utf8"));
+    expect(document.paths["/products"].post.operationId).toBe("createProduct");
+    expect(document.paths["/packs"].post.operationId).toBe("createPack");
+    expect(document.paths["/products"].post.security).toEqual([{ bearer: [] }]);
+    expect(document.paths["/packs"].post.security).toEqual([{ bearer: [] }]);
+  });
+
+  it("attaches barcodes through narrow PUT routes", () => {
+    const document = parse(readFileSync(COMMITTED, "utf8"));
+    expect(document.paths["/products/{id}/barcode"].put.operationId).toBe("attachProductBarcode");
+    expect(document.paths["/packs/{id}/barcode"].put.operationId).toBe("attachPackBarcode");
+  });
+
+  it("gives barcode routes route-specific 404 descriptions", () => {
+    const document = parse(readFileSync(COMMITTED, "utf8"));
+    expect(document.paths["/products/{id}/barcode"].put.responses["404"].description).toBe("No such product");
+    expect(document.paths["/packs/{id}/barcode"].put.responses["404"].description).toBe("No such pack");
   });
 
   it("gives each status its own description — the generator shares one response object", () => {
@@ -75,10 +93,9 @@ describe("the surface's auth posture", () => {
 
 describe("the shapes a Swift client has to decode", () => {
   it("emits named components rather than inlining a copy per endpoint", () => {
-    const document = parse(readFileSync(COMMITTED, "utf8"));
-
     expect(Object.keys(document.components.schemas)).toEqual(
       expect.arrayContaining([
+        "Candidate",
         "Location",
         "Machine",
         "Product",
@@ -98,8 +115,6 @@ describe("the shapes a Swift client has to decode", () => {
   });
 
   it("spells nullable as a type array, not anyOf — Swift maps that to an optional", () => {
-    const document = parse(readFileSync(COMMITTED, "utf8"));
-
     expect(
       document.components.schemas.Location.properties.notes.type,
     ).toEqual(["string", "null"]);
@@ -107,16 +122,12 @@ describe("the shapes a Swift client has to decode", () => {
   });
 
   it("lets responses carry unknown keys, so a new server field cannot break an old build", () => {
-    const document = parse(readFileSync(COMMITTED, "utf8"));
-
     expect(
       document.components.schemas.Location.additionalProperties,
     ).toBeUndefined();
   });
 
   it("refs commission to a named component, not an inline copy", () => {
-    const document = parse(readFileSync(COMMITTED, "utf8"));
-
     expect(document.components.schemas.Location.properties.commission).toEqual(
       { $ref: "#/components/schemas/LocationCommission" },
     );
@@ -159,6 +170,33 @@ describe("the shapes a Swift client has to decode", () => {
     expect(validate(visit)).toBe(true);
   });
 
+  it("serves the barcode candidate as a flat nullable object — no oneOf", () => {
+    // Component definition: flat object with nullable properties
+    const candidate = document.components.schemas.Candidate;
+    expect(candidate.type).toBe("object");
+    expect(Object.keys(candidate.properties).sort()).toEqual([
+      "brand",
+      "imageUrl",
+      "name",
+    ]);
+
+    // Response schema: inlined with type: ["object","null"], no $ref/anyOf/oneOf
+    const responseSchema =
+      document.paths["/barcode-candidate"].get.responses["200"].content[
+        "application/json"
+      ].schema;
+    expect(responseSchema.$ref).toBeUndefined();
+    expect(responseSchema.anyOf).toBeUndefined();
+    expect(responseSchema.oneOf).toBeUndefined();
+    expect(responseSchema.type).toEqual(["object", "null"]);
+
+    // Validate with ajv: both null and full candidate object
+    const ajv = new Ajv2020({ strict: false });
+    const validate = ajv.compile(responseSchema);
+    expect(validate(null)).toBe(true);
+    expect(validate({ name: "Coke Zero 12oz", brand: "Coca-Cola", imageUrl: null })).toBe(true);
+  });
+
   it("declares money and counts as integers, so Swift gets Int and not Double", () => {
     const document = parse(readFileSync(COMMITTED, "utf8"));
     const schemas = document.components.schemas;
@@ -198,8 +236,6 @@ describe("the shapes a Swift client has to decode", () => {
 describe("document validity", () => {
   it("is a valid OpenAPI document — the only check before the generated Swift client consumes it", async () => {
     // validate() mutates its input by resolving $refs, so hand it a clone.
-    const document = parse(readFileSync(COMMITTED, "utf8"));
-
     await expect(SwaggerParser.validate(document)).resolves.toBeDefined();
   });
 });

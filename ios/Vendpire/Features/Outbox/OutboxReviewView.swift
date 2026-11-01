@@ -1,3 +1,4 @@
+import Foundation
 import SwiftData
 import SwiftUI
 
@@ -8,6 +9,7 @@ import SwiftUI
 /// because the drain will never touch them again without one.
 struct OutboxReviewView: View {
     @Environment(OutboxSubmitter.self) private var submitter
+    @Environment(\.modelContext) private var context
 
     // Unsorted on purpose: OutboxReviewRow.rows owns the ordering, and the
     // tests pin it there. Two sorts would leave a reader checking which one
@@ -59,10 +61,20 @@ struct OutboxReviewView: View {
                             Text(row.detail)
                                 .font(.callout)
                                 .foregroundStyle(Color.primary)
-                            Button("Retry") {
-                                retry(row)
+                            HStack(spacing: 12) {
+                                Button("Retry") {
+                                    retry(row)
+                                }
+                                .font(.callout.weight(.medium))
+                                if row.kind == "purchase" {
+                                    Button("Discard", role: .destructive) {
+                                        guard let item = items.first(where: { $0.id == row.id }) else { return }
+                                        context.delete(item)
+                                        try? context.save()
+                                    }
+                                    .font(.callout.weight(.medium))
+                                }
                             }
-                            .font(.callout.weight(.medium))
                         }
                         .padding(.vertical, 2)
                     }

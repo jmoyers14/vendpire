@@ -87,6 +87,23 @@ export class ProductServiceImpl implements ProductService {
   }
 
   /**
+   * Attach a scanned unit code to an existing product, touching nothing else.
+   * Server-side so a stale client mirror can't clobber concurrent edits; the
+   * code goes through the same validate() as create/update.
+   */
+  async attachBarcode(orgId: string, id: string, code: string): Promise<Product> {
+    const product = await this.get(orgId, id);
+    if (!product) {
+      throw new ServiceError("NOT_FOUND", "Product not found");
+    }
+    // Spread rather than a hand-written field list: `ProductInput` is
+    // `Omit<Product, "id" | "createdAt" | "updatedAt">`, so a field added to
+    // `Product` later would otherwise be reset on every attach.
+    const { id: _id, createdAt: _createdAt, updatedAt: _updatedAt, ...input } = product;
+    return this.update(orgId, id, { ...input, upc: code });
+  }
+
+  /**
    * The unit upc, when present, is validated + normalized to GTIN-14 and must
    * be unique — across products AND against pack barcodes (one code can never
    * mean both a can and a case).
@@ -103,14 +120,18 @@ export class ProductServiceImpl implements ProductService {
         throw new ServiceError("BAD_REQUEST", `Invalid barcode: ${data.upc}`);
       }
       data.upc = normalized.gtin14;
-      const productWithCode = await this.products.findByUpc(orgId, data.upc);
+      // Neither lookup depends on the other; the product conflict is still
+      // reported first, so the message precedence is unchanged.
+      const [productWithCode, packWithCode] = await Promise.all([
+        this.products.findByUpc(orgId, data.upc),
+        this.packs.findByBarcode(orgId, data.upc),
+      ]);
       if (productWithCode && productWithCode.id !== excludeId) {
         throw new ServiceError(
           "CONFLICT",
           `Barcode ${data.upc} is already on "${productWithCode.name}"`,
         );
       }
-      const packWithCode = await this.packs.findByBarcode(orgId, data.upc);
       if (packWithCode) {
         throw new ServiceError(
           "CONFLICT",

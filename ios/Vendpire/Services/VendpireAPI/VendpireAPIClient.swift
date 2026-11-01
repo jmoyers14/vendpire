@@ -4,10 +4,16 @@ import OpenAPIURLSession
 
 /// The real network implementation of `VendpireAPI`.
 ///
-/// Every method shape is the same: call the generated operation, take the one
-/// documented success case, map to `Remote*`. Any other status — 401, 403, 426,
-/// 500 — throws, and `MirrorRefresher` turns that into a failed refresh that
-/// writes nothing.
+/// Two method shapes. The read paths take the one documented success case and
+/// map to `Remote*`; any other status throws, and `MirrorRefresher` turns that
+/// into a failed refresh that writes nothing.
+///
+/// The catalog write paths — the candidate lookup, the two creates, the two
+/// attaches — switch the generated `Output` exhaustively instead, because a
+/// human reads their failures. `response.ok` would collapse a 409 into
+/// `RuntimeError.unexpectedResponseStatus`, and the sentence naming the record
+/// a barcode is already on is exactly what the operator needs. See
+/// `VendpireAPIError`.
 struct VendpireAPIClient: VendpireAPI {
     /// Not private: the outbox conformance lives in its own file.
     let client: Client
@@ -68,5 +74,127 @@ struct VendpireAPIClient: VendpireAPI {
         let response = try await client.listLatestVisits(.init())
         let visits = try response.ok.body.json
         return visits.map(RemoteVisit.init)
+    }
+
+    /// The outside guess. Documented failures here are all infrastructure —
+    /// the caller treats any of them as "no guess" — but they are switched
+    /// exhaustively like the rest so a spec change breaks the build.
+    func fetchBarcodeCandidate(code: String) async throws -> RemoteCandidate? {
+        let response = try await client.getBarcodeCandidate(query: .init(code: code))
+        switch response {
+        case .ok(let success):
+            let payload = try success.body.json
+            return payload.map(RemoteCandidate.init)
+        case .unauthorized(let rejection):
+            throw VendpireAPIError(statusCode: 401, message: try? rejection.body.json.message)
+        case .forbidden(let rejection):
+            throw VendpireAPIError(statusCode: 403, message: try? rejection.body.json.message)
+        case .upgradeRequired(let rejection):
+            throw VendpireAPIError(statusCode: 426, message: try? rejection.body.json.message)
+        case .internalServerError(let rejection):
+            throw VendpireAPIError(statusCode: 500, message: try? rejection.body.json.message)
+        case .undocumented(let statusCode, _):
+            throw VendpireAPIError(statusCode: statusCode, message: nil)
+        }
+    }
+
+    func createProduct(_ draft: RemoteProductDraft) async throws -> RemoteProduct {
+        let response = try await client.createProduct(body: .json(.init(draft)))
+        switch response {
+        case .ok(let success):
+            let product = try success.body.json
+            return RemoteProduct(product)
+        case .badRequest(let rejection):
+            throw VendpireAPIError(statusCode: 400, message: try? rejection.body.json.message)
+        case .unauthorized(let rejection):
+            throw VendpireAPIError(statusCode: 401, message: try? rejection.body.json.message)
+        case .forbidden(let rejection):
+            throw VendpireAPIError(statusCode: 403, message: try? rejection.body.json.message)
+        case .conflict(let rejection):
+            throw VendpireAPIError(statusCode: 409, message: try? rejection.body.json.message)
+        case .upgradeRequired(let rejection):
+            throw VendpireAPIError(statusCode: 426, message: try? rejection.body.json.message)
+        case .internalServerError(let rejection):
+            throw VendpireAPIError(statusCode: 500, message: try? rejection.body.json.message)
+        case .undocumented(let statusCode, _):
+            throw VendpireAPIError(statusCode: statusCode, message: nil)
+        }
+    }
+
+    func createPack(_ draft: RemotePackDraft) async throws -> RemotePack {
+        let response = try await client.createPack(body: .json(.init(draft)))
+        switch response {
+        case .ok(let success):
+            let pack = try success.body.json
+            return RemotePack(pack)
+        case .badRequest(let rejection):
+            throw VendpireAPIError(statusCode: 400, message: try? rejection.body.json.message)
+        case .unauthorized(let rejection):
+            throw VendpireAPIError(statusCode: 401, message: try? rejection.body.json.message)
+        case .forbidden(let rejection):
+            throw VendpireAPIError(statusCode: 403, message: try? rejection.body.json.message)
+        case .conflict(let rejection):
+            throw VendpireAPIError(statusCode: 409, message: try? rejection.body.json.message)
+        case .upgradeRequired(let rejection):
+            throw VendpireAPIError(statusCode: 426, message: try? rejection.body.json.message)
+        case .internalServerError(let rejection):
+            throw VendpireAPIError(statusCode: 500, message: try? rejection.body.json.message)
+        case .undocumented(let statusCode, _):
+            throw VendpireAPIError(statusCode: statusCode, message: nil)
+        }
+    }
+
+    func attachProductBarcode(productId: String, code: String) async throws -> RemoteProduct {
+        let response = try await client.attachProductBarcode(
+            path: .init(id: productId), body: .json(.init(code: code))
+        )
+        switch response {
+        case .ok(let success):
+            let product = try success.body.json
+            return RemoteProduct(product)
+        case .badRequest(let rejection):
+            throw VendpireAPIError(statusCode: 400, message: try? rejection.body.json.message)
+        case .unauthorized(let rejection):
+            throw VendpireAPIError(statusCode: 401, message: try? rejection.body.json.message)
+        case .forbidden(let rejection):
+            throw VendpireAPIError(statusCode: 403, message: try? rejection.body.json.message)
+        case .notFound(let rejection):
+            throw VendpireAPIError(statusCode: 404, message: try? rejection.body.json.message)
+        case .conflict(let rejection):
+            throw VendpireAPIError(statusCode: 409, message: try? rejection.body.json.message)
+        case .upgradeRequired(let rejection):
+            throw VendpireAPIError(statusCode: 426, message: try? rejection.body.json.message)
+        case .internalServerError(let rejection):
+            throw VendpireAPIError(statusCode: 500, message: try? rejection.body.json.message)
+        case .undocumented(let statusCode, _):
+            throw VendpireAPIError(statusCode: statusCode, message: nil)
+        }
+    }
+
+    func attachPackBarcode(packId: String, code: String) async throws -> RemotePack {
+        let response = try await client.attachPackBarcode(
+            path: .init(id: packId), body: .json(.init(code: code))
+        )
+        switch response {
+        case .ok(let success):
+            let pack = try success.body.json
+            return RemotePack(pack)
+        case .badRequest(let rejection):
+            throw VendpireAPIError(statusCode: 400, message: try? rejection.body.json.message)
+        case .unauthorized(let rejection):
+            throw VendpireAPIError(statusCode: 401, message: try? rejection.body.json.message)
+        case .forbidden(let rejection):
+            throw VendpireAPIError(statusCode: 403, message: try? rejection.body.json.message)
+        case .notFound(let rejection):
+            throw VendpireAPIError(statusCode: 404, message: try? rejection.body.json.message)
+        case .conflict(let rejection):
+            throw VendpireAPIError(statusCode: 409, message: try? rejection.body.json.message)
+        case .upgradeRequired(let rejection):
+            throw VendpireAPIError(statusCode: 426, message: try? rejection.body.json.message)
+        case .internalServerError(let rejection):
+            throw VendpireAPIError(statusCode: 500, message: try? rejection.body.json.message)
+        case .undocumented(let statusCode, _):
+            throw VendpireAPIError(statusCode: statusCode, message: nil)
+        }
     }
 }

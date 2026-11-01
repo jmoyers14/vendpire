@@ -170,6 +170,72 @@ describe("PurchaseService", () => {
     expect(created.receiptTotalCents).toBe(1499);
   });
 
+  describe("idempotency", () => {
+    // A client that timed out cannot tell "succeeded, response lost" from
+    // "failed". Anything but the original document back makes it either
+    // double-post or drop the purchase.
+    it("returns the original purchase for a second submit of the same key", async () => {
+      const first = await service.create(
+        ORG,
+        draft({ clientRequestId: "req_retry" }),
+      );
+      const second = await service.create(
+        ORG,
+        draft({ clientRequestId: "req_retry" }),
+      );
+
+      expect(second.id).toBe(first.id);
+      expect(purchases.rows).toHaveLength(1);
+    });
+
+    // No re-validation on the replay path: the purchase is already stored, and
+    // re-running the reference checks would start rejecting retries the moment
+    // somebody tidied the catalog.
+    it("replays a purchase whose product has since been retired", async () => {
+      const first = await service.create(
+        ORG,
+        draft({ clientRequestId: "req_retry" }),
+      );
+      await products.softDelete(ORG, cokeId);
+      const second = await service.create(
+        ORG,
+        draft({ clientRequestId: "req_retry" }),
+      );
+      expect(second.id).toBe(first.id);
+    });
+
+    // Two submits of one draft racing past the pre-check. The unique index is
+    // what actually enforces idempotency, so the duplicate-key path has to land
+    // on the winner rather than surfacing a 500.
+    it("hands back the winner when two submits race the index", async () => {
+      const winner = purchases.seed(ORG, {
+        ...draft({ clientRequestId: "req_race" }),
+        lines: [{ productId: cokeId, units: 30, totalCostCents: 1499, packId: null }],
+        receiptTotalCents: null,
+      });
+
+      // The pre-check misses exactly once, which is the race: the other
+      // request committed between this one's read and its write.
+      const realRead = purchases.findByClientRequestId.bind(purchases);
+      let missed = false;
+      purchases.findByClientRequestId = async (orgId, key) => {
+        if (!missed) {
+          missed = true;
+          return null;
+        }
+        return realRead(orgId, key);
+      };
+
+      const created = await service.create(
+        ORG,
+        draft({ clientRequestId: "req_race" }),
+      );
+
+      expect(created.id).toBe(winner.id);
+      expect(purchases.rows).toHaveLength(1);
+    });
+  });
+
   describe("list", () => {
     /** Seeds one purchase per given instant and returns the created ids. */
     const seedOn = async (instants: string[]): Promise<string[]> => {

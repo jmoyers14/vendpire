@@ -97,4 +97,28 @@ describe("PackService", () => {
       service.create(ORG, input({ barcodes: ["049000006346"] })),
     ).rejects.toThrow(/unit/i);
   });
+
+  describe("attachBarcode", () => {
+    it("appends the normalized code to barcodes", async () => {
+      const productId = products.seed(ORG, productInput({})).id;
+      const pack = await service.create(ORG, input({ contents: [{ productId, units: 30 }] }));
+      const countBefore = pack.barcodes.length;
+      const updated = await service.attachBarcode(ORG, pack.id, "10049000042556");
+      expect(updated.barcodes).toContain("10049000042556");
+      expect(updated.barcodes.length).toBe(countBefore + 1);
+    });
+
+    it("rejects a code that is a product's unit code", async () => {
+      products.seed(ORG, productInput({ name: "Coke Zero", upc: "00049000042559" }));
+      const productId = products.seed(ORG, productInput({ upc: null })).id;
+      const pack = await service.create(ORG, input({ contents: [{ productId, units: 30 }] }));
+      await expect(service.attachBarcode(ORG, pack.id, "049000042559"))
+        .rejects.toThrow('unit code of "Coke Zero"');
+    });
+
+    it("404s on an unknown pack", async () => {
+      await expect(service.attachBarcode(ORG, "0".repeat(24), "10049000042556"))
+        .rejects.toThrow("Pack not found");
+    });
+  });
 });

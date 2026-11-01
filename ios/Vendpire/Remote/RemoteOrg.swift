@@ -135,3 +135,44 @@ nonisolated struct RemoteIdentity: Decodable, Sendable {
     let userId: String
     let orgId: String?
 }
+
+/// What an outside barcode database says a scanned code might name. `nil`
+/// fields are a real "we don't know" from that database, not a decode
+/// failure; a `nil` candidate entirely means the code is unrecognized.
+///
+/// `Equatable` so `PurchaseLogModel.PendingScan` can be — the not-found sheet's
+/// state is diffed by SwiftUI, and the candidate is part of it.
+nonisolated struct RemoteCandidate: Decodable, Equatable, Sendable {
+    let name: String?
+    let brand: String?
+    let imageUrl: String?
+
+    /// Brand-first, unless the name already says the brand — ported from the
+    /// web panel's `candidateName`. Shared by every screen that seeds a
+    /// field from this guess, so the rule can't drift between them.
+    var displayName: String {
+        guard let name else { return "" }
+        guard let brand, !name.localizedCaseInsensitiveContains(brand) else { return name }
+        return "\(brand) \(name)"
+    }
+}
+
+/// What the scanner has in hand to create a product. `active` and
+/// `tracksExpiration` are deliberately absent — the server defaults both to
+/// true, which is always what a scanner-created record wants.
+nonisolated struct RemoteProductDraft: Sendable {
+    let name: String
+    let upc: String?
+    let category: String
+    let taxClass: String?
+    let imageUrl: String?
+    let defaultPriceCents: Int
+}
+
+/// What the scanner has in hand to create a pack. `active` is deliberately
+/// absent — the server defaults it to true.
+nonisolated struct RemotePackDraft: Sendable {
+    let name: String
+    let barcodes: [String]
+    let contents: [PackContent]
+}

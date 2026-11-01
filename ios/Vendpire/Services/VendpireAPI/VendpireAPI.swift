@@ -13,4 +13,9 @@ protocol VendpireAPI: Sendable {
     func fetchPacks() async throws -> [RemotePack]
     func fetchCurrentPlanograms() async throws -> [RemotePlanogram]
     func fetchLatestVisits() async throws -> [RemoteVisit]
+    func fetchBarcodeCandidate(code: String) async throws -> RemoteCandidate?
+    func createProduct(_ draft: RemoteProductDraft) async throws -> RemoteProduct
+    func createPack(_ draft: RemotePackDraft) async throws -> RemotePack
+    func attachProductBarcode(productId: String, code: String) async throws -> RemoteProduct
+    func attachPackBarcode(packId: String, code: String) async throws -> RemotePack
 }

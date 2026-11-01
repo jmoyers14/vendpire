@@ -48,6 +48,12 @@ struct LocationListView: View {
             }
             .navigationTitle("Locations")
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    NavigationLink(destination: PurchaseSetupView()) {
+                        Image(systemName: "cart.badge.plus")
+                    }
+                    .accessibilityLabel("Log Purchase")
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     NavigationLink(destination: AccountView()) {
                         Image(systemName: "person.crop.circle")

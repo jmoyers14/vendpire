@@ -15,7 +15,7 @@ import type {
   PurchaseRepository,
   PurchaseUpdate,
 } from "@vendpire/platform";
-import { ServiceError } from "../errors.ts";
+import { isDuplicateKey, ServiceError } from "../errors.ts";
 import { decodePurchaseCursor, encodePurchaseCursor } from "./cursor.ts";
 import {
   DEFAULT_PURCHASE_PAGE_SIZE,
@@ -85,11 +85,39 @@ export class PurchaseServiceImpl implements PurchaseService {
   }
 
   async create(orgId: string, draft: PurchaseDraft): Promise<Purchase> {
+    // Checked FIRST and returned verbatim — no re-validation. A retrying
+    // client can only act on 200 with the original; re-validating would
+    // reject an already-stored purchase whose product has since been retired.
+    const replay = await this.purchases.findByClientRequestId(
+      orgId,
+      draft.clientRequestId,
+    );
+    if (replay) {
+      return replay;
+    }
+
     const stored = await this.buildStored(orgId, draft);
-    return this.purchases.create(orgId, {
-      ...stored,
-      clientRequestId: draft.clientRequestId,
-    });
+    try {
+      return await this.purchases.create(orgId, {
+        ...stored,
+        clientRequestId: draft.clientRequestId,
+      });
+    } catch (error) {
+      if (!isDuplicateKey(error)) {
+        throw error;
+      }
+      // Two submits of one draft raced past the read above. The unique index
+      // is what actually enforces idempotency; the read is only the cheap path.
+      const winner = await this.purchases.findByClientRequestId(
+        orgId,
+        draft.clientRequestId,
+      );
+      if (!winner) {
+        // Some other unique index rejected this, so it is not ours to swallow.
+        throw error;
+      }
+      return winner;
+    }
   }
 
   async update(

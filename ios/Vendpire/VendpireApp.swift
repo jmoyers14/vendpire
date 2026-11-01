@@ -10,6 +10,9 @@ struct VendpireApp: App {
     @State private var refresher: MirrorRefresher
     @State private var submitter: OutboxSubmitter
     private let container: ModelContainer
+    /// Handed to feature screens through `\.vendpireAPI` — `PurchaseLogView`
+    /// is the first to need the raw client rather than a service built on it.
+    private let api: any VendpireAPI
 
     @Environment(\.scenePhase) private var scenePhase
 
@@ -19,6 +22,7 @@ struct VendpireApp: App {
         self.container = container
         // One client for both pipes: same base URL, same auth middleware.
         let api = VendpireAPIClient()
+        self.api = api
         _refresher = State(
             initialValue: MirrorRefresher(
                 api: api,
@@ -37,6 +41,7 @@ struct VendpireApp: App {
             .environment(clientSupport)
             .environment(refresher)
             .environment(submitter)
+            .environment(\.vendpireAPI, api)
             .modelContainer(container)
             .task {
                 #if DEBUG

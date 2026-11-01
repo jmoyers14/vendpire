@@ -41,7 +41,7 @@ final class VisitCaptureModel {
         focus = draft?.lines.first.map(\.slotKey)
 
         let products = (try? context.fetch(FetchDescriptor<StoredProduct>())) ?? []
-        productNames = Dictionary(products.map { ($0.id, $0.name) }) { first, _ in first }
+        productNames = ProductNames.byId(products)
 
         let machineId = machine.id
         let lastVisit = try? context.fetch(
@@ -110,7 +110,7 @@ final class VisitCaptureModel {
     }
 
     func productName(forProductId productId: String) -> String {
-        productNames[productId] ?? "Unknown product"
+        productNames[productId] ?? ProductNames.unknown
     }
 
     /// Visit-level notes, edited on Review and submitted with the draft.

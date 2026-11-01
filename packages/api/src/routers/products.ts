@@ -43,20 +43,6 @@ export const productsRouter = router({
     .input(z.void())
     .query(({ ctx }) => ctx.services.pricingService.list(ctx.auth.orgId)),
 
-  // External catalog text search — returns ranked matches with barcodes.
-  searchCatalog: orgProtectedProcedure
-    .input(z.object({ query: z.string() }))
-    .query(({ ctx, input }) =>
-      ctx.services.productDataService.search(input.query),
-    ),
-
-  // External catalog lookup for the UPC field — returns name/brand/image.
-  lookupUpc: orgProtectedProcedure
-    .input(z.object({ upc: z.string().min(1) }))
-    .query(({ ctx, input }) =>
-      ctx.services.productDataService.lookup(input.upc),
-    ),
-
   get: orgProtectedProcedure
     .input(z.object({ id: objectId() }))
     .query(({ ctx, input }) =>
@@ -64,7 +50,26 @@ export const productsRouter = router({
     ),
 
   create: orgProtectedProcedure
+    .meta({
+      openapi: {
+        method: "POST",
+        path: "/products",
+        tags: ["products"],
+        protect: true,
+        operationId: "createProduct",
+        summary: "Create a sellable unit",
+        errorResponses: {
+          400: "Invalid input data",
+          401: "Authorization not provided",
+          403: "Insufficient access",
+          409: "The barcode already belongs to another record",
+          426: "This build is below the supported floor; the client must update.",
+          500: "Internal server error",
+        },
+      },
+    })
     .input(productInput)
+    .output(productDto)
     .mutation(async ({ ctx, input }) => {
       const product = await ctx.services.productService.create(
         ctx.auth.orgId,
@@ -90,5 +95,31 @@ export const productsRouter = router({
     .input(z.object({ id: objectId() }))
     .mutation(({ ctx, input }) =>
       ctx.services.productService.remove(ctx.auth.orgId, input.id),
+    ),
+
+  attachBarcode: orgProtectedProcedure
+    .meta({
+      openapi: {
+        method: "PUT",
+        path: "/products/{id}/barcode",
+        tags: ["products"],
+        protect: true,
+        operationId: "attachProductBarcode",
+        summary: "Attach a scanned unit barcode to an existing product",
+        errorResponses: {
+          400: "Invalid input data",
+          401: "Authorization not provided",
+          403: "Insufficient access",
+          404: "No such product",
+          409: "The barcode already belongs to another record",
+          426: "This build is below the supported floor; the client must update.",
+          500: "Internal server error",
+        },
+      },
+    })
+    .input(z.object({ id: objectId(), code: z.string().min(1) }))
+    .output(productDto)
+    .mutation(({ ctx, input }) =>
+      ctx.services.productService.attachBarcode(ctx.auth.orgId, input.id, input.code),
     ),
 });

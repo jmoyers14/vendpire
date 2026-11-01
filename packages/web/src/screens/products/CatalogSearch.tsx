@@ -48,7 +48,7 @@ export function CatalogSearch({ onPick }: { onPick: (pick: CatalogPick) => void 
     const handle = setTimeout(async () => {
       setSearching(true);
       try {
-        const found = await trpcClient.products.searchCatalog.query({
+        const found = await trpcClient.candidates.search.query({
           query: trimmed,
         });
         if (requestId.current === id) {

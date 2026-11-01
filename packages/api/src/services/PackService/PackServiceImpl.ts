@@ -54,6 +54,19 @@ export class PackServiceImpl implements PackService {
     await this.packs.softDelete(orgId, id);
   }
 
+  /**
+   * Attach a scanned case code to an existing pack, touching nothing else.
+   * Server-side so a stale client mirror can't clobber concurrent edits.
+   */
+  async attachBarcode(orgId: string, id: string, code: string): Promise<Pack> {
+    const pack = await this.get(orgId, id);
+    if (!pack) {
+      throw new ServiceError("NOT_FOUND", "Pack not found");
+    }
+    const { id: _id, createdAt: _createdAt, updatedAt: _updatedAt, ...input } = pack;
+    return this.update(orgId, id, { ...input, barcodes: [...pack.barcodes, code] });
+  }
+
   private async validate(
     orgId: string,
     input: PackInput,
@@ -85,14 +98,16 @@ export class PackServiceImpl implements PackService {
       if (barcodes.includes(gtin14)) {
         continue;
       }
-      const packWithCode = await this.packs.findByBarcode(orgId, gtin14);
+      const [packWithCode, productWithCode] = await Promise.all([
+        this.packs.findByBarcode(orgId, gtin14),
+        this.products.findByUpc(orgId, gtin14),
+      ]);
       if (packWithCode && packWithCode.id !== excludeId) {
         throw new ServiceError(
           "CONFLICT",
           `Barcode ${gtin14} is already on pack "${packWithCode.name}"`,
         );
       }
-      const productWithCode = await this.products.findByUpc(orgId, gtin14);
       if (productWithCode) {
         throw new ServiceError(
           "CONFLICT",

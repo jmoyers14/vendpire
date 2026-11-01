@@ -42,6 +42,23 @@ let nextId = 1;
 // will touch Mongo, so a bare "1" would be rejected. Zero-padded decimal also
 // sorts lexicographically the way it sorts numerically — the property the
 // keyset tiebreaker relies on.
+/**
+ * The unique index IS the idempotency guarantee, so the fakes raise the same
+ * E11000 the services' create/catch/re-read path exists to handle.
+ */
+const rejectDuplicateRequestId = (
+  rows: Array<{ orgId: string; clientRequestId: string }>,
+  orgId: string,
+  clientRequestId: string,
+): void => {
+  const clash = rows.find(
+    (row) => row.orgId === orgId && row.clientRequestId === clientRequestId,
+  );
+  if (clash) {
+    throw Object.assign(new Error("E11000 duplicate key error"), { code: 11000 });
+  }
+};
+
 const newId = (): string => String(nextId++).padStart(24, "0");
 const now = (): string => new Date().toISOString();
 
@@ -364,6 +381,7 @@ export class FakePurchaseRepository implements PurchaseRepository {
   rows: Stored<Purchase>[] = [];
 
   seed(orgId: string, input: PurchaseInput): Purchase {
+    rejectDuplicateRequestId(this.rows, orgId, input.clientRequestId);
     const row: Stored<Purchase> = {
       ...input,
       id: newId(),
@@ -590,16 +608,7 @@ export class FakeVisitRepository implements VisitRepository {
   rows: Stored<Visit>[] = [];
 
   seed(orgId: string, input: VisitInput): Visit {
-    const clash = this.rows.find(
-      (r) => r.orgId === orgId && r.clientRequestId === input.clientRequestId,
-    );
-    // The unique index IS the idempotency guarantee, so the fake raises the same
-    // E11000 the service's create/catch/re-read path exists to handle.
-    if (clash) {
-      throw Object.assign(new Error("E11000 duplicate key error"), {
-        code: 11000,
-      });
-    }
+    rejectDuplicateRequestId(this.rows, orgId, input.clientRequestId);
     const row: Stored<Visit> = {
       ...input,
       id: newId(),

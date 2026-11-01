@@ -8,6 +8,16 @@ import OpenAPIRuntime
 /// breaks the mapping below at compile time.
 extension VendpireAPIClient: OutboxSubmitting {
     func submit(_ request: OutboxRequest) async -> SubmitOutcome {
+        switch request.kind {
+        case "visit": return await submitVisit(request)
+        case "purchase": return await submitPurchase(request)
+        default:
+            // An old app meeting a future item: park it where a human sees it.
+            return .permanent(message: "This app is too old to send a \(request.kind). Update and retry.")
+        }
+    }
+
+    private func submitVisit(_ request: OutboxRequest) async -> SubmitOutcome {
         guard
             let submission = try? VisitSubmission.makeDecoder()
                 .decode(VisitSubmission.self, from: request.payload)
@@ -34,6 +44,31 @@ extension VendpireAPIClient: OutboxSubmitting {
         }
     }
 
+    private func submitPurchase(_ request: OutboxRequest) async -> SubmitOutcome {
+        guard
+            let submission = try? PurchaseSubmission.makeDecoder()
+                .decode(PurchaseSubmission.self, from: request.payload)
+        else {
+            // The bytes are ours, so this is our bug. Retrying would bury it.
+            return .permanent(message: "This purchase could not be read back from the queue.")
+        }
+
+        do {
+            let response = try await client.createPurchase(.init(body: .json(submission.generated)))
+            return Self.outcome(for: response)
+        } catch let error as ClientError {
+            // Same reasoning as the visit path: a 200 the generated client
+            // cannot decode still means the purchase exists.
+            if let code = error.response?.status.code, (200..<300).contains(code) {
+                return .accepted
+            }
+            return .retryable
+        } catch {
+            // Offline. The common case, and never a rejection.
+            return .retryable
+        }
+    }
+
     private static func outcome(for response: Operations.createVisit.Output) -> SubmitOutcome {
         switch response {
         case .ok:
@@ -42,6 +77,25 @@ extension VendpireAPIClient: OutboxSubmitting {
         case .badRequest(let rejection):
             let message = try? rejection.body.json.message
             return .permanent(message: message ?? "The server rejected this visit.")
+        case .unauthorized:
+            return .unauthorized
+        case .forbidden:
+            return .noOrganization
+        case .upgradeRequired:
+            return .blockedByUpdateFloor
+        case .internalServerError, .undocumented:
+            return .retryable
+        }
+    }
+
+    private static func outcome(for response: Operations.createPurchase.Output) -> SubmitOutcome {
+        switch response {
+        case .ok:
+            // Not parsed: a 200 means the purchase exists either way.
+            return .accepted
+        case .badRequest(let rejection):
+            let message = try? rejection.body.json.message
+            return .permanent(message: message ?? "The server rejected this purchase.")
         case .unauthorized:
             return .unauthorized
         case .forbidden:
@@ -86,5 +140,36 @@ extension VisitSubmissionLine {
             par: par,
             bestBy: bestBy
         )
+    }
+}
+
+extension PurchaseSubmission {
+    /// Field for field into the generated request body.
+    fileprivate var generated: Operations.createPurchase.Input.Body.jsonPayload {
+        .init(
+            purchasedAt: purchasedAt,
+            vendor: vendor,
+            lines: lines.map(\.generated),
+            packLines: packLines.map(\.generated),
+            receiptTotalCents: receiptTotalCents,
+            notes: notes,
+            clientRequestId: clientRequestId
+        )
+    }
+}
+
+extension PurchaseSubmissionLine {
+    fileprivate typealias Generated = Operations.createPurchase.Input.Body.jsonPayload.linesPayloadPayload
+
+    fileprivate var generated: Generated {
+        .init(productId: productId, units: units, totalCostCents: totalCostCents, packId: packId)
+    }
+}
+
+extension PurchaseSubmissionPackLine {
+    fileprivate typealias Generated = Operations.createPurchase.Input.Body.jsonPayload.packLinesPayloadPayload
+
+    fileprivate var generated: Generated {
+        .init(packId: packId, qty: qty, totalCostCents: totalCostCents)
     }
 }

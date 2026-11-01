@@ -47,7 +47,26 @@ export const packsRouter = router({
     ),
 
   create: orgProtectedProcedure
+    .meta({
+      openapi: {
+        method: "POST",
+        path: "/packs",
+        tags: ["packs"],
+        protect: true,
+        operationId: "createPack",
+        summary: "Create a way of buying — a case with its own barcodes",
+        errorResponses: {
+          400: "Invalid input data",
+          401: "Authorization not provided",
+          403: "Insufficient access",
+          409: "The barcode already belongs to another record",
+          426: "This build is below the supported floor; the client must update.",
+          500: "Internal server error",
+        },
+      },
+    })
     .input(packInput)
+    .output(packDto)
     .mutation(async ({ ctx, input }) => {
       const pack = await ctx.services.packService.create(ctx.auth.orgId, input);
       ctx.analytics.capture({
@@ -70,5 +89,31 @@ export const packsRouter = router({
     .input(z.object({ id: objectId() }))
     .mutation(({ ctx, input }) =>
       ctx.services.packService.remove(ctx.auth.orgId, input.id),
+    ),
+
+  attachBarcode: orgProtectedProcedure
+    .meta({
+      openapi: {
+        method: "PUT",
+        path: "/packs/{id}/barcode",
+        tags: ["packs"],
+        protect: true,
+        operationId: "attachPackBarcode",
+        summary: "Attach a scanned unit barcode to an existing pack",
+        errorResponses: {
+          400: "Invalid input data",
+          401: "Authorization not provided",
+          403: "Insufficient access",
+          404: "No such pack",
+          409: "The barcode already belongs to another record",
+          426: "This build is below the supported floor; the client must update.",
+          500: "Internal server error",
+        },
+      },
+    })
+    .input(z.object({ id: objectId(), code: z.string().min(1) }))
+    .output(packDto)
+    .mutation(({ ctx, input }) =>
+      ctx.services.packService.attachBarcode(ctx.auth.orgId, input.id, input.code),
     ),
 });

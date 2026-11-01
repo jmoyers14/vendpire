@@ -85,8 +85,8 @@ export function ProductFormScreen({ productId }: { productId?: string }) {
     setError(null);
     setLookingUp(true);
     try {
-      const found = await trpcClient.products.lookupUpc.query({
-        upc: form.upc.trim(),
+      const found = await trpcClient.candidates.byCode.query({
+        code: form.upc.trim(),
       });
       if (!found) {
         setError("No catalog match for that UPC — enter details manually");
