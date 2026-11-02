@@ -25,6 +25,9 @@ struct RootView: View {
                 FirstRunView()
             }
         }
+        // Lagoon buttons are pills. Set once here, it reaches every screen and
+        // sheet below.
+        .buttonBorderShape(.capsule)
     }
 }
 
@@ -38,6 +41,15 @@ private struct FirstRunView: View {
 
     var body: some View {
         NavigationStack {
+            content
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(.appBackground)
+        }
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        Group {
             if session.isSignedIn {
                 // This is the one signed-in screen with no other way back to
                 // Sign Out, so it gets LocationListView's toolbar too.

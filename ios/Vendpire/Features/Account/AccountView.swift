@@ -28,7 +28,7 @@ struct AccountView: View {
                     LabeledContent("Organization", value: organizationId ?? "none")
                 case .failed(let message):
                     Label(message, systemImage: "exclamationmark.triangle")
-                        .foregroundStyle(.red)
+                        .foregroundStyle(.error)
                 }
             }
 
@@ -52,6 +52,7 @@ struct AccountView: View {
             updateWallSection()
             #endif
         }
+        .lagoonBackground()
         .navigationTitle("Account")
     }
 
@@ -94,7 +95,7 @@ struct AccountView: View {
                 LabeledContent("claims", value: claims.claimNames.joined(separator: ", "))
             }
             if let note = report.note {
-                Text(note).font(.footnote).foregroundStyle(.secondary)
+                Text(note).font(.footnote).foregroundStyle(.secondaryText)
             }
         }
     }

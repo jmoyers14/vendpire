@@ -137,7 +137,7 @@ struct VisitCaptureView: View {
                 value: Double(model.countedCount),
                 total: Double(max(model.totalCount, 1))
             )
-            .tint(model.hasGapsBehind ? .orange : .accentColor)
+            .tint(model.hasGapsBehind ? LagoonPalette.amber500 : Color.accentColor)
 
             HStack(alignment: .firstTextBaseline) {
                 Text(model.focusedProductName ?? "—")
@@ -147,7 +147,7 @@ struct VisitCaptureView: View {
                 Text("\(model.countedCount)/\(model.totalCount)")
                     .font(.footnote)
                     .monospacedDigit()
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.secondaryText)
             }
 
             HStack(spacing: 10) {

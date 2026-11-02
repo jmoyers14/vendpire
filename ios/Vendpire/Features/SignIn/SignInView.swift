@@ -38,10 +38,11 @@ struct SignInView: View {
                 .disabled(!canSubmit)
             } footer: {
                 if case .failed(let message) = session.state {
-                    Text(message).foregroundStyle(.red)
+                    Text(message).foregroundStyle(.error)
                 }
             }
         }
+        .lagoonBackground()
         .navigationTitle("Sign In")
         // Success is otherwise invisible from this screen: the state change
         // lands on AccountView behind it, and the form just sits there.

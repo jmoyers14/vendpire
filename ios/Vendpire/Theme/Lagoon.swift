@@ -93,6 +93,8 @@ extension ShapeStyle where Self == Color {
     static var warningBorder: Color { LagoonPalette.amber200 }
     static var success: Color { LagoonPalette.green700 }
     static var successSoft: Color { LagoonPalette.green50 }
+    /// Something went wrong. The same red as `loss`, but "loss" means money.
+    static var error: Color { LagoonPalette.red700 }
     static var profit: Color { LagoonPalette.green700 }
     static var loss: Color { LagoonPalette.red700 }
 }
@@ -105,6 +107,13 @@ enum LagoonRadius {
 }
 
 extension View {
+    /// Swaps a `Form` or `List`'s system gray for the teal-tinted app
+    /// background. Rows stay white, which is already Lagoon's card.
+    func lagoonBackground() -> some View {
+        scrollContentBackground(.hidden)
+            .background(.appBackground)
+    }
+
     /// A white, rounded card lifted off `.appBackground`. The shadow sits on the
     /// shape, not the view, so the card's text doesn't get one too.
     func cardStyle() -> some View {

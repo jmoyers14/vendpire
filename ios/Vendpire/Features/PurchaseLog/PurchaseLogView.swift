@@ -41,7 +41,7 @@ struct PurchaseLogView: View {
                 TextField("Receipt total $", text: $model.receiptTotalText)
                     .keyboardType(.decimalPad)
                 Text("Entered: \(Money.formatCents(model.enteredCents))")
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.secondaryText)
                 varianceBadge
             }
 
@@ -52,7 +52,7 @@ struct PurchaseLogView: View {
             if let errorMessage = model.errorMessage {
                 Section {
                     Text(errorMessage)
-                        .foregroundStyle(.red)
+                        .foregroundStyle(.error)
                 }
             }
 
@@ -66,6 +66,7 @@ struct PurchaseLogView: View {
                 .buttonStyle(.borderedProminent)
             }
         }
+        .lagoonBackground()
         .navigationTitle(purchaseSummary)
         .navigationBarTitleDisplayMode(.inline)
         .task {
@@ -164,7 +165,7 @@ struct PurchaseLogView: View {
             if let preview = model.splitPreview(for: row, context: context) {
                 Text(splitPreviewText(preview))
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.secondaryText)
             }
         }
         .swipeActions {
@@ -187,7 +188,7 @@ struct PurchaseLogView: View {
                 HStack(spacing: 8) {
                     KindBadge(isPack: true)
                     Text(row.name)
-                    Pill(text: "Add contents", tint: .orange)
+                    Pill("Add contents", tone: .warning)
                 }
             }
         } else {
@@ -213,13 +214,13 @@ struct PurchaseLogView: View {
         if let variance = model.varianceCents {
             if variance == 0 {
                 Label("Matches receipt", systemImage: "checkmark.circle.fill")
-                    .foregroundStyle(.green)
+                    .foregroundStyle(.success)
             } else if variance > 0 {
                 Label("Over by \(Money.formatCents(variance))", systemImage: "arrow.up.circle.fill")
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(.warning)
             } else {
                 Label("Under by \(Money.formatCents(-variance))", systemImage: "arrow.down.circle.fill")
-                    .foregroundStyle(.red)
+                    .foregroundStyle(.error)
             }
         }
     }
@@ -244,6 +245,7 @@ private struct AddCatalogItemSheet: View {
                     matches
                 }
             }
+            .lagoonBackground()
             .navigationTitle("Add an item")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

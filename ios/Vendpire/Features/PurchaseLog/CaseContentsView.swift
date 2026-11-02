@@ -60,6 +60,7 @@ struct CaseContentsView: View {
                 .disabled(isWorking)
             }
         }
+        .lagoonBackground()
         .navigationTitle("Case contents")
         .navigationBarTitleDisplayMode(.inline)
         .navigationDestination(isPresented: contentFlowBinding) {

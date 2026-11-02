@@ -36,6 +36,7 @@ struct PurchaseSetupView: View {
                 .disabled(model.vendor.trimmed.isEmpty)
             }
         }
+        .lagoonBackground()
         .navigationTitle("Log Purchase")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
