@@ -23,30 +23,42 @@ struct PurchaseLogView: View {
     @State private var isAddSheetPresented = false
 
     var body: some View {
-        Form {
+        // A List rather than a ScrollView: its sections already read as
+        // Lagoon cards, and swipe-to-delete only exists inside one.
+        List {
             Section {
-                scanButton
-                Button("Add without scanning") { isAddSheetPresented = true }
+                HStack(spacing: 12) {
+                    scanButton
+                    Button {
+                        isAddSheetPresented = true
+                    } label: {
+                        Label("Add manually", systemImage: "plus")
+                    }
+                    .buttonStyle(.softPill)
+                }
+                .listRowBackground(Color.clear)
+                .listRowInsets(EdgeInsets())
             }
 
-            if !model.rows.isEmpty {
-                Section("Items") {
+            Section {
+                if model.rows.isEmpty {
+                    emptyItems
+                } else {
                     ForEach(model.rows) { row in
                         rowView(row)
                     }
                 }
-            }
-
-            Section("Receipt") {
-                TextField("Receipt total $", text: $model.receiptTotalText)
-                    .keyboardType(.decimalPad)
-                Text("Entered: \(Money.formatCents(model.enteredCents))")
-                    .foregroundStyle(.secondaryText)
-                varianceBadge
+            } header: {
+                itemsHeader
             }
 
             Section {
-                TextField("Notes", text: $model.notes)
+                receiptFields
+                Text("Entered: \(Money.formatCents(model.enteredCents))")
+                    .foregroundStyle(.secondaryText)
+                varianceBadge
+            } header: {
+                sectionTitle("Receipt")
             }
 
             if let errorMessage = model.errorMessage {
@@ -57,15 +69,15 @@ struct PurchaseLogView: View {
             }
 
             Section {
-                Button {
+                Button("Save Purchase") {
                     if model.save(context: context) { dismiss() }
-                } label: {
-                    Text("Save Purchase")
-                        .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.primaryPill)
+                .listRowBackground(Color.clear)
+                .listRowInsets(EdgeInsets())
             }
         }
+        .listStyle(.insetGrouped)
         .lagoonBackground()
         .navigationTitle(purchaseSummary)
         .navigationBarTitleDisplayMode(.inline)
@@ -121,18 +133,88 @@ struct PurchaseLogView: View {
 
     // MARK: - Scan
 
-    @ViewBuilder
+    /// Disabled without a camera — only the Simulator, in practice.
     private var scanButton: some View {
-        if BarcodeScannerView.isSupported {
-            Button {
-                isScannerSheetPresented = true
-            } label: {
-                Label("Scan", systemImage: "barcode.viewfinder")
-            }
-        } else {
-            Button("Scanning needs a device camera") {}
-                .disabled(true)
+        Button {
+            isScannerSheetPresented = true
+        } label: {
+            Label("Scan", systemImage: "barcode.viewfinder")
         }
+        .buttonStyle(.primaryPill)
+        .disabled(!BarcodeScannerView.isSupported)
+        .accessibilityHint(BarcodeScannerView.isSupported ? "" : "Scanning needs a device camera")
+    }
+
+    // MARK: - Sections
+
+    private func sectionTitle(_ title: String) -> some View {
+        Text(title)
+            .font(.title3.bold())
+            .foregroundStyle(.heading)
+            .textCase(nil)
+    }
+
+    private var itemsHeader: some View {
+        HStack(alignment: .firstTextBaseline) {
+            sectionTitle("Items")
+            Spacer()
+            if !model.rows.isEmpty {
+                Text("^[\(model.rows.count) product](inflect: true)")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondaryText)
+                    .textCase(nil)
+            }
+        }
+    }
+
+    private var emptyItems: some View {
+        VStack(spacing: 8) {
+            Image(systemName: "barcode.viewfinder")
+                .font(.title2)
+                .foregroundStyle(.bodyText)
+                .frame(width: 52, height: 52)
+                .background(.divider, in: Circle())
+                .padding(.bottom, 4)
+            Text("Add what you bought")
+                .font(.headline)
+                .foregroundStyle(.heading)
+            Text("Scan each product's barcode, or add it by name. You'll enter quantity and cost for each one.")
+                .font(.body)
+                .foregroundStyle(.bodyText)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 24)
+    }
+
+    /// One row, so the total and notes share a card without a divider.
+    private var receiptFields: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(spacing: 12) {
+                Text("Receipt total")
+                    .font(.body.bold())
+                    .foregroundStyle(.heading)
+                Spacer()
+                BoxedField(label: "$", text: $model.receiptTotalText, placeholder: "0.00")
+                    .frame(width: 132)
+            }
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Notes")
+                    .font(.subheadline.bold())
+                    .foregroundStyle(.heading)
+                TextField("Bought extra for the gym machine", text: $model.notes, axis: .vertical)
+                    .lineLimit(2...5)
+                    .foregroundStyle(.heading)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 10)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: LagoonRadius.field, style: .continuous)
+                            .strokeBorder(.fieldBorder)
+                    )
+            }
+        }
+        .padding(.vertical, 8)
     }
 
     // MARK: - Rows
