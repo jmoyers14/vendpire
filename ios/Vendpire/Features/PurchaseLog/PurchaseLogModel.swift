@@ -116,6 +116,31 @@ final class PurchaseLogModel {
         }
     }
 
+    /// What a case row's badge line and hint say. Nil for loose items, drafts,
+    /// and packs the mirror doesn't have.
+    func caseSummary(for row: PurchaseRow, context: ModelContext) -> CaseSummary? {
+        guard row.kind == .pack,
+              let pack = catalog.packs(in: context).first(where: { $0.id == row.recordId })
+        else { return nil }
+
+        let unitsPerCase = pack.contents.reduce(0) { $0 + $1.units }
+        return CaseSummary(
+            unitsPerCase: unitsPerCase,
+            unitCostCents: unitCostCents(for: row, unitsPerCase: unitsPerCase, productCount: pack.contents.count)
+        )
+    }
+
+    /// Only for a single-product case: an average across a mixed case describes
+    /// none of its products.
+    private func unitCostCents(for row: PurchaseRow, unitsPerCase: Int, productCount: Int) -> Int? {
+        guard productCount == 1, unitsPerCase > 0,
+              let quantity = Int(row.quantityText.trimmed), quantity >= 1,
+              let totalCostCents = Money.parseDollarsToCents(row.totalCostText)
+        else { return nil }
+
+        return Int((Double(totalCostCents) / Double(quantity * unitsPerCase)).rounded())
+    }
+
     func searchResults(query: String, context: ModelContext) -> [CatalogItem] {
         CatalogSearch.search(catalog.items(in: context), query: query)
     }

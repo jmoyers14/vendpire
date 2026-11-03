@@ -50,3 +50,10 @@ nonisolated struct PurchaseRow: Equatable, Identifiable, Sendable {
 
     var isPack: Bool { kind == .pack || kind == .packDraft }
 }
+
+/// A case row's contents at a glance: "35 units", and "$0.54 / unit" when the
+/// case holds one product and its cost is typed.
+nonisolated struct CaseSummary: Equatable, Sendable {
+    let unitsPerCase: Int
+    let unitCostCents: Int?
+}

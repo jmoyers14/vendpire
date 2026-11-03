@@ -385,6 +385,75 @@ final class PurchaseLogModelTests: XCTestCase {
         )
     }
 
+    // MARK: - Case summary
+
+    /// A whole case of one product — the only kind with a meaningful per-unit cost.
+    private func makeCokeCase() -> StoredPack {
+        StoredPack(
+            id: "k-coke", name: "Coke Zero 35pk",
+            barcodes: ["10012345678902"],
+            contents: [PackContent(productId: "p-coke", units: 35)]
+        )
+    }
+
+    private func addCase(_ pack: StoredPack, quantity: String = "1", cost: String) throws -> PurchaseRow {
+        let units = pack.contents.reduce(0) { $0 + $1.units }
+        model.add(CatalogItem(kind: .pack(units: units), recordId: pack.id, name: pack.name, barcode: nil))
+        let added = try XCTUnwrap(model.rows.last)
+        model.updateRow(id: added.id, quantityText: quantity, totalCostText: cost)
+        return try XCTUnwrap(model.rows.last)
+    }
+
+    func testCaseSummaryPricesEachUnitOfASingleProductCase() throws {
+        try makeScreen(products: [makeCoke()], packs: [makeCokeCase()])
+
+        let one = try addCase(makeCokeCase(), cost: "18.99")
+        let two = try addCase(makeCokeCase(), quantity: "2", cost: "37.98")
+
+        XCTAssertEqual(
+            model.caseSummary(for: one, context: context),
+            CaseSummary(unitsPerCase: 35, unitCostCents: 54),
+            "$18.99 over 35 units rounds to $0.54"
+        )
+        XCTAssertEqual(
+            model.caseSummary(for: two, context: context)?.unitCostCents, 54,
+            "two cases means 70 units, not 35"
+        )
+    }
+
+    func testCaseSummaryCountsAMixedCaseButDoesNotPriceIt() throws {
+        try makeScreen(products: [makeCoke(), makeDoritos()], packs: [makeVarietyCase()])
+
+        let row = try addCase(makeVarietyCase(), cost: "37.98")
+
+        XCTAssertEqual(
+            model.caseSummary(for: row, context: context),
+            CaseSummary(unitsPerCase: 30, unitCostCents: nil),
+            "an average across Coke and Doritos would describe neither"
+        )
+    }
+
+    func testCaseSummaryLeavesTheUnitCostBlankWhileHalfTyped() throws {
+        try makeScreen(products: [makeCoke()], packs: [makeCokeCase()])
+
+        let noCost = try addCase(makeCokeCase(), cost: "")
+        let noQuantity = try addCase(makeCokeCase(), quantity: "", cost: "18.99")
+
+        XCTAssertEqual(
+            model.caseSummary(for: noCost, context: context),
+            CaseSummary(unitsPerCase: 35, unitCostCents: nil)
+        )
+        XCTAssertNil(model.caseSummary(for: noQuantity, context: context)?.unitCostCents)
+    }
+
+    func testCaseSummaryIsNilForALooseItem() throws {
+        try makeScreen(products: [makeCoke()])
+        model.handleScan(cokeUpc, context: context)
+        let row = try XCTUnwrap(model.rows.first)
+
+        XCTAssertNil(model.caseSummary(for: row, context: context))
+    }
+
     // MARK: - Attaching a code to something that already exists
 
     func testAttachAddsTheRowAndMirrorsTheRecord() async throws {

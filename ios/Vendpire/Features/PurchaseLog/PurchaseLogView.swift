@@ -21,6 +21,8 @@ struct PurchaseLogView: View {
 
     @State private var isScannerSheetPresented = false
     @State private var isAddSheetPresented = false
+    /// The `recordId` of the draft case whose contents are open.
+    @State private var draftShowingContents: String?
 
     var body: some View {
         // A List rather than a ScrollView: its sections already read as
@@ -122,6 +124,11 @@ struct PurchaseLogView: View {
         .sheet(isPresented: $isAddSheetPresented) {
             AddCatalogItemSheet(model: model)
         }
+        .navigationDestination(item: $draftShowingContents) { draftId in
+            if let resolver = model.packDrafts[draftId] {
+                CaseContentsView(resolver: resolver)
+            }
+        }
     }
 
     /// "Costco · Oct 30" — a plain title, not a button: Back is the one way to
@@ -220,36 +227,56 @@ struct PurchaseLogView: View {
     // MARK: - Rows
 
     private func rowView(_ row: PurchaseRow) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            rowNameLine(row)
+        let summary = model.caseSummary(for: row, context: context)
 
-            HStack(spacing: 12) {
-                TextField(
-                    row.isPack ? "Cases" : "Units",
-                    text: Binding(
-                        get: { row.quantityText },
-                        set: { model.updateRow(id: row.id, quantityText: $0) }
+        return VStack(alignment: .leading, spacing: 0) {
+            badgeLine(row, summary: summary)
+
+            Text(row.name)
+                .font(.headline)
+                .foregroundStyle(.heading)
+                .padding(.top, 8)
+                .padding(.bottom, 12)
+
+            HStack(alignment: .top, spacing: 12) {
+                VStack(alignment: .leading, spacing: 4) {
+                    BoxedField(
+                        label: "Qty",
+                        text: Binding(
+                            get: { row.quantityText },
+                            set: { model.updateRow(id: row.id, quantityText: $0) }
+                        ),
+                        keyboard: .numberPad
                     )
-                )
-                .keyboardType(.numberPad)
-                .frame(width: 70)
+                    .frame(width: 116)
+                    Text(quantityNoun(row))
+                        .font(.subheadline)
+                        .foregroundStyle(.secondaryText)
+                        .padding(.leading, 2)
+                }
 
-                TextField(
-                    "Total cost $",
-                    text: Binding(
-                        get: { row.totalCostText },
-                        set: { model.updateRow(id: row.id, totalCostText: $0) }
+                Spacer(minLength: 0)
+
+                VStack(alignment: .trailing, spacing: 4) {
+                    BoxedField(
+                        label: "$",
+                        text: Binding(
+                            get: { row.totalCostText },
+                            set: { model.updateRow(id: row.id, totalCostText: $0) }
+                        ),
+                        placeholder: "0.00"
                     )
-                )
-                .keyboardType(.decimalPad)
-            }
-
-            if let preview = model.splitPreview(for: row, context: context) {
-                Text(splitPreviewText(preview))
-                    .font(.caption)
-                    .foregroundStyle(.secondaryText)
+                    .frame(width: 132)
+                    if let unitCostCents = summary?.unitCostCents {
+                        Text("\(Money.formatCents(unitCostCents)) / unit")
+                            .font(.footnote.monospacedDigit())
+                            .foregroundStyle(.secondaryText)
+                            .padding(.trailing, 2)
+                    }
+                }
             }
         }
+        .padding(.vertical, 8)
         .swipeActions {
             Button(role: .destructive) {
                 model.removeRow(id: row.id)
@@ -259,34 +286,52 @@ struct PurchaseLogView: View {
         }
     }
 
-    /// A `.packDraft` row is the one kind that navigates: tapping its name
-    /// reopens `CaseContentsView` until the case is finally created.
-    @ViewBuilder
-    private func rowNameLine(_ row: PurchaseRow) -> some View {
-        if row.kind == .packDraft, let draftResolver = model.packDrafts[row.recordId] {
-            NavigationLink {
-                CaseContentsView(resolver: draftResolver)
-            } label: {
-                HStack(spacing: 8) {
-                    KindBadge(isPack: true)
-                    Text(row.name)
+    /// Kind, then what's in a case: its unit count, or — for a case still being
+    /// created — the way back into `CaseContentsView`.
+    private func badgeLine(_ row: PurchaseRow, summary: CaseSummary?) -> some View {
+        HStack(spacing: 8) {
+            KindBadge(isPack: row.isPack)
+
+            if row.kind == .packDraft {
+                Button {
+                    draftShowingContents = row.recordId
+                } label: {
                     Pill("Add contents", tone: .warning)
                 }
+                .buttonStyle(.borderless)
+            } else if let summary {
+                Text("^[\(summary.unitsPerCase) unit](inflect: true)")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondaryText)
             }
-        } else {
-            HStack(spacing: 8) {
-                KindBadge(isPack: row.isPack)
-                Text(row.name)
+
+            Spacer(minLength: 0)
+
+            if row.kind == .packDraft {
+                Button {
+                    draftShowingContents = row.recordId
+                } label: {
+                    Image(systemName: "chevron.right")
+                        .font(.footnote.bold())
+                        .foregroundStyle(.fieldBorder)
+                        .frame(width: 32, height: 32)
+                }
+                .buttonStyle(.borderless)
+                .accessibilityLabel("Case contents")
             }
         }
+        .frame(minHeight: 26)
     }
 
-    /// "↳ saves as 20 × Lays ($25.32) · 10 × Fritos ($12.66)" — what the pack
-    /// row's cost becomes once the server expands it, previewed with the same
-    /// allocator that will actually run.
-    private func splitPreviewText(_ preview: [(name: String, units: Int, cents: Int)]) -> String {
-        let parts = preview.map { "\($0.units) × \($0.name) (\(Money.formatCents($0.cents)))" }
-        return "↳ saves as \(parts.joined(separator: " · "))"
+    /// "case" under a quantity of one, "cases" under anything else.
+    private func quantityNoun(_ row: PurchaseRow) -> String {
+        let isSingular = Int(row.quantityText.trimmed) == 1
+        switch (row.isPack, isSingular) {
+        case (true, true): return "case"
+        case (true, false): return "cases"
+        case (false, true): return "item"
+        case (false, false): return "items"
+        }
     }
 
     // MARK: - Receipt reconciliation
