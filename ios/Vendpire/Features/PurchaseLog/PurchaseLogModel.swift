@@ -76,15 +76,21 @@ final class PurchaseLogModel {
         rows.reduce(0) { total, row in total + (Money.parseDollarsToCents(row.totalCostText) ?? 0) }
     }
 
-    /// Entered minus receipt: positive means the lines add up to more than the
-    /// receipt says. Nil without a parseable total — there is nothing to
-    /// reconcile against yet.
-    var varianceCents: Int? {
-        guard !receiptTotalText.trimmed.isEmpty,
-              let receiptCents = Money.parseDollarsToCents(receiptTotalText)
-        else { return nil }
+    /// Nil while blank or unparseable — blank is not $0.00.
+    var receiptTotalCents: Int? {
+        guard !receiptTotalText.trimmed.isEmpty else { return nil }
+        return Money.parseDollarsToCents(receiptTotalText)
+    }
 
-        return enteredCents - receiptCents
+    /// How the entered lines compare to the receipt. Nil without a receipt
+    /// total — there is nothing to reconcile against yet.
+    var receiptStatus: ReceiptStatus? {
+        guard let receiptTotalCents else { return nil }
+
+        let differenceCents = enteredCents - receiptTotalCents
+        if differenceCents > 0 { return .overReceipt(cents: differenceCents) }
+        if differenceCents < 0 { return .unaccounted(cents: -differenceCents) }
+        return .matches
     }
 
     /// How a pack row's cost will be split across its contents, for display
@@ -221,9 +227,7 @@ final class PurchaseLogModel {
             vendor: vendorName,
             lines: lines,
             packLines: packLines,
-            receiptTotalCents: receiptTotalText.trimmed.isEmpty
-                ? nil
-                : Money.parseDollarsToCents(receiptTotalText),
+            receiptTotalCents: receiptTotalCents,
             notes: trimmedNotes.isEmpty ? nil : trimmedNotes,
             clientRequestId: clientRequestId
         )

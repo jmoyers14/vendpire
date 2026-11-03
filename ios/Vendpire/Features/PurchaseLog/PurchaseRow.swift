@@ -57,3 +57,12 @@ nonisolated struct CaseSummary: Equatable, Sendable {
     let unitsPerCase: Int
     let unitCostCents: Int?
 }
+
+/// The footer's verdict on the entered lines against the receipt total.
+nonisolated enum ReceiptStatus: Equatable, Sendable {
+    case matches
+    /// The receipt says more was spent than the lines account for.
+    case unaccounted(cents: Int)
+    /// The lines add up to more than the receipt.
+    case overReceipt(cents: Int)
+}

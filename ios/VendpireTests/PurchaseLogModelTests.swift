@@ -213,20 +213,33 @@ final class PurchaseLogModelTests: XCTestCase {
 
     // MARK: - Reconciliation
 
-    func testVarianceReadsOverAndUnder() throws {
+    func testReceiptStatusReadsOverUnderAndMatching() throws {
         try makeScreen(products: [makeCoke()])
         model.handleScan(cokeUpc, context: context)
         let row = try XCTUnwrap(model.rows.first)
         model.updateRow(id: row.id, totalCostText: "12.99")
 
         XCTAssertEqual(model.enteredCents, 1299)
-        XCTAssertNil(model.varianceCents, "no receipt total means nothing to reconcile against")
+        XCTAssertNil(model.receiptStatus, "no receipt total means nothing to reconcile against")
 
         model.receiptTotalText = "10.00"
-        XCTAssertEqual(model.varianceCents, 299, "entered above the receipt reads positive")
+        XCTAssertEqual(model.receiptStatus, .overReceipt(cents: 299))
 
         model.receiptTotalText = "15.00"
-        XCTAssertEqual(model.varianceCents, -201, "entered below the receipt reads negative")
+        XCTAssertEqual(model.receiptStatus, .unaccounted(cents: 201))
+
+        model.receiptTotalText = "12.99"
+        XCTAssertEqual(model.receiptStatus, .matches)
+    }
+
+    func testReceiptTotalIsNilUntilItParses() throws {
+        try makeScreen()
+
+        XCTAssertNil(model.receiptTotalCents)
+        model.receiptTotalText = "  "
+        XCTAssertNil(model.receiptTotalCents, "blank is not $0.00")
+        model.receiptTotalText = "41.20"
+        XCTAssertEqual(model.receiptTotalCents, 4120)
     }
 
     // MARK: - Saving

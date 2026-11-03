@@ -23,6 +23,7 @@ struct PurchaseLogView: View {
     @State private var isAddSheetPresented = false
     /// The `recordId` of the draft case whose contents are open.
     @State private var draftShowingContents: String?
+    @State private var isKeyboardVisible = false
 
     var body: some View {
         // A List rather than a ScrollView: its sections already read as
@@ -56,31 +57,34 @@ struct PurchaseLogView: View {
 
             Section {
                 receiptFields
-                Text("Entered: \(Money.formatCents(model.enteredCents))")
-                    .foregroundStyle(.secondaryText)
-                varianceBadge
             } header: {
                 sectionTitle("Receipt")
-            }
-
-            if let errorMessage = model.errorMessage {
-                Section {
-                    Text(errorMessage)
-                        .foregroundStyle(.error)
-                }
-            }
-
-            Section {
-                Button("Save Purchase") {
-                    if model.save(context: context) { dismiss() }
-                }
-                .buttonStyle(.primaryPill)
-                .listRowBackground(Color.clear)
-                .listRowInsets(EdgeInsets())
             }
         }
         .listStyle(.insetGrouped)
         .lagoonBackground()
+        // Number pads have no dismiss key, and Save hides behind the keyboard.
+        .scrollDismissesKeyboard(.interactively)
+        .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("Done") { dismissKeyboard() }
+                    .fontWeight(.bold)
+            }
+        }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            // An inset rides up on top of the keyboard, where it would cover
+            // the field being typed in.
+            if !isKeyboardVisible {
+                footer
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
+            isKeyboardVisible = true
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
+            isKeyboardVisible = false
+        }
         .navigationTitle(purchaseSummary)
         .navigationBarTitleDisplayMode(.inline)
         .task {
@@ -334,21 +338,76 @@ struct PurchaseLogView: View {
         }
     }
 
-    // MARK: - Receipt reconciliation
+    /// Each `BoxedField` owns its focus, so there is no shared `FocusState` to
+    /// clear yet; resigning the first responder reaches whichever is active.
+    private func dismissKeyboard() {
+        UIApplication.shared.sendAction(
+            #selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil
+        )
+    }
+
+    // MARK: - Footer
+
+    /// Pinned under the list: the totals the operator reconciles against the
+    /// paper receipt, any save error, and Save. Empty, it holds only Save.
+    private var footer: some View {
+        VStack(spacing: 12) {
+            if let errorMessage = model.errorMessage {
+                Text(errorMessage)
+                    .font(.subheadline)
+                    .foregroundStyle(.error)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
+            if !model.rows.isEmpty {
+                HStack(spacing: 24) {
+                    footerTotal("Items", cents: model.enteredCents)
+                    if let receiptTotalCents = model.receiptTotalCents {
+                        footerTotal("Receipt", cents: receiptTotalCents)
+                    }
+                    Spacer(minLength: 0)
+                    receiptStatusPill
+                }
+            }
+
+            Button("Save purchase") {
+                if model.save(context: context) { dismiss() }
+            }
+            .buttonStyle(.primaryPill)
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 12)
+        .padding(.bottom, 8)
+        .background(.card)
+        .overlay(alignment: .top) {
+            Rectangle()
+                .fill(.line)
+                .frame(height: 1)
+        }
+    }
+
+    private func footerTotal(_ label: String, cents: Int) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text(label)
+                .font(.subheadline)
+                .foregroundStyle(.secondaryText)
+            Text(Money.formatCents(cents))
+                .font(.title3.bold().monospacedDigit())
+                .foregroundStyle(.heading)
+        }
+    }
 
     @ViewBuilder
-    private var varianceBadge: some View {
-        if let variance = model.varianceCents {
-            if variance == 0 {
-                Label("Matches receipt", systemImage: "checkmark.circle.fill")
-                    .foregroundStyle(.success)
-            } else if variance > 0 {
-                Label("Over by \(Money.formatCents(variance))", systemImage: "arrow.up.circle.fill")
-                    .foregroundStyle(.warning)
-            } else {
-                Label("Under by \(Money.formatCents(-variance))", systemImage: "arrow.down.circle.fill")
-                    .foregroundStyle(.error)
-            }
+    private var receiptStatusPill: some View {
+        switch model.receiptStatus {
+        case .matches:
+            Pill("Matches", tone: .success)
+        case .unaccounted(let cents):
+            Pill("\(Money.formatCents(cents)) unaccounted", tone: .warning)
+        case .overReceipt(let cents):
+            Pill("\(Money.formatCents(cents)) over receipt", tone: .warning)
+        case nil:
+            EmptyView()
         }
     }
 }

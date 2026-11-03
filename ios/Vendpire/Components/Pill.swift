@@ -7,6 +7,7 @@ struct Pill: View {
         case neutral
         case outlined
         case warning
+        case success
     }
 
     let text: String
@@ -32,6 +33,7 @@ struct Pill: View {
         case .neutral: LagoonPalette.gray800
         case .outlined: .secondaryText
         case .warning: .warning
+        case .success: .success
         }
     }
 
@@ -40,6 +42,7 @@ struct Pill: View {
         case .neutral: .divider
         case .outlined: .card
         case .warning: .warningSoft
+        case .success: .successSoft
         }
     }
 
@@ -48,6 +51,7 @@ struct Pill: View {
         case .neutral: .divider
         case .outlined: .line
         case .warning: .warningBorder
+        case .success: LagoonPalette.green200
         }
     }
 }
