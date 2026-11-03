@@ -23,42 +23,57 @@ struct PurchaseLogView: View {
     @State private var isAddSheetPresented = false
     /// The `recordId` of the draft case whose contents are open.
     @State private var draftShowingContents: String?
-    @State private var isKeyboardVisible = false
+    /// Shared by every field, so the keyboard's arrows can walk between them.
+    @FocusState private var focusedField: PurchaseField?
 
     var body: some View {
         // A List rather than a ScrollView: its sections already read as
         // Lagoon cards, and swipe-to-delete only exists inside one.
-        List {
-            Section {
-                HStack(spacing: 12) {
-                    scanButton
-                    Button {
-                        isAddSheetPresented = true
-                    } label: {
-                        Label("Add manually", systemImage: "plus")
+        ScrollViewReader { proxy in
+            List {
+                Section {
+                    HStack(spacing: 12) {
+                        scanButton
+                        Button {
+                            isAddSheetPresented = true
+                        } label: {
+                            Label("Add manually", systemImage: "plus")
+                        }
+                        .buttonStyle(.softPill)
                     }
-                    .buttonStyle(.softPill)
+                    .listRowBackground(Color.clear)
+                    .listRowInsets(EdgeInsets())
                 }
-                .listRowBackground(Color.clear)
-                .listRowInsets(EdgeInsets())
-            }
 
-            Section {
-                if model.rows.isEmpty {
-                    emptyItems
-                } else {
-                    ForEach(model.rows) { row in
-                        rowView(row)
+                Section {
+                    if model.rows.isEmpty {
+                        emptyItems
+                    } else {
+                        ForEach(model.rows) { row in
+                            rowView(row)
+                        }
+                    }
+                } header: {
+                    itemsHeader
+                }
+
+                Section {
+                    receiptFields
+                        .id(receiptRowId)
+                } header: {
+                    sectionTitle("Receipt")
+                }
+            }
+            // The arrows can land on a field below the fold.
+            .onChange(of: focusedField) { _, field in
+                guard let field else { return }
+                withAnimation {
+                    if let rowId = field.rowId {
+                        proxy.scrollTo(rowId)
+                    } else {
+                        proxy.scrollTo(receiptRowId)
                     }
                 }
-            } header: {
-                itemsHeader
-            }
-
-            Section {
-                receiptFields
-            } header: {
-                sectionTitle("Receipt")
             }
         }
         .listStyle(.insetGrouped)
@@ -67,23 +82,34 @@ struct PurchaseLogView: View {
         .scrollDismissesKeyboard(.interactively)
         .toolbar {
             ToolbarItemGroup(placement: .keyboard) {
+                Button {
+                    focusedField = focusedField.flatMap { model.field(before: $0) }
+                } label: {
+                    Image(systemName: "chevron.up")
+                }
+                .disabled(focusedField.flatMap { model.field(before: $0) } == nil)
+                .accessibilityLabel("Previous field")
+
+                Button {
+                    focusedField = focusedField.flatMap { model.field(after: $0) }
+                } label: {
+                    Image(systemName: "chevron.down")
+                }
+                .disabled(focusedField.flatMap { model.field(after: $0) } == nil)
+                .accessibilityLabel("Next field")
+
                 Spacer()
-                Button("Done") { dismissKeyboard() }
+
+                Button("Done") { focusedField = nil }
                     .fontWeight(.bold)
             }
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             // An inset rides up on top of the keyboard, where it would cover
             // the field being typed in.
-            if !isKeyboardVisible {
+            if focusedField == nil {
                 footer
             }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
-            isKeyboardVisible = true
-        }
-        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
-            isKeyboardVisible = false
         }
         .navigationTitle(purchaseSummary)
         .navigationBarTitleDisplayMode(.inline)
@@ -206,7 +232,10 @@ struct PurchaseLogView: View {
                     .font(.body.bold())
                     .foregroundStyle(.heading)
                 Spacer()
-                BoxedField(label: "$", text: $model.receiptTotalText, placeholder: "0.00")
+                BoxedField(
+                    label: "$", text: $model.receiptTotalText, placeholder: "0.00",
+                    focus: $focusedField, field: .receiptTotal
+                )
                     .frame(width: 132)
             }
 
@@ -215,6 +244,7 @@ struct PurchaseLogView: View {
                     .font(.subheadline.bold())
                     .foregroundStyle(.heading)
                 TextField("Bought extra for the gym machine", text: $model.notes, axis: .vertical)
+                    .focused($focusedField, equals: .notes)
                     .lineLimit(2...5)
                     .foregroundStyle(.heading)
                     .padding(.horizontal, 12)
@@ -250,7 +280,9 @@ struct PurchaseLogView: View {
                             get: { row.quantityText },
                             set: { model.updateRow(id: row.id, quantityText: $0) }
                         ),
-                        keyboard: .numberPad
+                        keyboard: .numberPad,
+                        focus: $focusedField,
+                        field: .quantity(rowId: row.id)
                     )
                     .frame(width: 116)
                     Text(quantityNoun(row))
@@ -268,7 +300,9 @@ struct PurchaseLogView: View {
                             get: { row.totalCostText },
                             set: { model.updateRow(id: row.id, totalCostText: $0) }
                         ),
-                        placeholder: "0.00"
+                        placeholder: "0.00",
+                        focus: $focusedField,
+                        field: .totalCost(rowId: row.id)
                     )
                     .frame(width: 132)
                     if let unitCostCents = summary?.unitCostCents {
@@ -281,6 +315,7 @@ struct PurchaseLogView: View {
             }
         }
         .padding(.vertical, 8)
+        .listRowBackground(focusedField?.rowId == row.id ? Color.actionSoft : Color.card)
         .swipeActions {
             Button(role: .destructive) {
                 model.removeRow(id: row.id)
@@ -338,13 +373,8 @@ struct PurchaseLogView: View {
         }
     }
 
-    /// Each `BoxedField` owns its focus, so there is no shared `FocusState` to
-    /// clear yet; resigning the first responder reaches whichever is active.
-    private func dismissKeyboard() {
-        UIApplication.shared.sendAction(
-            #selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil
-        )
-    }
+    /// Scroll target for the receipt card; rows scroll to their own `id`.
+    private let receiptRowId = "receipt"
 
     // MARK: - Footer
 

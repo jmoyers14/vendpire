@@ -398,6 +398,43 @@ final class PurchaseLogModelTests: XCTestCase {
         )
     }
 
+    // MARK: - Field order
+
+    func testFieldsRunDownEachRowThenTheReceipt() throws {
+        try makeScreen(products: [makeCoke(), makeDoritos()])
+        model.add(CatalogItem(kind: .unit(imageUrl: nil), recordId: "p-coke", name: "Coke Zero", barcode: nil))
+        model.add(CatalogItem(kind: .unit(imageUrl: nil), recordId: "p-doritos", name: "Doritos", barcode: nil))
+        let first = model.rows[0].id
+        let second = model.rows[1].id
+
+        XCTAssertEqual(model.fieldOrder, [
+            .quantity(rowId: first), .totalCost(rowId: first),
+            .quantity(rowId: second), .totalCost(rowId: second),
+            .receiptTotal, .notes,
+        ])
+        XCTAssertEqual(model.field(after: .totalCost(rowId: first)), .quantity(rowId: second))
+        XCTAssertEqual(model.field(before: .receiptTotal), .totalCost(rowId: second))
+    }
+
+    func testFieldOrderStopsAtBothEnds() throws {
+        try makeScreen(products: [makeCoke()])
+        model.handleScan(cokeUpc, context: context)
+        let row = try XCTUnwrap(model.rows.first)
+
+        XCTAssertNil(model.field(before: .quantity(rowId: row.id)))
+        XCTAssertNil(model.field(after: .notes))
+    }
+
+    func testFieldOrderOfAnEmptyPurchaseIsJustTheReceipt() throws {
+        try makeScreen()
+
+        XCTAssertEqual(model.fieldOrder, [.receiptTotal, .notes])
+        XCTAssertNil(
+            model.field(after: .quantity(rowId: UUID())),
+            "a deleted row's field has no neighbors"
+        )
+    }
+
     // MARK: - Case summary
 
     /// A whole case of one product — the only kind with a meaningful per-unit cost.

@@ -122,6 +122,29 @@ final class PurchaseLogModel {
         }
     }
 
+    /// Top to bottom, the way the screen reads: each row's quantity then cost,
+    /// then the receipt.
+    var fieldOrder: [PurchaseField] {
+        rows.flatMap { [PurchaseField.quantity(rowId: $0.id), .totalCost(rowId: $0.id)] }
+            + [.receiptTotal, .notes]
+    }
+
+    func field(after field: PurchaseField) -> PurchaseField? {
+        neighbor(of: field, offset: 1)
+    }
+
+    func field(before field: PurchaseField) -> PurchaseField? {
+        neighbor(of: field, offset: -1)
+    }
+
+    private func neighbor(of field: PurchaseField, offset: Int) -> PurchaseField? {
+        let order = fieldOrder
+        guard let index = order.firstIndex(of: field), order.indices.contains(index + offset)
+        else { return nil }
+
+        return order[index + offset]
+    }
+
     /// What a case row's badge line and hint say. Nil for loose items, drafts,
     /// and packs the mirror doesn't have.
     func caseSummary(for row: PurchaseRow, context: ModelContext) -> CaseSummary? {

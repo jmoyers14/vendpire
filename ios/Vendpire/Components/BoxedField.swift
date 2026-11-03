@@ -2,13 +2,18 @@ import SwiftUI
 
 /// A bordered numeric field with a leading label — "$" for money, "Qty" for a
 /// count — and a right-aligned value, as in the purchase mockup.
-struct BoxedField: View {
+///
+/// Focus belongs to the screen, so the keyboard's arrows can move between
+/// fields: pass its `FocusState` binding and the value that means "this one".
+struct BoxedField<Field: Hashable>: View {
     let label: String
     @Binding var text: String
     var placeholder: String = ""
     var keyboard: UIKeyboardType = .decimalPad
+    let focus: FocusState<Field?>.Binding
+    let field: Field
 
-    @FocusState private var isFocused: Bool
+    private var isFocused: Bool { focus.wrappedValue == field }
 
     var body: some View {
         HStack(spacing: 4) {
@@ -19,7 +24,7 @@ struct BoxedField: View {
                 .multilineTextAlignment(.trailing)
                 .monospacedDigit()
                 .foregroundStyle(.heading)
-                .focused($isFocused)
+                .focused(focus, equals: field)
         }
         .padding(.horizontal, 12)
         .frame(minHeight: 44)
@@ -32,7 +37,7 @@ struct BoxedField: View {
         }
         // The whole box is the target, not just the digits at its right edge.
         .contentShape(shape)
-        .onTapGesture { isFocused = true }
+        .onTapGesture { focus.wrappedValue = field }
     }
 
     private var shape: RoundedRectangle {

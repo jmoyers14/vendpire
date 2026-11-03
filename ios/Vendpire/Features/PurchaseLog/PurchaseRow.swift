@@ -58,6 +58,21 @@ nonisolated struct CaseSummary: Equatable, Sendable {
     let unitCostCents: Int?
 }
 
+/// Every text field on the purchase screen, for the keyboard's up/down arrows.
+nonisolated enum PurchaseField: Hashable, Sendable {
+    case quantity(rowId: UUID)
+    case totalCost(rowId: UUID)
+    case receiptTotal
+    case notes
+
+    var rowId: UUID? {
+        switch self {
+        case .quantity(let rowId), .totalCost(let rowId): rowId
+        case .receiptTotal, .notes: nil
+        }
+    }
+}
+
 /// The footer's verdict on the entered lines against the receipt total.
 nonisolated enum ReceiptStatus: Equatable, Sendable {
     case matches
