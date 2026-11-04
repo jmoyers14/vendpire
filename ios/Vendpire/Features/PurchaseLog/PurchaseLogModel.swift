@@ -159,6 +159,22 @@ final class PurchaseLogModel {
         )
     }
 
+    /// What one of this row's cases holds, by product name. Nil for loose
+    /// items, drafts, and packs the mirror doesn't have.
+    func caseContents(for row: PurchaseRow, context: ModelContext) -> [CaseContent]? {
+        guard row.kind == .pack,
+              let pack = catalog.packs(in: context).first(where: { $0.id == row.recordId })
+        else { return nil }
+
+        let names = catalog.productNames(in: context)
+        return pack.contents.map { content in
+            CaseContent(
+                name: names[content.productId] ?? ProductNames.unknown,
+                unitsPerCase: content.units
+            )
+        }
+    }
+
     /// Only for a single-product case: an average across a mixed case describes
     /// none of its products.
     private func unitCostCents(for row: PurchaseRow, unitsPerCase: Int, productCount: Int) -> Int? {

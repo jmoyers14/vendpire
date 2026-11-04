@@ -58,6 +58,12 @@ nonisolated struct CaseSummary: Equatable, Sendable {
     let unitCostCents: Int?
 }
 
+/// One product inside a case, as case details lists it.
+nonisolated struct CaseContent: Equatable, Sendable {
+    let name: String
+    let unitsPerCase: Int
+}
+
 /// Every text field on the purchase screen, for the keyboard's up/down arrows.
 nonisolated enum PurchaseField: Hashable, Sendable {
     case quantity(rowId: UUID)

@@ -23,6 +23,8 @@ struct PurchaseLogView: View {
     @State private var isAddSheetPresented = false
     /// The `recordId` of the draft case whose contents are open.
     @State private var draftShowingContents: String?
+    /// The row id of the finished case whose details are open.
+    @State private var caseShowingDetails: UUID?
     /// Shared by every field, so the keyboard's arrows can walk between them.
     @FocusState private var focusedField: PurchaseField?
 
@@ -61,7 +63,7 @@ struct PurchaseLogView: View {
                     receiptFields
                         .id(receiptRowId)
                 } header: {
-                    sectionTitle("Receipt")
+                    SectionTitle("Receipt")
                 }
             }
             // The arrows can land on a field below the fold.
@@ -159,6 +161,9 @@ struct PurchaseLogView: View {
                 CaseContentsView(resolver: resolver)
             }
         }
+        .navigationDestination(item: $caseShowingDetails) { rowId in
+            CaseDetailsView(model: model, rowId: rowId)
+        }
     }
 
     /// "Costco · Oct 30" — a plain title, not a button: Back is the one way to
@@ -184,16 +189,9 @@ struct PurchaseLogView: View {
 
     // MARK: - Sections
 
-    private func sectionTitle(_ title: String) -> some View {
-        Text(title)
-            .font(.title3.bold())
-            .foregroundStyle(.heading)
-            .textCase(nil)
-    }
-
     private var itemsHeader: some View {
         HStack(alignment: .firstTextBaseline) {
-            sectionTitle("Items")
+            SectionTitle("Items")
             Spacer()
             if !model.rows.isEmpty {
                 Text("^[\(model.rows.count) product](inflect: true)")
@@ -346,9 +344,9 @@ struct PurchaseLogView: View {
 
             Spacer(minLength: 0)
 
-            if row.kind == .packDraft {
+            if row.kind == .packDraft || summary != nil {
                 Button {
-                    draftShowingContents = row.recordId
+                    openCase(row)
                 } label: {
                     Image(systemName: "chevron.right")
                         .font(.footnote.bold())
@@ -356,10 +354,19 @@ struct PurchaseLogView: View {
                         .frame(width: 32, height: 32)
                 }
                 .buttonStyle(.borderless)
-                .accessibilityLabel("Case contents")
+                .accessibilityLabel(row.kind == .packDraft ? "Case contents" : "Case details")
             }
         }
         .frame(minHeight: 26)
+    }
+
+    /// A draft opens its contents editor; a finished case, its details.
+    private func openCase(_ row: PurchaseRow) {
+        if row.kind == .packDraft {
+            draftShowingContents = row.recordId
+        } else {
+            caseShowingDetails = row.id
+        }
     }
 
     /// "case" under a quantity of one, "cases" under anything else.

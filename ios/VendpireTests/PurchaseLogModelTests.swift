@@ -496,6 +496,29 @@ final class PurchaseLogModelTests: XCTestCase {
         XCTAssertNil(model.caseSummary(for: noQuantity, context: context)?.unitCostCents)
     }
 
+    func testCaseContentsNamesEachProductInOneCase() throws {
+        try makeScreen(products: [makeCoke(), makeDoritos()], packs: [makeVarietyCase()])
+
+        let row = try addCase(makeVarietyCase(), quantity: "3", cost: "")
+
+        XCTAssertEqual(
+            model.caseContents(for: row, context: context),
+            [
+                CaseContent(name: "Coke Zero", unitsPerCase: 20),
+                CaseContent(name: "Doritos Nacho Cheese", unitsPerCase: 10),
+            ],
+            "per case, not per purchase — the quantity doesn't multiply it"
+        )
+    }
+
+    func testCaseContentsIsNilForALooseItem() throws {
+        try makeScreen(products: [makeCoke()])
+        model.handleScan(cokeUpc, context: context)
+        let row = try XCTUnwrap(model.rows.first)
+
+        XCTAssertNil(model.caseContents(for: row, context: context))
+    }
+
     func testCaseSummaryIsNilForALooseItem() throws {
         try makeScreen(products: [makeCoke()])
         model.handleScan(cokeUpc, context: context)
