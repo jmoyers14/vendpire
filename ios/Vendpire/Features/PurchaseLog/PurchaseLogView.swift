@@ -15,9 +15,9 @@ struct PurchaseLogView: View {
     @Environment(MirrorRefresher.self) private var refresher
     @Environment(\.vendpireAPI) private var api
 
-    /// Owned by `PurchaseSetupView`. `@Bindable` rather than a plain `let`
-    /// because the receipt and notes fields still bind straight to it.
-    @Bindable var model: PurchaseLogModel
+    /// Owned by `PurchaseSetupView`, which also takes the receipt total and
+    /// notes before this screen opens.
+    let model: PurchaseLogModel
 
     @State private var isScannerSheetPresented = false
     @State private var isAddSheetPresented = false
@@ -58,23 +58,12 @@ struct PurchaseLogView: View {
                 } header: {
                     itemsHeader
                 }
-
-                Section {
-                    receiptFields
-                        .id(receiptRowId)
-                } header: {
-                    SectionTitle("Receipt")
-                }
             }
             // The arrows can land on a field below the fold.
             .onChange(of: focusedField) { _, field in
                 guard let field else { return }
                 withAnimation {
-                    if let rowId = field.rowId {
-                        proxy.scrollTo(rowId)
-                    } else {
-                        proxy.scrollTo(receiptRowId)
-                    }
+                    proxy.scrollTo(field.rowId)
                 }
             }
         }
@@ -84,21 +73,10 @@ struct PurchaseLogView: View {
         .scrollDismissesKeyboard(.interactively)
         .toolbar {
             ToolbarItemGroup(placement: .keyboard) {
-                Button {
-                    focusedField = focusedField.flatMap { model.field(before: $0) }
-                } label: {
-                    Image(systemName: "chevron.up")
-                }
-                .disabled(focusedField.flatMap { model.field(before: $0) } == nil)
-                .accessibilityLabel("Previous field")
-
-                Button {
-                    focusedField = focusedField.flatMap { model.field(after: $0) }
-                } label: {
-                    Image(systemName: "chevron.down")
-                }
-                .disabled(focusedField.flatMap { model.field(after: $0) } == nil)
-                .accessibilityLabel("Next field")
+                arrowButton(to: focusedField.flatMap { model.field(before: $0) },
+                            systemImage: "chevron.up", label: "Previous field")
+                arrowButton(to: focusedField.flatMap { model.field(after: $0) },
+                            systemImage: "chevron.down", label: "Next field")
 
                 Spacer()
 
@@ -166,6 +144,17 @@ struct PurchaseLogView: View {
         }
     }
 
+    /// A keyboard arrow, disabled at either end of the fields.
+    private func arrowButton(to target: PurchaseField?, systemImage: String, label: String) -> some View {
+        Button {
+            focusedField = target
+        } label: {
+            Image(systemName: systemImage)
+        }
+        .disabled(target == nil)
+        .accessibilityLabel(label)
+    }
+
     /// "Costco · Oct 30" — a plain title, not a button: Back is the one way to
     /// change it.
     private var purchaseSummary: String {
@@ -220,43 +209,6 @@ struct PurchaseLogView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 24)
-    }
-
-    /// One row, so the total and notes share a card without a divider.
-    private var receiptFields: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(spacing: 12) {
-                Text("Receipt total")
-                    .font(.body.bold())
-                    .foregroundStyle(.heading)
-                Spacer()
-                BoxedField(
-                    label: "$", accessibilityLabel: "Receipt total",
-                    text: $model.receiptTotalText, placeholder: "0.00",
-                    focus: $focusedField, field: .receiptTotal
-                )
-                    .frame(width: 132)
-            }
-
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Notes")
-                    .font(.subheadline.bold())
-                    .foregroundStyle(.heading)
-                    .accessibilityHidden(true)
-                TextField("Bought extra for the gym machine", text: $model.notes, axis: .vertical)
-                    .accessibilityLabel("Notes")
-                    .focused($focusedField, equals: .notes)
-                    .lineLimit(2...5)
-                    .foregroundStyle(.heading)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 10)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: LagoonRadius.field, style: .continuous)
-                            .strokeBorder(.fieldBorder)
-                    )
-            }
-        }
-        .padding(.vertical, 8)
     }
 
     // MARK: - Rows
@@ -331,12 +283,14 @@ struct PurchaseLogView: View {
     /// Kind, then what's in a case: its unit count, or — for a case still being
     /// created — the way back into `CaseContentsView`.
     private func badgeLine(_ row: PurchaseRow, summary: CaseSummary?) -> some View {
-        HStack(spacing: 8) {
+        let isDraft = row.kind == .packDraft
+
+        return HStack(spacing: 8) {
             KindBadge(isPack: row.isPack)
 
-            if row.kind == .packDraft {
+            if isDraft {
                 Button {
-                    draftShowingContents = row.recordId
+                    openCase(row)
                 } label: {
                     Pill("Add contents", tone: .warning)
                 }
@@ -349,7 +303,7 @@ struct PurchaseLogView: View {
 
             Spacer(minLength: 0)
 
-            if row.kind == .packDraft || summary != nil {
+            if isDraft || summary != nil {
                 Button {
                     openCase(row)
                 } label: {
@@ -359,7 +313,7 @@ struct PurchaseLogView: View {
                         .frame(width: 32, height: 32)
                 }
                 .buttonStyle(.borderless)
-                .accessibilityLabel(row.kind == .packDraft ? "Case contents" : "Case details")
+                .accessibilityLabel(isDraft ? "Case contents" : "Case details")
             }
         }
         .frame(minHeight: 26)
@@ -384,9 +338,6 @@ struct PurchaseLogView: View {
         case (false, false): return "items"
         }
     }
-
-    /// Scroll target for the receipt card; rows scroll to their own `id`.
-    private let receiptRowId = "receipt"
 
     // MARK: - Footer
 

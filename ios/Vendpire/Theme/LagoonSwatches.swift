@@ -8,9 +8,11 @@ private struct LagoonSwatches: View {
         ("line", .line), ("heading", .heading), ("bodyText", .bodyText),
         ("secondaryText", .secondaryText), ("fieldBorder", .fieldBorder),
         ("action", .action), ("actionSoft", .actionSoft), ("linkText", .linkText),
-        ("focus", .focus), ("warning", .warning), ("warningSoft", .warningSoft),
+        ("focus", .focus), ("warning", .warning), ("warningAccent", .warningAccent),
+        ("warningSoft", .warningSoft), ("warningFill", .warningFill),
         ("warningBorder", .warningBorder), ("success", .success),
-        ("successSoft", .successSoft), ("profit", .profit), ("loss", .loss),
+        ("successSoft", .successSoft), ("successFill", .successFill),
+        ("successBorder", .successBorder), ("error", .error),
     ]
 
     var body: some View {
@@ -71,6 +73,17 @@ private struct LagoonSwatches: View {
         }
         .padding(16)
         .cardStyle()
+    }
+}
+
+private extension View {
+    /// The swatch sheet's own cards. Real screens get theirs from List sections.
+    func cardStyle() -> some View {
+        background {
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(.card)
+                .shadow(color: LagoonPalette.gray900.opacity(0.08), radius: 1, y: 1)
+        }
     }
 }
 

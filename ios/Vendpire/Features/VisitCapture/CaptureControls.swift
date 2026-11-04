@@ -41,9 +41,9 @@ struct CaptureCell: View {
     @ViewBuilder
     private var background: some View {
         if isSuspicious {
-            RoundedRectangle(cornerRadius: 8).fill(LagoonPalette.amber100)
+            RoundedRectangle(cornerRadius: 8).fill(.warningFill)
         } else if isCounted {
-            RoundedRectangle(cornerRadius: 8).fill(LagoonPalette.green100)
+            RoundedRectangle(cornerRadius: 8).fill(.successFill)
         } else if isCountable {
             RoundedRectangle(cornerRadius: 8).fill(.quaternary)
         } else {

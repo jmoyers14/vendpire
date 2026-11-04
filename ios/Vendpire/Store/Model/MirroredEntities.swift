@@ -205,6 +205,11 @@ final class StoredPack {
         self.deletedAt = deletedAt
         self.updatedAt = updatedAt
     }
+
+    /// Every unit in one case, across all its products.
+    var unitsPerCase: Int {
+        contents.reduce(0) { $0 + $1.units }
+    }
 }
 
 /// One VERSION of a machine's layout. Planograms are immutable — a change

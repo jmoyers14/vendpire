@@ -137,7 +137,7 @@ struct VisitCaptureView: View {
                 value: Double(model.countedCount),
                 total: Double(max(model.totalCount, 1))
             )
-            .tint(model.hasGapsBehind ? LagoonPalette.amber500 : Color.accentColor)
+            .tint(model.hasGapsBehind ? Color.warningAccent : .action)
 
             HStack(alignment: .firstTextBaseline) {
                 Text(model.focusedProductName ?? "—")

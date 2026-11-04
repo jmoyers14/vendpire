@@ -30,7 +30,7 @@ struct Pill: View {
 
     private var foreground: Color {
         switch tone {
-        case .neutral: LagoonPalette.gray800
+        case .neutral: .heading
         case .outlined: .secondaryText
         case .warning: .warning
         case .success: .success
@@ -51,7 +51,7 @@ struct Pill: View {
         case .neutral: .divider
         case .outlined: .line
         case .warning: .warningBorder
-        case .success: LagoonPalette.green200
+        case .success: .successBorder
         }
     }
 }

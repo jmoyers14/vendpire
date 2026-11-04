@@ -82,27 +82,31 @@ extension ShapeStyle where Self == Color {
     static var fieldBorder: Color { LagoonPalette.gray500 }
 
     // Actions
-    static var action: Color { LagoonPalette.primary600 }
+    /// The asset catalog's AccentColor, so system controls and Lagoon views
+    /// can't drift apart. It holds primary-600.
+    static var action: Color { .accentColor }
     static var actionSoft: Color { LagoonPalette.primary50 }
     static var linkText: Color { LagoonPalette.primary700 }
     static var focus: Color { LagoonPalette.primary500 }
 
     // Status
     static var warning: Color { LagoonPalette.amber800 }
+    /// Icons and tints that flag a warning, where amber-800 reads as brown.
+    static var warningAccent: Color { LagoonPalette.amber500 }
     static var warningSoft: Color { LagoonPalette.amber50 }
+    /// A tile that needs a second look — stronger than `warningSoft`.
+    static var warningFill: Color { LagoonPalette.amber100 }
     static var warningBorder: Color { LagoonPalette.amber200 }
     static var success: Color { LagoonPalette.green700 }
     static var successSoft: Color { LagoonPalette.green50 }
-    /// Something went wrong. The same red as `loss`, but "loss" means money.
+    static var successFill: Color { LagoonPalette.green100 }
+    static var successBorder: Color { LagoonPalette.green200 }
     static var error: Color { LagoonPalette.red700 }
-    static var profit: Color { LagoonPalette.green700 }
-    static var loss: Color { LagoonPalette.red700 }
 }
 
 // MARK: - Shape
 
 enum LagoonRadius {
-    static let card: CGFloat = 18
     static let field: CGFloat = 12
 }
 
@@ -112,16 +116,6 @@ extension View {
     func lagoonBackground() -> some View {
         scrollContentBackground(.hidden)
             .background(.appBackground)
-    }
-
-    /// A white, rounded card lifted off `.appBackground`. The shadow sits on the
-    /// shape, not the view, so the card's text doesn't get one too.
-    func cardStyle() -> some View {
-        background {
-            RoundedRectangle(cornerRadius: LagoonRadius.card, style: .continuous)
-                .fill(.card)
-                .shadow(color: LagoonPalette.gray900.opacity(0.08), radius: 1, y: 1)
-        }
     }
 }
 

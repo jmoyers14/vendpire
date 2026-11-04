@@ -53,7 +53,7 @@ struct BarcodeResolutionFlow: View {
                 .font(.footnote)
                 .multilineTextAlignment(.center)
                 .padding(10)
-                .background(LagoonPalette.red600.opacity(0.9), in: RoundedRectangle(cornerRadius: 8))
+                .background(Color.error.opacity(0.9), in: RoundedRectangle(cornerRadius: 8))
                 .foregroundStyle(.white)
                 .padding()
         } else if let confirmation {

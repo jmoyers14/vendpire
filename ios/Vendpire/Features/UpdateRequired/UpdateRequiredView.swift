@@ -23,7 +23,7 @@ struct UpdateRequiredView: View {
             Image(systemName: requirement == .required
                 ? "exclamationmark.triangle.fill"
                 : "arrow.down.circle.fill")
-                .foregroundStyle(requirement == .required ? LagoonPalette.amber500 : Color.accentColor)
+                .foregroundStyle(requirement == .required ? Color.warningAccent : .action)
                 .font(.title2)
 
             VStack(alignment: .leading, spacing: 4) {

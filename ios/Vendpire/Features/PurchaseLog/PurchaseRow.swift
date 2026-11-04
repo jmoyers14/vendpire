@@ -68,13 +68,10 @@ nonisolated struct CaseContent: Equatable, Sendable {
 nonisolated enum PurchaseField: Hashable, Sendable {
     case quantity(rowId: UUID)
     case totalCost(rowId: UUID)
-    case receiptTotal
-    case notes
 
-    var rowId: UUID? {
+    var rowId: UUID {
         switch self {
         case .quantity(let rowId), .totalCost(let rowId): rowId
-        case .receiptTotal, .notes: nil
         }
     }
 }

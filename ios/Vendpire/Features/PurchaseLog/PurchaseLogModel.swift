@@ -104,29 +104,20 @@ final class PurchaseLogModel {
         for row: PurchaseRow,
         context: ModelContext
     ) -> [(name: String, units: Int, cents: Int)]? {
-        guard row.kind == .pack,
-              let quantity = Int(row.quantityText.trimmed), quantity >= 1,
-              let totalCostCents = Money.parseDollarsToCents(row.totalCostText),
-              let pack = catalog.packs(in: context).first(where: { $0.id == row.recordId })
+        guard let (quantity, totalCostCents) = completeLine(row),
+              let contents = caseContents(for: row, context: context)
         else { return nil }
 
-        let weights = pack.contents.map { $0.units * quantity }
+        let weights = contents.map { $0.unitsPerCase * quantity }
         let shares = Allocate.proportionally(totalCents: totalCostCents, weights: weights)
-        let names = catalog.productNames(in: context)
-        return pack.contents.enumerated().map { index, content in
-            (
-                name: names[content.productId] ?? ProductNames.unknown,
-                units: content.units * quantity,
-                cents: shares[index]
-            )
+        return contents.enumerated().map { index, content in
+            (name: content.name, units: weights[index], cents: shares[index])
         }
     }
 
-    /// Top to bottom, the way the screen reads: each row's quantity then cost,
-    /// then the receipt.
+    /// Top to bottom, the way the screen reads: each row's quantity then cost.
     var fieldOrder: [PurchaseField] {
         rows.flatMap { [PurchaseField.quantity(rowId: $0.id), .totalCost(rowId: $0.id)] }
-            + [.receiptTotal, .notes]
     }
 
     func field(after field: PurchaseField) -> PurchaseField? {
@@ -148,11 +139,9 @@ final class PurchaseLogModel {
     /// What a case row's badge line and hint say. Nil for loose items, drafts,
     /// and packs the mirror doesn't have.
     func caseSummary(for row: PurchaseRow, context: ModelContext) -> CaseSummary? {
-        guard row.kind == .pack,
-              let pack = catalog.packs(in: context).first(where: { $0.id == row.recordId })
-        else { return nil }
+        guard let pack = pack(for: row, context: context) else { return nil }
 
-        let unitsPerCase = pack.contents.reduce(0) { $0 + $1.units }
+        let unitsPerCase = pack.unitsPerCase
         return CaseSummary(
             unitsPerCase: unitsPerCase,
             unitCostCents: unitCostCents(for: row, unitsPerCase: unitsPerCase, productCount: pack.contents.count)
@@ -162,9 +151,7 @@ final class PurchaseLogModel {
     /// What one of this row's cases holds, by product name. Nil for loose
     /// items, drafts, and packs the mirror doesn't have.
     func caseContents(for row: PurchaseRow, context: ModelContext) -> [CaseContent]? {
-        guard row.kind == .pack,
-              let pack = catalog.packs(in: context).first(where: { $0.id == row.recordId })
-        else { return nil }
+        guard let pack = pack(for: row, context: context) else { return nil }
 
         let names = catalog.productNames(in: context)
         return pack.contents.map { content in
@@ -179,11 +166,27 @@ final class PurchaseLogModel {
     /// none of its products.
     private func unitCostCents(for row: PurchaseRow, unitsPerCase: Int, productCount: Int) -> Int? {
         guard productCount == 1, unitsPerCase > 0,
-              let quantity = Int(row.quantityText.trimmed), quantity >= 1,
-              let totalCostCents = Money.parseDollarsToCents(row.totalCostText)
+              let (quantity, totalCostCents) = completeLine(row)
         else { return nil }
 
         return Int((Double(totalCostCents) / Double(quantity * unitsPerCase)).rounded())
+    }
+
+    /// The mirror's record for a finished case row. Nil for loose items,
+    /// drafts, and packs the mirror doesn't have.
+    private func pack(for row: PurchaseRow, context: ModelContext) -> StoredPack? {
+        guard row.kind == .pack else { return nil }
+        return catalog.packs(in: context).first { $0.id == row.recordId }
+    }
+
+    /// A row's quantity and cost once both are typed in full — what the live
+    /// hints wait for, so a half-typed value never flashes a wrong number.
+    private func completeLine(_ row: PurchaseRow) -> (quantity: Int, totalCostCents: Int)? {
+        guard let quantity = Int(row.quantityText.trimmed), quantity >= 1,
+              let totalCostCents = Money.parseDollarsToCents(row.totalCostText)
+        else { return nil }
+
+        return (quantity, totalCostCents)
     }
 
     func searchResults(query: String, context: ModelContext) -> [CatalogItem] {

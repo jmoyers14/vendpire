@@ -25,7 +25,7 @@ struct CaseDetailsView: View {
     @ViewBuilder
     private func sections(for row: PurchaseRow) -> some View {
         let contents = model.caseContents(for: row, context: context) ?? []
-        let unitsPerCase = contents.reduce(0) { $0 + $1.unitsPerCase }
+        let unitsPerCase = model.caseSummary(for: row, context: context)?.unitsPerCase ?? 0
 
         Section {
             VStack(alignment: .leading, spacing: 4) {
@@ -41,14 +41,7 @@ struct CaseDetailsView: View {
 
         Section {
             ForEach(Array(contents.enumerated()), id: \.offset) { _, content in
-                HStack {
-                    Text(content.name)
-                        .foregroundStyle(.heading)
-                    Spacer()
-                    Text("\(content.unitsPerCase)")
-                        .monospacedDigit()
-                        .foregroundStyle(.bodyText)
-                }
+                valueRow(content.name, value: "\(content.unitsPerCase)")
             }
         } header: {
             SectionTitle("Inside one case")
@@ -63,14 +56,7 @@ struct CaseDetailsView: View {
         Section {
             if let split = model.splitPreview(for: row, context: context) {
                 ForEach(Array(split.enumerated()), id: \.offset) { _, share in
-                    HStack {
-                        Text("\(share.units) × \(share.name)")
-                            .foregroundStyle(.heading)
-                        Spacer()
-                        Text(Money.formatCents(share.cents))
-                            .monospacedDigit()
-                            .foregroundStyle(.bodyText)
-                    }
+                    valueRow("\(share.units) × \(share.name)", value: Money.formatCents(share.cents))
                 }
             } else {
                 Text("Enter a quantity and cost on the purchase to see how they split.")
@@ -81,6 +67,17 @@ struct CaseDetailsView: View {
         } footer: {
             Text("Each product's share becomes its cost per unit.")
                 .foregroundStyle(.secondaryText)
+        }
+    }
+
+    private func valueRow(_ title: String, value: String) -> some View {
+        HStack {
+            Text(title)
+                .foregroundStyle(.heading)
+            Spacer()
+            Text(value)
+                .monospacedDigit()
+                .foregroundStyle(.bodyText)
         }
     }
 }
