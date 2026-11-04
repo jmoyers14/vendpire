@@ -231,7 +231,8 @@ struct PurchaseLogView: View {
                     .foregroundStyle(.heading)
                 Spacer()
                 BoxedField(
-                    label: "$", text: $model.receiptTotalText, placeholder: "0.00",
+                    label: "$", accessibilityLabel: "Receipt total",
+                    text: $model.receiptTotalText, placeholder: "0.00",
                     focus: $focusedField, field: .receiptTotal
                 )
                     .frame(width: 132)
@@ -241,7 +242,9 @@ struct PurchaseLogView: View {
                 Text("Notes")
                     .font(.subheadline.bold())
                     .foregroundStyle(.heading)
+                    .accessibilityHidden(true)
                 TextField("Bought extra for the gym machine", text: $model.notes, axis: .vertical)
+                    .accessibilityLabel("Notes")
                     .focused($focusedField, equals: .notes)
                     .lineLimit(2...5)
                     .foregroundStyle(.heading)
@@ -274,6 +277,7 @@ struct PurchaseLogView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     BoxedField(
                         label: "Qty",
+                        accessibilityLabel: "Quantity of \(row.name)",
                         text: Binding(
                             get: { row.quantityText },
                             set: { model.updateRow(id: row.id, quantityText: $0) }
@@ -294,6 +298,7 @@ struct PurchaseLogView: View {
                 VStack(alignment: .trailing, spacing: 4) {
                     BoxedField(
                         label: "$",
+                        accessibilityLabel: "Total cost for \(row.name)",
                         text: Binding(
                             get: { row.totalCostText },
                             set: { model.updateRow(id: row.id, totalCostText: $0) }

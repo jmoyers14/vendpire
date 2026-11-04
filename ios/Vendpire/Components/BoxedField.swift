@@ -5,8 +5,12 @@ import SwiftUI
 ///
 /// Focus belongs to the screen, so the keyboard's arrows can move between
 /// fields: pass its `FocusState` binding and the value that means "this one".
+///
+/// `accessibilityLabel` replaces the visible label for VoiceOver: a row of
+/// fields that all read "$" can't tell the operator which line they're on.
 struct BoxedField<Field: Hashable>: View {
     let label: String
+    let accessibilityLabel: String
     @Binding var text: String
     var placeholder: String = ""
     var keyboard: UIKeyboardType = .decimalPad
@@ -19,7 +23,9 @@ struct BoxedField<Field: Hashable>: View {
         HStack(spacing: 4) {
             Text(label)
                 .foregroundStyle(.secondaryText)
+                .accessibilityHidden(true)
             TextField(placeholder, text: $text)
+                .accessibilityLabel(accessibilityLabel)
                 .keyboardType(keyboard)
                 .multilineTextAlignment(.trailing)
                 .monospacedDigit()
