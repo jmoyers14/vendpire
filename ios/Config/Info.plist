@@ -17,6 +17,8 @@
 	<!-- Debug field-testing talks cleartext HTTP to the Mac's .local name on
 	     the same Wi-Fi; ATS exempts only loopback by default. Local traffic
 	     only — remote URLs stay HTTPS-enforced. -->
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Debug builds talk to the Vendpire server on your Mac.</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsLocalNetworking</key>

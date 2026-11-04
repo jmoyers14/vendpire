@@ -18,6 +18,7 @@ playwright-report/
 
 # Xcode / iOS
 ios/build/
+ios/Config/Local.xcconfig
 DerivedData/
 *.xcuserstate
 xcuserdata/
