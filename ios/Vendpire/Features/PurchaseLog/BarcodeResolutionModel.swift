@@ -51,13 +51,6 @@ final class BarcodeResolutionModel {
     @ObservationIgnored
     var onResolve: ((CatalogItem) -> Void)?
 
-    /// "It's a case of items" committed to on the spot: there is nothing to
-    /// resolve yet, so this hands the caller a dedicated resolver carrying
-    /// the scanned code and candidate, for a draft row to hold onto until the
-    /// case's contents are done. See `commitPendingCase`.
-    @ObservationIgnored
-    var onCommitPackDraft: ((BarcodeResolutionModel) -> Void)?
-
     /// Set means the sheet is up.
     private(set) var pendingScan: PendingScan?
 
@@ -75,6 +68,10 @@ final class BarcodeResolutionModel {
     /// screen never reads it, because a candidate is a suggestion that must
     /// never gate entry.
     private(set) var candidateFetch: Task<Void, Never>?
+
+    /// The operator said the pending scan is a case: the sheet shows its
+    /// contents until `createPack` resolves it.
+    private(set) var isBuildingCase = false
 
     /// The case being created, once the operator has said it is a case. Only
     /// ever non-empty on a resolver that allows packs.
@@ -149,23 +146,22 @@ final class BarcodeResolutionModel {
         }
     }
 
+    /// Drops the case in progress too, so a resolved or cancelled scan leaves
+    /// nothing behind for the next one.
     func dismissPendingScan() {
         candidateFetch?.cancel()
         candidateFetch = nil
         pendingScan = nil
+        isBuildingCase = false
+        contents = []
+        endContentResolution()
     }
 
-    /// Committing to "a case" is immediate and creates nothing: a dedicated
-    /// resolver carries the scanned code and candidate off to whoever is
-    /// tracking draft rows, and this one resets to resolve the next scan —
-    /// the same screen's sheet never has to close.
+    /// "It's a case of items": keep the scanned code and the outside guess,
+    /// and collect the contents here until `createPack` reports the case.
     func commitPendingCase() {
-        guard let scan = pendingScan else { return }
-        let draft = BarcodeResolutionModel(allowsPacks: true, catalog: catalog)
-        draft.pendingScan = scan
-        if let api { draft.configure(api: api) }
-        dismissPendingScan()
-        onCommitPackDraft?(draft)
+        guard allowsPacks, pendingScan != nil else { return }
+        isBuildingCase = true
     }
 
     /// The name-ranked list the attach step picks from. Packs are included

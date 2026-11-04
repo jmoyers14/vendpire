@@ -1,8 +1,8 @@
 import SwiftData
 import SwiftUI
 
-/// Logging a purchase: scan a cart, or pick items by name, read totals off
-/// the receipt, save.
+/// Logging a purchase one receipt line at a time: Scan or Add manually opens
+/// a sheet that ends on Entry, Add puts the line here, repeat, save.
 ///
 /// Opens on Scan. Vendor and date are already settled by `PurchaseSetupView`,
 /// which owns the model and pushes this — so Back is how they get corrected,
@@ -19,11 +19,8 @@ struct PurchaseLogView: View {
     /// notes before this screen opens.
     let model: PurchaseLogModel
 
-    @State private var isScannerSheetPresented = false
-    @State private var isAddSheetPresented = false
-    /// The `recordId` of the draft case whose contents are open.
-    @State private var draftShowingContents: String?
-    /// The row id of the finished case whose details are open.
+    @State private var lineSheetStart: PurchaseLineSheet.Start?
+    /// The row id of the case whose details are open.
     @State private var caseShowingDetails: UUID?
     /// Shared by every field, so the keyboard's arrows can walk between them.
     @FocusState private var focusedField: PurchaseField?
@@ -37,7 +34,7 @@ struct PurchaseLogView: View {
                     HStack(spacing: 12) {
                         scanButton
                         Button {
-                            isAddSheetPresented = true
+                            lineSheetStart = .search
                         } label: {
                             Label("Add manually", systemImage: "plus")
                         }
@@ -100,44 +97,8 @@ struct PurchaseLogView: View {
             await refresher.refresh()
             model.invalidateCatalog()
         }
-        .sheet(
-            isPresented: $isScannerSheetPresented,
-            onDismiss: {
-                model.resolver.dismissPendingScan()
-                // Undo must not outlive the card that explains what it undoes.
-                model.clearScanConfirmation()
-            }
-        ) {
-            // The sheet stays up across scans: a resolved code just adds or
-            // bumps a row and keeps scanning, and only an unknown one swaps
-            // the camera for the question. A NavigationStack because the
-            // create-a-case step pushes the inner flow onto it.
-            NavigationStack {
-                BarcodeResolutionFlow(
-                    model: model.resolver,
-                    confirmation: model.scanConfirmation,
-                    itemCount: model.rows.count,
-                    onUndo: { model.undoLastScan() }
-                )
-                    .toolbar {
-                        // Stays reachable from the pushed inner flow too, where
-                        // Back goes up one level and this leaves entirely.
-                        ToolbarItem(placement: .cancellationAction) {
-                            Button("Cancel") { isScannerSheetPresented = false }
-                        }
-                    }
-            }
-            // On the sheet's root, where presentation modifiers take effect —
-            // a per-branch detent pinned the sheet to the camera's height.
-            .presentationDetents([.large])
-        }
-        .sheet(isPresented: $isAddSheetPresented) {
-            AddCatalogItemSheet(model: model)
-        }
-        .navigationDestination(item: $draftShowingContents) { draftId in
-            if let resolver = model.packDrafts[draftId] {
-                CaseContentsView(resolver: resolver)
-            }
+        .sheet(item: $lineSheetStart, onDismiss: model.cancelPendingLine) { start in
+            PurchaseLineSheet(model: model, start: start)
         }
         .navigationDestination(item: $caseShowingDetails) { rowId in
             CaseDetailsView(model: model, rowId: rowId)
@@ -167,7 +128,7 @@ struct PurchaseLogView: View {
     /// Disabled without a camera — only the Simulator, in practice.
     private var scanButton: some View {
         Button {
-            isScannerSheetPresented = true
+            lineSheetStart = .scan
         } label: {
             Label("Scan", systemImage: "barcode.viewfinder")
         }
@@ -202,7 +163,7 @@ struct PurchaseLogView: View {
             Text("Add what you bought")
                 .font(.headline)
                 .foregroundStyle(.heading)
-            Text("Scan each product's barcode, or add it by name. You'll enter quantity and cost for each one.")
+            Text("Scan a product's barcode, or add it by name, then enter its quantity and cost from the receipt.")
                 .font(.body)
                 .foregroundStyle(.bodyText)
                 .multilineTextAlignment(.center)
@@ -260,8 +221,8 @@ struct PurchaseLogView: View {
                         field: .totalCost(rowId: row.id)
                     )
                     .frame(width: 132)
-                    if let unitCostCents = summary?.unitCostCents {
-                        Text("\(Money.formatCents(unitCostCents)) / unit")
+                    if let hint = costHint(row, summary: summary) {
+                        Text(hint)
                             .font(.footnote.monospacedDigit())
                             .foregroundStyle(.secondaryText)
                             .padding(.trailing, 2)
@@ -280,22 +241,12 @@ struct PurchaseLogView: View {
         }
     }
 
-    /// Kind, then what's in a case: its unit count, or — for a case still being
-    /// created — the way back into `CaseContentsView`.
+    /// Kind, then a case's unit count and the way into its details.
     private func badgeLine(_ row: PurchaseRow, summary: CaseSummary?) -> some View {
-        let isDraft = row.kind == .packDraft
-
-        return HStack(spacing: 8) {
+        HStack(spacing: 8) {
             KindBadge(isPack: row.isPack)
 
-            if isDraft {
-                Button {
-                    openCase(row)
-                } label: {
-                    Pill("Add contents", tone: .warning)
-                }
-                .buttonStyle(.borderless)
-            } else if let summary {
+            if let summary {
                 Text("^[\(summary.unitsPerCase) unit](inflect: true)")
                     .font(.subheadline)
                     .foregroundStyle(.secondaryText)
@@ -303,9 +254,9 @@ struct PurchaseLogView: View {
 
             Spacer(minLength: 0)
 
-            if isDraft || summary != nil {
+            if summary != nil {
                 Button {
-                    openCase(row)
+                    caseShowingDetails = row.id
                 } label: {
                     Image(systemName: "chevron.right")
                         .font(.footnote.bold())
@@ -313,19 +264,23 @@ struct PurchaseLogView: View {
                         .frame(width: 32, height: 32)
                 }
                 .buttonStyle(.borderless)
-                .accessibilityLabel(isDraft ? "Case contents" : "Case details")
+                .accessibilityLabel("Case details")
             }
         }
         .frame(minHeight: 26)
     }
 
-    /// A draft opens its contents editor; a finished case, its details.
-    private func openCase(_ row: PurchaseRow) {
-        if row.kind == .packDraft {
-            draftShowingContents = row.recordId
-        } else {
-            caseShowingDetails = row.id
+    /// Under the line total: "$12.99 each" (or "/ case") past qty 1, and a
+    /// single-product case's "$0.54 / unit" at any qty.
+    private func costHint(_ row: PurchaseRow, summary: CaseSummary?) -> String? {
+        var parts: [String] = []
+        if let eachCents = model.eachCents(for: row) {
+            parts.append("\(Money.formatCents(eachCents)) \(row.isPack ? "/ case" : "each")")
         }
+        if let unitCostCents = summary?.unitCostCents {
+            parts.append("\(Money.formatCents(unitCostCents)) / unit")
+        }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
 
     /// "case" under a quantity of one, "cases" under anything else.
@@ -401,54 +356,6 @@ struct PurchaseLogView: View {
             Pill("\(Money.formatCents(cents)) over receipt", tone: .warning)
         case nil:
             EmptyView()
-        }
-    }
-}
-
-/// "Add without scanning": the name-filtered catalog list the not-found sheet
-/// uses to attach a code, reused to add a row with no code involved.
-private struct AddCatalogItemSheet: View {
-    let model: PurchaseLogModel
-
-    @Environment(\.modelContext) private var context
-    @Environment(\.dismiss) private var dismiss
-
-    @State private var query = ""
-
-    var body: some View {
-        NavigationStack {
-            Form {
-                Section {
-                    TextField("Search your products and cases…", text: $query)
-                        .autocorrectionDisabled()
-                    matches
-                }
-            }
-            .lagoonBackground()
-            .navigationTitle("Add an item")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                }
-            }
-        }
-        .presentationDetents([.large])
-    }
-
-    @ViewBuilder
-    private var matches: some View {
-        let trimmedQuery = query.trimmed
-        if !trimmedQuery.isEmpty {
-            CatalogItemMatches(
-                items: model.searchResults(query: query, context: context),
-                isDisabled: false,
-                emptyText: "Nothing matches.",
-                onSelect: { item in
-                    model.add(item)
-                    dismiss()
-                }
-            )
         }
     }
 }

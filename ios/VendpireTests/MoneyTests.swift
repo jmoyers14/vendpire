@@ -6,6 +6,17 @@ import XCTest
 /// it crosses a text boundary, ported from `packages/web/src/utils/money.ts`.
 /// Cases below are the web test suite's own, so the two stay in lockstep.
 final class MoneyTests: XCTestCase {
+    // MARK: - formatCentsForEditing
+
+    /// What a cost field is filled with: it has to parse back to the same cents.
+    func testEditingTextHasNoSymbolAndRoundTrips() {
+        XCTAssertEqual(Money.formatCentsForEditing(2598), "25.98")
+        XCTAssertEqual(Money.formatCentsForEditing(205), "2.05")
+        XCTAssertEqual(Money.formatCentsForEditing(0), "0.00")
+        XCTAssertEqual(Money.formatCentsForEditing(123456), "1234.56")
+        XCTAssertEqual(Money.parseDollarsToCents(Money.formatCentsForEditing(123456)), 123456)
+    }
+
     // MARK: - formatCents
 
     func testWholeDollarsKeepTwoDecimalPlaces() {

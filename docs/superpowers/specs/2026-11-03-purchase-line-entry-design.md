@@ -19,7 +19,11 @@ After this:
 
 1. **Scan** or **Add manually** opens the sheet.
 2. The item is resolved inside the sheet (camera, or name search).
-3. The sheet pushes **Entry**: product info, Qty, $, **Add**.
+3. The sheet moves on to **Entry**: product info, Qty, $, **Add**. Entry
+   replaces the sheet's root with a push transition rather than being a real
+   push, because an item can resolve from several screens deep (attach,
+   create, case contents) and those screens collapse to the root in the same
+   pass. The camera already swaps this way.
 4. **Add** appends the row and dismisses the sheet.
 5. The operator taps **Scan** again for the next item.
 
@@ -75,7 +79,7 @@ status are unchanged.
   In Each mode the total is each × qty, which is exact.
 - **The mode sticks for the purchase.** `PurchaseLogModel.costEntryMode`
   starts at `.total`. Each new entry starts in it, and toggling writes back to
-  it. One purchase has one vendor, so that covers "it depends on the store"
+  it straight away, even if that entry is then cancelled. One purchase has one vendor, so that covers "it depends on the store"
   without anything persisted. Remembering the mode per vendor across
   purchases is out of scope until it proves needed.
 - **The row shows the total, not the each price.** If the row's $ were the
@@ -119,9 +123,12 @@ display only.
 - **Add** `pendingLine: LineEntry?`. `resolver.onResolve` and `add(_ item:)`
   set it instead of appending a row.
 - **Add** `costEntryMode: LineEntry.CostEntryMode = .total`.
-- **Add** `commitPendingLine()`. It appends a `PurchaseRow` (kind from
-  `item.isPack`, `totalCostText` = the formatted `lineTotalCents`), writes
-  `pendingLine.mode` back to `costEntryMode`, and clears `pendingLine`.
+- **Add** `updatePendingLine(quantityText:amountText:mode:)`, in patch form
+  like `updateRow`. A mode change also sets `costEntryMode`.
+- **Add** `commitPendingLine() -> Bool`. It appends `pendingLine.makeRow()`
+  (kind from `item.isPack`, `totalCostText` = `lineTotalCents` via
+  `Money.formatCentsForEditing`) and clears `pendingLine`. It returns false
+  and changes nothing while the line is incomplete.
 - **Add** `cancelPendingLine()`. It clears `pendingLine` and calls
   `resolver.dismissPendingScan()`.
 - **Add** `existingLine(for item: CatalogItem) -> PurchaseRow?`. It returns
@@ -147,8 +154,8 @@ display only.
 
 - **`PurchaseLineSheet` (new)** owns the sheet's `NavigationStack`. Its root
   is either `BarcodeResolutionFlow` (Scan) or the name search (Add manually,
-  moved from `AddCatalogItemSheet`). One `navigationDestination` on
-  `pendingLine` pushes `LineEntryView`. Add calls `commitPendingLine()` and
+  moved from `AddCatalogItemSheet`). While `pendingLine` is set, it swaps
+  `LineEntryView` in at the root with a push transition. Add calls `commitPendingLine()` and
   dismisses. Cancel calls `cancelPendingLine()` and dismisses, and so does
   swipe-down via `onDismiss`.
 - **`LineEntryView` (new):** the Entry screen as described above.
@@ -156,7 +163,7 @@ display only.
   and the confirmation card and item-count badge. Refusal messages over the
   camera stay. When `model.isBuildingCase` is set, it shows
   `CaseContentsView`.
-- **`CaseContentsView`:** Done runs `createPack`. On success the resolver
+- **`CaseContentsView`:** Done becomes Next and runs `createPack`. On success the resolver
   reports, `pendingLine` is set, and the sheet pushes Entry. The doc comment
   about draft rows is rewritten.
 - **`PurchaseLogView`:** one sheet instead of two, opened in Scan or Search

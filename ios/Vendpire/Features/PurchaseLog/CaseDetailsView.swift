@@ -1,9 +1,8 @@
 import SwiftData
 import SwiftUI
 
-/// A finished case on the purchase, read-only: what one case holds, and how
-/// this line's cost will split across those products when the server expands
-/// it. Drafts go to `CaseContentsView` instead, which edits.
+/// A case on the purchase, read-only: what one case holds, and how this
+/// line's cost will split across those products when the server expands it.
 struct CaseDetailsView: View {
     let model: PurchaseLogModel
     let rowId: UUID

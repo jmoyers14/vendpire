@@ -1,21 +1,15 @@
 import SwiftData
 import SwiftUI
 
-/// Camera until a code needs a human, then the question. Both levels of the
-/// flow present this, which is why the switch lives here rather than in the
+/// Camera until a code needs a human, then the question — or, once the
+/// operator says it's a case, that case's contents. Both levels of the flow
+/// present this, which is why the switch lives here rather than in the
 /// purchase screen that used to own it.
 struct BarcodeResolutionFlow: View {
     let model: BarcodeResolutionModel
     /// Skip the camera and open straight on the create form — the inner
     /// editor's "this bag has no barcode at all" door.
     var startsBlank = false
-    /// What the last scan put on the purchase. Nil one level down, where the
-    /// contents list is already on screen doing the same job.
-    var confirmation: ScanConfirmation?
-    /// Lines so far — cumulative proof the scanner is working, which a card
-    /// showing only the most recent scan can't give on its own.
-    var itemCount: Int?
-    var onUndo: (() -> Void)?
 
     @Environment(\.modelContext) private var context
 
@@ -25,12 +19,13 @@ struct BarcodeResolutionFlow: View {
         Group {
             if startsBlank {
                 BarcodeResolutionSheet(model: model, initialMode: .create)
+            } else if model.isBuildingCase {
+                CaseContentsView(resolver: model)
             } else if model.pendingScan != nil {
                 BarcodeResolutionSheet(model: model)
             } else {
                 BarcodeScannerView(onScan: { code in model.resolve(code, context: context) })
-                    .overlay(alignment: .top) { itemCountBadge }
-                    .overlay(alignment: .bottom) { scanFeedback }
+                    .overlay(alignment: .bottom) { scanRefusal }
                     // Pinned: this branch sets no title, and `.automatic`
                     // leaves a blank large-title band over the camera.
                     .navigationBarTitleDisplayMode(.inline)
@@ -44,10 +39,10 @@ struct BarcodeResolutionFlow: View {
         }
     }
 
-    /// A refusal outranks a confirmation: it is the one that needs acting on,
-    /// and the scan it refused put nothing on the purchase to report.
+    /// A refused read — garbage, or a case one level down — said over the
+    /// camera, which keeps scanning.
     @ViewBuilder
-    private var scanFeedback: some View {
+    private var scanRefusal: some View {
         if let message = model.errorMessage {
             Text(message)
                 .font(.footnote)
@@ -56,64 +51,6 @@ struct BarcodeResolutionFlow: View {
                 .background(Color.error.opacity(0.9), in: RoundedRectangle(cornerRadius: 8))
                 .foregroundStyle(.white)
                 .padding()
-        } else if let confirmation {
-            confirmationCard(confirmation)
-        }
-    }
-
-    /// Stays up until the next scan replaces it. Undo is here rather than a
-    /// confirm step before the add, because confirming costs a tap on every
-    /// one of thirty items and undoing costs one on the rare mistake.
-    private func confirmationCard(_ confirmation: ScanConfirmation) -> some View {
-        HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 8) {
-                    KindBadge(isPack: confirmation.isPack)
-                    Text(confirmation.name)
-                        .font(.subheadline)
-                        .lineLimit(1)
-                }
-                Text(detail(confirmation))
-                    .font(.caption)
-                    .foregroundStyle(.secondaryText)
-            }
-
-            Spacer(minLength: 0)
-
-            if let onUndo {
-                Button("Undo", action: onUndo)
-                    .font(.subheadline.weight(.semibold))
-                    .buttonStyle(.borderless)
-            }
-        }
-        .padding(12)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
-        .padding()
-        .transition(.move(edge: .bottom).combined(with: .opacity))
-        .animation(.snappy, value: confirmation.id)
-    }
-
-    /// The count, not just the name: a rescan bumps an existing row, and that
-    /// is the mistake worth catching early. A case commits before it has any
-    /// contents, so it reports what it still owes instead.
-    private func detail(_ confirmation: ScanConfirmation) -> String {
-        switch confirmation.effect {
-        case .added, .incremented:
-            return "\(confirmation.quantity) × on this purchase"
-        case .caseStarted:
-            return "On the purchase · still needs its contents"
-        }
-    }
-
-    @ViewBuilder
-    private var itemCountBadge: some View {
-        if let itemCount, itemCount > 0 {
-            Text(itemCount == 1 ? "1 item" : "\(itemCount) items")
-                .font(.caption.weight(.semibold))
-                .padding(.horizontal, 10)
-                .padding(.vertical, 5)
-                .background(.regularMaterial, in: Capsule())
-                .padding(.top, 8)
         }
     }
 }
@@ -375,7 +312,7 @@ struct BarcodeResolutionSheet: View {
                     if isWorking {
                         ProgressView()
                     } else {
-                        Text(model.allowsPacks ? "Add to purchase" : "Add to the case")
+                        Text(model.allowsPacks ? "Next" : "Add to the case")
                     }
                 }
                 .disabled(isWorking)

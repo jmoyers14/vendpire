@@ -44,8 +44,8 @@ private enum PurchasePreviewData {
 
     private static func addRow(to model: PurchaseLogModel, _ item: CatalogItem, quantity: String, cost: String) {
         model.add(item)
-        guard let row = model.rows.last else { return }
-        model.updateRow(id: row.id, quantityText: quantity, totalCostText: cost)
+        model.updatePendingLine(quantityText: quantity, amountText: cost)
+        model.commitPendingLine()
     }
 }
 
@@ -89,6 +89,15 @@ private struct PurchasePreview<Content: View>: View {
 #Preview("Empty") {
     PurchasePreview {
         PurchaseLogView(model: PurchasePreviewData.makeModel(isFilled: false))
+    }
+}
+
+#Preview("Entry") {
+    let model = PurchasePreviewData.makeModel(isFilled: true)
+    let _ = model.add(CatalogItem(kind: .pack(units: 35), recordId: "k-coke", name: "Coke Zero 35pk", barcode: nil))
+    let _ = model.updatePendingLine(quantityText: "2", amountText: "18.99", mode: .each)
+    PurchasePreview {
+        PurchaseLineSheet(model: model, start: .search)
     }
 }
 

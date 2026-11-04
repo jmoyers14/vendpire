@@ -1,17 +1,16 @@
 import SwiftData
 import SwiftUI
 
-/// Filling in what's inside a case already on the purchase as a draft row,
-/// reached by tapping that row until `createPack` finally runs. Leaving early
-/// is free: the draft stays as it was, still flagged on the purchase screen.
+/// Filling in what's inside a newly scanned case, in the purchase sheet right
+/// after "It's a case of items". Next creates the case, which resolves it and
+/// opens Entry for it; Cancel drops it.
 ///
-/// `resolver` is the one `commitPendingCase()` detached — it already knows the
+/// `resolver` is the one that parked the scan, so it already knows the
 /// scanned code and the outside guess.
 struct CaseContentsView: View {
     let resolver: BarcodeResolutionModel
 
     @Environment(\.modelContext) private var context
-    @Environment(\.dismiss) private var dismiss
 
     @State private var packName = ""
     @State private var packNameTouched = false
@@ -54,7 +53,7 @@ struct CaseContentsView: View {
                     if isWorking {
                         ProgressView()
                     } else {
-                        Text("Done")
+                        Text("Next")
                     }
                 }
                 .disabled(isWorking)
@@ -178,15 +177,13 @@ struct CaseContentsView: View {
         packNameTouched ? packName : suggestedPackName
     }
 
-    /// Success pops back to the purchase row, which `PurchaseLogModel`
-    /// has already turned into a real `.pack` by the time `createPack`'s
-    /// `onResolve` fires — a failure leaves this screen up to retry.
+    /// Success needs nothing here: the case reports through `onResolve` and
+    /// the sheet swaps to Entry. A failure leaves this screen up to retry.
     private func submit() {
         isWorking = true
         Task {
             await resolver.createPack(name: shownPackName, context: context)
             isWorking = false
-            if resolver.errorMessage == nil { dismiss() }
         }
     }
 }
