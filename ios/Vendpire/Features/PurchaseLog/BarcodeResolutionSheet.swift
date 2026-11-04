@@ -53,7 +53,7 @@ struct BarcodeResolutionFlow: View {
                 .font(.footnote)
                 .multilineTextAlignment(.center)
                 .padding(10)
-                .background(.red.opacity(0.9), in: RoundedRectangle(cornerRadius: 8))
+                .background(Color.error.opacity(0.9), in: RoundedRectangle(cornerRadius: 8))
                 .foregroundStyle(.white)
                 .padding()
         } else if let confirmation {
@@ -75,7 +75,7 @@ struct BarcodeResolutionFlow: View {
                 }
                 Text(detail(confirmation))
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.secondaryText)
             }
 
             Spacer(minLength: 0)
@@ -179,6 +179,7 @@ struct BarcodeResolutionSheet: View {
                 chooseSection
             }
         }
+        .lagoonBackground()
         .navigationTitle(model.pendingScan == nil ? "New product" : "Barcode not found")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear(perform: fillUntouchedFields)
@@ -250,7 +251,7 @@ struct BarcodeResolutionSheet: View {
             }
             Text("From Open Food Facts — not your catalog.")
                 .font(.footnote)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.secondaryText)
         }
     }
 
@@ -300,6 +301,7 @@ struct BarcodeResolutionSheet: View {
                 Button("Create it instead") { jumpToCreate() }
             }
         }
+        .lagoonBackground()
         .navigationTitle("Search your catalog")
         .navigationBarTitleDisplayMode(.inline)
     }
@@ -342,6 +344,7 @@ struct BarcodeResolutionSheet: View {
                 }
             }
         }
+        .lagoonBackground()
         .navigationTitle("Item, or a case?")
         .navigationBarTitleDisplayMode(.inline)
         // On the screen it pushes from, so the form lands above this question
@@ -378,6 +381,7 @@ struct BarcodeResolutionSheet: View {
                 .disabled(isWorking)
             }
         }
+        .lagoonBackground()
         .navigationTitle("New product")
         .navigationBarTitleDisplayMode(.inline)
     }

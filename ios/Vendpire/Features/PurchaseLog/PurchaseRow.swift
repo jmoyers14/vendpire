@@ -50,3 +50,37 @@ nonisolated struct PurchaseRow: Equatable, Identifiable, Sendable {
 
     var isPack: Bool { kind == .pack || kind == .packDraft }
 }
+
+/// A case row's contents at a glance: "35 units", and "$0.54 / unit" when the
+/// case holds one product and its cost is typed.
+nonisolated struct CaseSummary: Equatable, Sendable {
+    let unitsPerCase: Int
+    let unitCostCents: Int?
+}
+
+/// One product inside a case, as case details lists it.
+nonisolated struct CaseContent: Equatable, Sendable {
+    let name: String
+    let unitsPerCase: Int
+}
+
+/// Every text field on the purchase screen, for the keyboard's up/down arrows.
+nonisolated enum PurchaseField: Hashable, Sendable {
+    case quantity(rowId: UUID)
+    case totalCost(rowId: UUID)
+
+    var rowId: UUID {
+        switch self {
+        case .quantity(let rowId), .totalCost(let rowId): rowId
+        }
+    }
+}
+
+/// The footer's verdict on the entered lines against the receipt total.
+nonisolated enum ReceiptStatus: Equatable, Sendable {
+    case matches
+    /// The receipt says more was spent than the lines account for.
+    case unaccounted(cents: Int)
+    /// The lines add up to more than the receipt.
+    case overReceipt(cents: Int)
+}

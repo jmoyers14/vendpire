@@ -69,6 +69,7 @@ struct RemovalSheet: View {
                     reasonSection(for: .returnedToStock)
                 }
             }
+            .lagoonBackground()
             .navigationTitle("Pulled from \(slotCode)")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

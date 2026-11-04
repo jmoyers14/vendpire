@@ -37,7 +37,7 @@ nonisolated enum CatalogSearch {
 
     static func item(for pack: StoredPack) -> CatalogItem {
         CatalogItem(
-            kind: .pack(units: pack.contents.reduce(0) { $0 + $1.units }),
+            kind: .pack(units: pack.unitsPerCase),
             recordId: pack.id,
             name: pack.name,
             barcode: pack.barcodes.first

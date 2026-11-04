@@ -42,6 +42,7 @@ struct OutboxReviewView: View {
                 list(rows)
             }
         }
+        .lagoonBackground()
         .navigationTitle("Waiting to sync")
         .navigationBarTitleDisplayMode(.inline)
     }
@@ -92,7 +93,7 @@ struct OutboxReviewView: View {
                             rowHeader(row)
                             Text(row.detail)
                                 .font(.caption)
-                                .foregroundStyle(Color.secondary)
+                                .foregroundStyle(Color.secondaryText)
                         }
                     }
                 }
@@ -106,7 +107,7 @@ struct OutboxReviewView: View {
             Spacer()
             Text(row.countedAt.formatted(date: .abbreviated, time: .shortened))
                 .font(.caption)
-                .foregroundStyle(Color.secondary)
+                .foregroundStyle(Color.secondaryText)
         }
     }
 

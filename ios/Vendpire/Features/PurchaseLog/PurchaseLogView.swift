@@ -15,55 +15,80 @@ struct PurchaseLogView: View {
     @Environment(MirrorRefresher.self) private var refresher
     @Environment(\.vendpireAPI) private var api
 
-    /// Owned by `PurchaseSetupView`. `@Bindable` rather than a plain `let`
-    /// because the receipt and notes fields still bind straight to it.
-    @Bindable var model: PurchaseLogModel
+    /// Owned by `PurchaseSetupView`, which also takes the receipt total and
+    /// notes before this screen opens.
+    let model: PurchaseLogModel
 
     @State private var isScannerSheetPresented = false
     @State private var isAddSheetPresented = false
+    /// The `recordId` of the draft case whose contents are open.
+    @State private var draftShowingContents: String?
+    /// The row id of the finished case whose details are open.
+    @State private var caseShowingDetails: UUID?
+    /// Shared by every field, so the keyboard's arrows can walk between them.
+    @FocusState private var focusedField: PurchaseField?
 
     var body: some View {
-        Form {
-            Section {
-                scanButton
-                Button("Add without scanning") { isAddSheetPresented = true }
-            }
-
-            if !model.rows.isEmpty {
-                Section("Items") {
-                    ForEach(model.rows) { row in
-                        rowView(row)
-                    }
-                }
-            }
-
-            Section("Receipt") {
-                TextField("Receipt total $", text: $model.receiptTotalText)
-                    .keyboardType(.decimalPad)
-                Text("Entered: \(Money.formatCents(model.enteredCents))")
-                    .foregroundStyle(.secondary)
-                varianceBadge
-            }
-
-            Section {
-                TextField("Notes", text: $model.notes)
-            }
-
-            if let errorMessage = model.errorMessage {
+        // A List rather than a ScrollView: its sections already read as
+        // Lagoon cards, and swipe-to-delete only exists inside one.
+        ScrollViewReader { proxy in
+            List {
                 Section {
-                    Text(errorMessage)
-                        .foregroundStyle(.red)
+                    HStack(spacing: 12) {
+                        scanButton
+                        Button {
+                            isAddSheetPresented = true
+                        } label: {
+                            Label("Add manually", systemImage: "plus")
+                        }
+                        .buttonStyle(.softPill)
+                    }
+                    .listRowBackground(Color.clear)
+                    .listRowInsets(EdgeInsets())
+                }
+
+                Section {
+                    if model.rows.isEmpty {
+                        emptyItems
+                    } else {
+                        ForEach(model.rows) { row in
+                            rowView(row)
+                        }
+                    }
+                } header: {
+                    itemsHeader
                 }
             }
-
-            Section {
-                Button {
-                    if model.save(context: context) { dismiss() }
-                } label: {
-                    Text("Save Purchase")
-                        .frame(maxWidth: .infinity)
+            // The arrows can land on a field below the fold.
+            .onChange(of: focusedField) { _, field in
+                guard let field else { return }
+                withAnimation {
+                    proxy.scrollTo(field.rowId)
                 }
-                .buttonStyle(.borderedProminent)
+            }
+        }
+        .listStyle(.insetGrouped)
+        .lagoonBackground()
+        // Number pads have no dismiss key, and Save hides behind the keyboard.
+        .scrollDismissesKeyboard(.interactively)
+        .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                arrowButton(to: focusedField.flatMap { model.field(before: $0) },
+                            systemImage: "chevron.up", label: "Previous field")
+                arrowButton(to: focusedField.flatMap { model.field(after: $0) },
+                            systemImage: "chevron.down", label: "Next field")
+
+                Spacer()
+
+                Button("Done") { focusedField = nil }
+                    .fontWeight(.bold)
+            }
+        }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            // An inset rides up on top of the keyboard, where it would cover
+            // the field being typed in.
+            if focusedField == nil {
+                footer
             }
         }
         .navigationTitle(purchaseSummary)
@@ -109,6 +134,25 @@ struct PurchaseLogView: View {
         .sheet(isPresented: $isAddSheetPresented) {
             AddCatalogItemSheet(model: model)
         }
+        .navigationDestination(item: $draftShowingContents) { draftId in
+            if let resolver = model.packDrafts[draftId] {
+                CaseContentsView(resolver: resolver)
+            }
+        }
+        .navigationDestination(item: $caseShowingDetails) { rowId in
+            CaseDetailsView(model: model, rowId: rowId)
+        }
+    }
+
+    /// A keyboard arrow, disabled at either end of the fields.
+    private func arrowButton(to target: PurchaseField?, systemImage: String, label: String) -> some View {
+        Button {
+            focusedField = target
+        } label: {
+            Image(systemName: systemImage)
+        }
+        .disabled(target == nil)
+        .accessibilityLabel(label)
     }
 
     /// "Costco · Oct 30" — a plain title, not a button: Back is the one way to
@@ -120,53 +164,113 @@ struct PurchaseLogView: View {
 
     // MARK: - Scan
 
-    @ViewBuilder
+    /// Disabled without a camera — only the Simulator, in practice.
     private var scanButton: some View {
-        if BarcodeScannerView.isSupported {
-            Button {
-                isScannerSheetPresented = true
-            } label: {
-                Label("Scan", systemImage: "barcode.viewfinder")
-            }
-        } else {
-            Button("Scanning needs a device camera") {}
-                .disabled(true)
+        Button {
+            isScannerSheetPresented = true
+        } label: {
+            Label("Scan", systemImage: "barcode.viewfinder")
         }
+        .buttonStyle(.primaryPill)
+        .disabled(!BarcodeScannerView.isSupported)
+        .accessibilityHint(BarcodeScannerView.isSupported ? "" : "Scanning needs a device camera")
+    }
+
+    // MARK: - Sections
+
+    private var itemsHeader: some View {
+        HStack(alignment: .firstTextBaseline) {
+            SectionTitle("Items")
+            Spacer()
+            if !model.rows.isEmpty {
+                Text("^[\(model.rows.count) product](inflect: true)")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondaryText)
+                    .textCase(nil)
+            }
+        }
+    }
+
+    private var emptyItems: some View {
+        VStack(spacing: 8) {
+            Image(systemName: "barcode.viewfinder")
+                .font(.title2)
+                .foregroundStyle(.bodyText)
+                .frame(width: 52, height: 52)
+                .background(.divider, in: Circle())
+                .padding(.bottom, 4)
+            Text("Add what you bought")
+                .font(.headline)
+                .foregroundStyle(.heading)
+            Text("Scan each product's barcode, or add it by name. You'll enter quantity and cost for each one.")
+                .font(.body)
+                .foregroundStyle(.bodyText)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 24)
     }
 
     // MARK: - Rows
 
     private func rowView(_ row: PurchaseRow) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            rowNameLine(row)
+        let summary = model.caseSummary(for: row, context: context)
 
-            HStack(spacing: 12) {
-                TextField(
-                    row.isPack ? "Cases" : "Units",
-                    text: Binding(
-                        get: { row.quantityText },
-                        set: { model.updateRow(id: row.id, quantityText: $0) }
+        return VStack(alignment: .leading, spacing: 0) {
+            badgeLine(row, summary: summary)
+
+            Text(row.name)
+                .font(.headline)
+                .foregroundStyle(.heading)
+                .padding(.top, 8)
+                .padding(.bottom, 12)
+
+            HStack(alignment: .top, spacing: 12) {
+                VStack(alignment: .leading, spacing: 4) {
+                    BoxedField(
+                        label: "Qty",
+                        accessibilityLabel: "Quantity of \(row.name)",
+                        text: Binding(
+                            get: { row.quantityText },
+                            set: { model.updateRow(id: row.id, quantityText: $0) }
+                        ),
+                        keyboard: .numberPad,
+                        focus: $focusedField,
+                        field: .quantity(rowId: row.id)
                     )
-                )
-                .keyboardType(.numberPad)
-                .frame(width: 70)
+                    .frame(width: 116)
+                    Text(quantityNoun(row))
+                        .font(.subheadline)
+                        .foregroundStyle(.secondaryText)
+                        .padding(.leading, 2)
+                }
 
-                TextField(
-                    "Total cost $",
-                    text: Binding(
-                        get: { row.totalCostText },
-                        set: { model.updateRow(id: row.id, totalCostText: $0) }
+                Spacer(minLength: 0)
+
+                VStack(alignment: .trailing, spacing: 4) {
+                    BoxedField(
+                        label: "$",
+                        accessibilityLabel: "Total cost for \(row.name)",
+                        text: Binding(
+                            get: { row.totalCostText },
+                            set: { model.updateRow(id: row.id, totalCostText: $0) }
+                        ),
+                        placeholder: "0.00",
+                        focus: $focusedField,
+                        field: .totalCost(rowId: row.id)
                     )
-                )
-                .keyboardType(.decimalPad)
-            }
-
-            if let preview = model.splitPreview(for: row, context: context) {
-                Text(splitPreviewText(preview))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .frame(width: 132)
+                    if let unitCostCents = summary?.unitCostCents {
+                        Text("\(Money.formatCents(unitCostCents)) / unit")
+                            .font(.footnote.monospacedDigit())
+                            .foregroundStyle(.secondaryText)
+                            .padding(.trailing, 2)
+                    }
+                }
             }
         }
+        .padding(.vertical, 8)
+        .listRowBackground(focusedField?.rowId == row.id ? Color.actionSoft : Color.card)
         .swipeActions {
             Button(role: .destructive) {
                 model.removeRow(id: row.id)
@@ -176,51 +280,127 @@ struct PurchaseLogView: View {
         }
     }
 
-    /// A `.packDraft` row is the one kind that navigates: tapping its name
-    /// reopens `CaseContentsView` until the case is finally created.
-    @ViewBuilder
-    private func rowNameLine(_ row: PurchaseRow) -> some View {
-        if row.kind == .packDraft, let draftResolver = model.packDrafts[row.recordId] {
-            NavigationLink {
-                CaseContentsView(resolver: draftResolver)
-            } label: {
-                HStack(spacing: 8) {
-                    KindBadge(isPack: true)
-                    Text(row.name)
-                    Pill(text: "Add contents", tint: .orange)
+    /// Kind, then what's in a case: its unit count, or — for a case still being
+    /// created — the way back into `CaseContentsView`.
+    private func badgeLine(_ row: PurchaseRow, summary: CaseSummary?) -> some View {
+        let isDraft = row.kind == .packDraft
+
+        return HStack(spacing: 8) {
+            KindBadge(isPack: row.isPack)
+
+            if isDraft {
+                Button {
+                    openCase(row)
+                } label: {
+                    Pill("Add contents", tone: .warning)
                 }
+                .buttonStyle(.borderless)
+            } else if let summary {
+                Text("^[\(summary.unitsPerCase) unit](inflect: true)")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondaryText)
             }
+
+            Spacer(minLength: 0)
+
+            if isDraft || summary != nil {
+                Button {
+                    openCase(row)
+                } label: {
+                    Image(systemName: "chevron.right")
+                        .font(.footnote.bold())
+                        .foregroundStyle(.fieldBorder)
+                        .frame(width: 32, height: 32)
+                }
+                .buttonStyle(.borderless)
+                .accessibilityLabel(isDraft ? "Case contents" : "Case details")
+            }
+        }
+        .frame(minHeight: 26)
+    }
+
+    /// A draft opens its contents editor; a finished case, its details.
+    private func openCase(_ row: PurchaseRow) {
+        if row.kind == .packDraft {
+            draftShowingContents = row.recordId
         } else {
-            HStack(spacing: 8) {
-                KindBadge(isPack: row.isPack)
-                Text(row.name)
-            }
+            caseShowingDetails = row.id
         }
     }
 
-    /// "↳ saves as 20 × Lays ($25.32) · 10 × Fritos ($12.66)" — what the pack
-    /// row's cost becomes once the server expands it, previewed with the same
-    /// allocator that will actually run.
-    private func splitPreviewText(_ preview: [(name: String, units: Int, cents: Int)]) -> String {
-        let parts = preview.map { "\($0.units) × \($0.name) (\(Money.formatCents($0.cents)))" }
-        return "↳ saves as \(parts.joined(separator: " · "))"
+    /// "case" under a quantity of one, "cases" under anything else.
+    private func quantityNoun(_ row: PurchaseRow) -> String {
+        let isSingular = Int(row.quantityText.trimmed) == 1
+        switch (row.isPack, isSingular) {
+        case (true, true): return "case"
+        case (true, false): return "cases"
+        case (false, true): return "item"
+        case (false, false): return "items"
+        }
     }
 
-    // MARK: - Receipt reconciliation
+    // MARK: - Footer
+
+    /// Pinned under the list: the totals the operator reconciles against the
+    /// paper receipt, any save error, and Save. Empty, it holds only Save.
+    private var footer: some View {
+        VStack(spacing: 12) {
+            if let errorMessage = model.errorMessage {
+                Text(errorMessage)
+                    .font(.subheadline)
+                    .foregroundStyle(.error)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
+            if !model.rows.isEmpty {
+                HStack(spacing: 24) {
+                    footerTotal("Items", cents: model.enteredCents)
+                    if let receiptTotalCents = model.receiptTotalCents {
+                        footerTotal("Receipt", cents: receiptTotalCents)
+                    }
+                    Spacer(minLength: 0)
+                    receiptStatusPill
+                }
+            }
+
+            Button("Save purchase") {
+                if model.save(context: context) { dismiss() }
+            }
+            .buttonStyle(.primaryPill)
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 12)
+        .padding(.bottom, 8)
+        .background(.card)
+        .overlay(alignment: .top) {
+            Rectangle()
+                .fill(.line)
+                .frame(height: 1)
+        }
+    }
+
+    private func footerTotal(_ label: String, cents: Int) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text(label)
+                .font(.subheadline)
+                .foregroundStyle(.secondaryText)
+            Text(Money.formatCents(cents))
+                .font(.title3.bold().monospacedDigit())
+                .foregroundStyle(.heading)
+        }
+    }
 
     @ViewBuilder
-    private var varianceBadge: some View {
-        if let variance = model.varianceCents {
-            if variance == 0 {
-                Label("Matches receipt", systemImage: "checkmark.circle.fill")
-                    .foregroundStyle(.green)
-            } else if variance > 0 {
-                Label("Over by \(Money.formatCents(variance))", systemImage: "arrow.up.circle.fill")
-                    .foregroundStyle(.orange)
-            } else {
-                Label("Under by \(Money.formatCents(-variance))", systemImage: "arrow.down.circle.fill")
-                    .foregroundStyle(.red)
-            }
+    private var receiptStatusPill: some View {
+        switch model.receiptStatus {
+        case .matches:
+            Pill("Matches", tone: .success)
+        case .unaccounted(let cents):
+            Pill("\(Money.formatCents(cents)) unaccounted", tone: .warning)
+        case .overReceipt(let cents):
+            Pill("\(Money.formatCents(cents)) over receipt", tone: .warning)
+        case nil:
+            EmptyView()
         }
     }
 }
@@ -244,6 +424,7 @@ private struct AddCatalogItemSheet: View {
                     matches
                 }
             }
+            .lagoonBackground()
             .navigationTitle("Add an item")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

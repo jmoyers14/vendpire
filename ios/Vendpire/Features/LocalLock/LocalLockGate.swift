@@ -42,7 +42,7 @@ private struct LockedView: View {
         VStack(spacing: 16) {
             Image(systemName: "lock.fill")
                 .font(.system(size: 44))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.secondaryText)
 
             Text("Vendpire is locked")
                 .font(.headline)
@@ -55,6 +55,6 @@ private struct LockedView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(.background)
+        .background(.appBackground)
     }
 }

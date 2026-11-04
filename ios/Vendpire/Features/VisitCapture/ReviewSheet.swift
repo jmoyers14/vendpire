@@ -47,6 +47,7 @@ struct ReviewSheet: View {
                     }
                 }
             }
+            .lagoonBackground()
             .navigationTitle("Review")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -73,13 +74,13 @@ struct ReviewSheet: View {
                     HStack(spacing: 10) {
                         Text(gap.slotCode)
                             .font(.system(.caption, design: .monospaced))
-                            .foregroundStyle(Color.secondary)
+                            .foregroundStyle(Color.secondaryText)
                         VStack(alignment: .leading, spacing: 1) {
                             Text(productName(gap.productId))
                                 .foregroundStyle(Color.primary)
                             Text(gap.lastLevel.map(lastLevelText) ?? "never counted")
                                 .font(.caption)
-                                .foregroundStyle(Color.secondary)
+                                .foregroundStyle(Color.secondaryText)
                         }
                         Spacer()
                         Image(systemName: "chevron.backward")
@@ -141,12 +142,12 @@ struct ReviewSheet: View {
         HStack(spacing: 10) {
             Text(slotCode)
                 .font(.system(.caption, design: .monospaced))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.secondaryText)
             Text(productName(productId))
             Spacer()
             Text(detail)
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.secondaryText)
         }
     }
 }

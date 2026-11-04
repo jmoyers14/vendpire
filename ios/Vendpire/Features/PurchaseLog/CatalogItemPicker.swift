@@ -1,33 +1,5 @@
 import SwiftUI
 
-
-/// A small tinted capsule of text — the shape every status marker in this
-/// flow uses.
-struct Pill: View {
-    let text: String
-    let tint: Color
-
-    var body: some View {
-        Text(text)
-            .font(.caption2)
-            .fontWeight(.bold)
-            .padding(.horizontal, 6)
-            .padding(.vertical, 2)
-            .background(tint.opacity(0.15), in: Capsule())
-            .foregroundStyle(tint)
-    }
-}
-
-/// The "ITEM" / "CASE" pill shown anywhere a `CatalogItem` or `PurchaseRow`
-/// needs to say which kind of record it is.
-struct KindBadge: View {
-    let isPack: Bool
-
-    var body: some View {
-        Pill(text: isPack ? "CASE" : "ITEM", tint: isPack ? .accentColor : .secondary)
-    }
-}
-
 /// The scanned code, shown above whatever question is being asked about it.
 struct ScannedCodeSection: View {
     let model: BarcodeResolutionModel
@@ -37,7 +9,7 @@ struct ScannedCodeSection: View {
             Section {
                 Text(scan.gtin14)
                     .font(.system(.body, design: .monospaced))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.secondaryText)
             }
         }
     }
@@ -54,7 +26,7 @@ struct ResolverErrorSection: View {
         if let message = model.errorMessage {
             Section {
                 Text(message)
-                    .foregroundStyle(.red)
+                    .foregroundStyle(.error)
                 if let onUseExisting, model.errorStatusCode == 409 {
                     Button("Use existing instead", action: onUseExisting)
                 }
@@ -88,7 +60,7 @@ struct CatalogItemMatches: View {
     var body: some View {
         if items.isEmpty {
             Text(emptyText)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.secondaryText)
         } else {
             ForEach(items) { item in
                 Button {
@@ -109,7 +81,7 @@ struct CatalogItemMatches: View {
                     .foregroundStyle(.primary)
                 Text(detail(item))
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.secondaryText)
             }
             Spacer()
         }

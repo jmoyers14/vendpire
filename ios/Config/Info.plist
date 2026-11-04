@@ -9,11 +9,16 @@
 	<string>$(CLERK_PUBLISHABLE_KEY)</string>
 	<key>VendpireAPIBaseURL</key>
 	<string>$(VENDPIRE_API_BASE_URL)</string>
+	<!-- Lagoon has no dark palette yet. -->
+	<key>UIUserInterfaceStyle</key>
+	<string>Light</string>
 	<key>NSCameraUsageDescription</key>
 	<string>The camera reads barcodes while you log a purchase.</string>
 	<!-- Debug field-testing talks cleartext HTTP to the Mac's .local name on
 	     the same Wi-Fi; ATS exempts only loopback by default. Local traffic
 	     only — remote URLs stay HTTPS-enforced. -->
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Debug builds talk to the Vendpire server on your Mac.</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsLocalNetworking</key>

@@ -76,15 +76,21 @@ final class PurchaseLogModel {
         rows.reduce(0) { total, row in total + (Money.parseDollarsToCents(row.totalCostText) ?? 0) }
     }
 
-    /// Entered minus receipt: positive means the lines add up to more than the
-    /// receipt says. Nil without a parseable total — there is nothing to
-    /// reconcile against yet.
-    var varianceCents: Int? {
-        guard !receiptTotalText.trimmed.isEmpty,
-              let receiptCents = Money.parseDollarsToCents(receiptTotalText)
-        else { return nil }
+    /// Nil while blank or unparseable — blank is not $0.00.
+    var receiptTotalCents: Int? {
+        guard !receiptTotalText.trimmed.isEmpty else { return nil }
+        return Money.parseDollarsToCents(receiptTotalText)
+    }
 
-        return enteredCents - receiptCents
+    /// How the entered lines compare to the receipt. Nil without a receipt
+    /// total — there is nothing to reconcile against yet.
+    var receiptStatus: ReceiptStatus? {
+        guard let receiptTotalCents else { return nil }
+
+        let differenceCents = enteredCents - receiptTotalCents
+        if differenceCents > 0 { return .overReceipt(cents: differenceCents) }
+        if differenceCents < 0 { return .unaccounted(cents: -differenceCents) }
+        return .matches
     }
 
     /// How a pack row's cost will be split across its contents, for display
@@ -98,22 +104,89 @@ final class PurchaseLogModel {
         for row: PurchaseRow,
         context: ModelContext
     ) -> [(name: String, units: Int, cents: Int)]? {
-        guard row.kind == .pack,
-              let quantity = Int(row.quantityText.trimmed), quantity >= 1,
-              let totalCostCents = Money.parseDollarsToCents(row.totalCostText),
-              let pack = catalog.packs(in: context).first(where: { $0.id == row.recordId })
+        guard let (quantity, totalCostCents) = completeLine(row),
+              let contents = caseContents(for: row, context: context)
         else { return nil }
 
-        let weights = pack.contents.map { $0.units * quantity }
+        let weights = contents.map { $0.unitsPerCase * quantity }
         let shares = Allocate.proportionally(totalCents: totalCostCents, weights: weights)
+        return contents.enumerated().map { index, content in
+            (name: content.name, units: weights[index], cents: shares[index])
+        }
+    }
+
+    /// Top to bottom, the way the screen reads: each row's quantity then cost.
+    var fieldOrder: [PurchaseField] {
+        rows.flatMap { [PurchaseField.quantity(rowId: $0.id), .totalCost(rowId: $0.id)] }
+    }
+
+    func field(after field: PurchaseField) -> PurchaseField? {
+        neighbor(of: field, offset: 1)
+    }
+
+    func field(before field: PurchaseField) -> PurchaseField? {
+        neighbor(of: field, offset: -1)
+    }
+
+    private func neighbor(of field: PurchaseField, offset: Int) -> PurchaseField? {
+        let order = fieldOrder
+        guard let index = order.firstIndex(of: field), order.indices.contains(index + offset)
+        else { return nil }
+
+        return order[index + offset]
+    }
+
+    /// What a case row's badge line and hint say. Nil for loose items, drafts,
+    /// and packs the mirror doesn't have.
+    func caseSummary(for row: PurchaseRow, context: ModelContext) -> CaseSummary? {
+        guard let pack = pack(for: row, context: context) else { return nil }
+
+        let unitsPerCase = pack.unitsPerCase
+        return CaseSummary(
+            unitsPerCase: unitsPerCase,
+            unitCostCents: unitCostCents(for: row, unitsPerCase: unitsPerCase, productCount: pack.contents.count)
+        )
+    }
+
+    /// What one of this row's cases holds, by product name. Nil for loose
+    /// items, drafts, and packs the mirror doesn't have.
+    func caseContents(for row: PurchaseRow, context: ModelContext) -> [CaseContent]? {
+        guard let pack = pack(for: row, context: context) else { return nil }
+
         let names = catalog.productNames(in: context)
-        return pack.contents.enumerated().map { index, content in
-            (
+        return pack.contents.map { content in
+            CaseContent(
                 name: names[content.productId] ?? ProductNames.unknown,
-                units: content.units * quantity,
-                cents: shares[index]
+                unitsPerCase: content.units
             )
         }
+    }
+
+    /// Only for a single-product case: an average across a mixed case describes
+    /// none of its products.
+    private func unitCostCents(for row: PurchaseRow, unitsPerCase: Int, productCount: Int) -> Int? {
+        guard productCount == 1, unitsPerCase > 0,
+              let (quantity, totalCostCents) = completeLine(row)
+        else { return nil }
+
+        return Int((Double(totalCostCents) / Double(quantity * unitsPerCase)).rounded())
+    }
+
+    /// The mirror's record for a finished case row. Nil for loose items,
+    /// drafts, and packs the mirror doesn't have.
+    private func pack(for row: PurchaseRow, context: ModelContext) -> StoredPack? {
+        guard row.kind == .pack else { return nil }
+        return catalog.packs(in: context).first { $0.id == row.recordId }
+    }
+
+    /// A row's quantity and cost once both are typed in full — what the live
+    /// hints wait for, so a half-typed value never flashes a wrong number.
+    private func completeLine(_ row: PurchaseRow) -> (quantity: Int, totalCostCents: Int)? {
+        guard let quantity = Int(row.quantityText.trimmed), quantity >= 1,
+              let totalCostCents = Money.parseDollarsToCents(row.totalCostText)
+        else { return nil }
+
+        return (quantity, totalCostCents)
     }
 
     func searchResults(query: String, context: ModelContext) -> [CatalogItem] {
@@ -196,9 +269,7 @@ final class PurchaseLogModel {
             vendor: vendorName,
             lines: lines,
             packLines: packLines,
-            receiptTotalCents: receiptTotalText.trimmed.isEmpty
-                ? nil
-                : Money.parseDollarsToCents(receiptTotalText),
+            receiptTotalCents: receiptTotalCents,
             notes: trimmedNotes.isEmpty ? nil : trimmedNotes,
             clientRequestId: clientRequestId
         )

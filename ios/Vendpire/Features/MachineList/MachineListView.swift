@@ -42,6 +42,7 @@ struct MachineListView: View {
         .navigationDestination(for: StoredMachine.self) { machine in
             VisitCaptureView(machine: machine)
         }
+        .lagoonBackground()
         .navigationTitle(location.name)
         .navigationBarTitleDisplayMode(.inline)
     }
@@ -72,12 +73,12 @@ private struct MachineRow: View {
                 Spacer(minLength: 8)
                 Text(triage.ageText)
                     .font(.footnote)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.secondaryText)
             }
             if let shortFill = triage.shortFillText {
                 Text(shortFill)
                     .font(.footnote)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.secondaryText)
             }
         }
     }

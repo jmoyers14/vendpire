@@ -17,7 +17,7 @@ struct CaptureCell: View {
         VStack(spacing: 2) {
             Text(slotCode)
                 .font(.system(.caption2, design: .monospaced))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.secondaryText)
             Text(countText)
                 .font(.caption)
                 .monospacedDigit()
@@ -41,9 +41,9 @@ struct CaptureCell: View {
     @ViewBuilder
     private var background: some View {
         if isSuspicious {
-            RoundedRectangle(cornerRadius: 8).fill(.orange.opacity(0.18))
+            RoundedRectangle(cornerRadius: 8).fill(.warningFill)
         } else if isCounted {
-            RoundedRectangle(cornerRadius: 8).fill(.green.opacity(0.14))
+            RoundedRectangle(cornerRadius: 8).fill(.successFill)
         } else if isCountable {
             RoundedRectangle(cornerRadius: 8).fill(.quaternary)
         } else {
@@ -75,13 +75,13 @@ struct FieldBox: View {
         VStack(alignment: .leading, spacing: 1) {
             Text(label)
                 .font(.system(size: 10, weight: .medium, design: .monospaced))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.secondaryText)
             Text(value.map(String.init) ?? "—")
                 .font(.title3)
                 .monospacedDigit()
             Text(subtitle ?? " ")
                 .font(.caption2)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.secondaryText)
                 .lineLimit(1)
         }
         .frame(maxWidth: .infinity, alignment: .leading)

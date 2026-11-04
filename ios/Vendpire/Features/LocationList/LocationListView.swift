@@ -46,6 +46,7 @@ struct LocationListView: View {
             .navigationDestination(for: StoredLocation.self) { location in
                 MachineListView(location: location)
             }
+            .lagoonBackground()
             .navigationTitle("Locations")
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
@@ -66,7 +67,7 @@ struct LocationListView: View {
                 if let stalenessText {
                     Text(stalenessText)
                         .font(.footnote)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(.secondaryText)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 8)
                         .background(.bar)
@@ -85,7 +86,7 @@ private struct LocationRow: View {
             if let city = location.address?.city {
                 Text(city)
                     .font(.footnote)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.secondaryText)
             }
         }
     }
