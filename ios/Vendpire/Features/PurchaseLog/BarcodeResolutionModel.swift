@@ -69,12 +69,8 @@ final class BarcodeResolutionModel {
     /// never gate entry.
     private(set) var candidateFetch: Task<Void, Never>?
 
-    /// The operator said the pending scan is a case: the sheet shows its
-    /// contents until `createPack` resolves it.
-    private(set) var isBuildingCase = false
-
-    /// The case being created, once the operator has said it is a case. Only
-    /// ever non-empty on a resolver that allows packs.
+    /// The case being created. Only ever non-empty on a resolver that allows
+    /// packs.
     private(set) var contents: [PackContentDraft] = []
 
     /// Which door the operator took into the inner flow. The two differ only in
@@ -146,22 +142,17 @@ final class BarcodeResolutionModel {
         }
     }
 
-    /// Drops the case in progress too, so a resolved or cancelled scan leaves
-    /// nothing behind for the next one.
     func dismissPendingScan() {
         candidateFetch?.cancel()
         candidateFetch = nil
         pendingScan = nil
-        isBuildingCase = false
-        contents = []
-        endContentResolution()
+        cancelCase()
     }
 
-    /// "It's a case of items": keep the scanned code and the outside guess,
-    /// and collect the contents here until `createPack` reports the case.
-    func commitPendingCase() {
-        guard allowsPacks, pendingScan != nil else { return }
-        isBuildingCase = true
+    /// Drops the case's contents; the scan stays.
+    func cancelCase() {
+        contents = []
+        endContentResolution()
     }
 
     /// The name-ranked list the attach step picks from. Packs are included
@@ -243,7 +234,7 @@ final class BarcodeResolutionModel {
         let typedPrice = priceText.trimmed
         guard let defaultPriceCents = typedPrice.isEmpty ? 0 : Money.parseDollarsToCents(typedPrice)
         else {
-            errorMessage = "Sell price must be a dollar amount (e.g. 1.75), or left blank"
+            errorMessage = "Default price must be a dollar amount (e.g. 1.75), or left blank"
             return
         }
 

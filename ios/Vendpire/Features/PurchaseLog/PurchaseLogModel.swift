@@ -19,12 +19,14 @@ final class PurchaseLogModel {
     var receiptTotalText: String = ""
 
     private(set) var rows: [PurchaseRow] = []
-    /// The receipt line on the Entry screen. Set means the sheet shows Entry;
-    /// it becomes a row only on `commitPendingLine`.
+    /// Set means the sheet shows Entry; it becomes a row on `commitPendingLine`.
     private(set) var pendingLine: LineEntry?
     /// Total or Each, carried from one entry to the next: one purchase is one
     /// store, and the store decides how its receipt prints.
-    private(set) var costEntryMode: LineEntry.CostEntryMode = .total
+    private(set) var costEntryMode: LineCost.Mode = .total
+    /// Set from "It's a case of items" until the case is created; drives the
+    /// sheet's New case screen.
+    private(set) var newCase: NewCaseDraft?
     /// Only this screen's own complaints — a blank vendor, a half-typed line, a
     /// draft that wouldn't encode. Everything a scan can go wrong with belongs
     /// to `resolver`, and the sheet reads it there.
@@ -114,22 +116,6 @@ final class PurchaseLogModel {
         rows.flatMap { [PurchaseField.quantity(rowId: $0.id), .totalCost(rowId: $0.id)] }
     }
 
-    func field(after field: PurchaseField) -> PurchaseField? {
-        neighbor(of: field, offset: 1)
-    }
-
-    func field(before field: PurchaseField) -> PurchaseField? {
-        neighbor(of: field, offset: -1)
-    }
-
-    private func neighbor(of field: PurchaseField, offset: Int) -> PurchaseField? {
-        let order = fieldOrder
-        guard let index = order.firstIndex(of: field), order.indices.contains(index + offset)
-        else { return nil }
-
-        return order[index + offset]
-    }
-
     /// What a case row's badge line and hint say. Nil for loose items and
     /// packs the mirror doesn't have.
     func caseSummary(for row: PurchaseRow, context: ModelContext) -> CaseSummary? {
@@ -183,13 +169,6 @@ final class PurchaseLogModel {
         return (quantity, totalCostCents)
     }
 
-    /// What one of a row's items cost, for the hint under its total. Nil at
-    /// qty 1, where it would only repeat the total.
-    func eachCents(for row: PurchaseRow) -> Int? {
-        guard let (quantity, totalCostCents) = completeLine(row), quantity > 1 else { return nil }
-        return Int((Double(totalCostCents) / Double(quantity)).rounded())
-    }
-
     /// The first row already holding this record — the Entry screen's
     /// "already on this purchase" note.
     func existingLine(for item: CatalogItem) -> PurchaseRow? {
@@ -224,35 +203,59 @@ final class PurchaseLogModel {
         beginLine(for: item)
     }
 
-    /// Every resolved item lands here, never straight on the list. A repeat is
-    /// a new line, not a bump: the operator reads the receipt line by line, and
-    /// one receipt can list the same item twice at two prices.
+    /// A repeat is a new line, not a bump: one receipt can list the same item
+    /// twice at two prices. A new case arrives with its line already typed.
     private func beginLine(for item: CatalogItem) {
         clearError()
-        pendingLine = LineEntry(item: item, mode: costEntryMode)
-    }
-
-    /// Patch form, like `updateRow`. A mode change sticks for the next entry.
-    func updatePendingLine(
-        quantityText: String? = nil,
-        amountText: String? = nil,
-        mode: LineEntry.CostEntryMode? = nil
-    ) {
-        guard pendingLine != nil else { return }
-
-        if let quantityText { pendingLine?.quantityText = quantityText }
-        if let amountText { pendingLine?.amountText = amountText }
-        if let mode {
-            pendingLine?.mode = mode
-            costEntryMode = mode
+        if let newCase {
+            self.newCase = nil
+            rows.append(LineEntry(item: item, cost: newCase.cost).makeRow())
+            return
         }
+        pendingLine = LineEntry(item: item, cost: LineCost(mode: costEntryMode))
     }
 
-    /// Append the Entry screen's line. False, changing nothing, while it is
-    /// incomplete — the Add button is disabled then, so this is the backstop.
+    /// The mode sticks for the next entry.
+    func setPendingLineCost(_ cost: LineCost) {
+        guard pendingLine != nil else { return }
+        pendingLine?.cost = cost
+        costEntryMode = cost.mode
+    }
+
+    // MARK: - A new case
+
+    /// "It's a case of items": the name and line first, then the contents.
+    func beginNewCase() {
+        guard resolver.allowsPacks, resolver.pendingScan != nil else { return }
+        newCase = NewCaseDraft(name: "", cost: LineCost(mode: costEntryMode))
+    }
+
+    func renameNewCase(_ name: String) {
+        newCase?.name = name
+    }
+
+    func setNewCaseCost(_ cost: LineCost) {
+        guard newCase != nil else { return }
+        newCase?.cost = cost
+        costEntryMode = cost.mode
+    }
+
+    /// Back to "Item, or a case?" with the scan intact.
+    func cancelNewCase() {
+        newCase = nil
+        resolver.cancelCase()
+    }
+
+    /// Success lands in `beginLine`, which adds the case's line.
+    func addNewCase(context: ModelContext) async {
+        guard let newCase else { return }
+        await resolver.createPack(name: newCase.name, context: context)
+    }
+
+    /// No-op while the line is incomplete.
     @discardableResult
     func commitPendingLine() -> Bool {
-        guard let line = pendingLine, line.isComplete else { return false }
+        guard let line = pendingLine, line.cost.isComplete else { return false }
 
         rows.append(line.makeRow())
         pendingLine = nil
@@ -262,6 +265,7 @@ final class PurchaseLogModel {
     /// The sheet closed without Add, from any depth.
     func cancelPendingLine() {
         pendingLine = nil
+        newCase = nil
         resolver.dismissPendingScan()
     }
 

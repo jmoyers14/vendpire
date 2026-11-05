@@ -2,11 +2,10 @@ import SwiftData
 import SwiftUI
 
 /// One receipt line per presentation: find the item by camera or by name,
-/// then Entry, then Add closes the sheet.
+/// then Entry. The sheet closes when the line lands on the purchase.
 ///
-/// Entry replaces the root rather than being pushed: the item can resolve from
-/// several screens deep (attach, create, case contents), and those collapse
-/// to the root in the same pass — the same swap the camera already does.
+/// Entry replaces the root rather than being pushed, because the item can
+/// resolve several screens deep and those collapse to the root in one pass.
 struct PurchaseLineSheet: View {
     enum Start: Identifiable {
         case scan
@@ -19,19 +18,27 @@ struct PurchaseLineSheet: View {
     let start: Start
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var context
 
     var body: some View {
         NavigationStack {
             Group {
                 if let line = model.pendingLine {
-                    LineEntryView(model: model, line: line, onAdd: add)
+                    LineEntryView(model: model, line: line)
                         .transition(.push(from: .trailing))
                 } else {
                     switch start {
                     case .scan:
                         BarcodeResolutionFlow(model: model.resolver)
                     case .search:
-                        CatalogSearchStep(model: model)
+                        CatalogSearchForm(
+                            prompt: "Search your products and cases…",
+                            emptyText: "Nothing matches.",
+                            results: { model.searchResults(query: $0, context: context) },
+                            onSelect: { model.add($0) }
+                        )
+                        .navigationTitle("Add an item")
+                        .navigationBarTitleDisplayMode(.inline)
                     }
                 }
             }
@@ -42,43 +49,12 @@ struct PurchaseLineSheet: View {
                 }
             }
         }
-        // On the sheet's root, where presentation modifiers take effect — a
-        // per-branch detent pinned the sheet to the camera's height.
+        // A new case's name and line belong to the purchase, which the
+        // resolver screens can't otherwise reach.
+        .environment(model)
+        // From Entry's Add, or straight from a new case.
+        .onChange(of: model.rows.count) { _, _ in dismiss() }
+        // On the sheet's root, where presentation modifiers take effect.
         .presentationDetents([.large])
-    }
-
-    /// The owner's `onDismiss` cancels whatever is left, so Add only commits.
-    private func add() {
-        if model.commitPendingLine() { dismiss() }
-    }
-}
-
-/// "Add manually": the name-filtered catalog list the not-found sheet uses to
-/// attach a code, reused to pick an item with no code involved.
-private struct CatalogSearchStep: View {
-    let model: PurchaseLogModel
-
-    @Environment(\.modelContext) private var context
-
-    @State private var query = ""
-
-    var body: some View {
-        Form {
-            Section {
-                TextField("Search your products and cases…", text: $query)
-                    .autocorrectionDisabled()
-                if !query.trimmed.isEmpty {
-                    CatalogItemMatches(
-                        items: model.searchResults(query: query, context: context),
-                        isDisabled: false,
-                        emptyText: "Nothing matches.",
-                        onSelect: { item in model.add(item) }
-                    )
-                }
-            }
-        }
-        .lagoonBackground()
-        .navigationTitle("Add an item")
-        .navigationBarTitleDisplayMode(.inline)
     }
 }

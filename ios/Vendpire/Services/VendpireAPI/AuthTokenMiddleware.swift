@@ -18,8 +18,13 @@ struct AuthTokenMiddleware: ClientMiddleware {
         next: @Sendable @concurrent (HTTPRequest, HTTPBody?, URL) async throws -> (HTTPResponse, HTTPBody?)
     ) async throws -> (HTTPResponse, HTTPBody?) {
         var request = request
-        if let token = try? await Clerk.shared.auth.getToken() {
-            request.headerFields[.authorization] = "Bearer \(token)"
+        do {
+            if let token = try await Clerk.shared.auth.getToken() {
+                request.headerFields[.authorization] = "Bearer \(token)"
+            }
+        } catch {
+            // Still goes out bare, but a 401 alone doesn't say why.
+            print("[auth] getToken failed for \(operationID): \(error)")
         }
         return try await next(request, body, baseURL)
     }

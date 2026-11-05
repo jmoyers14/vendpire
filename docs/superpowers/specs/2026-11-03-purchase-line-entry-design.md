@@ -38,7 +38,7 @@ All inside the sheet's `NavigationStack`:
 | Known code | Camera → Entry |
 | Unknown code, attach | Camera → question → attach → Entry |
 | Unknown code, single item | Camera → question → create form → Entry |
-| Unknown code, case | Camera → question → case contents (scan or create each product) → create case → Entry |
+| Unknown code, case | Camera → question → **New case** (name, Qty, $) → case contents (scan or add each product) → "Add to purchase" creates the case and adds its line, no Entry step |
 | Add manually | Search → pick → Entry |
 
 ### The Entry screen
@@ -96,7 +96,11 @@ status are unchanged.
 
 ## Code changes
 
-### New: `LineEntry`
+### New: `LineCost` and `LineEntry`
+
+The cost arithmetic lives in `LineCost` (mode, quantityText, amountText),
+because a new case's line is typed before the case exists. `LineEntry` is
+`item` + `cost`. The sketch below predates the split.
 
 A pure value, alongside `PurchaseRow`:
 
@@ -161,11 +165,31 @@ display only.
 - **`LineEntryView` (new):** the Entry screen as described above.
 - **`BarcodeResolutionFlow`** drops `confirmation`, `itemCount`, `onUndo`,
   and the confirmation card and item-count badge. Refusal messages over the
-  camera stay. When `model.isBuildingCase` is set, it shows
-  `CaseContentsView`.
-- **`CaseContentsView`:** Done becomes Next and runs `createPack`. On success the resolver
-  reports, `pendingLine` is set, and the sheet pushes Entry. The doc comment
-  about draft rows is rewritten.
+  camera stay.
+- **"Item, or a case?"** calls `PurchaseLogModel.beginNewCase()`, which
+  creates `newCase: NewCaseDraft` (name plus a `LineCost`). `newCase` is the
+  single source for the case being built: while it is set, the question
+  pushes `NewCaseView`, and Back calls `cancelNewCase()`, which keeps the scan
+  and drops the case's contents. The resolver keeps only `contents`. The
+  resolution screens reach the purchase model through `.environment(model)`
+  on the sheet.
+- **`NewCaseView` (new):** the scanned barcode, then the case name (seeded
+  from the outside guess until typed in),
+  then the receipt line through the shared `LineCostFields` (Qty, $,
+  Total | Each). "Add case contents" is enabled once the name and line are
+  complete, and pushes the contents.
+- **`CaseContentsView`** has contents only, laid out like the purchase screen:
+  Scan and Add pills, then "In one case" rows with a boxed Units field and
+  swipe to delete. Add searches products, with "Create a new product" for a
+  bag with no barcode. A keyboard bar has up/down arrows and Done. The pinned
+  "Add to purchase" button calls `addNewCase`, which runs `createPack`. When
+  the pack reports, `beginLine` sees `newCase` and appends the row directly.
+- **Shared components:** `EmptyStateCard`, `.pinnedFooter`,
+  `.keyboardFieldBar(focus:order:)`, `SectionTitle(_:productCount:)`,
+  `ScanOrAddRow`, and `CatalogSearchForm` are shared by the purchase screen,
+  Entry, New case, and Case contents.
+- **`PurchaseLineSheet`** dismisses whenever `rows.count` changes, so Entry's
+  Add and a new case close it the same way.
 - **`PurchaseLogView`:** one sheet instead of two, opened in Scan or Search
   mode. Rows lose the draft branch and the "Add contents" pill. The hint under
   $ becomes the each-price line. The `draftShowingContents` destination is

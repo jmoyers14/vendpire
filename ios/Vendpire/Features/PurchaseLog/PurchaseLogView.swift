@@ -1,10 +1,8 @@
 import SwiftData
 import SwiftUI
 
-/// Logging a purchase one receipt line at a time: Scan or Add manually opens
-/// a sheet that ends on Entry, Add puts the line here, repeat, save.
-///
-/// Opens on Scan. Vendor and date are already settled by `PurchaseSetupView`,
+/// Logging a purchase one receipt line at a time.
+/// Vendor and date are already settled by `PurchaseSetupView`,
 /// which owns the model and pushes this — so Back is how they get corrected,
 /// and the pair stays in view as this screen's title.
 ///
@@ -30,30 +28,26 @@ struct PurchaseLogView: View {
         // Lagoon cards, and swipe-to-delete only exists inside one.
         ScrollViewReader { proxy in
             List {
-                Section {
-                    HStack(spacing: 12) {
-                        scanButton
-                        Button {
-                            lineSheetStart = .search
-                        } label: {
-                            Label("Add manually", systemImage: "plus")
-                        }
-                        .buttonStyle(.softPill)
-                    }
-                    .listRowBackground(Color.clear)
-                    .listRowInsets(EdgeInsets())
-                }
+                ScanOrAddRow(
+                    addTitle: "Add manually",
+                    onScan: { lineSheetStart = .scan },
+                    onAdd: { lineSheetStart = .search }
+                )
 
                 Section {
                     if model.rows.isEmpty {
-                        emptyItems
+                        EmptyStateCard(
+                            systemImage: "barcode.viewfinder",
+                            title: "Add what you bought",
+                            message: "Scan a product's barcode, or add it by name, then enter its quantity and cost from the receipt."
+                        )
                     } else {
                         ForEach(model.rows) { row in
                             rowView(row)
                         }
                     }
                 } header: {
-                    itemsHeader
+                    SectionTitle("Items", productCount: model.rows.count)
                 }
             }
             // The arrows can land on a field below the fold.
@@ -68,25 +62,10 @@ struct PurchaseLogView: View {
         .lagoonBackground()
         // Number pads have no dismiss key, and Save hides behind the keyboard.
         .scrollDismissesKeyboard(.interactively)
-        .toolbar {
-            ToolbarItemGroup(placement: .keyboard) {
-                arrowButton(to: focusedField.flatMap { model.field(before: $0) },
-                            systemImage: "chevron.up", label: "Previous field")
-                arrowButton(to: focusedField.flatMap { model.field(after: $0) },
-                            systemImage: "chevron.down", label: "Next field")
-
-                Spacer()
-
-                Button("Done") { focusedField = nil }
-                    .fontWeight(.bold)
-            }
-        }
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            // An inset rides up on top of the keyboard, where it would cover
-            // the field being typed in.
-            if focusedField == nil {
-                footer
-            }
+        .keyboardFieldBar(focus: $focusedField, order: model.fieldOrder)
+        // Riding up on the keyboard, it would cover the field being typed in.
+        .pinnedFooter(isVisible: focusedField == nil) {
+            footer
         }
         .navigationTitle(purchaseSummary)
         .navigationBarTitleDisplayMode(.inline)
@@ -105,71 +84,11 @@ struct PurchaseLogView: View {
         }
     }
 
-    /// A keyboard arrow, disabled at either end of the fields.
-    private func arrowButton(to target: PurchaseField?, systemImage: String, label: String) -> some View {
-        Button {
-            focusedField = target
-        } label: {
-            Image(systemName: systemImage)
-        }
-        .disabled(target == nil)
-        .accessibilityLabel(label)
-    }
-
     /// "Costco · Oct 30" — a plain title, not a button: Back is the one way to
     /// change it.
     private var purchaseSummary: String {
         let day = model.purchasedDate.formatted(.dateTime.month(.abbreviated).day())
         return "\(model.vendor) · \(day)"
-    }
-
-    // MARK: - Scan
-
-    /// Disabled without a camera — only the Simulator, in practice.
-    private var scanButton: some View {
-        Button {
-            lineSheetStart = .scan
-        } label: {
-            Label("Scan", systemImage: "barcode.viewfinder")
-        }
-        .buttonStyle(.primaryPill)
-        .disabled(!BarcodeScannerView.isSupported)
-        .accessibilityHint(BarcodeScannerView.isSupported ? "" : "Scanning needs a device camera")
-    }
-
-    // MARK: - Sections
-
-    private var itemsHeader: some View {
-        HStack(alignment: .firstTextBaseline) {
-            SectionTitle("Items")
-            Spacer()
-            if !model.rows.isEmpty {
-                Text("^[\(model.rows.count) product](inflect: true)")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondaryText)
-                    .textCase(nil)
-            }
-        }
-    }
-
-    private var emptyItems: some View {
-        VStack(spacing: 8) {
-            Image(systemName: "barcode.viewfinder")
-                .font(.title2)
-                .foregroundStyle(.bodyText)
-                .frame(width: 52, height: 52)
-                .background(.divider, in: Circle())
-                .padding(.bottom, 4)
-            Text("Add what you bought")
-                .font(.headline)
-                .foregroundStyle(.heading)
-            Text("Scan a product's barcode, or add it by name, then enter its quantity and cost from the receipt.")
-                .font(.body)
-                .foregroundStyle(.bodyText)
-                .multilineTextAlignment(.center)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 24)
     }
 
     // MARK: - Rows
@@ -273,13 +192,10 @@ struct PurchaseLogView: View {
     /// Under the line total: "$12.99 each" (or "/ case") past qty 1, and a
     /// single-product case's "$0.54 / unit" at any qty.
     private func costHint(_ row: PurchaseRow, summary: CaseSummary?) -> String? {
-        var parts: [String] = []
-        if let eachCents = model.eachCents(for: row) {
-            parts.append("\(Money.formatCents(eachCents)) \(row.isPack ? "/ case" : "each")")
+        let each = row.cost.counterpartCents.map {
+            "\(Money.formatCents($0)) \(row.isPack ? "/ case" : "each")"
         }
-        if let unitCostCents = summary?.unitCostCents {
-            parts.append("\(Money.formatCents(unitCostCents)) / unit")
-        }
+        let parts = [each, summary?.unitCostText].compactMap { $0 }
         return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
 
@@ -322,15 +238,6 @@ struct PurchaseLogView: View {
                 if model.save(context: context) { dismiss() }
             }
             .buttonStyle(.primaryPill)
-        }
-        .padding(.horizontal, 16)
-        .padding(.top, 12)
-        .padding(.bottom, 8)
-        .background(.card)
-        .overlay(alignment: .top) {
-            Rectangle()
-                .fill(.line)
-                .frame(height: 1)
         }
     }
 
