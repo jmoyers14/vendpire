@@ -1,6 +1,11 @@
 // Vendpire — Release build settings. See Debug.xcconfig for the $(SLASH) note.
 SLASH = /
 
+// The real app identity. Debug.xcconfig suffixes it so both can be installed.
+BUNDLE_ID_SUFFIX =
+APP_DISPLAY_NAME = Vendpire
+APP_ICON_NAME = AppIcon
+
 // Still the dev Clerk instance: there is no production Clerk instance yet.
 // Swap this when one exists — it is the only change needed here.
 CLERK_PUBLISHABLE_KEY = pk_test_ZHluYW1pYy1raXQtNjY1Ny5jbGVyay5hY2NvdW50cy5kZXYk

@@ -22,6 +22,7 @@
     "ios:build": "ios/Scripts/xc build",
     "ios:test": "ios/Scripts/xc test",
     "ios:run": "ios/Scripts/xc run",
+    "ios:install-staging": "ios/Scripts/xc install-staging",
     "ios:screenshot": "ios/Scripts/xc screenshot"
   },
   "devDependencies": {

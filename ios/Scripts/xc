@@ -104,6 +104,24 @@ launch() {
   xcrun simctl launch "$@" "$udid" "$bundleId"
 }
 
+# Install the staging (Release) app on the attached phone. It is a separate app
+# from the Debug build — see BUNDLE_ID_SUFFIX in Config/*.xcconfig.
+installStaging() {
+  local udid; udid="$(resolveDevice)"
+  if [[ -z "$udid" ]]; then
+    echo "No attached device. Plug in the phone (and trust this Mac) first." >&2
+    exit 1
+  fi
+  xcodebuild -project "$IOS_DIR/$SCHEME.xcodeproj" -scheme "$SCHEME Staging" \
+    -configuration Release \
+    -destination "generic/platform=iOS" \
+    -derivedDataPath "$DERIVED" \
+    -allowProvisioningUpdates \
+    build "$@"
+  xcrun devicectl device install app --device "$udid" \
+    "$DERIVED/Build/Products/Release-iphoneos/$SCHEME.app"
+}
+
 screenshot() {
   local udid; udid="$(resolveSim)"
   local out="${1:-$IOS_DIR/build/screenshot.png}"
@@ -115,6 +133,7 @@ case "${1:-}" in
   build)      shift; build "$@" ;;
   test)       shift; runTests "$@" ;;
   run)        shift; launch "$@" ;;
+  install-staging) shift; installStaging "$@" ;;
   screenshot) shift; screenshot "$@" ;;
-  *) echo "usage: Scripts/xc {build|test|run|screenshot [path]}" >&2; exit 64 ;;
+  *) echo "usage: Scripts/xc {build|test|run|install-staging|screenshot [path]}" >&2; exit 64 ;;
 esac
