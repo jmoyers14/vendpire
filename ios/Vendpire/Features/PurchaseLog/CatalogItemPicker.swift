@@ -93,3 +93,47 @@ struct CatalogItemMatches: View {
         return "\(code) · \(units) units"
     }
 }
+
+/// A search field over the catalog with its matches under it, and any extra
+/// sections the caller adds below.
+struct CatalogSearchForm<Extra: View>: View {
+    let prompt: String
+    let emptyText: String
+    let results: (String) -> [CatalogItem]
+    let onSelect: (CatalogItem) -> Void
+    @ViewBuilder var extra: () -> Extra
+
+    @State private var query = ""
+
+    var body: some View {
+        Form {
+            Section {
+                TextField(prompt, text: $query)
+                    .autocorrectionDisabled()
+                if !query.trimmed.isEmpty {
+                    CatalogItemMatches(
+                        items: results(query),
+                        isDisabled: false,
+                        emptyText: emptyText,
+                        onSelect: onSelect
+                    )
+                }
+            }
+            extra()
+        }
+        .lagoonBackground()
+    }
+}
+
+extension CatalogSearchForm where Extra == EmptyView {
+    init(
+        prompt: String,
+        emptyText: String,
+        results: @escaping (String) -> [CatalogItem],
+        onSelect: @escaping (CatalogItem) -> Void
+    ) {
+        self.init(prompt: prompt, emptyText: emptyText, results: results, onSelect: onSelect) {
+            EmptyView()
+        }
+    }
+}

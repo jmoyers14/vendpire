@@ -1,192 +1,185 @@
 import SwiftData
 import SwiftUI
 
-/// Filling in what's inside a case already on the purchase as a draft row,
-/// reached by tapping that row until `createPack` finally runs. Leaving early
-/// is free: the draft stays as it was, still flagged on the purchase screen.
-///
-/// `resolver` is the one `commitPendingCase()` detached — it already knows the
-/// scanned code and the outside guess.
+/// What's inside a new case. "Add to purchase" creates it and puts its line
+/// on the list.
 struct CaseContentsView: View {
-    let resolver: BarcodeResolutionModel
+    let purchase: PurchaseLogModel
 
     @Environment(\.modelContext) private var context
-    @Environment(\.dismiss) private var dismiss
 
-    @State private var packName = ""
-    @State private var packNameTouched = false
-    @State private var contentQuery = ""
-    @State private var isSearchingContents = false
+    @State private var isAddingContent = false
     @State private var isWorking = false
+    @FocusState private var focusedContent: UUID?
+
+    /// One `navigationDestination` per level, so the camera and the search
+    /// share a slot.
+    private enum Destination: Hashable {
+        case scanner
+        case search
+    }
+
+    private var resolver: BarcodeResolutionModel { purchase.resolver }
 
     var body: some View {
-        Form {
+        List {
             ResolverErrorSection(model: resolver)
-            ScannedCodeSection(model: resolver)
+
+            ScanOrAddRow(
+                addTitle: "Add",
+                onScan: { resolver.beginContentResolution(through: .scanner) },
+                onAdd: { isAddingContent = true }
+            )
 
             Section {
-                TextField(
-                    "e.g. Frito-Lay 30ct variety",
-                    text: Binding(get: { shownPackName }, set: { packName = $0 })
-                        .touching($packNameTouched)
-                )
-            } header: {
-                Text("Case name")
-            }
-
-            Section {
-                ForEach(resolver.contents) { content in
-                    contentRow(content)
-                }
-                addContentDoors
-            } header: {
-                Text("What's inside one case, in sellable units")
-            } footer: {
-                Text("Scan the bags inside, or pick products you already have.")
-            }
-
-            if isSearchingContents {
-                contentSearchSection
-            }
-
-            Section {
-                Button(action: submit) {
-                    if isWorking {
-                        ProgressView()
-                    } else {
-                        Text("Done")
+                if resolver.contents.isEmpty {
+                    EmptyStateCard(
+                        systemImage: "shippingbox",
+                        title: "What's inside?",
+                        message: "Scan a bag from inside the case, or add it by name, then enter how many of it one case holds."
+                    )
+                } else {
+                    ForEach(resolver.contents) { content in
+                        contentRow(content)
                     }
                 }
-                .disabled(isWorking)
+            } header: {
+                SectionTitle("In one case", productCount: resolver.contents.count)
             }
         }
+        .listStyle(.insetGrouped)
         .lagoonBackground()
+        .scrollDismissesKeyboard(.interactively)
+        .keyboardFieldBar(focus: $focusedContent, order: resolver.contents.map(\.id))
+        .pinnedFooter {
+            Button(action: submit) {
+                if isWorking {
+                    ProgressView()
+                        .tint(.white)
+                } else {
+                    Text("Add to purchase")
+                }
+            }
+            .buttonStyle(.primaryPill)
+            .disabled(isWorking)
+        }
         .navigationTitle("Case contents")
         .navigationBarTitleDisplayMode(.inline)
-        .navigationDestination(isPresented: contentFlowBinding) {
-            if let inner = resolver.contentResolver {
-                BarcodeResolutionFlow(model: inner, startsBlank: resolver.contentDoor == .blankCreate)
+        .navigationDestination(item: destination) { pushed in
+            switch pushed {
+            case .scanner:
+                if let inner = resolver.contentResolver {
+                    BarcodeResolutionFlow(model: inner)
+                }
+            case .search:
+                CaseContentSearch(resolver: resolver, onPick: { isAddingContent = false })
             }
+        }
+        // A product created from the search lands here, not back on the search.
+        .onChange(of: resolver.contents.count) { _, _ in
+            isAddingContent = false
         }
     }
 
-    private var contentFlowBinding: Binding<Bool> {
+    private var destination: Binding<Destination?> {
         Binding(
-            get: { resolver.contentResolver != nil },
-            set: { isPresented in
-                if !isPresented { resolver.endContentResolution() }
+            get: {
+                if resolver.contentDoor == .scanner { return .scanner }
+                return isAddingContent ? .search : nil
+            },
+            set: { pushed in
+                guard pushed == nil else { return }
+                if resolver.contentDoor == .scanner { resolver.endContentResolution() }
+                isAddingContent = false
             }
         )
     }
 
-
-    /// A resolved row: the product is settled, so only its unit count is
-    /// still a question.
     private func contentRow(_ content: BarcodeResolutionModel.PackContentDraft) -> some View {
-        HStack {
+        HStack(spacing: 12) {
             Text(content.name)
+                .font(.headline)
+                .foregroundStyle(.heading)
                 .lineLimit(2)
-            Spacer()
-            TextField(
-                "Units",
+
+            Spacer(minLength: 0)
+
+            BoxedField(
+                label: "Units",
+                accessibilityLabel: "Units of \(content.name) in one case",
                 text: Binding(
                     get: { content.unitsText },
                     set: { resolver.updateContent(id: content.id, unitsText: $0) }
-                )
+                ),
+                keyboard: .numberPad,
+                focus: $focusedContent,
+                field: content.id
             )
-            .keyboardType(.numberPad)
-            .multilineTextAlignment(.trailing)
-            .frame(width: 70)
-
+            .frame(width: 116)
+        }
+        .padding(.vertical, 8)
+        .listRowBackground(focusedContent == content.id ? Color.actionSoft : Color.card)
+        .swipeActions {
             Button(role: .destructive) {
                 resolver.removeContent(id: content.id)
             } label: {
-                Image(systemName: "xmark.circle")
-            }
-            .buttonStyle(.plain)
-        }
-    }
-
-    /// The three ways a product gets into the case. All three end with a
-    /// real product, which is why a row can never be blank.
-    private var addContentDoors: some View {
-        HStack(spacing: 16) {
-            if BarcodeScannerView.isSupported {
-                Button {
-                    resolver.beginContentResolution(through: .scanner)
-                } label: {
-                    Label("Scan", systemImage: "barcode.viewfinder")
-                }
-            }
-            Button {
-                isSearchingContents.toggle()
-                contentQuery = ""
-            } label: {
-                Label("Search", systemImage: "magnifyingglass")
-            }
-            Button {
-                resolver.beginContentResolution(through: .blankCreate)
-            } label: {
-                Label("New", systemImage: "plus.circle")
+                Label("Delete", systemImage: "trash")
             }
         }
-        .buttonStyle(.borderless)
-        .font(.subheadline)
     }
 
-    /// Picking a product already in the catalog needs no network and no
-    /// resolver — it is just a name search over the mirror, products only.
-    private var contentSearchSection: some View {
-        Section {
-            TextField("Search your products…", text: $contentQuery)
-                .autocorrectionDisabled()
-            if !contentQuery.trimmed.isEmpty {
-                CatalogItemMatches(
-                    items: resolver.searchResults(
-                        query: contentQuery, context: context, includingPacks: false
-                    ),
-                    isDisabled: false,
-                    emptyText: "Nothing matches — scan it, or tap \"New\".",
-                    onSelect: { item in
-                        resolver.addContent(item)
-                        isSearchingContents = false
-                        contentQuery = ""
-                    }
-                )
-            }
-        } header: {
-            Text("Add a product you already have")
-        }
-    }
-
-    /// Single-content case names itself precisely from its own product and
-    /// unit count; a variety pack falls back to the outside guess. Only a
-    /// suggestion — `shownPackName` stops showing it once the field is
-    /// edited.
-    private var suggestedPackName: String {
-        if resolver.contents.count == 1 {
-            let only = resolver.contents[0]
-            let units = only.unitsText.trimmed
-            if !only.name.isEmpty, !units.isEmpty {
-                return "\(only.name) — case (\(units))"
-            }
-        }
-        return resolver.pendingScan?.candidate?.displayName ?? ""
-    }
-
-    private var shownPackName: String {
-        packNameTouched ? packName : suggestedPackName
-    }
-
-    /// Success pops back to the purchase row, which `PurchaseLogModel`
-    /// has already turned into a real `.pack` by the time `createPack`'s
-    /// `onResolve` fires — a failure leaves this screen up to retry.
+    /// Success closes the sheet; a failure leaves this screen up to retry.
     private func submit() {
+        focusedContent = nil
         isWorking = true
         Task {
-            await resolver.createPack(name: shownPackName, context: context)
+            await purchase.addNewCase(context: context)
             isWorking = false
-            if resolver.errorMessage == nil { dismiss() }
         }
+    }
+}
+
+/// "Add" on the case: a product already in the catalog, or a new one for a
+/// bag with no barcode of its own.
+private struct CaseContentSearch: View {
+    let resolver: BarcodeResolutionModel
+    let onPick: () -> Void
+
+    @Environment(\.modelContext) private var context
+
+    var body: some View {
+        CatalogSearchForm(
+            prompt: "Search your products…",
+            emptyText: "Nothing matches — create it below.",
+            results: { resolver.searchResults(query: $0, context: context, includingPacks: false) },
+            onSelect: { item in
+                resolver.addContent(item)
+                onPick()
+            }
+        ) {
+            Section {
+                Button("Create a new product") {
+                    resolver.beginContentResolution(through: .blankCreate)
+                }
+            } footer: {
+                Text("For a bag with no barcode of its own.")
+            }
+        }
+        .navigationTitle("Add to the case")
+        .navigationBarTitleDisplayMode(.inline)
+        .navigationDestination(isPresented: blankCreateBinding) {
+            if let inner = resolver.contentResolver {
+                BarcodeResolutionFlow(model: inner, startsBlank: true)
+            }
+        }
+    }
+
+    private var blankCreateBinding: Binding<Bool> {
+        Binding(
+            get: { resolver.contentDoor == .blankCreate },
+            set: { isPresented in
+                if !isPresented { resolver.endContentResolution() }
+            }
+        )
     }
 }

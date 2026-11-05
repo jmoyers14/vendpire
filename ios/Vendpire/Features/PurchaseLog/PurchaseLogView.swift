@@ -1,10 +1,8 @@
 import SwiftData
 import SwiftUI
 
-/// Logging a purchase: scan a cart, or pick items by name, read totals off
-/// the receipt, save.
-///
-/// Opens on Scan. Vendor and date are already settled by `PurchaseSetupView`,
+/// Logging a purchase one receipt line at a time.
+/// Vendor and date are already settled by `PurchaseSetupView`,
 /// which owns the model and pushes this — so Back is how they get corrected,
 /// and the pair stays in view as this screen's title.
 ///
@@ -19,11 +17,8 @@ struct PurchaseLogView: View {
     /// notes before this screen opens.
     let model: PurchaseLogModel
 
-    @State private var isScannerSheetPresented = false
-    @State private var isAddSheetPresented = false
-    /// The `recordId` of the draft case whose contents are open.
-    @State private var draftShowingContents: String?
-    /// The row id of the finished case whose details are open.
+    @State private var lineSheetStart: PurchaseLineSheet.Start?
+    /// The row id of the case whose details are open.
     @State private var caseShowingDetails: UUID?
     /// Shared by every field, so the keyboard's arrows can walk between them.
     @FocusState private var focusedField: PurchaseField?
@@ -33,30 +28,26 @@ struct PurchaseLogView: View {
         // Lagoon cards, and swipe-to-delete only exists inside one.
         ScrollViewReader { proxy in
             List {
-                Section {
-                    HStack(spacing: 12) {
-                        scanButton
-                        Button {
-                            isAddSheetPresented = true
-                        } label: {
-                            Label("Add manually", systemImage: "plus")
-                        }
-                        .buttonStyle(.softPill)
-                    }
-                    .listRowBackground(Color.clear)
-                    .listRowInsets(EdgeInsets())
-                }
+                ScanOrAddRow(
+                    addTitle: "Add manually",
+                    onScan: { lineSheetStart = .scan },
+                    onAdd: { lineSheetStart = .search }
+                )
 
                 Section {
                     if model.rows.isEmpty {
-                        emptyItems
+                        EmptyStateCard(
+                            systemImage: "barcode.viewfinder",
+                            title: "Add what you bought",
+                            message: "Scan a product's barcode, or add it by name, then enter its quantity and cost from the receipt."
+                        )
                     } else {
                         ForEach(model.rows) { row in
                             rowView(row)
                         }
                     }
                 } header: {
-                    itemsHeader
+                    SectionTitle("Items", productCount: model.rows.count)
                 }
             }
             // The arrows can land on a field below the fold.
@@ -71,25 +62,10 @@ struct PurchaseLogView: View {
         .lagoonBackground()
         // Number pads have no dismiss key, and Save hides behind the keyboard.
         .scrollDismissesKeyboard(.interactively)
-        .toolbar {
-            ToolbarItemGroup(placement: .keyboard) {
-                arrowButton(to: focusedField.flatMap { model.field(before: $0) },
-                            systemImage: "chevron.up", label: "Previous field")
-                arrowButton(to: focusedField.flatMap { model.field(after: $0) },
-                            systemImage: "chevron.down", label: "Next field")
-
-                Spacer()
-
-                Button("Done") { focusedField = nil }
-                    .fontWeight(.bold)
-            }
-        }
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            // An inset rides up on top of the keyboard, where it would cover
-            // the field being typed in.
-            if focusedField == nil {
-                footer
-            }
+        .keyboardFieldBar(focus: $focusedField, order: model.fieldOrder)
+        // Riding up on the keyboard, it would cover the field being typed in.
+        .pinnedFooter(isVisible: focusedField == nil) {
+            footer
         }
         .navigationTitle(purchaseSummary)
         .navigationBarTitleDisplayMode(.inline)
@@ -100,59 +76,12 @@ struct PurchaseLogView: View {
             await refresher.refresh()
             model.invalidateCatalog()
         }
-        .sheet(
-            isPresented: $isScannerSheetPresented,
-            onDismiss: {
-                model.resolver.dismissPendingScan()
-                // Undo must not outlive the card that explains what it undoes.
-                model.clearScanConfirmation()
-            }
-        ) {
-            // The sheet stays up across scans: a resolved code just adds or
-            // bumps a row and keeps scanning, and only an unknown one swaps
-            // the camera for the question. A NavigationStack because the
-            // create-a-case step pushes the inner flow onto it.
-            NavigationStack {
-                BarcodeResolutionFlow(
-                    model: model.resolver,
-                    confirmation: model.scanConfirmation,
-                    itemCount: model.rows.count,
-                    onUndo: { model.undoLastScan() }
-                )
-                    .toolbar {
-                        // Stays reachable from the pushed inner flow too, where
-                        // Back goes up one level and this leaves entirely.
-                        ToolbarItem(placement: .cancellationAction) {
-                            Button("Cancel") { isScannerSheetPresented = false }
-                        }
-                    }
-            }
-            // On the sheet's root, where presentation modifiers take effect —
-            // a per-branch detent pinned the sheet to the camera's height.
-            .presentationDetents([.large])
-        }
-        .sheet(isPresented: $isAddSheetPresented) {
-            AddCatalogItemSheet(model: model)
-        }
-        .navigationDestination(item: $draftShowingContents) { draftId in
-            if let resolver = model.packDrafts[draftId] {
-                CaseContentsView(resolver: resolver)
-            }
+        .sheet(item: $lineSheetStart, onDismiss: model.cancelPendingLine) { start in
+            PurchaseLineSheet(model: model, start: start)
         }
         .navigationDestination(item: $caseShowingDetails) { rowId in
             CaseDetailsView(model: model, rowId: rowId)
         }
-    }
-
-    /// A keyboard arrow, disabled at either end of the fields.
-    private func arrowButton(to target: PurchaseField?, systemImage: String, label: String) -> some View {
-        Button {
-            focusedField = target
-        } label: {
-            Image(systemName: systemImage)
-        }
-        .disabled(target == nil)
-        .accessibilityLabel(label)
     }
 
     /// "Costco · Oct 30" — a plain title, not a button: Back is the one way to
@@ -160,55 +89,6 @@ struct PurchaseLogView: View {
     private var purchaseSummary: String {
         let day = model.purchasedDate.formatted(.dateTime.month(.abbreviated).day())
         return "\(model.vendor) · \(day)"
-    }
-
-    // MARK: - Scan
-
-    /// Disabled without a camera — only the Simulator, in practice.
-    private var scanButton: some View {
-        Button {
-            isScannerSheetPresented = true
-        } label: {
-            Label("Scan", systemImage: "barcode.viewfinder")
-        }
-        .buttonStyle(.primaryPill)
-        .disabled(!BarcodeScannerView.isSupported)
-        .accessibilityHint(BarcodeScannerView.isSupported ? "" : "Scanning needs a device camera")
-    }
-
-    // MARK: - Sections
-
-    private var itemsHeader: some View {
-        HStack(alignment: .firstTextBaseline) {
-            SectionTitle("Items")
-            Spacer()
-            if !model.rows.isEmpty {
-                Text("^[\(model.rows.count) product](inflect: true)")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondaryText)
-                    .textCase(nil)
-            }
-        }
-    }
-
-    private var emptyItems: some View {
-        VStack(spacing: 8) {
-            Image(systemName: "barcode.viewfinder")
-                .font(.title2)
-                .foregroundStyle(.bodyText)
-                .frame(width: 52, height: 52)
-                .background(.divider, in: Circle())
-                .padding(.bottom, 4)
-            Text("Add what you bought")
-                .font(.headline)
-                .foregroundStyle(.heading)
-            Text("Scan each product's barcode, or add it by name. You'll enter quantity and cost for each one.")
-                .font(.body)
-                .foregroundStyle(.bodyText)
-                .multilineTextAlignment(.center)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 24)
     }
 
     // MARK: - Rows
@@ -260,8 +140,8 @@ struct PurchaseLogView: View {
                         field: .totalCost(rowId: row.id)
                     )
                     .frame(width: 132)
-                    if let unitCostCents = summary?.unitCostCents {
-                        Text("\(Money.formatCents(unitCostCents)) / unit")
+                    if let hint = costHint(row, summary: summary) {
+                        Text(hint)
                             .font(.footnote.monospacedDigit())
                             .foregroundStyle(.secondaryText)
                             .padding(.trailing, 2)
@@ -280,22 +160,12 @@ struct PurchaseLogView: View {
         }
     }
 
-    /// Kind, then what's in a case: its unit count, or — for a case still being
-    /// created — the way back into `CaseContentsView`.
+    /// Kind, then a case's unit count and the way into its details.
     private func badgeLine(_ row: PurchaseRow, summary: CaseSummary?) -> some View {
-        let isDraft = row.kind == .packDraft
-
-        return HStack(spacing: 8) {
+        HStack(spacing: 8) {
             KindBadge(isPack: row.isPack)
 
-            if isDraft {
-                Button {
-                    openCase(row)
-                } label: {
-                    Pill("Add contents", tone: .warning)
-                }
-                .buttonStyle(.borderless)
-            } else if let summary {
+            if let summary {
                 Text("^[\(summary.unitsPerCase) unit](inflect: true)")
                     .font(.subheadline)
                     .foregroundStyle(.secondaryText)
@@ -303,9 +173,9 @@ struct PurchaseLogView: View {
 
             Spacer(minLength: 0)
 
-            if isDraft || summary != nil {
+            if summary != nil {
                 Button {
-                    openCase(row)
+                    caseShowingDetails = row.id
                 } label: {
                     Image(systemName: "chevron.right")
                         .font(.footnote.bold())
@@ -313,19 +183,20 @@ struct PurchaseLogView: View {
                         .frame(width: 32, height: 32)
                 }
                 .buttonStyle(.borderless)
-                .accessibilityLabel(isDraft ? "Case contents" : "Case details")
+                .accessibilityLabel("Case details")
             }
         }
         .frame(minHeight: 26)
     }
 
-    /// A draft opens its contents editor; a finished case, its details.
-    private func openCase(_ row: PurchaseRow) {
-        if row.kind == .packDraft {
-            draftShowingContents = row.recordId
-        } else {
-            caseShowingDetails = row.id
+    /// Under the line total: "$12.99 each" (or "/ case") past qty 1, and a
+    /// single-product case's "$0.54 / unit" at any qty.
+    private func costHint(_ row: PurchaseRow, summary: CaseSummary?) -> String? {
+        let each = row.cost.counterpartCents.map {
+            "\(Money.formatCents($0)) \(row.isPack ? "/ case" : "each")"
         }
+        let parts = [each, summary?.unitCostText].compactMap { $0 }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
 
     /// "case" under a quantity of one, "cases" under anything else.
@@ -368,15 +239,6 @@ struct PurchaseLogView: View {
             }
             .buttonStyle(.primaryPill)
         }
-        .padding(.horizontal, 16)
-        .padding(.top, 12)
-        .padding(.bottom, 8)
-        .background(.card)
-        .overlay(alignment: .top) {
-            Rectangle()
-                .fill(.line)
-                .frame(height: 1)
-        }
     }
 
     private func footerTotal(_ label: String, cents: Int) -> some View {
@@ -401,54 +263,6 @@ struct PurchaseLogView: View {
             Pill("\(Money.formatCents(cents)) over receipt", tone: .warning)
         case nil:
             EmptyView()
-        }
-    }
-}
-
-/// "Add without scanning": the name-filtered catalog list the not-found sheet
-/// uses to attach a code, reused to add a row with no code involved.
-private struct AddCatalogItemSheet: View {
-    let model: PurchaseLogModel
-
-    @Environment(\.modelContext) private var context
-    @Environment(\.dismiss) private var dismiss
-
-    @State private var query = ""
-
-    var body: some View {
-        NavigationStack {
-            Form {
-                Section {
-                    TextField("Search your products and cases…", text: $query)
-                        .autocorrectionDisabled()
-                    matches
-                }
-            }
-            .lagoonBackground()
-            .navigationTitle("Add an item")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                }
-            }
-        }
-        .presentationDetents([.large])
-    }
-
-    @ViewBuilder
-    private var matches: some View {
-        let trimmedQuery = query.trimmed
-        if !trimmedQuery.isEmpty {
-            CatalogItemMatches(
-                items: model.searchResults(query: query, context: context),
-                isDisabled: false,
-                emptyText: "Nothing matches.",
-                onSelect: { item in
-                    model.add(item)
-                    dismiss()
-                }
-            )
         }
     }
 }

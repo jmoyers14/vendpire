@@ -1,21 +1,13 @@
 import SwiftData
 import SwiftUI
 
-/// Camera until a code needs a human, then the question. Both levels of the
-/// flow present this, which is why the switch lives here rather than in the
-/// purchase screen that used to own it.
+/// Camera until a code needs a human, then the question. Shared by the
+/// purchase and by a case's contents.
 struct BarcodeResolutionFlow: View {
     let model: BarcodeResolutionModel
     /// Skip the camera and open straight on the create form — the inner
     /// editor's "this bag has no barcode at all" door.
     var startsBlank = false
-    /// What the last scan put on the purchase. Nil one level down, where the
-    /// contents list is already on screen doing the same job.
-    var confirmation: ScanConfirmation?
-    /// Lines so far — cumulative proof the scanner is working, which a card
-    /// showing only the most recent scan can't give on its own.
-    var itemCount: Int?
-    var onUndo: (() -> Void)?
 
     @Environment(\.modelContext) private var context
 
@@ -29,8 +21,7 @@ struct BarcodeResolutionFlow: View {
                 BarcodeResolutionSheet(model: model)
             } else {
                 BarcodeScannerView(onScan: { code in model.resolve(code, context: context) })
-                    .overlay(alignment: .top) { itemCountBadge }
-                    .overlay(alignment: .bottom) { scanFeedback }
+                    .overlay(alignment: .bottom) { scanRefusal }
                     // Pinned: this branch sets no title, and `.automatic`
                     // leaves a blank large-title band over the camera.
                     .navigationBarTitleDisplayMode(.inline)
@@ -44,10 +35,10 @@ struct BarcodeResolutionFlow: View {
         }
     }
 
-    /// A refusal outranks a confirmation: it is the one that needs acting on,
-    /// and the scan it refused put nothing on the purchase to report.
+    /// A refused read — garbage, or a case one level down — said over the
+    /// camera, which keeps scanning.
     @ViewBuilder
-    private var scanFeedback: some View {
+    private var scanRefusal: some View {
         if let message = model.errorMessage {
             Text(message)
                 .font(.footnote)
@@ -56,64 +47,6 @@ struct BarcodeResolutionFlow: View {
                 .background(Color.error.opacity(0.9), in: RoundedRectangle(cornerRadius: 8))
                 .foregroundStyle(.white)
                 .padding()
-        } else if let confirmation {
-            confirmationCard(confirmation)
-        }
-    }
-
-    /// Stays up until the next scan replaces it. Undo is here rather than a
-    /// confirm step before the add, because confirming costs a tap on every
-    /// one of thirty items and undoing costs one on the rare mistake.
-    private func confirmationCard(_ confirmation: ScanConfirmation) -> some View {
-        HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 8) {
-                    KindBadge(isPack: confirmation.isPack)
-                    Text(confirmation.name)
-                        .font(.subheadline)
-                        .lineLimit(1)
-                }
-                Text(detail(confirmation))
-                    .font(.caption)
-                    .foregroundStyle(.secondaryText)
-            }
-
-            Spacer(minLength: 0)
-
-            if let onUndo {
-                Button("Undo", action: onUndo)
-                    .font(.subheadline.weight(.semibold))
-                    .buttonStyle(.borderless)
-            }
-        }
-        .padding(12)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
-        .padding()
-        .transition(.move(edge: .bottom).combined(with: .opacity))
-        .animation(.snappy, value: confirmation.id)
-    }
-
-    /// The count, not just the name: a rescan bumps an existing row, and that
-    /// is the mistake worth catching early. A case commits before it has any
-    /// contents, so it reports what it still owes instead.
-    private func detail(_ confirmation: ScanConfirmation) -> String {
-        switch confirmation.effect {
-        case .added, .incremented:
-            return "\(confirmation.quantity) × on this purchase"
-        case .caseStarted:
-            return "On the purchase · still needs its contents"
-        }
-    }
-
-    @ViewBuilder
-    private var itemCountBadge: some View {
-        if let itemCount, itemCount > 0 {
-            Text(itemCount == 1 ? "1 item" : "\(itemCount) items")
-                .font(.caption.weight(.semibold))
-                .padding(.horizontal, 10)
-                .padding(.vertical, 5)
-                .background(.regularMaterial, in: Capsule())
-                .padding(.top, 8)
         }
     }
 }
@@ -135,6 +68,8 @@ struct BarcodeResolutionSheet: View {
     let model: BarcodeResolutionModel
 
     @Environment(\.modelContext) private var context
+    /// Only in the purchase sheet, the one place a new case can be bought.
+    @Environment(PurchaseLogModel.self) private var purchase: PurchaseLogModel?
 
     /// Where "Attach" / "Create" push to. `.createKind` only exists when
     /// `model.allowsPacks` — one level down, there is no case to fork into.
@@ -144,9 +79,13 @@ struct BarcodeResolutionSheet: View {
         case createItem
     }
 
+    /// Pushed from `.createKind`, one level deeper than `Destination`.
+    private enum KindChoice: Hashable {
+        case item
+        case newCase
+    }
+
     @State private var destination: Destination?
-    /// One level deeper than `destination`, reachable only through
-    /// `.createKind` — "It's a single item" pushes `createItem` from there.
     @State private var isCreatingItemFromKind = false
     @State private var isWorking = false
 
@@ -204,9 +143,8 @@ struct BarcodeResolutionSheet: View {
         destination = .attach
     }
 
-    /// Back to the camera, from however deep the flow got. A pushed screen does
-    /// not pop just because the view that pushed it went away, so this runs
-    /// before handing over and the pop and the swap land in one render.
+    /// Pops to the sheet's root. A pushed screen doesn't pop when the view that
+    /// pushed it goes away, so this runs as the resolver reports.
     private func collapseToRoot() {
         isCreatingItemFromKind = false
         destination = nil
@@ -338,9 +276,8 @@ struct BarcodeResolutionSheet: View {
             ScannedCodeSection(model: model)
             Section {
                 Button("It's a single item") { isCreatingItemFromKind = true }
-                Button("It's a case of items") {
-                    collapseToRoot()
-                    model.commitPendingCase()
+                if let purchase {
+                    Button("It's a case of items") { purchase.beginNewCase() }
                 }
             }
         }
@@ -349,7 +286,31 @@ struct BarcodeResolutionSheet: View {
         .navigationBarTitleDisplayMode(.inline)
         // On the screen it pushes from, so the form lands above this question
         // rather than beside it.
-        .navigationDestination(isPresented: $isCreatingItemFromKind) { createItemDestination }
+        .navigationDestination(item: kindChoice) { choice in
+            switch choice {
+            case .item:
+                createItemDestination
+            case .newCase:
+                if let purchase, let draft = purchase.newCase {
+                    NewCaseView(purchase: purchase, draft: draft)
+                }
+            }
+        }
+    }
+
+    /// Back from the new case un-commits it, so the question is asked fresh.
+    private var kindChoice: Binding<KindChoice?> {
+        Binding(
+            get: {
+                if purchase?.newCase != nil { return .newCase }
+                return isCreatingItemFromKind ? .item : nil
+            },
+            set: { choice in
+                guard choice == nil else { return }
+                if purchase?.newCase != nil { purchase?.cancelNewCase() }
+                isCreatingItemFromKind = false
+            }
+        )
     }
 
     // MARK: - Create: item
@@ -364,7 +325,7 @@ struct BarcodeResolutionSheet: View {
                     text: $name.touching($itemNameTouched)
                 )
                 TextField("Category, e.g. drinks", text: $category)
-                TextField("Sell price $", text: $priceText)
+                TextField("Default price", text: $priceText)
                     .keyboardType(.decimalPad)
             } footer: {
                 Text("Optional — set it on the planogram later.")
@@ -374,11 +335,15 @@ struct BarcodeResolutionSheet: View {
                 Button(action: submitItem) {
                     if isWorking {
                         ProgressView()
+                            .tint(.white)
                     } else {
-                        Text(model.allowsPacks ? "Add to purchase" : "Add to the case")
+                        Text(model.allowsPacks ? "Next" : "Add to the case")
                     }
                 }
+                .buttonStyle(.primaryPill)
                 .disabled(isWorking)
+                .listRowBackground(Color.clear)
+                .listRowInsets(EdgeInsets())
             }
         }
         .lagoonBackground()

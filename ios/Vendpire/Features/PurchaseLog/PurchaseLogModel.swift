@@ -19,11 +19,14 @@ final class PurchaseLogModel {
     var receiptTotalText: String = ""
 
     private(set) var rows: [PurchaseRow] = []
-    /// One entry per `.packDraft` row, keyed by its `recordId` — the
-    /// resolver `commitPendingCase` detached, still collecting that case's
-    /// contents. Removed once `createPack` succeeds and the row becomes a
-    /// real `.pack`, or if the row itself is deleted.
-    private(set) var packDrafts: [String: BarcodeResolutionModel] = [:]
+    /// Set means the sheet shows Entry; it becomes a row on `commitPendingLine`.
+    private(set) var pendingLine: LineEntry?
+    /// Total or Each, carried from one entry to the next: one purchase is one
+    /// store, and the store decides how its receipt prints.
+    private(set) var costEntryMode: LineCost.Mode = .total
+    /// Set from "It's a case of items" until the case is created; drives the
+    /// sheet's New case screen.
+    private(set) var newCase: NewCaseDraft?
     /// Only this screen's own complaints — a blank vendor, a half-typed line, a
     /// draft that wouldn't encode. Everything a scan can go wrong with belongs
     /// to `resolver`, and the sheet reads it there.
@@ -56,14 +59,7 @@ final class PurchaseLogModel {
         self.resolver = resolver
 
         resolver.onResolve = { [weak self] item in
-            self?.addOrIncrementRow(
-                kind: item.isPack ? .pack : .unit,
-                recordId: item.recordId,
-                name: item.name
-            )
-        }
-        resolver.onCommitPackDraft = { [weak self] draft in
-            self?.commitPackDraft(draft)
+            self?.beginLine(for: item)
         }
     }
 
@@ -120,24 +116,8 @@ final class PurchaseLogModel {
         rows.flatMap { [PurchaseField.quantity(rowId: $0.id), .totalCost(rowId: $0.id)] }
     }
 
-    func field(after field: PurchaseField) -> PurchaseField? {
-        neighbor(of: field, offset: 1)
-    }
-
-    func field(before field: PurchaseField) -> PurchaseField? {
-        neighbor(of: field, offset: -1)
-    }
-
-    private func neighbor(of field: PurchaseField, offset: Int) -> PurchaseField? {
-        let order = fieldOrder
-        guard let index = order.firstIndex(of: field), order.indices.contains(index + offset)
-        else { return nil }
-
-        return order[index + offset]
-    }
-
-    /// What a case row's badge line and hint say. Nil for loose items, drafts,
-    /// and packs the mirror doesn't have.
+    /// What a case row's badge line and hint say. Nil for loose items and
+    /// packs the mirror doesn't have.
     func caseSummary(for row: PurchaseRow, context: ModelContext) -> CaseSummary? {
         guard let pack = pack(for: row, context: context) else { return nil }
 
@@ -149,7 +129,7 @@ final class PurchaseLogModel {
     }
 
     /// What one of this row's cases holds, by product name. Nil for loose
-    /// items, drafts, and packs the mirror doesn't have.
+    /// items and packs the mirror doesn't have.
     func caseContents(for row: PurchaseRow, context: ModelContext) -> [CaseContent]? {
         guard let pack = pack(for: row, context: context) else { return nil }
 
@@ -172,8 +152,8 @@ final class PurchaseLogModel {
         return Int((Double(totalCostCents) / Double(quantity * unitsPerCase)).rounded())
     }
 
-    /// The mirror's record for a finished case row. Nil for loose items,
-    /// drafts, and packs the mirror doesn't have.
+    /// The mirror's record for a case row. Nil for loose items and packs the
+    /// mirror doesn't have.
     private func pack(for row: PurchaseRow, context: ModelContext) -> StoredPack? {
         guard row.kind == .pack else { return nil }
         return catalog.packs(in: context).first { $0.id == row.recordId }
@@ -187,6 +167,12 @@ final class PurchaseLogModel {
         else { return nil }
 
         return (quantity, totalCostCents)
+    }
+
+    /// The first row already holding this record — the Entry screen's
+    /// "already on this purchase" note.
+    func existingLine(for item: CatalogItem) -> PurchaseRow? {
+        rows.first { $0.isPack == item.isPack && $0.recordId == item.recordId }
     }
 
     func searchResults(query: String, context: ModelContext) -> [CatalogItem] {
@@ -210,16 +196,77 @@ final class PurchaseLogModel {
         resolver.resolve(code, context: context)
     }
 
-    /// A result picked by name. Always a new row rather than an increment: the
-    /// same product can legitimately appear twice on one receipt at two
-    /// prices, and searching for it again is the only way to say so.
+    /// A result picked by name, onto the Entry screen like a scan.
     func add(_ item: CatalogItem) {
-        clearError()
         // Picking by name answers the same question a parked scan was asking.
         resolver.dismissPendingScan()
-        rows.append(
-            PurchaseRow(kind: item.isPack ? .pack : .unit, recordId: item.recordId, name: item.name)
-        )
+        beginLine(for: item)
+    }
+
+    /// A repeat is a new line, not a bump: one receipt can list the same item
+    /// twice at two prices. A new case arrives with its line already typed.
+    private func beginLine(for item: CatalogItem) {
+        clearError()
+        if let newCase {
+            self.newCase = nil
+            rows.append(LineEntry(item: item, cost: newCase.cost).makeRow())
+            return
+        }
+        pendingLine = LineEntry(item: item, cost: LineCost(mode: costEntryMode))
+    }
+
+    /// The mode sticks for the next entry.
+    func setPendingLineCost(_ cost: LineCost) {
+        guard pendingLine != nil else { return }
+        pendingLine?.cost = cost
+        costEntryMode = cost.mode
+    }
+
+    // MARK: - A new case
+
+    /// "It's a case of items": the name and line first, then the contents.
+    func beginNewCase() {
+        guard resolver.allowsPacks, resolver.pendingScan != nil else { return }
+        newCase = NewCaseDraft(name: "", cost: LineCost(mode: costEntryMode))
+    }
+
+    func renameNewCase(_ name: String) {
+        newCase?.name = name
+    }
+
+    func setNewCaseCost(_ cost: LineCost) {
+        guard newCase != nil else { return }
+        newCase?.cost = cost
+        costEntryMode = cost.mode
+    }
+
+    /// Back to "Item, or a case?" with the scan intact.
+    func cancelNewCase() {
+        newCase = nil
+        resolver.cancelCase()
+    }
+
+    /// Success lands in `beginLine`, which adds the case's line.
+    func addNewCase(context: ModelContext) async {
+        guard let newCase else { return }
+        await resolver.createPack(name: newCase.name, context: context)
+    }
+
+    /// No-op while the line is incomplete.
+    @discardableResult
+    func commitPendingLine() -> Bool {
+        guard let line = pendingLine, line.cost.isComplete else { return false }
+
+        rows.append(line.makeRow())
+        pendingLine = nil
+        return true
+    }
+
+    /// The sheet closed without Add, from any depth.
+    func cancelPendingLine() {
+        pendingLine = nil
+        newCase = nil
+        resolver.dismissPendingScan()
     }
 
     /// Patch form: the view edits one field at a time, and an untouched field
@@ -232,11 +279,6 @@ final class PurchaseLogModel {
     }
 
     func removeRow(id: UUID) {
-        if let row = rows.first(where: { $0.id == id }), row.kind == .packDraft {
-            // Takes the in-flight candidate lookup with it.
-            packDrafts[row.recordId]?.dismissPendingScan()
-            packDrafts[row.recordId] = nil
-        }
         rows.removeAll { $0.id == id }
     }
 
@@ -300,10 +342,6 @@ final class PurchaseLogModel {
         var packLines: [PurchaseSubmissionPackLine] = []
         for (index, row) in rows.enumerated() {
             let number = index + 1
-            guard row.kind != .packDraft else {
-                errorMessage = "Line \(number): this case still needs its contents — tap it to finish"
-                return nil
-            }
             guard let totalCostCents = Money.parseDollarsToCents(row.totalCostText) else {
                 errorMessage = "Line \(number): cost must be a dollar amount"
                 return nil
@@ -328,8 +366,6 @@ final class PurchaseLogModel {
                         packId: row.recordId, qty: quantity, totalCostCents: totalCostCents
                     )
                 )
-            case .packDraft:
-                preconditionFailure("the guard above returns before a draft row reaches this switch")
             }
         }
         return (lines, packLines)
@@ -348,101 +384,6 @@ final class PurchaseLogModel {
 
     private func clearError() {
         errorMessage = nil
-    }
-
-    // MARK: - Rows
-
-    /// A second scan of the same thing means two of it, not a second line to
-    /// reconcile against one receipt entry.
-    private func addOrIncrementRow(kind: PurchaseRow.Kind, recordId: String, name: String) {
-        guard let index = rows.firstIndex(where: { $0.kind == kind && $0.recordId == recordId })
-        else {
-            let row = PurchaseRow(kind: kind, recordId: recordId, name: name)
-            rows.append(row)
-            scanConfirmation = ScanConfirmation(
-                rowId: row.id, name: name, isPack: row.isPack, quantity: 1, effect: .added
-            )
-            return
-        }
-
-        let quantity = (Int(rows[index].quantityText.trimmed) ?? 0) + 1
-        rows[index].quantityText = String(quantity)
-        scanConfirmation = ScanConfirmation(
-            rowId: rows[index].id, name: name, isPack: rows[index].isPack,
-            quantity: quantity, effect: .incremented
-        )
-    }
-
-    // MARK: - Telling the operator it worked
-
-    /// What the last scan did, for the card over the camera. Replaced by the
-    /// next scan rather than timed out — a flash can be missed while looking
-    /// at the cart.
-    private(set) var scanConfirmation: ScanConfirmation?
-
-    /// Reverse the last scan. An increment steps back down instead of
-    /// removing the row, because undoing an accidental double-scan must not
-    /// discard the first one.
-    func undoLastScan() {
-        guard let confirmation = scanConfirmation else { return }
-        scanConfirmation = nil
-
-        switch confirmation.effect {
-        case .added, .caseStarted:
-            // Through `removeRow` so a draft case also gives up its resolver.
-            removeRow(id: confirmation.rowId)
-        case .incremented:
-            guard let index = rows.firstIndex(where: { $0.id == confirmation.rowId }) else { return }
-            rows[index].quantityText = String(max(confirmation.quantity - 1, 1))
-        }
-    }
-
-    /// The scanner closed, so there is nothing left to confirm.
-    func clearScanConfirmation() {
-        scanConfirmation = nil
-    }
-
-    /// "It's a case of items": a flagged row appears now, holding onto the
-    /// detached resolver until its contents are done. Wiring `onResolve`
-    /// here, rather than in `BarcodeResolutionModel`, is what lets the same
-    /// resolver type serve both the shared scan-everything resolver and a
-    /// one-off draft without knowing which it is.
-    private func commitPackDraft(_ draft: BarcodeResolutionModel) {
-        let draftId = UUID().uuidString
-        draft.onResolve = { [weak self] item in
-            self?.resolveDraft(draftId, into: item)
-        }
-        packDrafts[draftId] = draft
-
-        // The outside guess when one landed: "Frito-Lay 30ct variety" tells the
-        // operator which box they just committed to, where "New case" doesn't.
-        let candidateName = draft.pendingScan?.candidate?.displayName ?? ""
-        let name = candidateName.trimmed.isEmpty ? "New case" : candidateName
-        let row = PurchaseRow(kind: .packDraft, recordId: draftId, name: name)
-        rows.append(row)
-        // Committing a case drops the sheet straight back to the camera, which
-        // on its own looks like the tap did nothing.
-        scanConfirmation = ScanConfirmation(
-            rowId: row.id, name: name, isPack: true, quantity: 1, effect: .caseStarted
-        )
-    }
-
-    /// `createPack` succeeded: the draft becomes a real row, keeping
-    /// whatever quantity or cost the operator already typed in rather than
-    /// starting the line over.
-    private func resolveDraft(_ draftId: String, into item: CatalogItem) {
-        packDrafts[draftId] = nil
-        guard let index = rows.firstIndex(where: { $0.kind == .packDraft && $0.recordId == draftId })
-        else { return }
-
-        rows[index] = PurchaseRow(
-            id: rows[index].id,
-            kind: .pack,
-            recordId: item.recordId,
-            name: item.name,
-            quantityText: rows[index].quantityText,
-            totalCostText: rows[index].totalCostText
-        )
     }
 
     // MARK: - The mirror

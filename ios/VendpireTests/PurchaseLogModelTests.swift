@@ -108,6 +108,30 @@ final class PurchaseLogModelTests: XCTestCase {
         model.resolver.updateContent(id: added.id, unitsText: units)
     }
 
+    /// Scan, then Add on the Entry screen.
+    private func scanLine(_ code: String, quantity: String = "1", cost: String = "1.00") throws {
+        model.handleScan(code, context: context)
+        XCTAssertNotNil(model.pendingLine, "the scan should have opened Entry")
+        model.setPendingLineCost(LineCost(mode: .total, quantityText: quantity, amountText: cost))
+        XCTAssertTrue(model.commitPendingLine())
+    }
+
+    /// Put a row on the list holding exactly this text — half-typed included,
+    /// which Entry itself would refuse, so it is patched after the add.
+    @discardableResult
+    private func appendRow(_ item: CatalogItem, quantity: String = "1", cost: String = "") throws -> PurchaseRow {
+        model.add(item)
+        model.setPendingLineCost(LineCost(mode: .total, amountText: "1.00"))
+        XCTAssertTrue(model.commitPendingLine())
+        let added = try XCTUnwrap(model.rows.last)
+        model.updateRow(id: added.id, quantityText: quantity, totalCostText: cost)
+        return try XCTUnwrap(model.rows.last)
+    }
+
+    private func makeItem(_ product: StoredProduct) -> CatalogItem {
+        CatalogSearch.item(for: product)
+    }
+
     private func fetchOutbox() throws -> [OutboxItem] {
         try context.fetch(FetchDescriptor<OutboxItem>())
     }
@@ -122,43 +146,61 @@ final class PurchaseLogModelTests: XCTestCase {
 
     // MARK: - Scanning
 
-    func testKnownScanAddsARow() throws {
+    /// A scan opens Entry for one receipt line; nothing reaches the list
+    /// until Add.
+    func testAKnownScanOpensEntryWithoutAddingARow() throws {
         try makeScreen(products: [makeCoke()])
 
         model.handleScan(cokeUpc, context: context)
 
-        XCTAssertEqual(model.rows.count, 1)
-        let row = try XCTUnwrap(model.rows.first)
-        XCTAssertEqual(row.kind, .unit)
-        XCTAssertEqual(row.recordId, "p-coke")
-        XCTAssertEqual(row.name, "Coke Zero", "the row denormalizes the name for display")
-        XCTAssertEqual(row.quantityText, "1")
-        XCTAssertEqual(row.totalCostText, "")
+        let line = try XCTUnwrap(model.pendingLine)
+        XCTAssertEqual(line.item.recordId, "p-coke")
+        XCTAssertEqual(line.item.name, "Coke Zero")
+        XCTAssertEqual(line.cost.quantityText, "1")
+        XCTAssertEqual(line.cost.amountText, "")
+        XCTAssertTrue(model.rows.isEmpty)
         XCTAssertNil(model.resolver.pendingScan)
         XCTAssertNil(model.resolver.errorMessage)
     }
 
-    /// Scanning the same can twice means two cans, not two lines to reconcile.
-    func testRescanIncrementsInsteadOfDuplicating() throws {
+    func testAddingTheLineAppendsARow() throws {
         try makeScreen(products: [makeCoke()])
 
-        model.handleScan(cokeUpc, context: context)
-        model.handleScan(cokeUpc, context: context)
+        try scanLine(cokeUpc, quantity: "2", cost: "3.50")
 
-        XCTAssertEqual(model.rows.count, 1)
-        XCTAssertEqual(model.rows.first?.quantityText, "2")
+        let row = try XCTUnwrap(model.rows.first)
+        XCTAssertEqual(row.kind, .unit)
+        XCTAssertEqual(row.recordId, "p-coke")
+        XCTAssertEqual(row.name, "Coke Zero", "the row denormalizes the name for display")
+        XCTAssertEqual(row.quantityText, "2")
+        XCTAssertEqual(row.totalCostText, "3.50")
+        XCTAssertNil(model.pendingLine, "Add closes the entry")
     }
 
-    func testPackScanAddsAPackRowWithQty1() throws {
+    /// One scan is one receipt line: the same item can be on a receipt twice
+    /// at two prices.
+    func testScanningAnItemAlreadyOnThePurchaseMakesASecondLine() throws {
+        try makeScreen(products: [makeCoke()])
+        try scanLine(cokeUpc, cost: "1.00")
+
+        model.handleScan(cokeUpc, context: context)
+        let item = try XCTUnwrap(model.pendingLine?.item)
+        XCTAssertEqual(model.existingLine(for: item)?.id, model.rows.first?.id, "Entry notes the earlier line")
+        model.setPendingLineCost(LineCost(mode: .total, amountText: "1.25"))
+        model.commitPendingLine()
+
+        XCTAssertEqual(model.rows.map(\.totalCostText), ["1.00", "1.25"])
+    }
+
+    func testAPackScanOpensEntryForTheCase() throws {
         try makeScreen(products: [makeCoke(), makeDoritos()], packs: [makeVarietyCase()])
 
         model.handleScan(caseCode, context: context)
 
-        let row = try XCTUnwrap(model.rows.first)
-        XCTAssertEqual(row.kind, .pack)
-        XCTAssertEqual(row.recordId, "k-variety")
-        XCTAssertEqual(row.name, "Costco variety case")
-        XCTAssertEqual(row.quantityText, "1", "a scanned case is one case until told otherwise")
+        let line = try XCTUnwrap(model.pendingLine)
+        XCTAssertTrue(line.item.isPack)
+        XCTAssertEqual(line.item.recordId, "k-variety")
+        XCTAssertEqual(line.cost.quantityText, "1", "a scanned case is one case until told otherwise")
     }
 
     func testUnknownScanParksAPendingScan() async throws {
@@ -171,6 +213,7 @@ final class PurchaseLogModelTests: XCTestCase {
         XCTAssertEqual(pending.gtin14, "10049000042556")
         XCTAssertTrue(pending.likelyCase)
         XCTAssertTrue(model.rows.isEmpty, "an unknown code adds nothing until the sheet resolves it")
+        XCTAssertNil(model.pendingLine, "and Entry waits for it too")
         XCTAssertNil(model.resolver.errorMessage, "not-found is a question, not an error")
     }
 
@@ -215,9 +258,7 @@ final class PurchaseLogModelTests: XCTestCase {
 
     func testReceiptStatusReadsOverUnderAndMatching() throws {
         try makeScreen(products: [makeCoke()])
-        model.handleScan(cokeUpc, context: context)
-        let row = try XCTUnwrap(model.rows.first)
-        model.updateRow(id: row.id, totalCostText: "12.99")
+        try scanLine(cokeUpc, cost: "12.99")
 
         XCTAssertEqual(model.enteredCents, 1299)
         XCTAssertNil(model.receiptStatus, "no receipt total means nothing to reconcile against")
@@ -249,9 +290,7 @@ final class PurchaseLogModelTests: XCTestCase {
     /// backstop, and a backstop has to name the problem rather than fail quiet.
     func testSaveRefusesABlankVendor() throws {
         try makeScreen(products: [makeCoke()])
-        model.handleScan(cokeUpc, context: context)
-        let row = try XCTUnwrap(model.rows.first)
-        model.updateRow(id: row.id, totalCostText: "1.99")
+        try scanLine(cokeUpc, cost: "1.99")
         model.vendor = "   "
 
         XCTAssertFalse(model.save(context: context))
@@ -262,11 +301,8 @@ final class PurchaseLogModelTests: XCTestCase {
 
     func testSaveRejectsAHalfTypedRow() throws {
         try makeScreen(products: [makeCoke(), makeDoritos()])
-        model.handleScan(cokeUpc, context: context)
-        let doritos = try XCTUnwrap(model.searchResults(query: "doritos", context: context).first)
-        model.add(doritos)
-        let first = try XCTUnwrap(model.rows.first)
-        model.updateRow(id: first.id, totalCostText: "12.99")
+        try scanLine(cokeUpc, cost: "12.99")
+        try appendRow(makeItem(makeDoritos()), cost: "")
 
         XCTAssertFalse(model.save(context: context))
 
@@ -277,14 +313,8 @@ final class PurchaseLogModelTests: XCTestCase {
 
     func testSaveEnqueuesOnePurchaseOutboxItem() throws {
         try makeScreen(products: [makeCoke(), makeDoritos()], packs: [makeVarietyCase()])
-        model.handleScan(cokeUpc, context: context)
-        model.handleScan(cokeUpc, context: context)
-        model.handleScan(caseCode, context: context)
-
-        let unitRow = try XCTUnwrap(model.rows.first { $0.kind == .unit })
-        let packRow = try XCTUnwrap(model.rows.first { $0.kind == .pack })
-        model.updateRow(id: unitRow.id, totalCostText: "12.99")
-        model.updateRow(id: packRow.id, totalCostText: "27.01")
+        try scanLine(cokeUpc, quantity: "2", cost: "12.99")
+        try scanLine(caseCode, cost: "27.01")
         model.receiptTotalText = "40.00"
         model.notes = "Costco run"
         // Mid-afternoon local: the midday anchor has to land on this same day,
@@ -334,9 +364,7 @@ final class PurchaseLogModelTests: XCTestCase {
     /// second purchase. First success is terminal for the screen.
     func testSaveTwiceReusesTheClientRequestId() throws {
         try makeScreen(products: [makeCoke()])
-        model.handleScan(cokeUpc, context: context)
-        let row = try XCTUnwrap(model.rows.first)
-        model.updateRow(id: row.id, totalCostText: "12.99")
+        try scanLine(cokeUpc, cost: "12.99")
         let mintedId = model.clientRequestId
 
         XCTAssertTrue(model.save(context: context))
@@ -362,9 +390,7 @@ final class PurchaseLogModelTests: XCTestCase {
 
     func testSplitPreviewMatchesTheAllocator() throws {
         try makeScreen(products: [makeCoke(), makeDoritos()], packs: [makeVarietyCase()])
-        model.handleScan(caseCode, context: context)
-        let scanned = try XCTUnwrap(model.rows.first)
-        model.updateRow(id: scanned.id, totalCostText: "37.98")
+        try scanLine(caseCode, cost: "37.98")
         let row = try XCTUnwrap(model.rows.first)
 
         let preview = try XCTUnwrap(model.splitPreview(for: row, context: context))
@@ -380,17 +406,14 @@ final class PurchaseLogModelTests: XCTestCase {
 
     func testSplitPreviewStaysSilentWhileTheCostIsHalfTyped() throws {
         try makeScreen(products: [makeCoke(), makeDoritos()], packs: [makeVarietyCase()])
-        model.handleScan(caseCode, context: context)
-        let packRow = try XCTUnwrap(model.rows.first)
+        let packRow = try appendRow(CatalogSearch.item(for: makeVarietyCase()), cost: "")
 
         XCTAssertNil(
             model.splitPreview(for: packRow, context: context),
             "a blank cost must not flash a wrong split"
         )
 
-        model.handleScan(cokeUpc, context: context)
-        let unitRow = try XCTUnwrap(model.rows.first { $0.kind == .unit })
-        model.updateRow(id: unitRow.id, totalCostText: "12.99")
+        try scanLine(cokeUpc, cost: "12.99")
         let pricedUnitRow = try XCTUnwrap(model.rows.first { $0.kind == .unit })
         XCTAssertNil(
             model.splitPreview(for: pricedUnitRow, context: context),
@@ -402,8 +425,8 @@ final class PurchaseLogModelTests: XCTestCase {
 
     func testFieldsRunDownEachRow() throws {
         try makeScreen(products: [makeCoke(), makeDoritos()])
-        model.add(CatalogItem(kind: .unit(imageUrl: nil), recordId: "p-coke", name: "Coke Zero", barcode: nil))
-        model.add(CatalogItem(kind: .unit(imageUrl: nil), recordId: "p-doritos", name: "Doritos", barcode: nil))
+        try appendRow(makeItem(makeCoke()))
+        try appendRow(makeItem(makeDoritos()))
         let first = model.rows[0].id
         let second = model.rows[1].id
 
@@ -411,27 +434,12 @@ final class PurchaseLogModelTests: XCTestCase {
             .quantity(rowId: first), .totalCost(rowId: first),
             .quantity(rowId: second), .totalCost(rowId: second),
         ])
-        XCTAssertEqual(model.field(after: .totalCost(rowId: first)), .quantity(rowId: second))
-        XCTAssertEqual(model.field(before: .quantity(rowId: second)), .totalCost(rowId: first))
-    }
-
-    func testFieldOrderStopsAtBothEnds() throws {
-        try makeScreen(products: [makeCoke()])
-        model.handleScan(cokeUpc, context: context)
-        let row = try XCTUnwrap(model.rows.first)
-
-        XCTAssertNil(model.field(before: .quantity(rowId: row.id)))
-        XCTAssertNil(model.field(after: .totalCost(rowId: row.id)))
     }
 
     func testFieldOrderOfAnEmptyPurchaseIsEmpty() throws {
         try makeScreen()
 
         XCTAssertEqual(model.fieldOrder, [])
-        XCTAssertNil(
-            model.field(after: .quantity(rowId: UUID())),
-            "a deleted row's field has no neighbors"
-        )
     }
 
     // MARK: - Case summary
@@ -446,10 +454,7 @@ final class PurchaseLogModelTests: XCTestCase {
     }
 
     private func addCase(_ pack: StoredPack, quantity: String = "1", cost: String) throws -> PurchaseRow {
-        model.add(CatalogItem(kind: .pack(units: pack.unitsPerCase), recordId: pack.id, name: pack.name, barcode: nil))
-        let added = try XCTUnwrap(model.rows.last)
-        model.updateRow(id: added.id, quantityText: quantity, totalCostText: cost)
-        return try XCTUnwrap(model.rows.last)
+        try appendRow(CatalogSearch.item(for: pack), quantity: quantity, cost: cost)
     }
 
     func testCaseSummaryPricesEachUnitOfASingleProductCase() throws {
@@ -511,7 +516,7 @@ final class PurchaseLogModelTests: XCTestCase {
 
     func testCaseContentsIsNilForALooseItem() throws {
         try makeScreen(products: [makeCoke()])
-        model.handleScan(cokeUpc, context: context)
+        try scanLine(cokeUpc)
         let row = try XCTUnwrap(model.rows.first)
 
         XCTAssertNil(model.caseContents(for: row, context: context))
@@ -519,7 +524,7 @@ final class PurchaseLogModelTests: XCTestCase {
 
     func testCaseSummaryIsNilForALooseItem() throws {
         try makeScreen(products: [makeCoke()])
-        model.handleScan(cokeUpc, context: context)
+        try scanLine(cokeUpc)
         let row = try XCTUnwrap(model.rows.first)
 
         XCTAssertNil(model.caseSummary(for: row, context: context))
@@ -542,9 +547,9 @@ final class PurchaseLogModelTests: XCTestCase {
 
         XCTAssertEqual(calls.attachedProducts.map(\.productId), ["p-coke"])
         XCTAssertEqual(calls.attachedProducts.map(\.code), ["10049000042556"])
-        XCTAssertNil(model.resolver.pendingScan, "a resolved scan closes the sheet")
-        XCTAssertEqual(model.rows.count, 1)
-        XCTAssertEqual(model.rows.first?.recordId, "p-coke")
+        XCTAssertNil(model.resolver.pendingScan, "a resolved scan closes the question")
+        XCTAssertEqual(model.pendingLine?.item.recordId, "p-coke", "and opens Entry for it")
+        XCTAssertTrue(model.rows.isEmpty)
 
         let stored = try fetchStoredProducts()
         XCTAssertEqual(stored.count, 1, "an attach upserts, it never reconciles the mirror")
@@ -630,7 +635,7 @@ final class PurchaseLogModelTests: XCTestCase {
         XCTAssertEqual(draft.defaultPriceCents, 175)
 
         XCTAssertNil(model.resolver.pendingScan)
-        XCTAssertEqual(model.rows.first?.recordId, "p-new")
+        XCTAssertEqual(model.pendingLine?.item.recordId, "p-new")
         XCTAssertEqual(try fetchStoredProducts().count, 1, "the new product is mirrored immediately")
     }
 
@@ -664,7 +669,7 @@ final class PurchaseLogModelTests: XCTestCase {
 
         XCTAssertEqual(
             model.resolver.errorMessage,
-            "Sell price must be a dollar amount (e.g. 1.75), or left blank"
+            "Default price must be a dollar amount (e.g. 1.75), or left blank"
         )
         XCTAssertTrue(calls.productDrafts.isEmpty, "nothing is created on a rejected price")
         XCTAssertNotNil(model.resolver.pendingScan, "the sheet stays open to fix the field")
@@ -689,7 +694,7 @@ final class PurchaseLogModelTests: XCTestCase {
 
         XCTAssertNil(model.resolver.errorMessage)
         XCTAssertEqual(calls.productDrafts.first?.defaultPriceCents, 0)
-        XCTAssertEqual(model.rows.first?.recordId, "p-new")
+        XCTAssertEqual(model.pendingLine?.item.recordId, "p-new")
     }
 
     /// A button that does nothing reads as a missed tap. Without
@@ -745,8 +750,11 @@ final class PurchaseLogModelTests: XCTestCase {
             [PackContent(productId: "p-coke", units: 20), PackContent(productId: "p-doritos", units: 10)]
         )
         XCTAssertNil(model.resolver.pendingScan)
-        XCTAssertEqual(model.rows.first?.kind, .pack)
-        XCTAssertEqual(model.rows.first?.recordId, "k-new")
+        XCTAssertTrue(model.resolver.contents.isEmpty)
+        let line = try XCTUnwrap(model.pendingLine, "a finished case goes to Entry like any item")
+        XCTAssertTrue(line.item.isPack)
+        XCTAssertEqual(line.item.recordId, "k-new")
+        XCTAssertTrue(model.rows.isEmpty, "nothing is on the list until Add")
     }
 
     /// A failure partway leaves the product behind — it is a record the
@@ -946,81 +954,7 @@ final class PurchaseLogModelTests: XCTestCase {
         )
     }
 
-    // MARK: - Telling the operator it worked
-
-    /// The scanner is opaque and stays up across a whole cart, so a scan that
-    /// worked must say so — silence is indistinguishable from a dead scanner.
-    func testAKnownScanReportsWhatItAdded() throws {
-        try makeScreen(products: [makeCoke()])
-
-        model.handleScan(cokeUpc, context: context)
-
-        let confirmation = try XCTUnwrap(model.scanConfirmation)
-        XCTAssertEqual(confirmation.name, "Coke Zero")
-        XCTAssertEqual(confirmation.quantity, 1)
-        XCTAssertEqual(confirmation.effect, .added)
-        XCTAssertFalse(confirmation.isPack)
-    }
-
-    /// The count is the point: a rescan bumps an existing row, and without a
-    /// number on the card that is invisible until the receipt won't add up.
-    func testARescanReportsTheBumpedCount() throws {
-        try makeScreen(products: [makeCoke()])
-
-        model.handleScan(cokeUpc, context: context)
-        let first = try XCTUnwrap(model.scanConfirmation)
-        model.handleScan(cokeUpc, context: context)
-
-        let second = try XCTUnwrap(model.scanConfirmation)
-        XCTAssertEqual(second.quantity, 2)
-        XCTAssertEqual(second.effect, .incremented)
-        XCTAssertNotEqual(second.id, first.id, "a fresh id re-fires the haptic and the animation")
-        XCTAssertEqual(model.rows.count, 1, "still one row, not two")
-    }
-
-    func testAPackScanReportsItselfAsACase() throws {
-        try makeScreen(products: [makeCoke()], packs: [makeVarietyCase()])
-
-        model.handleScan(caseCode, context: context)
-
-        let confirmation = try XCTUnwrap(model.scanConfirmation)
-        XCTAssertTrue(confirmation.isPack, "the badge is how scanning a case by mistake gets caught")
-    }
-
-    func testUndoingAnAddRemovesTheRow() throws {
-        try makeScreen(products: [makeCoke()])
-        model.handleScan(cokeUpc, context: context)
-
-        model.undoLastScan()
-
-        XCTAssertTrue(model.rows.isEmpty)
-        XCTAssertNil(model.scanConfirmation)
-    }
-
-    /// Undoing a double-scan must step the count back, not delete the row —
-    /// removing it would throw away the first scan as well.
-    func testUndoingARescanStepsTheCountBackInstead() throws {
-        try makeScreen(products: [makeCoke()])
-        model.handleScan(cokeUpc, context: context)
-        model.handleScan(cokeUpc, context: context)
-
-        model.undoLastScan()
-
-        XCTAssertEqual(model.rows.count, 1, "the row the first scan made stays")
-        XCTAssertEqual(model.rows.first?.quantityText, "1")
-        XCTAssertNil(model.scanConfirmation)
-    }
-
-    func testUndoWithNothingScannedChangesNothing() throws {
-        try makeScreen(products: [makeCoke()])
-        model.add(
-            CatalogItem(kind: .unit(imageUrl: nil), recordId: "p-coke", name: "Coke Zero", barcode: nil)
-        )
-
-        model.undoLastScan()
-
-        XCTAssertEqual(model.rows.count, 1, "a manual pick is not the last SCAN and Undo must not eat it")
-    }
+    // MARK: - Retired records
 
     /// The deliberate asymmetry with `CatalogSearch.items`, which hides
     /// retired records. Scanning is evidence the box is in the cart; refusing
@@ -1034,7 +968,7 @@ final class PurchaseLogModelTests: XCTestCase {
 
         model.handleScan(cokeUpc, context: context)
 
-        XCTAssertEqual(model.rows.map(\.recordId), ["p-coke"])
+        XCTAssertEqual(model.pendingLine?.item.recordId, "p-coke")
         XCTAssertNil(model.resolver.pendingScan, "a retired hit is still a hit, not a question")
         XCTAssertTrue(
             model.searchResults(query: "coke", context: context).isEmpty,
@@ -1054,15 +988,14 @@ final class PurchaseLogModelTests: XCTestCase {
         XCTAssertNotNil(model.resolver.lastReadId)
     }
 
-    /// The unknown path is the one that needed this: it swaps the camera for a
-    /// question and adds no row, so a confirmation-shaped signal never fires.
+    /// An unknown code puts nothing on the purchase, but the read still buzzes.
     func testAnUnknownCodeCountsAsAReadToo() throws {
         try makeScreen(products: [makeCoke()])
 
         model.handleScan(caseCode, context: context)
 
         XCTAssertNotNil(model.resolver.pendingScan, "unknown, so the sheet is asking")
-        XCTAssertNil(model.scanConfirmation, "nothing landed on the purchase to confirm")
+        XCTAssertNil(model.pendingLine, "nothing to enter yet")
         XCTAssertNotNil(model.resolver.lastReadId, "and yet the read happened")
     }
 
@@ -1106,8 +1039,8 @@ final class PurchaseLogModelTests: XCTestCase {
 
         model.handleScan(cokeUpc, context: context)
 
-        XCTAssertNil(model.resolver.pendingScan, "a parked sheet must not sit over a row already in the list")
-        XCTAssertEqual(model.rows.count, 1)
+        XCTAssertNil(model.resolver.pendingScan, "a parked question must not sit under Entry")
+        XCTAssertEqual(model.pendingLine?.item.recordId, "p-coke")
     }
 
     func testAManualPickClosesAParkedSheet() throws {
@@ -1118,12 +1051,13 @@ final class PurchaseLogModelTests: XCTestCase {
         model.add(item)
 
         XCTAssertNil(model.resolver.pendingScan)
-        XCTAssertEqual(model.rows.count, 1)
+        XCTAssertEqual(model.pendingLine?.item.recordId, "p-coke", "a manual pick goes to Entry too")
+        XCTAssertTrue(model.rows.isEmpty)
     }
 
     func testRemoveRowDropsIt() throws {
         try makeScreen(products: [makeCoke()])
-        model.handleScan(cokeUpc, context: context)
+        try scanLine(cokeUpc)
         let row = try XCTUnwrap(model.rows.first)
 
         model.removeRow(id: row.id)
@@ -1131,162 +1065,145 @@ final class PurchaseLogModelTests: XCTestCase {
         XCTAssertTrue(model.rows.isEmpty)
     }
 
-    // MARK: - Draft cases
+    // MARK: - The Entry screen
 
-    /// "It's a case of items" commits on the spot: a flagged row lands now,
-    /// well before the case has a name or anything inside it.
-    func testCommittingACaseAddsAFlaggedDraftRow() async throws {
-        try makeScreen()
-        model.handleScan(caseCode, context: context)
-        await model.resolver.candidateFetch?.value
+    func testAddStoresTheLineTotalWhenTypedAsEach() throws {
+        try makeScreen(products: [makeCoke()])
+        model.handleScan(cokeUpc, context: context)
 
-        model.resolver.commitPendingCase()
+        model.setPendingLineCost(LineCost(mode: .each, quantityText: "2", amountText: "12.99"))
+        XCTAssertTrue(model.commitPendingLine())
 
-        XCTAssertEqual(model.rows.count, 1)
-        let row = try XCTUnwrap(model.rows.first)
-        XCTAssertEqual(row.kind, .packDraft)
-        XCTAssertEqual(row.name, "New case")
-        XCTAssertEqual(row.quantityText, "1")
-        XCTAssertTrue(row.isPack, "a draft still reads as a case, not a unit")
-
-        let draft = try XCTUnwrap(model.packDrafts[row.recordId])
-        XCTAssertEqual(draft.pendingScan?.gtin14, caseCode)
-        XCTAssertTrue(draft.allowsPacks)
+        XCTAssertEqual(model.rows.first?.quantityText, "2")
+        XCTAssertEqual(model.rows.first?.totalCostText, "25.98", "the row always holds the line total")
     }
 
-    /// Committing a case drops the sheet back to the camera, so the card is
-    /// the only thing that says a row landed at all.
-    func testCommittingACaseReportsItselfOnTheCard() async throws {
-        try makeScreen()
-        model.handleScan(caseCode, context: context)
-        await model.resolver.candidateFetch?.value
+    func testAddRefusesAnIncompleteLine() throws {
+        try makeScreen(products: [makeCoke()])
+        model.handleScan(cokeUpc, context: context)
 
-        model.resolver.commitPendingCase()
+        XCTAssertFalse(model.commitPendingLine(), "no cost typed yet")
 
-        let row = try XCTUnwrap(model.rows.first)
-        let confirmation = try XCTUnwrap(model.scanConfirmation)
-        XCTAssertEqual(confirmation.rowId, row.id)
-        XCTAssertEqual(confirmation.effect, .caseStarted)
-        XCTAssertEqual(confirmation.name, "New case")
-        XCTAssertTrue(confirmation.isPack, "the badge is what distinguishes it from a unit")
+        XCTAssertTrue(model.rows.isEmpty)
+        XCTAssertNotNil(model.pendingLine, "Entry stays up")
     }
 
-    /// "New case" says nothing about which box is on the purchase. When the
-    /// outside guess landed, it names the row and the card both.
-    func testACommittedCaseTakesItsNameFromTheOutsideGuess() async throws {
-        try makeScreen()
+    func testCancelAddsNothing() throws {
+        try makeScreen(products: [makeCoke()])
+        try scanLine(cokeUpc)
+        model.handleScan(cokeUpc, context: context)
+        model.setPendingLineCost(LineCost(mode: .total, amountText: "5.00"))
+
+        model.cancelPendingLine()
+
+        XCTAssertNil(model.pendingLine)
+        XCTAssertEqual(model.rows.count, 1, "only the line added before")
+    }
+
+    /// One purchase is one store, so how its receipt prints carries over.
+    func testTheCostModeCarriesToTheNextEntry() throws {
+        try makeScreen(products: [makeCoke(), makeDoritos()])
+        model.add(makeItem(makeCoke()))
+        model.setPendingLineCost(LineCost(mode: .each))
+        model.cancelPendingLine()
+
+        model.add(makeItem(makeDoritos()))
+
+        XCTAssertEqual(model.pendingLine?.cost.mode, .each)
+    }
+
+    func testExistingLineIsNilForANewItem() throws {
+        try makeScreen(products: [makeCoke(), makeDoritos()])
+        try appendRow(makeItem(makeCoke()), cost: "1.00")
+
+        XCTAssertNil(model.existingLine(for: makeItem(makeDoritos())))
+    }
+
+    func testARowsEachPriceShowsOnlyAboveOne() throws {
+        try makeScreen(products: [makeCoke()])
+        let one = try appendRow(makeItem(makeCoke()), quantity: "1", cost: "12.99")
+        let three = try appendRow(makeItem(makeCoke()), quantity: "3", cost: "10.00")
+
+        XCTAssertNil(one.cost.counterpartCents)
+        XCTAssertEqual(three.cost.counterpartCents, 333)
+    }
+
+    // MARK: - Building a case
+
+    // MARK: - A new case, line first
+
+    private func startNewCase(products: [StoredProduct] = []) async throws {
+        try makeScreen(products: products)
         api.onFetchBarcodeCandidate = { _ in
             RemoteCandidate(name: "30ct Variety", brand: "Frito-Lay", imageUrl: nil)
         }
-        model.handleScan(caseCode, context: context)
-        await model.resolver.candidateFetch?.value
-
-        model.resolver.commitPendingCase()
-
-        let row = try XCTUnwrap(model.rows.first)
-        XCTAssertEqual(row.name, "Frito-Lay 30ct Variety")
-        XCTAssertEqual(model.scanConfirmation?.name, "Frito-Lay 30ct Variety")
-    }
-
-    /// Undo has to take the resolver with the row. Leaving it behind would
-    /// strand a case nothing on screen can reach or finish.
-    func testUndoingACommittedCaseTakesItsDraftWithIt() async throws {
-        try makeScreen()
-        model.handleScan(caseCode, context: context)
-        await model.resolver.candidateFetch?.value
-        model.resolver.commitPendingCase()
-
-        model.undoLastScan()
-
-        XCTAssertTrue(model.rows.isEmpty)
-        XCTAssertTrue(model.packDrafts.isEmpty, "the draft resolver goes with its row")
-        XCTAssertNil(model.scanConfirmation)
-    }
-
-    /// The resolver that asked goes right back to resolving the next scan —
-    /// the sheet never has to close for this, and nothing about it should
-    /// still be "thinking about" the case that was just handed off.
-    func testCommittingACaseLeavesTheSharedResolverReadyForTheNextScan() async throws {
-        try makeScreen(products: [makeCoke()])
-        model.handleScan(caseCode, context: context)
-        await model.resolver.candidateFetch?.value
-
-        model.resolver.commitPendingCase()
-        XCTAssertNil(model.resolver.pendingScan)
-
-        model.handleScan(cokeUpc, context: context)
-
-        XCTAssertEqual(model.rows.map(\.kind), [.packDraft, .unit])
-    }
-
-    /// Finishing the case in `CaseContentsView` resolves the draft into a
-    /// real row — keeping whatever quantity or cost the operator already
-    /// typed in, rather than starting the line over.
-    func testFinishingADraftReplacesItsRowKeepingQuantityAndCost() async throws {
-        try makeScreen(products: [makeCoke()])
         api.onCreatePack = { draft in Remote.pack(id: "k-new", name: draft.name, contents: draft.contents) }
-
         model.handleScan(caseCode, context: context)
         await model.resolver.candidateFetch?.value
-        model.resolver.commitPendingCase()
-
-        let draftRow = try XCTUnwrap(model.rows.first)
-        model.updateRow(id: draftRow.id, quantityText: "3", totalCostText: "19.99")
-        let draft = try XCTUnwrap(model.packDrafts[draftRow.recordId])
-        addContent(to: draft, productId: "p-coke", name: "Coke Zero", units: "20")
-
-        await draft.createPack(name: "Costco variety case", context: context)
-
-        XCTAssertEqual(model.rows.count, 1, "the draft is replaced in place, not appended alongside")
-        let resolved = try XCTUnwrap(model.rows.first)
-        XCTAssertEqual(resolved.id, draftRow.id)
-        XCTAssertEqual(resolved.kind, .pack)
-        XCTAssertEqual(resolved.recordId, "k-new")
-        XCTAssertEqual(resolved.name, "Costco variety case")
-        XCTAssertEqual(resolved.quantityText, "3", "already-typed quantity survives")
-        XCTAssertEqual(resolved.totalCostText, "19.99", "already-typed cost survives")
-        XCTAssertNil(model.packDrafts[draftRow.recordId], "a resolved draft is not still tracked")
+        model.beginNewCase()
     }
 
-    /// A case with nothing in it yet must not reach the server as a line —
-    /// `createPack` was never even called.
-    func testSaveRefusesAnEmptyDraftCase() async throws {
-        try makeScreen()
-        model.handleScan(caseCode, context: context)
-        await model.resolver.candidateFetch?.value
-        model.resolver.commitPendingCase()
+    func testANewCaseKeepsTheScanAndStartsAFreshLine() async throws {
+        try await startNewCase()
 
-        XCTAssertFalse(model.save(context: context))
-        let message = try XCTUnwrap(model.errorMessage)
-        XCTAssertTrue(message.contains("contents"), "got: \(message)")
-        XCTAssertTrue(try fetchOutbox().isEmpty)
-    }
-
-    /// Deleting a draft row has to drop its resolver too, or a finished case
-    /// elsewhere could resurrect a row nothing points at anymore.
-    func testRemovingADraftRowDropsItsResolverToo() async throws {
-        try makeScreen()
-        model.handleScan(caseCode, context: context)
-        await model.resolver.candidateFetch?.value
-        model.resolver.commitPendingCase()
-        let row = try XCTUnwrap(model.rows.first)
-
-        model.removeRow(id: row.id)
-
+        let draft = try XCTUnwrap(model.newCase)
+        XCTAssertEqual(draft.cost.quantityText, "1")
+        XCTAssertEqual(model.resolver.pendingScan?.gtin14, caseCode, "the case's own code is kept")
+        XCTAssertNil(model.pendingLine)
         XCTAssertTrue(model.rows.isEmpty)
-        XCTAssertTrue(model.packDrafts.isEmpty)
     }
 
-    /// Put a product into a specific draft's case, the way the Search door
-    /// does — no network, no inner resolver. Like `addContent`, but for a
-    /// resolver that was detached rather than `model.resolver` itself.
-    private func addContent(to draft: BarcodeResolutionModel, productId: String, name: String, units: String) {
-        draft.addContent(
-            CatalogItem(kind: .unit(imageUrl: nil), recordId: productId, name: name, barcode: nil)
-        )
-        guard let added = draft.contents.last else {
-            return XCTFail("addContent did not append a row")
-        }
-        draft.updateContent(id: added.id, unitsText: units)
+    /// The line was typed before the contents, so a created case skips Entry.
+    func testAddingANewCaseCreatesItAndAddsItsLine() async throws {
+        try await startNewCase(products: [makeCoke()])
+        model.renameNewCase("Coke Zero 35pk")
+        model.setNewCaseCost(LineCost(mode: .each, quantityText: "2", amountText: "18.99"))
+        addContent(productId: "p-coke", name: "Coke Zero", units: "35")
+
+        await model.addNewCase(context: context)
+
+        let row = try XCTUnwrap(model.rows.first)
+        XCTAssertEqual(row.kind, .pack)
+        XCTAssertEqual(row.recordId, "k-new")
+        XCTAssertEqual(row.name, "Coke Zero 35pk")
+        XCTAssertEqual(row.quantityText, "2")
+        XCTAssertEqual(row.totalCostText, "37.98")
+        XCTAssertNil(model.pendingLine, "no Entry step")
+        XCTAssertNil(model.newCase)
+        XCTAssertTrue(model.resolver.contents.isEmpty)
+    }
+
+    func testAFailedCaseKeepsItsLineForTheRetry() async throws {
+        try await startNewCase(products: [makeCoke()])
+        api.onCreatePack = { _ in throw StubError.unreachable }
+        model.setNewCaseCost(LineCost(mode: .total, amountText: "18.99"))
+        addContent(productId: "p-coke", name: "Coke Zero", units: "35")
+
+        await model.addNewCase(context: context)
+
+        XCTAssertNotNil(model.resolver.errorMessage)
+        XCTAssertEqual(model.newCase?.cost.amountText, "18.99")
+        XCTAssertTrue(model.rows.isEmpty)
+    }
+
+    func testBackingOutOfANewCaseDropsItsLine() async throws {
+        try await startNewCase()
+        model.setNewCaseCost(LineCost(mode: .total, amountText: "18.99"))
+
+        model.cancelNewCase()
+
+        XCTAssertNil(model.newCase)
+        XCTAssertEqual(model.resolver.pendingScan?.gtin14, caseCode, "still asking about the same code")
+    }
+
+    func testClosingTheSheetDropsANewCase() async throws {
+        try await startNewCase(products: [makeCoke()])
+        addContent(productId: "p-coke", name: "Coke Zero", units: "20")
+
+        model.cancelPendingLine()
+
+        XCTAssertNil(model.newCase)
+        XCTAssertNil(model.resolver.pendingScan)
+        XCTAssertTrue(model.resolver.contents.isEmpty, "the next Scan starts clean")
     }
 }

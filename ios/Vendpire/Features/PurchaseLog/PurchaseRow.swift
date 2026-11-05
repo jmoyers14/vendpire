@@ -10,17 +10,11 @@ nonisolated struct PurchaseRow: Equatable, Identifiable, Sendable {
     enum Kind: Equatable, Sendable {
         case unit
         case pack
-        /// A case committed to, but not yet created — nothing to resolve to
-        /// a mirror record until its contents are done. `PurchaseLogModel`
-        /// resolves it into a real `.pack` row once `createPack` succeeds.
-        case packDraft
     }
 
     let id: UUID
     let kind: Kind
-    /// A `StoredProduct.id` for `.unit`, a `StoredPack.id` for `.pack`, the
-    /// draft's own id for `.packDraft` — the key into
-    /// `PurchaseLogModel.packDrafts`.
+    /// A `StoredProduct.id` for `.unit`, a `StoredPack.id` for `.pack`.
     let recordId: String
     /// Denormalized when the row was added, so rendering a row never goes back
     /// to the mirror — and a record renamed mid-entry keeps the name the
@@ -30,8 +24,6 @@ nonisolated struct PurchaseRow: Equatable, Identifiable, Sendable {
     var quantityText: String
     var totalCostText: String
 
-    /// A scanned or picked line starts at one of whatever it is, with the cost
-    /// still to be read off the receipt.
     init(
         id: UUID = UUID(),
         kind: Kind,
@@ -48,7 +40,83 @@ nonisolated struct PurchaseRow: Equatable, Identifiable, Sendable {
         self.totalCostText = totalCostText
     }
 
-    var isPack: Bool { kind == .pack || kind == .packDraft }
+    var isPack: Bool { kind == .pack }
+
+    /// The row as a line total, for the each-price hint.
+    var cost: LineCost {
+        LineCost(mode: .total, quantityText: quantityText, amountText: totalCostText)
+    }
+}
+
+/// A receipt line's quantity and cost as typed. Receipts print either a line
+/// total or an each price depending on the store, so the cost is typed either
+/// way — and the row it becomes always holds the total.
+nonisolated struct LineCost: Equatable, Sendable {
+    enum Mode: Equatable, Sendable {
+        case total
+        case each
+    }
+
+    var mode: Mode
+    var quantityText: String
+    var amountText: String
+
+    init(mode: Mode, quantityText: String = "1", amountText: String = "") {
+        self.mode = mode
+        self.quantityText = quantityText
+        self.amountText = amountText
+    }
+
+    var quantity: Int? {
+        guard let quantity = Int(quantityText.trimmed), quantity >= 1 else { return nil }
+        return quantity
+    }
+
+    /// Each × qty in Each mode, so a total built from an each price is exact.
+    var lineTotalCents: Int? {
+        guard let quantity, let amountCents = Money.parseDollarsToCents(amountText) else { return nil }
+        return mode == .total ? amountCents : amountCents * quantity
+    }
+
+    var isComplete: Bool { lineTotalCents != nil }
+
+    /// The number not typed, to check against the receipt: each from a total,
+    /// total from an each. Display only — nil at qty 1, where they're the same.
+    var counterpartCents: Int? {
+        guard let quantity, quantity > 1,
+              let amountCents = Money.parseDollarsToCents(amountText)
+        else { return nil }
+
+        switch mode {
+        case .total: return Int((Double(amountCents) / Double(quantity)).rounded())
+        case .each: return amountCents * quantity
+        }
+    }
+}
+
+/// One receipt line on the Entry screen, before it becomes a row.
+nonisolated struct LineEntry: Equatable, Sendable {
+    let item: CatalogItem
+    var cost: LineCost
+
+    func makeRow() -> PurchaseRow {
+        PurchaseRow(
+            kind: item.isPack ? .pack : .unit,
+            recordId: item.recordId,
+            name: item.name,
+            quantityText: cost.quantity.map(String.init) ?? cost.quantityText,
+            totalCostText: cost.lineTotalCents.map(Money.formatCentsForEditing) ?? ""
+        )
+    }
+}
+
+/// A case being created from a scan: its name and receipt line, typed before
+/// its contents, so the line is ready the moment `createPack` reports it.
+nonisolated struct NewCaseDraft: Equatable, Sendable {
+    var name: String
+    var cost: LineCost
+
+    var isReadyForContents: Bool { !name.trimmed.isEmpty && cost.isComplete }
 }
 
 /// A case row's contents at a glance: "35 units", and "$0.54 / unit" when the
@@ -56,6 +124,10 @@ nonisolated struct PurchaseRow: Equatable, Identifiable, Sendable {
 nonisolated struct CaseSummary: Equatable, Sendable {
     let unitsPerCase: Int
     let unitCostCents: Int?
+
+    var unitCostText: String? {
+        unitCostCents.map { "\(Money.formatCents($0)) / unit" }
+    }
 }
 
 /// One product inside a case, as case details lists it.

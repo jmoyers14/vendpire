@@ -1,7 +1,7 @@
 import Foundation
 
-/// Money is `Int` cents everywhere else in the app. These are the only two
-/// places it crosses a text boundary, ported from `packages/web/src/utils/money.ts`.
+/// Money is `Int` cents everywhere else in the app. These are the only places
+/// it crosses a text boundary, ported from `packages/web/src/utils/money.ts`.
 nonisolated enum Money {
     /// Render integer cents as "$1,234.56" — matches the web's
     /// `toLocaleString("en-US", { style: "currency", currency: "USD" })`.
@@ -10,6 +10,12 @@ nonisolated enum Money {
         formatter.numberStyle = .currency
         formatter.locale = Locale(identifier: "en_US")
         return formatter.string(from: NSNumber(value: Double(cents) / 100)) ?? "$0.00"
+    }
+
+    /// "25.98" — no symbol and no grouping, so it fills a cost field and
+    /// `parseDollarsToCents` reads it straight back.
+    static func formatCentsForEditing(_ cents: Int) -> String {
+        String(format: "%d.%02d", cents / 100, cents % 100)
     }
 
     /// Parse a dollars text field ("1.75") to integer cents, or `nil` if invalid.

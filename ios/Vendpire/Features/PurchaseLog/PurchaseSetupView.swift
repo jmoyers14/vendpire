@@ -61,12 +61,11 @@ struct PurchaseSetupView: View {
             }
 
             Section {
-                Button(action: start) {
-                    Text("Start scanning")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.borderedProminent)
-                .disabled(model.vendor.trimmed.isEmpty)
+                Button("Start scanning", action: start)
+                    .buttonStyle(.primaryPill)
+                    .disabled(model.vendor.trimmed.isEmpty)
+                    .listRowBackground(Color.clear)
+                    .listRowInsets(EdgeInsets())
             }
         }
         .lagoonBackground()
