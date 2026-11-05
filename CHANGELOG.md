@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.8.0](https://github.com/jmoyers14/vendpire/compare/v0.7.0...v0.8.0) (2026-11-05)
+
+
+### Features
+
+* **ios:** enter each receipt line as it's scanned ([#42](https://github.com/jmoyers14/vendpire/issues/42)) ([d5c1795](https://github.com/jmoyers14/vendpire/commit/d5c1795955c1dab5158ae3ca140887aefd440daa))
+* **ios:** install dev and staging builds side by side ([#43](https://github.com/jmoyers14/vendpire/issues/43)) ([999a223](https://github.com/jmoyers14/vendpire/commit/999a223bddb2b9ef2034e379143c3b3d5c5c0ef4))
+* **ios:** lagoon theme and purchase flow redesign ([#41](https://github.com/jmoyers14/vendpire/issues/41)) ([6286c0d](https://github.com/jmoyers14/vendpire/commit/6286c0ddc9c33ea43ad084d8f3d16b7f5272336e))
+* **ios:** purchase logging with a barcode scanner ([#39](https://github.com/jmoyers14/vendpire/issues/39)) ([1e6e34d](https://github.com/jmoyers14/vendpire/commit/1e6e34d52eae21e358070f5b01ae67cf6199568b))
+
 ## [0.7.0](https://github.com/jmoyers14/vendpire/compare/v0.6.0...v0.7.0) (2026-10-30)
 
 
