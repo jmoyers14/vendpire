@@ -14,6 +14,7 @@ The scripts below exist for the reproducible path — agent loops, and later CI:
 bun run ios:build        # compile for the simulator
 bun run ios:test         # unit tests only (UI tests are skipped)
 bun run ios:run          # build, boot the simulator, install, launch
+bun run ios:install-staging  # Release build onto the plugged-in phone
 bun run ios:screenshot   # capture the booted simulator to ios/build/screenshot.png
 ```
 
@@ -37,4 +38,16 @@ VENDPIRE_SIM="iPhone 16" bun run ios:run      # default: iPhone 17 Pro
 ```
 
 - Deployment target: **iOS 18.0**
-- Bundle identifier: `com.dogbeach.dev.Vendpire`
+## Two apps on one phone
+
+Debug and Release install as separate apps so day-to-day development never
+replaces the app holding real data:
+
+| Scheme | Configuration | App | Bundle ID | API |
+|---|---|---|---|---|
+| `Vendpire` | Debug | Vendpire Dev (DEV icon) | `com.dogbeach.dev.Vendpire.debug` | localhost, or `Local.xcconfig` |
+| `Vendpire Staging` | Release | Vendpire | `com.dogbeach.dev.Vendpire` | staging (Cloud Run) |
+
+Run either scheme from Xcode with the phone selected, or use
+`ios:install-staging`. The identity comes from `BUNDLE_ID_SUFFIX`,
+`APP_DISPLAY_NAME`, and `APP_ICON_NAME` in `Config/*.xcconfig`.

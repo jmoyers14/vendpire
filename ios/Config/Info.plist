@@ -5,6 +5,8 @@
 	<!-- Xcode merges its generated keys into this file at build time; only the
 	     custom ones need to be declared here. Values are substituted from the
 	     active Config/*.xcconfig. -->
+	<key>CFBundleDisplayName</key>
+	<string>$(APP_DISPLAY_NAME)</string>
 	<key>ClerkPublishableKey</key>
 	<string>$(CLERK_PUBLISHABLE_KEY)</string>
 	<key>VendpireAPIBaseURL</key>
