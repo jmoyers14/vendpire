@@ -7,6 +7,9 @@ import SwiftUI
 /// Constructs `PurchaseLogModel` and hands it down, so the model outlives a pop
 /// and Back is a real edit rather than a restart.
 struct PurchaseSetupView: View {
+    /// Called with the vendor once the purchase is in the outbox.
+    let onSave: (_ vendor: String) -> Void
+
     @State private var model = PurchaseLogModel()
     @State private var hasStartedScanning = false
 
@@ -89,7 +92,9 @@ struct PurchaseSetupView: View {
             }
         }
         .navigationDestination(isPresented: $hasStartedScanning) {
-            PurchaseLogView(model: model)
+            PurchaseLogView(model: model) {
+                onSave(model.vendor.trimmed)
+            }
         }
     }
 

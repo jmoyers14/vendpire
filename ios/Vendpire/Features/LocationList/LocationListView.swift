@@ -12,6 +12,11 @@ struct LocationListView: View {
     @Environment(MirrorRefresher.self) private var refresher
     @Query private var metadata: [StoreMetadata]
 
+    /// Owned here so a save can pop the whole purchase flow, not just its
+    /// last screen.
+    @State private var isLoggingPurchase = false
+    @State private var toastMessage: String?
+
     /// The badge reads the store, not the refresher: the age of the data is the
     /// fact that matters, and it outlives any one refresh attempt.
     private var stalenessText: String? {
@@ -46,11 +51,20 @@ struct LocationListView: View {
             .navigationDestination(for: StoredLocation.self) { location in
                 MachineListView(location: location)
             }
+            .navigationDestination(isPresented: $isLoggingPurchase) {
+                PurchaseSetupView { vendor in
+                    isLoggingPurchase = false
+                    toastMessage = "\(vendor) purchase saved"
+                }
+            }
+            .toast($toastMessage)
             .lagoonBackground()
             .navigationTitle("Locations")
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    NavigationLink(destination: PurchaseSetupView()) {
+                    Button {
+                        isLoggingPurchase = true
+                    } label: {
                         Image(systemName: "cart.badge.plus")
                     }
                     .accessibilityLabel("Log Purchase")

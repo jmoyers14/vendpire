@@ -291,8 +291,8 @@ struct BarcodeResolutionSheet: View {
             case .item:
                 createItemDestination
             case .newCase:
-                if let purchase, let draft = purchase.newCase {
-                    NewCaseView(purchase: purchase, draft: draft)
+                if let purchase, purchase.newCase != nil {
+                    NewCaseView(purchase: purchase)
                 }
             }
         }

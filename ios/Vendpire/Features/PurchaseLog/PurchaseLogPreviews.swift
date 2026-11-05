@@ -82,13 +82,13 @@ private struct PurchasePreview<Content: View>: View {
 
 #Preview("Filled") {
     PurchasePreview {
-        PurchaseLogView(model: PurchasePreviewData.makeModel(isFilled: true))
+        PurchaseLogView(model: PurchasePreviewData.makeModel(isFilled: true), onSave: {})
     }
 }
 
 #Preview("Empty") {
     PurchasePreview {
-        PurchaseLogView(model: PurchasePreviewData.makeModel(isFilled: false))
+        PurchaseLogView(model: PurchasePreviewData.makeModel(isFilled: false), onSave: {})
     }
 }
 

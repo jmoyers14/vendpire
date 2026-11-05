@@ -4,10 +4,15 @@ import SwiftUI
 /// contents on the next screen.
 struct NewCaseView: View {
     let purchase: PurchaseLogModel
-    let draft: NewCaseDraft
 
     @State private var isAddingContents = false
     @State private var isNameTouched = false
+
+    /// Read live from the model: a destination's content is built once, so a
+    /// copy passed in at push time never sees what the operator types.
+    private var draft: NewCaseDraft {
+        purchase.newCase ?? NewCaseDraft(name: "", cost: LineCost(mode: purchase.costEntryMode))
+    }
 
     var body: some View {
         Form {
