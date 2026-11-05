@@ -9,13 +9,15 @@ import SwiftUI
 /// Layout only: every rule lives in `PurchaseLogModel`, where tests reach it.
 struct PurchaseLogView: View {
     @Environment(\.modelContext) private var context
-    @Environment(\.dismiss) private var dismiss
     @Environment(MirrorRefresher.self) private var refresher
     @Environment(\.vendpireAPI) private var api
 
     /// Owned by `PurchaseSetupView`, which also takes the receipt total and
     /// notes before this screen opens.
     let model: PurchaseLogModel
+    /// Called once the purchase is in the outbox; the caller decides how far
+    /// back to go.
+    let onSave: () -> Void
 
     @State private var lineSheetStart: PurchaseLineSheet.Start?
     /// The row id of the case whose details are open.
@@ -235,7 +237,7 @@ struct PurchaseLogView: View {
             }
 
             Button("Save purchase") {
-                if model.save(context: context) { dismiss() }
+                if model.save(context: context) { onSave() }
             }
             .buttonStyle(.primaryPill)
         }
