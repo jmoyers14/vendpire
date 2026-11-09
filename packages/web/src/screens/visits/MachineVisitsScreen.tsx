@@ -338,11 +338,14 @@ function VisitCard({
   onDelete,
   onCancelDelete,
 }: VisitCardProps) {
-  const lineOf = (slotCode: string): ApiVisitLine | undefined =>
-    visit.lines.find((line) => line.slotCode === slotCode);
+  // Every line in the slot, in the order the visit stored them: a mixed slot
+  // (or a replacement) has more than one.
+  const linesOf = (slotCode: string): ApiVisitLine[] =>
+    visit.lines.filter((line) => line.slotCode === slotCode);
 
   const renderCell = (slotCode: string): SlotCell => {
-    const line = lineOf(slotCode);
+    const lines = linesOf(slotCode);
+    const [line] = lines;
     if (!line) {
       return {
         state: "empty",
@@ -358,19 +361,28 @@ function VisitCard({
       };
     }
     return {
-      state: line.removed > 0 ? "attention" : "done",
-      title: `${slotCode}: ${productName(line.productId)} — left ${line.remaining}, added ${line.added}${
-        line.removed > 0 ? `, removed ${line.removed} (${line.removedReason})` : ""
-      }, walked away with ${levelAfter(line)}`,
+      state: lines.some((l) => l.removed > 0) ? "attention" : "done",
+      title: `${slotCode}: ${lines
+        .map(
+          (l) =>
+            `${productName(l.productId)} — left ${l.remaining}, added ${l.added}${
+              l.removed > 0 ? `, removed ${l.removed} (${l.removedReason})` : ""
+            }, walked away with ${levelAfter(l)}`,
+        )
+        .join("; ")}`,
       content: (
         <>
           <div className="font-mono text-[10px] text-muted">{slotCode}</div>
-          <div className="truncate text-[11px] font-medium text-gray-800">
-            {productName(line.productId)}
-          </div>
-          <div className="text-[10px] tabular-nums text-gray-600">
-            {line.remaining} → {levelAfter(line)}
-          </div>
+          {lines.map((l) => (
+            <div key={l.productId}>
+              <div className="truncate text-[11px] font-medium text-gray-800">
+                {productName(l.productId)}
+              </div>
+              <div className="text-[10px] tabular-nums text-gray-600">
+                {l.remaining} → {levelAfter(l)}
+              </div>
+            </div>
+          ))}
         </>
       ),
     };
