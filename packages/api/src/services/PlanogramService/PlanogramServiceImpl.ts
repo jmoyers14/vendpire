@@ -13,12 +13,14 @@ import type {
 } from "@vendpire/platform";
 import { ServiceError } from "../errors.ts";
 import type { PlanogramService } from "./PlanogramService.ts";
+import { slotRuleViolation } from "./planogramSlots.ts";
 
 /**
  * Planogram business rules. Versions are immutable and strictly ordered: a new
  * version must be effective AFTER the current one, every slot code must exist
- * on the machine (and appear once), and every product must exist. This is what
- * lets past visits keep the exact par/price they were filled against.
+ * on the machine, a mixed slot lists each product once at one shared price, and
+ * every product must exist. This is what lets past visits keep the exact
+ * par/price they were filled against.
  */
 @injectable()
 export class PlanogramServiceImpl implements PlanogramService {
@@ -58,22 +60,9 @@ export class PlanogramServiceImpl implements PlanogramService {
       slotCode: slot.slotCode.trim().toUpperCase(),
     }));
 
-    const machineSlotCodes = new Set(machine.slots.flat());
-    const seen = new Set<string>();
-    for (const slot of slots) {
-      if (seen.has(slot.slotCode)) {
-        throw new ServiceError(
-          "BAD_REQUEST",
-          `Duplicate slot code ${slot.slotCode}`,
-        );
-      }
-      seen.add(slot.slotCode);
-      if (!machineSlotCodes.has(slot.slotCode)) {
-        throw new ServiceError(
-          "BAD_REQUEST",
-          `Machine has no slot ${slot.slotCode}`,
-        );
-      }
+    const violation = slotRuleViolation(slots, new Set(machine.slots.flat()));
+    if (violation) {
+      throw new ServiceError("BAD_REQUEST", violation);
     }
 
     const productIds = [...new Set(slots.map((slot) => slot.productId))];

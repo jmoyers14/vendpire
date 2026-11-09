@@ -368,6 +368,12 @@ export class FakePlanogramRepository implements PlanogramRepository {
   async create(orgId: string, data: PlanogramInput): Promise<Planogram> {
     return this.seed(orgId, data);
   }
+  async softDelete(orgId: string, id: string): Promise<void> {
+    const row = this.rows.find((r) => r.orgId === orgId && r.id === id);
+    if (row) {
+      row.deleted = true;
+    }
+  }
 }
 
 /**

@@ -61,7 +61,19 @@ describe("PlanogramService", () => {
     ).rejects.toThrow(/Z9/);
   });
 
-  it("rejects duplicate slot codes in one version", async () => {
+  it("keeps a mixed slot's products in front-to-back order", async () => {
+    const behindId = products.seed(ORG, productInput({ name: "Wavy Lay's" })).id;
+
+    const created = await service.create(ORG, {
+      machineId,
+      effectiveFrom: "2026-09-01T00:00:00.000Z",
+      slots: [slot(), slot({ productId: behindId })],
+    });
+
+    expect(created.slots.map((s) => s.productId)).toEqual([productId, behindId]);
+  });
+
+  it("rejects the same product twice in one slot", async () => {
     await expect(
       service.create(ORG, {
         machineId,
@@ -69,6 +81,18 @@ describe("PlanogramService", () => {
         slots: [slot(), slot()],
       }),
     ).rejects.toThrow(/duplicate/i);
+  });
+
+  it("rejects a mixed slot with two prices", async () => {
+    const behindId = products.seed(ORG, productInput({ name: "Wavy Lay's" })).id;
+
+    await expect(
+      service.create(ORG, {
+        machineId,
+        effectiveFrom: "2026-09-01T00:00:00.000Z",
+        slots: [slot(), slot({ productId: behindId, priceCents: 200 })],
+      }),
+    ).rejects.toThrow(/price/i);
   });
 
   it("rejects unknown product ids", async () => {

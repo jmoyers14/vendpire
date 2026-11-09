@@ -21,6 +21,7 @@ import type {
   LocationRepository,
   Machine,
   MachineRepository,
+  PlanogramInput,
   PlanogramRepository,
   Product,
   ProductRepository,
@@ -32,6 +33,11 @@ import type {
   VisitRepository,
 } from "@vendpire/platform";
 import { isDuplicateKey, ServiceError } from "../errors.ts";
+import {
+  type AddedBehind,
+  slotRuleViolation,
+  slotsWithAddedBehind,
+} from "../PlanogramService/planogramSlots.ts";
 import { buildExpiringReport, type PopulatedVisit } from "./expiringReport.ts";
 import {
   DEFAULT_VISIT_LIST_LIMIT,
@@ -48,6 +54,17 @@ import {
 /** Slack for drifting phone clocks. Beyond it, a future-stamped visit becomes
  *  the predecessor of every real visit after it and poisons their baselines. */
 const MAX_FUTURE_MS = 2 * 60 * 60 * 1000;
+
+/** An already-stored visit handed back for a repeated submit. Logging and
+ *  analytics skip it, and it wrote no planogram this time. */
+const replayOf = (visit: Visit): VisitCreation => ({
+  visit,
+  isReplay: true,
+  isOutOfOrder: false,
+  anomalies: [],
+  notices: [],
+  planogram: null,
+});
 
 /**
  * Visit business rules. Two shapes run through all of them:
@@ -95,7 +112,7 @@ export class VisitServiceImpl implements VisitService {
 
   async create(
     orgId: string,
-    { draft, recordedByUserId }: VisitSubmission,
+    { draft, recordedByUserId, addedBehind = [] }: VisitSubmission,
   ): Promise<VisitCreation> {
     // Checked FIRST and returned verbatim — no re-validation. A retrying client
     // can only act on 200 with the original; re-validating would reject an
@@ -105,17 +122,15 @@ export class VisitServiceImpl implements VisitService {
       draft.clientRequestId,
     );
     if (replay) {
-      return {
-        visit: replay,
-        isReplay: true,
-        isOutOfOrder: false,
-        anomalies: [],
-        notices: [],
-      };
+      return replayOf(replay);
     }
 
     const { lines, notices } = await this.validate(orgId, draft);
     const stored = { ...draft, lines, recordedByUserId };
+    const nextPlanogram =
+      addedBehind.length > 0
+        ? await this.buildNextPlanogram(orgId, { draft, lines, addedBehind })
+        : null;
 
     const latest = await this.visits.findLatestByMachine(
       orgId,
@@ -125,6 +140,18 @@ export class VisitServiceImpl implements VisitService {
       latest !== null &&
       Date.parse(latest.countedAt) > Date.parse(draft.countedAt);
 
+    // The planogram goes first because a visit cannot be undone safely: a
+    // soft-deleted visit still holds its clientRequestId, so a retry would
+    // replay it as saved. A planogram has no such key.
+    const planogram = nextPlanogram
+      ? await this.planograms.create(orgId, nextPlanogram)
+      : null;
+    const undoPlanogram = async () => {
+      if (planogram) {
+        await this.planograms.softDelete(orgId, planogram.id);
+      }
+    };
+
     try {
       const visit = await this.visits.create(orgId, stored);
       return {
@@ -133,8 +160,10 @@ export class VisitServiceImpl implements VisitService {
         isOutOfOrder,
         anomalies: observationsForVisit(visit).anomalies,
         notices,
+        planogram,
       };
     } catch (error) {
+      await undoPlanogram();
       if (!isDuplicateKey(error)) {
         throw error;
       }
@@ -148,14 +177,96 @@ export class VisitServiceImpl implements VisitService {
         // Some other unique index rejected this, so it is not ours to swallow.
         throw error;
       }
-      return {
-        visit: winner,
-        isReplay: true,
-        isOutOfOrder: false,
-        anomalies: [],
-        notices: [],
-      };
+      return replayOf(winner);
     }
+  }
+
+  /**
+   * The planogram version a visit that added products behind leaves behind:
+   * the version the visit was counted against, plus the additions, effective
+   * from the visit's own time.
+   *
+   * Refuses rather than merging when the planogram moved on, because the
+   * operator added behind a layout they can no longer see.
+   */
+  private async buildNextPlanogram(
+    orgId: string,
+    {
+      draft,
+      lines,
+      addedBehind,
+    }: { draft: VisitDraft; lines: VisitLine[]; addedBehind: AddedBehind[] },
+  ): Promise<PlanogramInput> {
+    const current = await this.planograms.findCurrentByMachine(
+      orgId,
+      draft.machineId,
+    );
+    if (!current) {
+      throw new ServiceError(
+        "BAD_REQUEST",
+        "This machine has no planogram to add products to",
+      );
+    }
+    if (draft.planogramId !== current.id) {
+      throw new ServiceError(
+        "CONFLICT",
+        "The planogram changed after this visit was started. Reload and add the products again.",
+      );
+    }
+    if (Date.parse(draft.countedAt) <= Date.parse(current.effectiveFrom)) {
+      throw new ServiceError(
+        "CONFLICT",
+        "The planogram has changed since this visit's date, so products can't be added behind from it. Save the visit without them and change the planogram instead.",
+      );
+    }
+
+    const additions = addedBehind.map((addition) => ({
+      ...addition,
+      slotCode: addition.slotCode.trim().toUpperCase(),
+    }));
+    for (const addition of additions) {
+      const slot = current.slots.filter((s) => s.slotCode === addition.slotCode);
+      if (slot.length === 0) {
+        throw new ServiceError(
+          "BAD_REQUEST",
+          `Slot ${addition.slotCode} has no product to add behind`,
+        );
+      }
+      if (slot.some((s) => s.productId === addition.productId)) {
+        throw new ServiceError(
+          "BAD_REQUEST",
+          `Slot ${addition.slotCode} already holds product ${addition.productId}`,
+        );
+      }
+      const isCounted = lines.some(
+        (line) =>
+          line.slotCode === addition.slotCode &&
+          line.productId === addition.productId,
+      );
+      if (!isCounted) {
+        throw new ServiceError(
+          "BAD_REQUEST",
+          `Slot ${addition.slotCode}: product ${addition.productId} was added behind but has no count on this visit`,
+        );
+      }
+    }
+
+    const slots = slotsWithAddedBehind(current.slots, additions);
+    const machine = await this.machines.findById(orgId, draft.machineId);
+    const violation = slotRuleViolation(
+      slots,
+      new Set(machine?.slots.flat() ?? []),
+    );
+    if (violation) {
+      throw new ServiceError("BAD_REQUEST", violation);
+    }
+    return {
+      machineId: draft.machineId,
+      // Normalized, so a "+00:00" offset from the client orders the same as
+      // every other version's "Z".
+      effectiveFrom: new Date(draft.countedAt).toISOString(),
+      slots,
+    };
   }
 
   async remove(orgId: string, id: string): Promise<void> {

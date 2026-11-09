@@ -437,6 +437,129 @@ describe("VisitService", () => {
     });
   });
 
+  describe("adding a product behind", () => {
+    let current: ReturnType<typeof planograms.seed>;
+
+    beforeEach(() => {
+      current = planograms.seed(ORG, {
+        machineId,
+        effectiveFrom: "2026-09-01T00:00:00.000Z",
+        slots: [
+          { slotCode: "A1", productId: cokeId, par: 10, priceCents: 175 },
+          { slotCode: "A2", productId: cokeId, par: 8, priceCents: 150 },
+        ],
+      });
+    });
+
+    const fritosLine = {
+      slotCode: "A1",
+      productId: "",
+      remaining: 0,
+      added: 3,
+      removed: 0,
+      removedReason: null,
+      priceCents: 175,
+      par: 10,
+      bestBy: null,
+    };
+
+    const submitAddingFritos = (over: Partial<VisitDraft> = {}) => {
+      const base = draft({ planogramId: current.id, ...over });
+      return service.create(ORG, {
+        draft: {
+          ...base,
+          lines: [...base.lines, { ...fritosLine, productId: fritosId }],
+        },
+        recordedByUserId: USER,
+        addedBehind: [{ slotCode: "a1", productId: fritosId }],
+      });
+    };
+
+    it("writes the next planogram with the product behind, at the slot's price, from the visit's time", async () => {
+      const { planogram } = await submitAddingFritos();
+
+      expect(planogram?.effectiveFrom).toBe("2026-09-20T17:00:00.000Z");
+      expect(planogram?.slots).toEqual([
+        { slotCode: "A1", productId: cokeId, par: 10, priceCents: 175 },
+        { slotCode: "A1", productId: fritosId, par: 10, priceCents: 175 },
+        { slotCode: "A2", productId: cokeId, par: 8, priceCents: 150 },
+      ]);
+      expect((await planograms.findCurrentByMachine(ORG, machineId))?.id).toBe(
+        planogram?.id,
+      );
+    });
+
+    it("writes no planogram when nothing was added behind", async () => {
+      const { planogram } = await submit({ planogramId: current.id });
+
+      expect(planogram).toBeNull();
+      expect(await planograms.countByMachine(ORG, machineId)).toBe(1);
+    });
+
+    it("writes the planogram once when the same submit is retried", async () => {
+      const clientRequestId = "req_retry";
+      await submitAddingFritos({ clientRequestId });
+
+      const retry = await submitAddingFritos({ clientRequestId });
+
+      expect(retry.isReplay).toBe(true);
+      expect(retry.planogram).toBeNull();
+      expect(await planograms.countByMachine(ORG, machineId)).toBe(2);
+    });
+
+    it("refuses when the visit was started against an older planogram", async () => {
+      const newer = planograms.seed(ORG, {
+        machineId,
+        effectiveFrom: "2026-09-10T00:00:00.000Z",
+        slots: current.slots,
+      });
+
+      await expect(submitAddingFritos()).rejects.toThrow(/reload/i);
+      expect((await planograms.findCurrentByMachine(ORG, machineId))?.id).toBe(
+        newer.id,
+      );
+      expect(await visits.findByOrg(ORG)).toHaveLength(0);
+    });
+
+    it("refuses a visit dated before the current planogram", async () => {
+      await expect(
+        submitAddingFritos({ countedAt: "2026-08-20T17:00:00.000Z" }),
+      ).rejects.toThrow(/planogram has changed since/i);
+      expect(await visits.findByOrg(ORG)).toHaveLength(0);
+    });
+
+    it("refuses to add a product the slot already holds", async () => {
+      await expect(
+        service.create(ORG, {
+          draft: draft({ planogramId: current.id }),
+          recordedByUserId: USER,
+          addedBehind: [{ slotCode: "A1", productId: cokeId }],
+        }),
+      ).rejects.toThrow(/already/i);
+    });
+
+    it("refuses an added product the visit never counted", async () => {
+      await expect(
+        service.create(ORG, {
+          draft: draft({ planogramId: current.id }),
+          recordedByUserId: USER,
+          addedBehind: [{ slotCode: "A1", productId: fritosId }],
+        }),
+      ).rejects.toThrow(/count/i);
+    });
+
+    it("undoes the planogram when the visit write fails", async () => {
+      visits.create = async () => {
+        throw new Error("connection reset");
+      };
+
+      await expect(submitAddingFritos()).rejects.toThrow(/connection reset/);
+      expect((await planograms.findCurrentByMachine(ORG, machineId))?.id).toBe(
+        current.id,
+      );
+    });
+  });
+
   describe("pnl", () => {
     const count = (at: string, remaining: number, added: number) =>
       submit({
