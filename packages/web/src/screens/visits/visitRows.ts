@@ -52,6 +52,11 @@ export interface VisitRow {
   readonly previousBestBy: string | null;
   /** False hides the date field entirely. */
   readonly tracksExpiration: boolean;
+  /**
+   * Loaded behind the slot's existing products during this visit. Saving the
+   * visit also adds it to the planogram.
+   */
+  readonly isAddedBehind: boolean;
 }
 
 /** A line as the `visits.create` mutation takes it. */
@@ -128,6 +133,27 @@ const toLine = (row: VisitRow): VisitLineDraft => ({
 
 export const isCounted = (row: VisitRow): boolean => row.left.trim() !== "";
 
+/** Every product in the slot, front to back. A mixed slot has more than one. */
+export const rowsInSlot = (
+  rows: readonly VisitRow[],
+  slotCode: string,
+): VisitRow[] => rows.filter((row) => row.slotCode === slotCode);
+
+/** A slot is counted only when every product in it is. */
+export const isSlotCounted = (
+  rows: readonly VisitRow[],
+  slotCode: string,
+): boolean => rowsInSlot(rows, slotCode).every(isCounted);
+
+/** Slots with at least one product still uncounted, in walking order. */
+export const uncountedSlotCodes = (rows: readonly VisitRow[]): string[] => [
+  ...new Set(rows.filter((row) => !isCounted(row)).map((row) => row.slotCode)),
+];
+
+/** Identifies a row: the slot code alone repeats in a mixed slot. */
+export const isSameRow = (a: VisitRow, b: VisitRow): boolean =>
+  a.slotCode === b.slotCode && a.productId === b.productId;
+
 /**
  * How full the slot will be when you walk away. Null while the row is still
  * half-typed. Delegates to the engine's `levelAfter` rather than restating
@@ -187,7 +213,8 @@ export const rowWithRemovedReason = (
 ): VisitRow => ({ ...row, removedReason });
 
 /**
- * One row per planogram-assigned slot, in the machine's walking order. Slots
+ * One row per product in each planogram-assigned slot, front to back, in the
+ * machine's walking order (a mixed slot gets several). Slots
  * the planogram leaves unassigned get NO row: a line needs a product and a
  * price, and inventing either would store a fiction.
  */
@@ -212,32 +239,81 @@ export const buildVisitRows = ({
 
   const rows: VisitRow[] = [];
   for (const slotCode of shelves.flat()) {
-    const slot = planogramSlots.find((s) => s.slotCode === slotCode);
-    if (!slot) {
-      continue;
+    // Every product in the slot, front to back. An unassigned slot has none.
+    for (const slot of planogramSlots.filter((s) => s.slotCode === slotCode)) {
+      const previous = previousByKey.get(keyOf(slotCode, slot.productId));
+      rows.push({
+        slotCode,
+        productId: slot.productId,
+        priceCents: slot.priceCents,
+        par: slot.par,
+        left: "",
+        added: "",
+        isAddedEdited: false,
+        removed: "",
+        removedReason: null,
+        previousLevel: previous ? levelAfter(previous) : null,
+        bestBy: previous?.bestBy ?? "",
+        previousBestBy: previous?.bestBy ?? null,
+        // Defaults to true for a product not in the list: a slot that silently
+        // stops asking for a date is the failure this whole feature exists to
+        // avoid, so the safe default is to keep asking.
+        tracksExpiration: tracksExpirationById.get(slot.productId) ?? true,
+        isAddedBehind: false,
+      });
     }
-    const previous = previousByKey.get(keyOf(slotCode, slot.productId));
-    rows.push({
-      slotCode,
-      productId: slot.productId,
-      priceCents: slot.priceCents,
-      par: slot.par,
-      left: "",
-      added: "",
-      isAddedEdited: false,
-      removed: "",
-      removedReason: null,
-      previousLevel: previous ? levelAfter(previous) : null,
-      bestBy: previous?.bestBy ?? "",
-      previousBestBy: previous?.bestBy ?? null,
-      // Defaults to true for a product not in the list: a slot that silently
-      // stops asking for a date is the failure this whole feature exists to
-      // avoid, so the safe default is to keep asking.
-      tracksExpiration: tracksExpirationById.get(slot.productId) ?? true,
-    });
   }
   return rows;
 };
+
+/**
+ * A product loaded behind the slot's existing ones. It sells at the slot's
+ * price (the machine charges per slot) and has no history in this slot.
+ */
+export const buildAddedBehindRow = ({
+  front,
+  productId,
+  tracksExpiration,
+}: {
+  front: VisitRow;
+  productId: string;
+  tracksExpiration: boolean;
+}): VisitRow => ({
+  slotCode: front.slotCode,
+  productId,
+  priceCents: front.priceCents,
+  par: front.par,
+  left: "",
+  added: "",
+  isAddedEdited: false,
+  removed: "",
+  removedReason: null,
+  previousLevel: null,
+  bestBy: "",
+  previousBestBy: null,
+  tracksExpiration,
+  isAddedBehind: true,
+});
+
+/** The rows with `added` placed directly behind its slot's last product. */
+export const rowsWithAddedBehind = (
+  rows: readonly VisitRow[],
+  added: VisitRow,
+): VisitRow[] => {
+  const lastIndex = rows.reduce(
+    (found, row, index) => (row.slotCode === added.slotCode ? index : found),
+    -1,
+  );
+  return [...rows.slice(0, lastIndex + 1), added, ...rows.slice(lastIndex + 1)];
+};
+
+/** What this visit added behind, for the server to put in the planogram. */
+export const addedBehindOf = (
+  rows: readonly VisitRow[],
+): { slotCode: string; productId: string }[] =>
+  rows
+    .filter((row) => row.isAddedBehind)
+    .map(({ slotCode, productId }) => ({ slotCode, productId }));
 
 /**
  * The counted rows as lines, or the first problem found. Uncounted rows are
@@ -250,6 +326,13 @@ export const buildVisitLines = (rows: readonly VisitRow[]): VisitLinesResult => 
   const lines: VisitLineDraft[] = [];
 
   for (const row of rows) {
+    // An added product must be counted: it joins the planogram on save, and
+    // without a line here its first week's sales could never be computed.
+    if (row.isAddedBehind && !isCounted(row)) {
+      return {
+        error: `Slot ${row.slotCode}: enter "Left in slot" for the product you added behind (0 if none were there)`,
+      };
+    }
     if (!isCounted(row)) {
       continue;
     }

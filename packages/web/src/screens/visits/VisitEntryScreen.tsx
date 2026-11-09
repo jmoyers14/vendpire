@@ -18,17 +18,29 @@ import {
   SlotFaceGrid,
 } from "../../ui.tsx";
 import { queryClient, trpc } from "../../trpc.ts";
+import { formatCents } from "../../utils/money.ts";
+import {
+  ProductCombobox,
+  type ProductOption,
+} from "../machines/ProductCombobox.tsx";
 import { localDateTimeToIso, toLocalDateTimeInput } from "./countedAt.ts";
 import {
+  addedBehindOf,
+  buildAddedBehindRow,
   buildVisitLines,
   buildVisitRows,
   isCounted,
+  isSameRow,
+  isSlotCounted,
   levelOf,
   rowWithAdded,
   rowWithBestBy,
   rowWithLeft,
   rowWithRemoved,
   rowWithRemovedReason,
+  rowsInSlot,
+  rowsWithAddedBehind,
+  uncountedSlotCodes,
   type VisitRow,
   warningsFor,
 } from "./visitRows.ts";
@@ -143,13 +155,29 @@ function VisitDraftForm({
   const productName = (id: string): string =>
     products.data?.find((product) => product.id === id)?.name ?? id;
 
-  const rowOf = (slotCode: string): VisitRow | undefined =>
-    rows.find((row) => row.slotCode === slotCode);
-
   const replaceRow = (next: VisitRow) =>
-    setRows(rows.map((row) => (row.slotCode === next.slotCode ? next : row)));
+    setRows(rows.map((row) => (isSameRow(row, next) ? next : row)));
 
-  const uncounted = rows.filter((row) => !isCounted(row));
+  const addBehind = (slotCode: string, productId: string) => {
+    const [front] = rowsInSlot(rows, slotCode);
+    if (!front) {
+      return;
+    }
+    const product = products.data?.find((p) => p.id === productId);
+    const added = buildAddedBehindRow({
+      front,
+      productId,
+      // Unknown products keep asking for a date, as in buildVisitRows.
+      tracksExpiration: product?.tracksExpiration ?? true,
+    });
+    setRows(rowsWithAddedBehind(rows, added));
+  };
+
+  const removeAdded = (removed: VisitRow) =>
+    setRows(rows.filter((row) => !isSameRow(row, removed)));
+
+  const slotOrder = [...new Set(rows.map((row) => row.slotCode))];
+  const uncounted = uncountedSlotCodes(rows);
 
   const submit = ({ allowUncounted = false } = {}) => {
     setError(null);
@@ -169,9 +197,7 @@ function VisitDraftForm({
     }
     if (uncounted.length > 0 && !allowUncounted) {
       setUncountedWarning(
-        `${uncounted.length} slot(s) weren't counted: ${uncounted
-          .map((row) => row.slotCode)
-          .join(", ")}.`,
+        `${uncounted.length} slot(s) weren't fully counted: ${uncounted.join(", ")}.`,
       );
       return;
     }
@@ -186,11 +212,13 @@ function VisitDraftForm({
       lines: result.lines,
       notes: notes.trim() === "" ? null : notes.trim(),
       clientRequestId,
+      addedBehind: addedBehindOf(rows),
     });
   };
 
   const renderCell = (slotCode: string): SlotCell => {
-    const row = rowOf(slotCode);
+    const slotRows = rowsInSlot(rows, slotCode);
+    const [row] = slotRows;
     if (!row) {
       return {
         state: "empty",
@@ -202,6 +230,9 @@ function VisitDraftForm({
           </>
         ),
       };
+    }
+    if (slotRows.length > 1) {
+      return renderMixedCell(slotCode, slotRows);
     }
     const counted = isCounted(row);
     const warnings = warningsFor(row, { asOf });
@@ -219,6 +250,43 @@ function VisitDraftForm({
               ? `left ${row.left} · +${row.added || "0"}`
               : `par ${row.par ?? "—"}`}
           </div>
+        </>
+      ),
+    };
+  };
+
+  /** A mixed slot: a count badge and every product, front first. */
+  const renderMixedCell = (slotCode: string, slotRows: VisitRow[]): SlotCell => {
+    const hasWarnings = slotRows.some(
+      (row) => warningsFor(row, { asOf }).length > 0,
+    );
+    const names = slotRows.map((row) => productName(row.productId));
+    return {
+      state: hasWarnings
+        ? "attention"
+        : isSlotCounted(rows, slotCode)
+          ? "done"
+          : "assigned",
+      title: `${slotCode}: ${names.join(", then ")}`,
+      content: (
+        <>
+          <div className="font-mono text-[10px] text-muted">
+            {slotCode}{" "}
+            <span className="rounded bg-primary-50 px-1 text-primary-700">
+              {slotRows.length}
+            </span>
+          </div>
+          {names.map((name, index) => (
+            <div
+              // Names can repeat only across slots, never within one.
+              key={name}
+              className={`truncate text-[11px] ${
+                index === 0 ? "font-medium text-gray-800" : "text-gray-600"
+              }`}
+            >
+              {name}
+            </div>
+          ))}
         </>
       ),
     };
@@ -254,7 +322,6 @@ function VisitDraftForm({
     );
   }
 
-  const selectedRow = selected ? rowOf(selected) : undefined;
   const hasPlanogram = (planogram.data?.slots.length ?? 0) > 0;
 
   return (
@@ -298,20 +365,23 @@ function VisitDraftForm({
           />
 
           <p className="text-sm text-gray-600 tabular-nums">
-            {rows.length - uncounted.length} of {rows.length} slots counted
+            {slotOrder.length - uncounted.length} of {slotOrder.length} slots
+            counted
           </p>
 
-          {selectedRow ? (
+          {selected ? (
             <SlotCountPanel
-              key={selectedRow.slotCode}
-              row={selectedRow}
-              productName={productName(selectedRow.productId)}
+              key={selected}
+              slotRows={rowsInSlot(rows, selected)}
+              productName={productName}
+              products={products.data ?? []}
               asOf={asOf}
               onChange={replaceRow}
+              onAddBehind={(productId) => addBehind(selected, productId)}
+              onRemoveAdded={removeAdded}
               onNext={() => {
-                const order = rows.map((row) => row.slotCode);
-                const index = order.indexOf(selectedRow.slotCode);
-                setSelected(order[(index + 1) % order.length] ?? null);
+                const index = slotOrder.indexOf(selected);
+                setSelected(slotOrder[(index + 1) % slotOrder.length] ?? null);
               }}
             />
           ) : null}
@@ -384,23 +454,117 @@ function VisitDraftForm({
 }
 
 /**
- * One slot's counts. Emits a whole replacement row rather than a patch, so
- * every rule about what a keystroke means — the fill-to-par default, and when
- * it stops applying — stays in `visitRows.ts` and out of this component.
+ * One slot: its price once, then a count row for every product in it, front
+ * to back. Tab walks each product before the next slot, so counting a mixed
+ * slot feels like counting two ordinary ones in a row.
  */
 function SlotCountPanel({
-  row,
+  slotRows,
   productName,
+  products,
   asOf,
   onChange,
+  onAddBehind,
+  onRemoveAdded,
   onNext,
 }: {
-  row: VisitRow;
-  productName: string;
+  slotRows: VisitRow[];
+  productName: (id: string) => string;
+  products: ProductOption[];
   /** The day expiry warnings are judged against, fixed at form open. */
   asOf: string;
   onChange: (next: VisitRow) => void;
+  onAddBehind: (productId: string) => void;
+  onRemoveAdded: (row: VisitRow) => void;
   onNext: () => void;
+}) {
+  const [front] = slotRows;
+  if (!front) {
+    return null;
+  }
+  const inSlot = new Set(slotRows.map((row) => row.productId));
+  const isAdding = slotRows.some((row) => row.isAddedBehind);
+
+  return (
+    <Card className="flex flex-col gap-3 border border-primary-200 p-3">
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="font-mono text-sm font-bold text-gray-800">
+          {front.slotCode}
+        </span>
+        <span className="text-sm tabular-nums text-body">
+          Slot price {formatCents(front.priceCents)}
+        </span>
+      </div>
+
+      {slotRows.map((row, index) => (
+        <ProductCountRow
+          key={row.productId}
+          row={row}
+          productName={productName(row.productId)}
+          position={positionOf(row, index, slotRows.length)}
+          isFirst={index === 0}
+          asOf={asOf}
+          onChange={onChange}
+          onRemove={row.isAddedBehind ? () => onRemoveAdded(row) : undefined}
+        />
+      ))}
+
+      <div className="flex flex-col gap-1 border-t border-line pt-3">
+        <span className={labelClass}>Add a product behind</span>
+        <ProductCombobox
+          products={products.filter((product) => !inSlot.has(product.id))}
+          productId=""
+          onPick={(product) => onAddBehind(product.id)}
+        />
+        <span className={hintClass}>
+          {isAdding
+            ? "Saving this visit also adds it to the planogram."
+            : `Sells at the slot's ${formatCents(front.priceCents)}.`}
+        </span>
+      </div>
+
+      <div className="flex justify-end">
+        <Button variant="secondary" size="sm" onClick={onNext}>
+          Next slot →
+        </Button>
+      </div>
+    </Card>
+  );
+}
+
+/** Where a product sits, for a slot holding more than one. */
+const positionOf = (row: VisitRow, index: number, count: number): string => {
+  if (row.isAddedBehind) {
+    return "Added behind";
+  }
+  if (count === 1) {
+    return "";
+  }
+  return index === 0 ? "Front" : "Behind";
+};
+
+/**
+ * One product's counts. Emits a whole replacement row rather than a patch, so
+ * every rule about what a keystroke means — the fill-to-par default, and when
+ * it stops applying — stays in `visitRows.ts` and out of this component.
+ */
+function ProductCountRow({
+  row,
+  productName,
+  position,
+  isFirst,
+  asOf,
+  onChange,
+  onRemove,
+}: {
+  row: VisitRow;
+  productName: string;
+  position: string;
+  isFirst: boolean;
+  asOf: string;
+  onChange: (next: VisitRow) => void;
+  /** Present only for a product added behind on this visit. */
+  onRemove: (() => void) | undefined;
 }) {
   const [isRemoving, setIsRemoving] = useState(
     row.removed.trim() !== "" && row.removed !== "0",
@@ -409,12 +573,25 @@ function SlotCountPanel({
   const warnings = warningsFor(row, { asOf });
 
   return (
-    <Card className="flex flex-col gap-3 border border-primary-200 p-3">
+    <div
+      className={`flex flex-col gap-3 ${isFirst ? "" : "border-t border-line pt-3"}`}
+    >
       <div className="flex items-baseline justify-between gap-2">
-        <span className="font-mono text-sm font-bold text-gray-800">
-          {row.slotCode}
+        <span className="truncate text-sm font-medium text-gray-800">
+          {productName}
         </span>
-        <span className="truncate text-sm text-body">{productName}</span>
+        <span className="flex shrink-0 items-baseline gap-2 text-xs text-muted">
+          {position}
+          {onRemove ? (
+            <button
+              type="button"
+              onClick={onRemove}
+              className="text-primary-600 hover:text-primary-500"
+            >
+              Remove
+            </button>
+          ) : null}
+        </span>
       </div>
 
       <div className="grid grid-cols-2 gap-2">
@@ -424,7 +601,7 @@ function SlotCountPanel({
             // Focused on every slot change: tapping a cell should put the
             // cursor straight in the one field every slot needs, so counting a
             // machine is tap-type-tap rather than tap-tap-type.
-            autoFocus
+            autoFocus={isFirst}
             inputMode="numeric"
             className={countInputClass}
             placeholder="—"
@@ -432,9 +609,11 @@ function SlotCountPanel({
             onChange={(e) => onChange(rowWithLeft(row, e.target.value))}
           />
           <span className={hintClass}>
-            {row.previousLevel === null
-              ? "Before you refill"
-              : `Filled to ${row.previousLevel} last visit`}
+            {row.previousLevel !== null
+              ? `Filled to ${row.previousLevel} last visit`
+              : row.isAddedBehind
+                ? "Already there before you added it — 0 if none"
+                : "Before you refill"}
           </span>
         </label>
 
@@ -537,16 +716,11 @@ function SlotCountPanel({
         </Alert>
       ) : null}
 
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-sm text-gray-600 tabular-nums">
-          {level === null
-            ? "Walks away with —"
-            : `Walks away with ${level}${row.par === null ? "" : ` / par ${row.par}`}`}
-        </span>
-        <Button variant="secondary" size="sm" onClick={onNext}>
-          Next slot →
-        </Button>
-      </div>
-    </Card>
+      <span className="text-sm text-gray-600 tabular-nums">
+        {level === null
+          ? "Walks away with —"
+          : `Walks away with ${level}${row.par === null ? "" : ` / par ${row.par}`}`}
+      </span>
+    </div>
   );
 }

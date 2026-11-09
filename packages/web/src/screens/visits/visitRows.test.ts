@@ -1,14 +1,20 @@
 import { describe, expect, it } from "bun:test";
 import {
+  addedBehindOf,
+  buildAddedBehindRow,
   buildVisitLines,
   buildVisitRows,
   fillToPar,
   isCounted,
+  isSlotCounted,
   levelOf,
   rowWithAdded,
   rowWithLeft,
   rowWithRemoved,
   rowWithRemovedReason,
+  rowsInSlot,
+  rowsWithAddedBehind,
+  uncountedSlotCodes,
   type VisitRow,
   warningsFor,
 } from "./visitRows.ts";
@@ -45,6 +51,7 @@ const row = (patch: Partial<VisitRow> = {}): VisitRow => ({
   bestBy: "",
   previousBestBy: null,
   tracksExpiration: true,
+  isAddedBehind: false,
   ...patch,
 });
 
@@ -410,5 +417,114 @@ describe("warningsFor expiry", () => {
     expect(
       warningsFor(row({ left: "3", added: "0", bestBy: "" }), { asOf: ASOF }),
     ).toEqual([]);
+  });
+});
+
+describe("mixed slots", () => {
+  const MIXED_SLOTS = [
+    { slotCode: "A1", productId: "ruffles", par: 10, priceCents: 150 },
+    { slotCode: "A1", productId: "wavy", par: 10, priceCents: 150 },
+    { slotCode: "A2", productId: "doritos", par: 8, priceCents: 150 },
+  ];
+
+  it("makes a row for every product in a slot, front to back", () => {
+    const rows = buildVisitRows({
+      shelves: SHELVES,
+      planogramSlots: MIXED_SLOTS,
+      previousVisit: null,
+      products: PRODUCTS,
+    });
+    expect(rows.map((r) => `${r.slotCode}:${r.productId}`)).toEqual([
+      "A1:ruffles",
+      "A1:wavy",
+      "A2:doritos",
+    ]);
+  });
+
+  it("counts a slot only once every product in it is counted", () => {
+    const rows = [
+      row({ productId: "ruffles", left: "1" }),
+      row({ productId: "wavy" }),
+      row({ slotCode: "A2", productId: "doritos", left: "2" }),
+    ];
+    expect(isSlotCounted(rows, "A1")).toBe(false);
+    expect(isSlotCounted(rows, "A2")).toBe(true);
+    expect(uncountedSlotCodes(rows)).toEqual(["A1"]);
+  });
+
+  it("sends a line per counted product, never a zero for the blank one", () => {
+    const result = buildVisitLines([
+      row({ productId: "ruffles", left: "1" }),
+      row({ productId: "wavy" }),
+    ]);
+    expect("lines" in result && result.lines.map((l) => l.productId)).toEqual([
+      "ruffles",
+    ]);
+  });
+});
+
+describe("adding a product behind", () => {
+  const rows = [
+    row({ productId: "ruffles", priceCents: 150, par: 10 }),
+    row({ slotCode: "A2", productId: "doritos" }),
+  ];
+  const added = buildAddedBehindRow({
+    front: rows[0] as VisitRow,
+    productId: "wavy",
+    tracksExpiration: false,
+  });
+
+  it("takes the slot's price and par, and starts uncounted", () => {
+    expect(added).toMatchObject({
+      slotCode: "A1",
+      productId: "wavy",
+      priceCents: 150,
+      par: 10,
+      left: "",
+      isAddedBehind: true,
+      previousLevel: null,
+      tracksExpiration: false,
+    });
+  });
+
+  it("lands directly behind the slot's last product", () => {
+    const next = rowsWithAddedBehind(rows, added);
+    expect(next.map((r) => `${r.slotCode}:${r.productId}`)).toEqual([
+      "A1:ruffles",
+      "A1:wavy",
+      "A2:doritos",
+    ]);
+    expect(rowsInSlot(next, "A1")).toHaveLength(2);
+  });
+
+  it("lists what was added, for the planogram update", () => {
+    const next = rowsWithAddedBehind(rows, added);
+    expect(addedBehindOf(next)).toEqual([{ slotCode: "A1", productId: "wavy" }]);
+  });
+
+  // An added product with no count would be in the next planogram with no
+  // line on this visit, so next week's sales for it could never be computed.
+  it("requires a count for an added product, 0 if none were there", () => {
+    const result = buildVisitLines([
+      row({ productId: "ruffles", left: "1" }),
+      { ...added, added: "3" },
+    ]);
+    expect(result).toEqual({
+      error: 'Slot A1: enter "Left in slot" for the product you added behind (0 if none were there)',
+    });
+  });
+
+  it("sends an added product once it's counted", () => {
+    const result = buildVisitLines([
+      row({ productId: "ruffles", left: "1" }),
+      { ...added, left: "0", added: "3", isAddedEdited: true },
+    ]);
+    expect("lines" in result && result.lines[1]).toMatchObject({
+      slotCode: "A1",
+      productId: "wavy",
+      remaining: 0,
+      added: 3,
+      priceCents: 150,
+    });
   });
 });
