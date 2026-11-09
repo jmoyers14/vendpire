@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.0](https://github.com/jmoyers14/vendpire/compare/v0.9.0...v0.10.0) (2026-11-09)
+
+
+### Features
+
+* monthly sales and gross profit sheet on the dashboard ([#48](https://github.com/jmoyers14/vendpire/issues/48)) ([bf0335d](https://github.com/jmoyers14/vendpire/commit/bf0335d3da0d8eff1f7f599481f5e62176c54527))
+
 ## [0.9.0](https://github.com/jmoyers14/vendpire/compare/v0.8.0...v0.9.0) (2026-11-09)
 
 
