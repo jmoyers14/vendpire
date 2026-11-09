@@ -33,6 +33,7 @@ export type ApiBarcodeResolution = Outputs["barcodes"]["resolve"];
 export type ApiCandidate = NonNullable<Outputs["candidates"]["byCode"]>;
 export type ApiVisit = Outputs["visits"]["list"][number];
 export type ApiVisitLine = ApiVisit["lines"][number];
-export type ApiVisitPnl = Outputs["visits"]["pnl"];
+export type ApiMachinePnl = Outputs["pnl"]["byMachine"];
+export type ApiPnlSheet = Outputs["pnl"]["sheet"];
 export type ApiPlanogram = NonNullable<Outputs["planograms"]["getCurrent"]>;
 

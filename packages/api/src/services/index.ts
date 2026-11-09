@@ -22,6 +22,7 @@ import {
   PLANOGRAM_SERVICE_TOKEN,
   PURCHASE_SERVICE_TOKEN,
   VISIT_SERVICE_TOKEN,
+  PNL_SERVICE_TOKEN,
   PACK_SERVICE_TOKEN,
   MOBILE_CLIENT_SUPPORT_SERVICE_TOKEN,
 } from "./tokens.ts";
@@ -37,6 +38,7 @@ import { BarcodeResolverServiceImpl } from "./BarcodeResolverService/BarcodeReso
 import { PlanogramServiceImpl } from "./PlanogramService/PlanogramServiceImpl.ts";
 import { PurchaseServiceImpl } from "./PurchaseService/PurchaseServiceImpl.ts";
 import { VisitServiceImpl } from "./VisitService/VisitServiceImpl.ts";
+import { PnlServiceImpl } from "./PnlService/PnlServiceImpl.ts";
 import { PackServiceImpl } from "./PackService/PackServiceImpl.ts";
 import { MobileClientSupportServiceImpl } from "./MobileClientSupportService/MobileClientSupportServiceImpl.ts";
 
@@ -84,6 +86,7 @@ container.registerSingleton(
 container.registerSingleton(PLANOGRAM_SERVICE_TOKEN, PlanogramServiceImpl);
 container.registerSingleton(PURCHASE_SERVICE_TOKEN, PurchaseServiceImpl);
 container.registerSingleton(VISIT_SERVICE_TOKEN, VisitServiceImpl);
+container.registerSingleton(PNL_SERVICE_TOKEN, PnlServiceImpl);
 container.registerSingleton(PACK_SERVICE_TOKEN, PackServiceImpl);
 
 export { container };

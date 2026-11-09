@@ -15,6 +15,7 @@ import type { BarcodeResolverService } from "./services/BarcodeResolverService/B
 import type { PlanogramService } from "./services/PlanogramService/PlanogramService.ts";
 import type { PurchaseService } from "./services/PurchaseService/PurchaseService.ts";
 import type { VisitService } from "./services/VisitService/VisitService.ts";
+import type { PnlService } from "./services/PnlService/PnlService.ts";
 import type { PackService } from "./services/PackService/PackService.ts";
 import type { MobileClientSupportService } from "./services/MobileClientSupportService/MobileClientSupportService.ts";
 
@@ -60,6 +61,7 @@ export interface Context {
     planogramService: PlanogramService;
     purchaseService: PurchaseService;
     visitService: VisitService;
+    pnlService: PnlService;
     packService: PackService;
     mobileClientSupportService: MobileClientSupportService;
   };

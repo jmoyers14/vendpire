@@ -14,3 +14,7 @@ import { z } from "zod";
  */
 export const objectId = () =>
   z.string().regex(/^[0-9a-f]{24}$/i, "must be a 24-character hex id");
+
+/** An ISO instant. `offset: true` because zod's default rejects "+00:00",
+ *  which an ISO-8601 formatter may well emit. */
+export const instant = () => z.string().datetime({ offset: true });
