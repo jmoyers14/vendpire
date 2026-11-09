@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.9.0](https://github.com/jmoyers14/vendpire/compare/v0.8.0...v0.9.0) (2026-11-09)
+
+
+### Features
+
+* mixed slots on the web ([#46](https://github.com/jmoyers14/vendpire/issues/46)) ([aac789c](https://github.com/jmoyers14/vendpire/commit/aac789c355a515376fdc97e29fded89624964b8d))
+
+
+### Bug Fixes
+
+* **ios:** new case fields reset on blur; save returns to Locations ([#44](https://github.com/jmoyers14/vendpire/issues/44)) ([a62fefa](https://github.com/jmoyers14/vendpire/commit/a62fefac88248aa88778c86ae7bd6ba5bb20a59a))
+
 ## [0.8.0](https://github.com/jmoyers14/vendpire/compare/v0.7.0...v0.8.0) (2026-11-05)
 
 
