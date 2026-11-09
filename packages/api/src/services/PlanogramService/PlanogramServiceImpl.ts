@@ -1,4 +1,5 @@
 import { inject, injectable } from "tsyringe";
+import { slotRuleViolation } from "@vendpire/domain";
 import {
   MACHINE_REPOSITORY_TOKEN,
   PLANOGRAM_REPOSITORY_TOKEN,
@@ -13,7 +14,7 @@ import type {
 } from "@vendpire/platform";
 import { ServiceError } from "../errors.ts";
 import type { PlanogramService } from "./PlanogramService.ts";
-import { slotRuleViolation } from "./planogramSlots.ts";
+import { slotRuleMessage } from "./planogramSlots.ts";
 
 /**
  * Planogram business rules. Versions are immutable and strictly ordered: a new
@@ -62,7 +63,7 @@ export class PlanogramServiceImpl implements PlanogramService {
 
     const violation = slotRuleViolation(slots, new Set(machine.slots.flat()));
     if (violation) {
-      throw new ServiceError("BAD_REQUEST", violation);
+      throw new ServiceError("BAD_REQUEST", slotRuleMessage(violation));
     }
 
     const productIds = [...new Set(slots.map((slot) => slot.productId))];

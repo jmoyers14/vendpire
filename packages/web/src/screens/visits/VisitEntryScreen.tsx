@@ -1,7 +1,7 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import type { RemovalReason } from "@vendpire/domain";
+import type { RemovalReason, SlotProduct } from "@vendpire/domain";
 import {
   Alert,
   Button,
@@ -14,8 +14,11 @@ import {
   labelClass,
   Page,
   PageTitle,
+  buildProductsCell,
   type SlotCell,
+  type SlotCellState,
   SlotFaceGrid,
+  slotPositionLabel,
 } from "../../ui.tsx";
 import { queryClient, trpc } from "../../trpc.ts";
 import { formatCents } from "../../utils/money.ts";
@@ -29,7 +32,6 @@ import {
   buildAddedBehindRow,
   buildVisitLines,
   buildVisitRows,
-  isCounted,
   isSameRow,
   isSlotCounted,
   levelOf,
@@ -158,7 +160,7 @@ function VisitDraftForm({
   const replaceRow = (next: VisitRow) =>
     setRows(rows.map((row) => (isSameRow(row, next) ? next : row)));
 
-  const addBehind = (slotCode: string, productId: string) => {
+  const addBehind = ({ slotCode, productId }: SlotProduct) => {
     const [front] = rowsInSlot(rows, slotCode);
     if (!front) {
       return;
@@ -218,78 +220,36 @@ function VisitDraftForm({
 
   const renderCell = (slotCode: string): SlotCell => {
     const slotRows = rowsInSlot(rows, slotCode);
-    const [row] = slotRows;
-    if (!row) {
-      return {
-        state: "empty",
+    const products = slotRows.map((row) => ({
+      id: row.productId,
+      name: productName(row.productId),
+    }));
+    const [front] = slotRows;
+    if (!front) {
+      return buildProductsCell({
+        slotCode,
+        products,
         title: `${slotCode}: not in the current planogram`,
-        content: (
-          <>
-            <div className="font-mono text-[10px] text-muted">{slotCode}</div>
-            <div className="text-[10px] text-gray-400">—</div>
-          </>
-        ),
-      };
+      });
     }
-    if (slotRows.length > 1) {
-      return renderMixedCell(slotCode, slotRows);
-    }
-    const counted = isCounted(row);
-    const warnings = warningsFor(row, { asOf });
-    return {
-      state: warnings.length > 0 ? "attention" : counted ? "done" : "assigned",
-      title: `${slotCode}: ${productName(row.productId)}`,
-      content: (
-        <>
-          <div className="font-mono text-[10px] text-muted">{slotCode}</div>
-          <div className="truncate text-[11px] font-medium text-gray-800">
-            {productName(row.productId)}
-          </div>
-          <div className="text-[10px] tabular-nums text-gray-600">
-            {counted
-              ? `left ${row.left} · +${row.added || "0"}`
-              : `par ${row.par ?? "—"}`}
-          </div>
-        </>
-      ),
-    };
-  };
-
-  /** A mixed slot: a count badge and every product, front first. */
-  const renderMixedCell = (slotCode: string, slotRows: VisitRow[]): SlotCell => {
+    const isCounted = isSlotCounted(rows, slotCode);
     const hasWarnings = slotRows.some(
       (row) => warningsFor(row, { asOf }).length > 0,
     );
-    const names = slotRows.map((row) => productName(row.productId));
-    return {
-      state: hasWarnings
-        ? "attention"
-        : isSlotCounted(rows, slotCode)
-          ? "done"
-          : "assigned",
-      title: `${slotCode}: ${names.join(", then ")}`,
-      content: (
-        <>
-          <div className="font-mono text-[10px] text-muted">
-            {slotCode}{" "}
-            <span className="rounded bg-primary-50 px-1 text-primary-700">
-              {slotRows.length}
-            </span>
-          </div>
-          {names.map((name, index) => (
-            <div
-              // Names can repeat only across slots, never within one.
-              key={name}
-              className={`truncate text-[11px] ${
-                index === 0 ? "font-medium text-gray-800" : "text-gray-600"
-              }`}
-            >
-              {name}
-            </div>
-          ))}
-        </>
-      ),
-    };
+    let state: SlotCellState = "assigned";
+    if (hasWarnings) {
+      state = "attention";
+    } else if (isCounted) {
+      state = "done";
+    }
+    // A mixed cell has no room for per-product counts; its badge says enough.
+    let detail: string | null = null;
+    if (slotRows.length === 1) {
+      detail = isCounted
+        ? `left ${front.left} · +${front.added || "0"}`
+        : `par ${front.par ?? "—"}`;
+    }
+    return buildProductsCell({ slotCode, products, detail, state });
   };
 
   if (savedLineCount !== null) {
@@ -373,11 +333,13 @@ function VisitDraftForm({
             <SlotCountPanel
               key={selected}
               slotRows={rowsInSlot(rows, selected)}
-              productName={productName}
+              nameOf={productName}
               products={products.data ?? []}
               asOf={asOf}
               onChange={replaceRow}
-              onAddBehind={(productId) => addBehind(selected, productId)}
+              onAddBehind={(productId) =>
+                addBehind({ slotCode: selected, productId })
+              }
               onRemoveAdded={removeAdded}
               onNext={() => {
                 const index = slotOrder.indexOf(selected);
@@ -453,14 +415,10 @@ function VisitDraftForm({
   );
 }
 
-/**
- * One slot: its price once, then a count row for every product in it, front
- * to back. Tab walks each product before the next slot, so counting a mixed
- * slot feels like counting two ordinary ones in a row.
- */
+/** One slot: its price once, then a count row per product, front to back. */
 function SlotCountPanel({
   slotRows,
-  productName,
+  nameOf,
   products,
   asOf,
   onChange,
@@ -469,7 +427,7 @@ function SlotCountPanel({
   onNext,
 }: {
   slotRows: VisitRow[];
-  productName: (id: string) => string;
+  nameOf: (productId: string) => string;
   products: ProductOption[];
   /** The day expiry warnings are judged against, fixed at form open. */
   asOf: string;
@@ -483,7 +441,7 @@ function SlotCountPanel({
     return null;
   }
   const inSlot = new Set(slotRows.map((row) => row.productId));
-  const isAdding = slotRows.some((row) => row.isAddedBehind);
+  const hasAddedBehind = slotRows.some((row) => row.isAddedBehind);
 
   return (
     <Card className="flex flex-col gap-3 border border-primary-200 p-3">
@@ -500,8 +458,12 @@ function SlotCountPanel({
         <ProductCountRow
           key={row.productId}
           row={row}
-          productName={productName(row.productId)}
-          position={positionOf(row, index, slotRows.length)}
+          productName={nameOf(row.productId)}
+          position={
+            row.isAddedBehind
+              ? "Added behind"
+              : slotPositionLabel({ index, count: slotRows.length })
+          }
           isFirst={index === 0}
           asOf={asOf}
           onChange={onChange}
@@ -517,7 +479,7 @@ function SlotCountPanel({
           onPick={(product) => onAddBehind(product.id)}
         />
         <span className={hintClass}>
-          {isAdding
+          {hasAddedBehind
             ? "Saving this visit also adds it to the planogram."
             : `Sells at the slot's ${formatCents(front.priceCents)}.`}
         </span>
@@ -531,17 +493,6 @@ function SlotCountPanel({
     </Card>
   );
 }
-
-/** Where a product sits, for a slot holding more than one. */
-const positionOf = (row: VisitRow, index: number, count: number): string => {
-  if (row.isAddedBehind) {
-    return "Added behind";
-  }
-  if (count === 1) {
-    return "";
-  }
-  return index === 0 ? "Front" : "Behind";
-};
 
 /**
  * One product's counts. Emits a whole replacement row rather than a patch, so
@@ -598,9 +549,8 @@ function ProductCountRow({
         <label className="flex flex-col gap-1">
           <span className={labelClass}>Left in slot</span>
           <input
-            // Focused on every slot change: tapping a cell should put the
-            // cursor straight in the one field every slot needs, so counting a
-            // machine is tap-type-tap rather than tap-tap-type.
+            // The front product's Left field takes focus on every slot change,
+            // so counting a machine is tap-type-tap rather than tap-tap-type.
             autoFocus={isFirst}
             inputMode="numeric"
             className={countInputClass}

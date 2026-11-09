@@ -6,6 +6,8 @@ import {
   calendarDateToday,
   intervalsForMachine,
   observationsForVisit,
+  slotProductKey,
+  slotRuleViolation,
 } from "@vendpire/domain";
 import type { VisitAnomaly } from "@vendpire/domain";
 import {
@@ -21,6 +23,7 @@ import type {
   LocationRepository,
   Machine,
   MachineRepository,
+  Planogram,
   PlanogramInput,
   PlanogramRepository,
   Product,
@@ -35,7 +38,7 @@ import type {
 import { isDuplicateKey, ServiceError } from "../errors.ts";
 import {
   type AddedBehind,
-  slotRuleViolation,
+  slotRuleMessage,
   slotsWithAddedBehind,
 } from "../PlanogramService/planogramSlots.ts";
 import { buildExpiringReport, type PopulatedVisit } from "./expiringReport.ts";
@@ -125,11 +128,18 @@ export class VisitServiceImpl implements VisitService {
       return replayOf(replay);
     }
 
-    const { lines, notices } = await this.validate(orgId, draft);
+    const { lines, notices, machineSlotCodes, currentPlanogram } =
+      await this.validate(orgId, draft);
     const stored = { ...draft, lines, recordedByUserId };
     const nextPlanogram =
       addedBehind.length > 0
-        ? await this.buildNextPlanogram(orgId, { draft, lines, addedBehind })
+        ? this.planogramAfter({
+            draft,
+            lines,
+            addedBehind,
+            current: currentPlanogram,
+            machineSlotCodes,
+          })
         : null;
 
     const latest = await this.visits.findLatestByMachine(
@@ -146,11 +156,6 @@ export class VisitServiceImpl implements VisitService {
     const planogram = nextPlanogram
       ? await this.planograms.create(orgId, nextPlanogram)
       : null;
-    const undoPlanogram = async () => {
-      if (planogram) {
-        await this.planograms.softDelete(orgId, planogram.id);
-      }
-    };
 
     try {
       const visit = await this.visits.create(orgId, stored);
@@ -163,7 +168,9 @@ export class VisitServiceImpl implements VisitService {
         planogram,
       };
     } catch (error) {
-      await undoPlanogram();
+      if (planogram) {
+        await this.planograms.softDelete(orgId, planogram.id);
+      }
       if (!isDuplicateKey(error)) {
         throw error;
       }
@@ -182,29 +189,27 @@ export class VisitServiceImpl implements VisitService {
   }
 
   /**
-   * The planogram version a visit that added products behind leaves behind:
-   * the version the visit was counted against, plus the additions, effective
-   * from the visit's own time.
-   *
-   * Refuses rather than merging when the planogram moved on, because the
-   * operator added behind a layout they can no longer see.
+   * The version the visit was counted against, with the additions behind,
+   * effective from the visit's time. Refuses rather than merging when the
+   * planogram moved on, since the operator added to a layout they no longer see.
    */
-  private async buildNextPlanogram(
-    orgId: string,
-    {
-      draft,
-      lines,
-      addedBehind,
-    }: { draft: VisitDraft; lines: VisitLine[]; addedBehind: AddedBehind[] },
-  ): Promise<PlanogramInput> {
-    const current = await this.planograms.findCurrentByMachine(
-      orgId,
-      draft.machineId,
-    );
+  private planogramAfter({
+    draft,
+    lines,
+    addedBehind,
+    current,
+    machineSlotCodes,
+  }: {
+    draft: VisitDraft;
+    lines: VisitLine[];
+    addedBehind: AddedBehind[];
+    current: Planogram | null;
+    machineSlotCodes: ReadonlySet<string>;
+  }): PlanogramInput {
     if (!current) {
       throw new ServiceError(
         "BAD_REQUEST",
-        "This machine has no planogram to add products to",
+        "This visit has no planogram to add products to",
       );
     }
     if (draft.planogramId !== current.id) {
@@ -220,30 +225,28 @@ export class VisitServiceImpl implements VisitService {
       );
     }
 
+    const countedKeys = new Set(lines.map(slotProductKey));
     const additions = addedBehind.map((addition) => ({
       ...addition,
       slotCode: addition.slotCode.trim().toUpperCase(),
     }));
     for (const addition of additions) {
-      const slot = current.slots.filter((s) => s.slotCode === addition.slotCode);
-      if (slot.length === 0) {
+      const entries = current.slots.filter(
+        (entry) => entry.slotCode === addition.slotCode,
+      );
+      if (entries.length === 0) {
         throw new ServiceError(
           "BAD_REQUEST",
           `Slot ${addition.slotCode} has no product to add behind`,
         );
       }
-      if (slot.some((s) => s.productId === addition.productId)) {
+      if (entries.some((entry) => entry.productId === addition.productId)) {
         throw new ServiceError(
           "BAD_REQUEST",
           `Slot ${addition.slotCode} already holds product ${addition.productId}`,
         );
       }
-      const isCounted = lines.some(
-        (line) =>
-          line.slotCode === addition.slotCode &&
-          line.productId === addition.productId,
-      );
-      if (!isCounted) {
+      if (!countedKeys.has(slotProductKey(addition))) {
         throw new ServiceError(
           "BAD_REQUEST",
           `Slot ${addition.slotCode}: product ${addition.productId} was added behind but has no count on this visit`,
@@ -252,18 +255,13 @@ export class VisitServiceImpl implements VisitService {
     }
 
     const slots = slotsWithAddedBehind(current.slots, additions);
-    const machine = await this.machines.findById(orgId, draft.machineId);
-    const violation = slotRuleViolation(
-      slots,
-      new Set(machine?.slots.flat() ?? []),
-    );
+    const violation = slotRuleViolation(slots, machineSlotCodes);
     if (violation) {
-      throw new ServiceError("BAD_REQUEST", violation);
+      throw new ServiceError("BAD_REQUEST", slotRuleMessage(violation));
     }
     return {
       machineId: draft.machineId,
-      // Normalized, so a "+00:00" offset from the client orders the same as
-      // every other version's "Z".
+      // Normalized, so a client's "+00:00" orders the same as every other "Z".
       effectiveFrom: new Date(draft.countedAt).toISOString(),
       slots,
     };
@@ -424,7 +422,13 @@ export class VisitServiceImpl implements VisitService {
   private async validate(
     orgId: string,
     draft: VisitDraft,
-  ): Promise<{ lines: VisitLine[]; notices: VisitNotice[] }> {
+  ): Promise<{
+    lines: VisitLine[];
+    notices: VisitNotice[];
+    machineSlotCodes: Set<string>;
+    /** Read only when the draft names a planogram. */
+    currentPlanogram: Planogram | null;
+  }> {
     if (Date.parse(draft.countedAt) > Date.now() + MAX_FUTURE_MS) {
       throw new ServiceError(
         "BAD_REQUEST",
@@ -460,7 +464,7 @@ export class VisitServiceImpl implements VisitService {
       // The PAIR, not the slot code. One slot with two products is how a mixed
       // spiral records per-flavor counts, and how a re-planogram visit counts
       // the outgoing product out.
-      const key = `${line.slotCode} ${line.productId}`;
+      const key = slotProductKey(line);
       if (seen.has(key)) {
         throw new ServiceError(
           "BAD_REQUEST",
@@ -502,6 +506,7 @@ export class VisitServiceImpl implements VisitService {
       });
     }
 
+    let currentPlanogram: Planogram | null = null;
     if (draft.planogramId) {
       // Newest first, so the head is the current version.
       const versions = await this.planograms.findByMachine(
@@ -516,17 +521,17 @@ export class VisitServiceImpl implements VisitService {
       }
       // Provenance only — price and par are copied onto the line, so the engine
       // never reads a planogram. A fill against a superseded version is real.
-      const current = versions[0];
-      if (current && current.id !== draft.planogramId) {
+      currentPlanogram = versions[0] ?? null;
+      if (currentPlanogram && currentPlanogram.id !== draft.planogramId) {
         notices.push({
           kind: "stale-planogram",
           submittedPlanogramId: draft.planogramId,
-          currentPlanogramId: current.id,
+          currentPlanogramId: currentPlanogram.id,
         });
       }
     }
 
-    return { lines, notices };
+    return { lines, notices, machineSlotCodes, currentPlanogram };
   }
 }
 

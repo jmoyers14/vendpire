@@ -2,12 +2,12 @@ import { describe, expect, it } from "bun:test";
 import {
   buildEditorSlots,
   parseDraft,
-  slotEntries,
+  entriesInSlot,
   stockLeftOut,
   withEntryMoved,
   withEntryPatched,
   withEntryRemoved,
-  withProductAdded,
+  withEntryAdded,
   withSlotPrice,
 } from "./planogramDraft.ts";
 
@@ -64,8 +64,8 @@ describe("mixed slots in the editor", () => {
   });
 
   it("adds an empty product behind the slot's last one, at the slot's price and par", () => {
-    const next = withProductAdded(mixed, "A1");
-    expect(slotEntries(next, "A1")).toEqual([
+    const next = withEntryAdded(mixed, "A1");
+    expect(entriesInSlot(next, "A1")).toEqual([
       slot("A1", "ruffles"),
       slot("A1", "wavy"),
       { slotCode: "A1", productId: "", par: "10", price: "1.50" },
@@ -74,37 +74,37 @@ describe("mixed slots in the editor", () => {
   });
 
   it("sets one price for every product in the slot", () => {
-    const next = withSlotPrice(mixed, "A1", "2.00");
-    expect(slotEntries(next, "A1").map((e) => e.price)).toEqual(["2.00", "2.00"]);
-    expect(slotEntries(next, "A2")[0]?.price).toBe("1.50");
+    const next = withSlotPrice(mixed, { slotCode: "A1", price: "2.00" });
+    expect(entriesInSlot(next, "A1").map((e) => e.price)).toEqual(["2.00", "2.00"]);
+    expect(entriesInSlot(next, "A2")[0]?.price).toBe("1.50");
   });
 
   it("patches one product by its position in the slot", () => {
-    const next = withEntryPatched(mixed, "A1", 1, { productId: "lays" });
-    expect(slotEntries(next, "A1").map((e) => e.productId)).toEqual([
+    const next = withEntryPatched(mixed, { slotCode: "A1", index: 1 }, { productId: "lays" });
+    expect(entriesInSlot(next, "A1").map((e) => e.productId)).toEqual([
       "ruffles",
       "lays",
     ]);
   });
 
   it("moves a product toward the front, and ignores a move past either end", () => {
-    const next = withEntryMoved(mixed, "A1", 1, -1);
-    expect(slotEntries(next, "A1").map((e) => e.productId)).toEqual([
+    const next = withEntryMoved(mixed, { slotCode: "A1", index: 1, offset: -1 });
+    expect(entriesInSlot(next, "A1").map((e) => e.productId)).toEqual([
       "wavy",
       "ruffles",
     ]);
-    expect(withEntryMoved(mixed, "A1", 0, -1)).toEqual(mixed);
-    expect(withEntryMoved(mixed, "A1", 1, 1)).toEqual(mixed);
+    expect(withEntryMoved(mixed, { slotCode: "A1", index: 0, offset: -1 })).toEqual(mixed);
+    expect(withEntryMoved(mixed, { slotCode: "A1", index: 1, offset: 1 })).toEqual(mixed);
   });
 
   it("removes a product from a mixed slot", () => {
-    const next = withEntryRemoved(mixed, "A1", 0);
-    expect(slotEntries(next, "A1").map((e) => e.productId)).toEqual(["wavy"]);
+    const next = withEntryRemoved(mixed, { slotCode: "A1", index: 0 });
+    expect(entriesInSlot(next, "A1").map((e) => e.productId)).toEqual(["wavy"]);
   });
 
   it("leaves an empty slot, not a missing one, when its only product is removed", () => {
-    const next = withEntryRemoved(mixed, "A2", 0);
-    expect(slotEntries(next, "A2")).toEqual([
+    const next = withEntryRemoved(mixed, { slotCode: "A2", index: 0 });
+    expect(entriesInSlot(next, "A2")).toEqual([
       { slotCode: "A2", productId: "", par: "", price: "" },
     ]);
   });

@@ -1,7 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import { slotRuleViolation, slotsWithAddedBehind } from "./planogramSlots.ts";
+import { slotRuleMessage, slotsWithAddedBehind } from "./planogramSlots.ts";
 
-const MACHINE = new Set(["A1", "A2"]);
 const slot = (over: Record<string, unknown> = {}) => ({
   slotCode: "A1",
   productId: "ruffles",
@@ -10,32 +9,11 @@ const slot = (over: Record<string, unknown> = {}) => ({
   ...over,
 });
 
-describe("slotRuleViolation", () => {
-  it("accepts a slot holding two products at one price", () => {
-    expect(
-      slotRuleViolation([slot(), slot({ productId: "wavy" })], MACHINE),
-    ).toBeNull();
-  });
-
-  it("rejects the same product twice in one slot", () => {
-    expect(slotRuleViolation([slot(), slot()], MACHINE)).toMatch(/duplicate/i);
-  });
-
-  it("accepts the same product in two different slots", () => {
-    expect(slotRuleViolation([slot(), slot({ slotCode: "A2" })], MACHINE)).toBeNull();
-  });
-
-  it("rejects two prices in one slot", () => {
-    expect(
-      slotRuleViolation(
-        [slot(), slot({ productId: "wavy", priceCents: 200 })],
-        MACHINE,
-      ),
-    ).toMatch(/A1.*price/);
-  });
-
-  it("rejects a slot code the machine doesn't have", () => {
-    expect(slotRuleViolation([slot({ slotCode: "Z9" })], MACHINE)).toMatch(/Z9/);
+describe("slotRuleMessage", () => {
+  it("names the slot whose prices disagree", () => {
+    expect(slotRuleMessage({ kind: "mixed-price", slotCode: "A1" })).toMatch(
+      /A1.*price/,
+    );
   });
 });
 

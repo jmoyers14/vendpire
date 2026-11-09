@@ -24,10 +24,8 @@ export type VisitDraft = Omit<VisitInput, "recordedByUserId">;
 export interface VisitSubmission {
   draft: VisitDraft;
   recordedByUserId: string;
-  /**
-   * Products loaded behind a slot's existing ones during this visit. Non-empty
-   * means the visit also writes the next planogram version, both or neither.
-   */
+  /** Products loaded behind a slot's existing ones. When non-empty, the visit
+   *  and the next planogram version are saved together or not at all. */
   addedBehind?: AddedBehind[];
 }
 

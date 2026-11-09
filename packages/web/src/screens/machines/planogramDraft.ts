@@ -4,7 +4,7 @@
  */
 
 import { useState } from "react";
-import { levelAfter, type VisitLine } from "@vendpire/domain";
+import { levelAfter, slotProductKey, type VisitLine } from "@vendpire/domain";
 
 /** One slot of the in-progress version, as the editor's text fields hold it. */
 export interface DraftSlot {
@@ -51,14 +51,9 @@ const emptySlot = (slotCode: string): DraftSlot => ({
 });
 
 /**
- * Editor rows for every slot the machine has NOW: each product in a slot,
- * front to back, or one empty row for a slot with none. A draft or version
- * saved against an older layout keeps the slots that still exist and drops
- * the rest.
- *
- * The rows are a flat list in which a mixed slot's code repeats, the same
- * shape the planogram stores. The helpers below address a product by its
- * slot code and its position within the slot.
+ * Editor rows for every slot the machine has NOW: each product front to back,
+ * or one empty row. A mixed slot's code repeats, as the planogram stores it.
+ * Slots the machine no longer has are dropped.
  */
 export const buildEditorSlots = (
   slotCodes: string[],
@@ -70,10 +65,10 @@ export const buildEditorSlots = (
   });
 
 /** The slot's products, front to back. */
-export const slotEntries = (rows: DraftSlot[], slotCode: string): DraftSlot[] =>
+export const entriesInSlot = (rows: DraftSlot[], slotCode: string): DraftSlot[] =>
   rows.filter((row) => row.slotCode === slotCode);
 
-/** Replaces the slot's entries in place, keeping every other slot where it is. */
+/** Replaces the slot's entries, keeping every other slot where it is. */
 const withSlotEntries = (
   rows: DraftSlot[],
   slotCode: string,
@@ -90,14 +85,13 @@ const withSlotEntries = (
 /** The machine charges per slot, so a price edit applies to every product in it. */
 export const withSlotPrice = (
   rows: DraftSlot[],
-  slotCode: string,
-  price: string,
+  { slotCode, price }: { slotCode: string; price: string },
 ): DraftSlot[] =>
   rows.map((row) => (row.slotCode === slotCode ? { ...row, price } : row));
 
 /** An empty product behind the slot's last one, at the slot's price and par. */
-export const withProductAdded = (rows: DraftSlot[], slotCode: string): DraftSlot[] => {
-  const entries = slotEntries(rows, slotCode);
+export const withEntryAdded = (rows: DraftSlot[], slotCode: string): DraftSlot[] => {
+  const entries = entriesInSlot(rows, slotCode);
   const last = entries[entries.length - 1];
   return withSlotEntries(rows, slotCode, [
     ...entries,
@@ -105,16 +99,21 @@ export const withProductAdded = (rows: DraftSlot[], slotCode: string): DraftSlot
   ]);
 };
 
+/** Where a product sits: its slot, and its position from the front. */
+export interface EntryPosition {
+  slotCode: string;
+  index: number;
+}
+
 export const withEntryPatched = (
   rows: DraftSlot[],
-  slotCode: string,
-  index: number,
+  { slotCode, index }: EntryPosition,
   patch: Partial<Omit<DraftSlot, "slotCode">>,
 ): DraftSlot[] =>
   withSlotEntries(
     rows,
     slotCode,
-    slotEntries(rows, slotCode).map((entry, i) =>
+    entriesInSlot(rows, slotCode).map((entry, i) =>
       i === index ? { ...entry, ...patch } : entry,
     ),
   );
@@ -122,11 +121,9 @@ export const withEntryPatched = (
 /** Swaps a product with its neighbor; a move past either end changes nothing. */
 export const withEntryMoved = (
   rows: DraftSlot[],
-  slotCode: string,
-  index: number,
-  offset: -1 | 1,
+  { slotCode, index, offset }: EntryPosition & { offset: -1 | 1 },
 ): DraftSlot[] => {
-  const entries = slotEntries(rows, slotCode);
+  const entries = entriesInSlot(rows, slotCode);
   const target = index + offset;
   const moving = entries[index];
   const displaced = entries[target];
@@ -142,10 +139,9 @@ export const withEntryMoved = (
 /** Removing a slot's only product leaves it empty rather than gone. */
 export const withEntryRemoved = (
   rows: DraftSlot[],
-  slotCode: string,
-  index: number,
+  { slotCode, index }: EntryPosition,
 ): DraftSlot[] => {
-  const remaining = slotEntries(rows, slotCode).filter((_, i) => i !== index);
+  const remaining = entriesInSlot(rows, slotCode).filter((_, i) => i !== index);
   return withSlotEntries(
     rows,
     slotCode,
@@ -154,10 +150,8 @@ export const withEntryRemoved = (
 };
 
 /**
- * Products the last visit left stock of that this draft no longer holds. The
- * next visit only lists the planogram's products, so their stock would go
- * uncounted. A warning, not a block: sometimes the operator really did pull
- * them.
+ * Products the last visit left stock of that this draft no longer holds; the
+ * next visit won't ask about them. A warning, since they may really be pulled.
  */
 export const stockLeftOut = ({
   entries,
@@ -166,19 +160,14 @@ export const stockLeftOut = ({
   entries: DraftSlot[];
   previousLines: readonly VisitLine[];
 }): { slotCode: string; productId: string; units: number }[] => {
-  const kept = new Set(
-    entries.map((entry) => `${entry.slotCode}\u0000${entry.productId}`),
-  );
+  const kept = new Set(entries.map(slotProductKey));
   return previousLines
     .map((line) => ({
       slotCode: line.slotCode,
       productId: line.productId,
       units: levelAfter(line),
     }))
-    .filter(
-      (left) =>
-        left.units > 0 && !kept.has(`${left.slotCode}\u0000${left.productId}`),
-    );
+    .filter((left) => left.units > 0 && !kept.has(slotProductKey(left)));
 };
 
 // Storage can throw (private mode, blocked site data). A lost draft is better

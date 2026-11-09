@@ -1,15 +1,17 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { type SlotRuleViolation, slotRuleViolation } from "@vendpire/domain";
 import {
   Alert,
   Button,
+  buildProductsCell,
   ErrorNote,
   inputClass,
   Page,
   PageTitle,
-  type SlotCell,
   SlotFaceGrid,
+  slotPositionLabel,
 } from "../../ui.tsx";
 import {
   centsToInput,
@@ -20,13 +22,13 @@ import { queryClient, trpc } from "../../trpc.ts";
 import {
   buildEditorSlots,
   type DraftSlot,
-  slotEntries,
+  entriesInSlot,
   stockLeftOut,
   usePlanogramDraft,
+  withEntryAdded,
   withEntryMoved,
   withEntryPatched,
   withEntryRemoved,
-  withProductAdded,
   withSlotPrice,
 } from "./planogramDraft.ts";
 import { ProductCombobox, type ProductOption } from "./ProductCombobox.tsx";
@@ -110,6 +112,17 @@ export function MachinePlanogramsScreen({ machineId }: { machineId: string }) {
   const productName = (id: string): string =>
     products.data?.find((product) => product.id === id)?.name ?? id;
 
+  const ruleMessage = (violation: SlotRuleViolation): string => {
+    switch (violation.kind) {
+      case "unknown-slot":
+        return `This machine has no slot ${violation.slotCode}`;
+      case "duplicate-product":
+        return `Slot ${violation.slotCode}: ${productName(violation.productId)} is listed twice`;
+      case "mixed-price":
+        return `Slot ${violation.slotCode} has more than one price`;
+    }
+  };
+
   const droppedStock = rows
     ? stockLeftOut({
         entries: rows.filter((row) => row.productId),
@@ -123,19 +136,10 @@ export function MachinePlanogramsScreen({ machineId }: { machineId: string }) {
     }
     setError(null);
     const slots = [];
-    const seen = new Set<string>();
     for (const row of rows) {
       if (!row.productId) {
         continue;
       }
-      const pair = `${row.slotCode}\u0000${row.productId}`;
-      if (seen.has(pair)) {
-        setError(
-          `Slot ${row.slotCode}: ${productName(row.productId)} is listed twice`,
-        );
-        return;
-      }
-      seen.add(pair);
       const par = Number.parseInt(row.par, 10);
       const priceCents = parseDollarsToCents(row.price);
       if (Number.isNaN(par) || par < 1) {
@@ -150,6 +154,14 @@ export function MachinePlanogramsScreen({ machineId }: { machineId: string }) {
     }
     if (slots.length === 0) {
       setError("Assign at least one slot");
+      return;
+    }
+    const violation = slotRuleViolation(
+      slots,
+      new Set(machine.data?.slots.flat() ?? []),
+    );
+    if (violation) {
+      setError(ruleMessage(violation));
       return;
     }
     create.mutate({ machineId, slots });
@@ -187,13 +199,16 @@ export function MachinePlanogramsScreen({ machineId }: { machineId: string }) {
             selectedCode={selected}
             onSelect={setSelected}
             renderCell={(slotCode) => {
-              const entries = slotEntries(rows, slotCode).filter(
+              const entries = entriesInSlot(rows, slotCode).filter(
                 (entry) => entry.productId,
               );
               const [front] = entries;
-              return slotCell({
+              return buildProductsCell({
                 slotCode,
-                names: entries.map((entry) => productName(entry.productId)),
+                products: entries.map((entry) => ({
+                  id: entry.productId,
+                  name: productName(entry.productId),
+                })),
                 detail: front
                   ? `${front.price ? `$${front.price}` : "—"} · par ${front.par || "—"}`
                   : null,
@@ -207,7 +222,7 @@ export function MachinePlanogramsScreen({ machineId }: { machineId: string }) {
             <SlotEditPanel
               key={selected}
               slotCode={selected}
-              entries={slotEntries(rows, selected)}
+              entries={entriesInSlot(rows, selected)}
               products={products.data ?? []}
               onRowsChange={(change) => updateRows(change(rows))}
               onNext={() => {
@@ -278,16 +293,18 @@ export function MachinePlanogramsScreen({ machineId }: { machineId: string }) {
               shelves={machine.data.slots}
               renderCell={(slotCode) => {
                 const entries = current.slots.filter(
-                  (s) => s.slotCode === slotCode,
+                  (entry) => entry.slotCode === slotCode,
                 );
                 const [front] = entries;
-                return slotCell({
+                return buildProductsCell({
                   slotCode,
-                  names: entries.map((s) => productName(s.productId)),
+                  products: entries.map((entry) => ({
+                    id: entry.productId,
+                    name: productName(entry.productId),
+                  })),
                   detail: front
                     ? `${formatCents(front.priceCents)} · par ${front.par}`
                     : null,
-                  emptyLabel: "—",
                 });
               }}
             />
@@ -312,63 +329,6 @@ export function MachinePlanogramsScreen({ machineId }: { machineId: string }) {
   );
 }
 
-/**
- * A face cell: the slot code, then every product front to back, with a count
- * badge when the slot is mixed.
- */
-function slotCell({
-  slotCode,
-  names,
-  detail,
-  emptyLabel,
-}: {
-  slotCode: string;
-  names: string[];
-  detail: string | null;
-  emptyLabel: string;
-}): SlotCell {
-  if (names.length === 0) {
-    return {
-      state: "empty",
-      title: `${slotCode}: empty`,
-      content: (
-        <>
-          <div className="font-mono text-[10px] text-muted">{slotCode}</div>
-          <div className="text-[10px] text-gray-400">{emptyLabel}</div>
-        </>
-      ),
-    };
-  }
-  return {
-    state: "assigned",
-    title: `${slotCode}: ${names.join(", then ")}${detail ? ` — ${detail}` : ""}`,
-    content: (
-      <>
-        <div className="font-mono text-[10px] text-muted">
-          {slotCode}
-          {names.length > 1 ? (
-            <span className="ml-1 rounded bg-primary-50 px-1 text-primary-700">
-              {names.length}
-            </span>
-          ) : null}
-        </div>
-        {names.map((name, index) => (
-          <div
-            // A product appears once per slot, so its name is a stable key.
-            key={name}
-            className={`truncate text-xs ${
-              index === 0 ? "font-medium text-gray-800" : "text-gray-600"
-            }`}
-          >
-            {name}
-          </div>
-        ))}
-        {detail ? <div className="text-[10px] text-gray-600">{detail}</div> : null}
-      </>
-    ),
-  };
-}
-
 interface SlotEditPanelProps {
   slotCode: string;
   /** The slot's products, front to back. An empty slot has one blank entry. */
@@ -380,11 +340,9 @@ interface SlotEditPanelProps {
 }
 
 /**
- * Edits one slot of the in-progress version: its one price, then each product
- * front to back. Picking the product for a single-product slot fills the price
- * from the product's default; in a mixed slot the slot's price stands, since
- * the machine charges per slot. "Next slot" walks the machine in slot order so
- * a full setup needs no extra clicks on the grid.
+ * One slot's price, then each product front to back. Picking a single-product
+ * slot's product fills in its default price; in a mixed slot the slot's price
+ * stands, since the machine charges per slot.
  */
 function SlotEditPanel({
   slotCode,
@@ -408,7 +366,9 @@ function SlotEditPanel({
             className={inputClass}
             value={price}
             onChange={(e) =>
-              onRowsChange((rows) => withSlotPrice(rows, slotCode, e.target.value))
+              onRowsChange((rows) =>
+                withSlotPrice(rows, { slotCode, price: e.target.value }),
+              )
             }
           />
         </label>
@@ -421,7 +381,7 @@ function SlotEditPanel({
           className="flex flex-wrap items-end gap-2"
         >
           <span className="w-12 pb-2 text-xs text-muted">
-            {entries.length > 1 ? (index === 0 ? "Front" : "Behind") : ""}
+            {slotPositionLabel({ index, count: entries.length })}
           </span>
           <div className="min-w-48 flex-1 text-xs text-gray-600">
             Product
@@ -430,16 +390,16 @@ function SlotEditPanel({
               productId={entry.productId}
               onPick={(product) =>
                 onRowsChange((rows) => {
-                  const picked = withEntryPatched(rows, slotCode, index, {
-                    productId: product.id,
-                    par: entry.par || "10",
-                  });
+                  const picked = withEntryPatched(
+                    rows,
+                    { slotCode, index },
+                    { productId: product.id, par: entry.par || "10" },
+                  );
                   return entries.length === 1
-                    ? withSlotPrice(
-                        picked,
+                    ? withSlotPrice(picked, {
                         slotCode,
-                        centsToInput(product.defaultPriceCents),
-                      )
+                        price: centsToInput(product.defaultPriceCents),
+                      })
                     : picked;
                 })
               }
@@ -452,7 +412,11 @@ function SlotEditPanel({
               value={entry.par}
               onChange={(e) =>
                 onRowsChange((rows) =>
-                  withEntryPatched(rows, slotCode, index, { par: e.target.value }),
+                  withEntryPatched(
+                    rows,
+                    { slotCode, index },
+                    { par: e.target.value },
+                  ),
                 )
               }
             />
@@ -464,7 +428,9 @@ function SlotEditPanel({
                 size="sm"
                 disabled={index === 0}
                 onClick={() =>
-                  onRowsChange((rows) => withEntryMoved(rows, slotCode, index, -1))
+                  onRowsChange((rows) =>
+                    withEntryMoved(rows, { slotCode, index, offset: -1 }),
+                  )
                 }
               >
                 ↑
@@ -474,7 +440,9 @@ function SlotEditPanel({
                 size="sm"
                 disabled={index === entries.length - 1}
                 onClick={() =>
-                  onRowsChange((rows) => withEntryMoved(rows, slotCode, index, 1))
+                  onRowsChange((rows) =>
+                    withEntryMoved(rows, { slotCode, index, offset: 1 }),
+                  )
                 }
               >
                 ↓
@@ -485,7 +453,9 @@ function SlotEditPanel({
             variant="secondary"
             size="sm"
             onClick={() =>
-              onRowsChange((rows) => withEntryRemoved(rows, slotCode, index))
+              onRowsChange((rows) =>
+                withEntryRemoved(rows, { slotCode, index }),
+              )
             }
           >
             {entries.length > 1 ? "Remove" : "Clear"}
@@ -498,7 +468,7 @@ function SlotEditPanel({
           variant="secondary"
           size="sm"
           disabled={!canAddBehind}
-          onClick={() => onRowsChange((rows) => withProductAdded(rows, slotCode))}
+          onClick={() => onRowsChange((rows) => withEntryAdded(rows, slotCode))}
         >
           + Add product behind
         </Button>
@@ -510,6 +480,6 @@ function SlotEditPanel({
   );
 }
 
-/** Distinct slots with a product. A mixed slot lists several entries but is one slot. */
+/** A mixed slot lists several entries but counts as one slot. */
 const assignedSlotCount = (slots: { slotCode: string }[]): number =>
   new Set(slots.map((slot) => slot.slotCode)).size;

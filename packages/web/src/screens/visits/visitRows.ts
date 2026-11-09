@@ -1,8 +1,10 @@
 import {
   calendarDateAfter,
   calendarDaysUntil,
+  lastIndexInSlot,
   levelAfter,
   type RemovalReason,
+  slotProductKey,
   type VisitLine,
 } from "@vendpire/domain";
 
@@ -95,11 +97,6 @@ interface ProductLike {
 interface PreviousVisitLike {
   lines: readonly VisitLine[];
 }
-
-/** NUL-joined, matching the engine: a slot carries both its outgoing and
- *  incoming product on a re-planogram visit, so the code alone isn't a key. */
-const keyOf = (slotCode: string, productId: string): string =>
-  `${slotCode}\u0000${productId}`;
 
 /** A whole non-negative count, or null if the text isn't one. Rejects "1.5"
  *  and "-2"; `""` is the caller's business, not a parse failure. */
@@ -212,11 +209,43 @@ export const rowWithRemovedReason = (
   removedReason: RemovalReason | null,
 ): VisitRow => ({ ...row, removedReason });
 
+/** A row with nothing typed yet and no history behind it. */
+const buildBlankRow = ({
+  slotCode,
+  productId,
+  priceCents,
+  par,
+  tracksExpiration,
+  isAddedBehind,
+}: Pick<
+  VisitRow,
+  | "slotCode"
+  | "productId"
+  | "priceCents"
+  | "par"
+  | "tracksExpiration"
+  | "isAddedBehind"
+>): VisitRow => ({
+  slotCode,
+  productId,
+  priceCents,
+  par,
+  left: "",
+  added: "",
+  isAddedEdited: false,
+  removed: "",
+  removedReason: null,
+  previousLevel: null,
+  bestBy: "",
+  previousBestBy: null,
+  tracksExpiration,
+  isAddedBehind,
+});
+
 /**
  * One row per product in each planogram-assigned slot, front to back, in the
- * machine's walking order (a mixed slot gets several). Slots
- * the planogram leaves unassigned get NO row: a line needs a product and a
- * price, and inventing either would store a fiction.
+ * machine's walking order. Unassigned slots get NO row: a line needs a product
+ * and a price, and inventing either would store a fiction.
  */
 export const buildVisitRows = ({
   shelves,
@@ -231,7 +260,7 @@ export const buildVisitRows = ({
 }): VisitRow[] => {
   const previousByKey = new Map<string, VisitLine>();
   for (const line of previousVisit?.lines ?? []) {
-    previousByKey.set(keyOf(line.slotCode, line.productId), line);
+    previousByKey.set(slotProductKey(line), line);
   }
   const tracksExpirationById = new Map(
     products.map((product) => [product.id, product.tracksExpiration]),
@@ -239,37 +268,27 @@ export const buildVisitRows = ({
 
   const rows: VisitRow[] = [];
   for (const slotCode of shelves.flat()) {
-    // Every product in the slot, front to back. An unassigned slot has none.
     for (const slot of planogramSlots.filter((s) => s.slotCode === slotCode)) {
-      const previous = previousByKey.get(keyOf(slotCode, slot.productId));
+      const previous = previousByKey.get(slotProductKey(slot));
       rows.push({
-        slotCode,
-        productId: slot.productId,
-        priceCents: slot.priceCents,
-        par: slot.par,
-        left: "",
-        added: "",
-        isAddedEdited: false,
-        removed: "",
-        removedReason: null,
+        ...buildBlankRow({
+          ...slot,
+          // Defaults to true for a product not in the list: a slot that
+          // silently stops asking for a date is the failure this whole feature
+          // exists to avoid, so the safe default is to keep asking.
+          tracksExpiration: tracksExpirationById.get(slot.productId) ?? true,
+          isAddedBehind: false,
+        }),
         previousLevel: previous ? levelAfter(previous) : null,
         bestBy: previous?.bestBy ?? "",
         previousBestBy: previous?.bestBy ?? null,
-        // Defaults to true for a product not in the list: a slot that silently
-        // stops asking for a date is the failure this whole feature exists to
-        // avoid, so the safe default is to keep asking.
-        tracksExpiration: tracksExpirationById.get(slot.productId) ?? true,
-        isAddedBehind: false,
       });
     }
   }
   return rows;
 };
 
-/**
- * A product loaded behind the slot's existing ones. It sells at the slot's
- * price (the machine charges per slot) and has no history in this slot.
- */
+/** A product loaded behind the slot's existing ones, at the slot's price. */
 export const buildAddedBehindRow = ({
   front,
   productId,
@@ -278,32 +297,15 @@ export const buildAddedBehindRow = ({
   front: VisitRow;
   productId: string;
   tracksExpiration: boolean;
-}): VisitRow => ({
-  slotCode: front.slotCode,
-  productId,
-  priceCents: front.priceCents,
-  par: front.par,
-  left: "",
-  added: "",
-  isAddedEdited: false,
-  removed: "",
-  removedReason: null,
-  previousLevel: null,
-  bestBy: "",
-  previousBestBy: null,
-  tracksExpiration,
-  isAddedBehind: true,
-});
+}): VisitRow =>
+  buildBlankRow({ ...front, productId, tracksExpiration, isAddedBehind: true });
 
 /** The rows with `added` placed directly behind its slot's last product. */
 export const rowsWithAddedBehind = (
   rows: readonly VisitRow[],
   added: VisitRow,
 ): VisitRow[] => {
-  const lastIndex = rows.reduce(
-    (found, row, index) => (row.slotCode === added.slotCode ? index : found),
-    -1,
-  );
+  const lastIndex = lastIndexInSlot(rows, added.slotCode);
   return [...rows.slice(0, lastIndex + 1), added, ...rows.slice(lastIndex + 1)];
 };
 

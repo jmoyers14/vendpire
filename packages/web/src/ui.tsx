@@ -26,7 +26,11 @@ export {
 } from "./ui/Page.tsx";
 export { SearchInput } from "./ui/SearchInput.tsx";
 export type { SlotCell, SlotCellState } from "./ui/SlotFaceGrid.tsx";
-export { SlotFaceGrid } from "./ui/SlotFaceGrid.tsx";
+export {
+  buildProductsCell,
+  SlotFaceGrid,
+  slotPositionLabel,
+} from "./ui/SlotFaceGrid.tsx";
 export { SlotList, SlotRow } from "./ui/SlotList.tsx";
 export type { Tone } from "./ui/StatusPill.tsx";
 export { StatusPill, stockTone } from "./ui/StatusPill.tsx";

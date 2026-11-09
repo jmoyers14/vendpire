@@ -103,3 +103,77 @@ export function SlotFaceGrid({
     </div>
   );
 }
+
+/**
+ * A cell listing a slot's products front to back, with a count badge when the
+ * slot is mixed. Shared so a mixed slot looks the same on every screen.
+ */
+export const buildProductsCell = ({
+  slotCode,
+  products,
+  detail = null,
+  state,
+  title,
+  emptyLabel = "—",
+}: {
+  slotCode: string;
+  products: { id: string; name: string }[];
+  detail?: string | null;
+  /** Defaults to assigned, or empty when there are no products. */
+  state?: SlotCellState;
+  /** Defaults to the products in order, then the detail. */
+  title?: string;
+  emptyLabel?: string;
+}): SlotCell => {
+  const names = products.map((product) => product.name);
+  return {
+    state: state ?? (products.length > 0 ? "assigned" : "empty"),
+    title:
+      title ??
+      (products.length > 0
+        ? `${slotCode}: ${names.join(", then ")}${detail ? ` — ${detail}` : ""}`
+        : `${slotCode}: empty`),
+    content: (
+      <>
+        <div className="font-mono text-[10px] text-muted">
+          {slotCode}
+          {products.length > 1 ? (
+            <span className="ml-1 rounded bg-primary-50 px-1 text-primary-700">
+              {products.length}
+            </span>
+          ) : null}
+        </div>
+        {products.length === 0 ? (
+          <div className="text-[10px] text-gray-400">{emptyLabel}</div>
+        ) : null}
+        {products.map((product, index) => (
+          <div
+            key={product.id}
+            className={`truncate text-[11px] ${
+              index === 0 ? "font-medium text-gray-800" : "text-gray-600"
+            }`}
+          >
+            {product.name}
+          </div>
+        ))}
+        {detail ? (
+          <div className="text-[10px] tabular-nums text-gray-600">{detail}</div>
+        ) : null}
+      </>
+    ),
+  };
+};
+
+/** "Front" or "Behind" in a mixed slot; nothing for a slot with one product. */
+export const slotPositionLabel = ({
+  index,
+  count,
+}: {
+  index: number;
+  count: number;
+}): string => {
+  if (count === 1) {
+    return "";
+  }
+  return index === 0 ? "Front" : "Behind";
+};
