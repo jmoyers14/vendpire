@@ -47,6 +47,19 @@ const visitInput = z.object({
   // Minted at DRAFT time and stable across retries, so a submit whose response
   // was lost cannot double-post.
   clientRequestId: z.string().min(8).max(64),
+  // Optional and defaulted, so a client that predates it (the phone) is unaffected.
+  addedBehind: z
+    .array(
+      z.object({
+        slotCode: z.string().min(1).max(8),
+        productId: objectId(),
+      }),
+    )
+    .max(50)
+    .default([])
+    .describe(
+      "Products loaded behind a slot's existing ones during this visit. Saving also writes the next planogram version with them in it.",
+    ),
 });
 
 // No cursor — visits are bounded by machines times route frequency.
@@ -148,9 +161,11 @@ export const visitsRouter = router({
     .input(visitInput)
     .output(visitDto)
     .mutation(async ({ ctx, input }) => {
+      const { addedBehind, ...draft } = input;
       const creation = await ctx.services.visitService.create(ctx.auth.orgId, {
-        draft: input,
+        draft,
         recordedByUserId: ctx.auth.userId,
+        addedBehind,
       });
 
       // A replay wrote nothing, so it is neither logged nor counted — one
@@ -200,6 +215,19 @@ export const visitsRouter = router({
           ),
         },
       });
+
+      if (creation.planogram) {
+        ctx.analytics.capture({
+          event: ANALYTICS_EVENTS.PLANOGRAM_CREATED,
+          distinctId: ctx.auth.userId,
+          groupId: ctx.auth.orgId,
+          properties: {
+            machineId: creation.planogram.machineId,
+            slotCount: creation.planogram.slots.length,
+            source: "visit",
+          },
+        });
+      }
 
       // The plain Visit on the wire, so Phase 6's REST surface returns an
       // entity rather than this service's envelope.

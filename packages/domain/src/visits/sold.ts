@@ -1,4 +1,5 @@
 import type { Cents } from "../types/index.ts";
+import { slotProductKey } from "../machines/mixedSlots.ts";
 import type { VisitAnomaly } from "./anomalies.ts";
 import type { RemovalReason } from "./removals.ts";
 import type { UnknownSoldReason, VisitLine, VisitObservation } from "./types.ts";
@@ -58,10 +59,6 @@ export interface SlotRemoval {
 export const levelAfter = (line: VisitLine): number =>
   line.remaining - line.removed + line.added;
 
-/** NUL-joined so no slot code or product id can forge another key. */
-const keyOf = (line: VisitLine): string =>
-  `${line.slotCode}\u0000${line.productId}`;
-
 const firstVisitInterval = (line: VisitLine, countedAt: string): SlotInterval => ({
   slotCode: line.slotCode,
   productId: line.productId,
@@ -111,13 +108,13 @@ export const diffVisits = ({
 
   const priorByKey = new Map<string, VisitLine>();
   for (const line of previous.lines) {
-    priorByKey.set(keyOf(line), line);
+    priorByKey.set(slotProductKey(line), line);
   }
-  const currentKeys = new Set(current.lines.map(keyOf));
+  const currentKeys = new Set(current.lines.map(slotProductKey));
   const currentSlots = new Set(current.lines.map((line) => line.slotCode));
 
   for (const line of current.lines) {
-    const prior = priorByKey.get(keyOf(line));
+    const prior = priorByKey.get(slotProductKey(line));
     if (!prior) {
       intervals.push(firstVisitInterval(line, current.countedAt));
       anomalies.push(noBaseline(line));

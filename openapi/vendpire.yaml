@@ -791,6 +791,26 @@ paths:
                   type: string
                   minLength: 8
                   maxLength: 64
+                addedBehind:
+                  default: []
+                  description: Products loaded behind a slot's existing ones during this visit.
+                    Saving also writes the next planogram version with them in
+                    it.
+                  maxItems: 50
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      slotCode:
+                        type: string
+                        minLength: 1
+                        maxLength: 8
+                      productId:
+                        type: string
+                        pattern: ^[0-9a-f]{24}$
+                    required:
+                      - slotCode
+                      - productId
               required:
                 - machineId
                 - locationId

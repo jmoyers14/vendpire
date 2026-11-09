@@ -1,13 +1,17 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { type SlotRuleViolation, slotRuleViolation } from "@vendpire/domain";
 import {
+  Alert,
   Button,
+  buildProductsCell,
   ErrorNote,
   inputClass,
   Page,
   PageTitle,
   SlotFaceGrid,
+  slotPositionLabel,
 } from "../../ui.tsx";
 import {
   centsToInput,
@@ -18,7 +22,14 @@ import { queryClient, trpc } from "../../trpc.ts";
 import {
   buildEditorSlots,
   type DraftSlot,
+  entriesInSlot,
+  stockLeftOut,
   usePlanogramDraft,
+  withEntryAdded,
+  withEntryMoved,
+  withEntryPatched,
+  withEntryRemoved,
+  withSlotPrice,
 } from "./planogramDraft.ts";
 import { ProductCombobox, type ProductOption } from "./ProductCombobox.tsx";
 
@@ -39,6 +50,9 @@ export function MachinePlanogramsScreen({ machineId }: { machineId: string }) {
   const products = useQuery(trpc.products.list.queryOptions());
   const versions = useQuery(
     trpc.planograms.listByMachine.queryOptions({ machineId }),
+  );
+  const previousVisits = useQuery(
+    trpc.visits.list.queryOptions({ machineId, limit: 1 }),
   );
   const current = versions.data?.[0] ?? null;
   const isLoaded = machine.data !== undefined && versions.data !== undefined;
@@ -98,6 +112,24 @@ export function MachinePlanogramsScreen({ machineId }: { machineId: string }) {
   const productName = (id: string): string =>
     products.data?.find((product) => product.id === id)?.name ?? id;
 
+  const ruleMessage = (violation: SlotRuleViolation): string => {
+    switch (violation.kind) {
+      case "unknown-slot":
+        return `This machine has no slot ${violation.slotCode}`;
+      case "duplicate-product":
+        return `Slot ${violation.slotCode}: ${productName(violation.productId)} is listed twice`;
+      case "mixed-price":
+        return `Slot ${violation.slotCode} has more than one price`;
+    }
+  };
+
+  const droppedStock = rows
+    ? stockLeftOut({
+        entries: rows.filter((row) => row.productId),
+        previousLines: previousVisits.data?.[0]?.lines ?? [],
+      })
+    : [];
+
   const save = () => {
     if (!rows) {
       return;
@@ -122,6 +154,14 @@ export function MachinePlanogramsScreen({ machineId }: { machineId: string }) {
     }
     if (slots.length === 0) {
       setError("Assign at least one slot");
+      return;
+    }
+    const violation = slotRuleViolation(
+      slots,
+      new Set(machine.data?.slots.flat() ?? []),
+    );
+    if (violation) {
+      setError(ruleMessage(violation));
       return;
     }
     create.mutate({ machineId, slots });
@@ -159,30 +199,21 @@ export function MachinePlanogramsScreen({ machineId }: { machineId: string }) {
             selectedCode={selected}
             onSelect={setSelected}
             renderCell={(slotCode) => {
-              const row = rows.find((r) => r.slotCode === slotCode);
-              return {
-                state: row?.productId ? "assigned" : "empty",
-                content: (
-                  <>
-                    <div className="font-mono text-[10px] text-muted">
-                      {slotCode}
-                    </div>
-                    {row?.productId ? (
-                      <>
-                        <div className="truncate text-xs font-medium text-gray-800">
-                          {productName(row.productId)}
-                        </div>
-                        <div className="text-[10px] text-gray-600">
-                          {row.price ? `$${row.price}` : "—"} · par{" "}
-                          {row.par || "—"}
-                        </div>
-                      </>
-                    ) : (
-                      <div className="text-[10px] text-gray-400">empty</div>
-                    )}
-                  </>
-                ),
-              };
+              const entries = entriesInSlot(rows, slotCode).filter(
+                (entry) => entry.productId,
+              );
+              const [front] = entries;
+              return buildProductsCell({
+                slotCode,
+                products: entries.map((entry) => ({
+                  id: entry.productId,
+                  name: productName(entry.productId),
+                })),
+                detail: front
+                  ? `${front.price ? `$${front.price}` : "—"} · par ${front.par || "—"}`
+                  : null,
+                emptyLabel: "empty",
+              });
             }}
           />
 
@@ -191,21 +222,29 @@ export function MachinePlanogramsScreen({ machineId }: { machineId: string }) {
             <SlotEditPanel
               key={selected}
               slotCode={selected}
-              row={rows.find((r) => r.slotCode === selected)}
+              entries={entriesInSlot(rows, selected)}
               products={products.data ?? []}
-              onChange={(patch) =>
-                updateRows(
-                  rows.map((r) =>
-                    r.slotCode === selected ? { ...r, ...patch } : r,
-                  ),
-                )
-              }
+              onRowsChange={(change) => updateRows(change(rows))}
               onNext={() => {
                 const order = machine.data?.slots.flat() ?? [];
                 const index = order.indexOf(selected);
                 setSelected(order[(index + 1) % order.length] ?? null);
               }}
             />
+          ) : null}
+
+          {droppedStock.length > 0 ? (
+            <Alert tone="warning" title="Stock the next visit won't ask about">
+              The last visit left these in the machine, and this version no
+              longer lists them, so they'll go uncounted:{" "}
+              {droppedStock
+                .map(
+                  (left) =>
+                    `${left.slotCode} ${productName(left.productId)} (${left.units})`,
+                )
+                .join(", ")}
+              . Save anyway if you pulled them out.
+            </Alert>
           ) : null}
 
           <div className="flex gap-2">
@@ -237,7 +276,7 @@ export function MachinePlanogramsScreen({ machineId }: { machineId: string }) {
           <div className="flex items-center justify-between">
             <p className="text-sm text-gray-600">
               {current
-                ? `Current since ${new Date(current.effectiveFrom).toLocaleDateString()} · ${current.slots.length} slot(s) assigned`
+                ? `Current since ${new Date(current.effectiveFrom).toLocaleDateString()} · ${assignedSlotCount(current.slots)} slot(s) assigned`
                 : "No planogram yet."}
             </p>
             <Button
@@ -253,32 +292,20 @@ export function MachinePlanogramsScreen({ machineId }: { machineId: string }) {
             <SlotFaceGrid
               shelves={machine.data.slots}
               renderCell={(slotCode) => {
-                const slot = current.slots.find((s) => s.slotCode === slotCode);
-                return {
-                  state: slot ? "assigned" : "empty",
-                  title: slot
-                    ? `${slotCode}: ${productName(slot.productId)} — par ${slot.par} @ ${formatCents(slot.priceCents)}`
-                    : `${slotCode}: empty`,
-                  content: (
-                    <>
-                      <div className="font-mono text-[10px] text-muted">
-                        {slotCode}
-                      </div>
-                      {slot ? (
-                        <>
-                          <div className="truncate text-xs font-medium text-gray-800">
-                            {productName(slot.productId)}
-                          </div>
-                          <div className="text-[10px] text-gray-600">
-                            {formatCents(slot.priceCents)} · par {slot.par}
-                          </div>
-                        </>
-                      ) : (
-                        <div className="text-[10px] text-gray-400">—</div>
-                      )}
-                    </>
-                  ),
-                };
+                const entries = current.slots.filter(
+                  (entry) => entry.slotCode === slotCode,
+                );
+                const [front] = entries;
+                return buildProductsCell({
+                  slotCode,
+                  products: entries.map((entry) => ({
+                    id: entry.productId,
+                    name: productName(entry.productId),
+                  })),
+                  detail: front
+                    ? `${formatCents(front.priceCents)} · par ${front.par}`
+                    : null,
+                });
               }}
             />
           ) : null}
@@ -290,7 +317,7 @@ export function MachinePlanogramsScreen({ machineId }: { machineId: string }) {
                 {versions.data.slice(1).map((version) => (
                   <li key={version.id}>
                     {new Date(version.effectiveFrom).toLocaleString()} —{" "}
-                    {version.slots.length} slot(s)
+                    {assignedSlotCount(version.slots)} slot(s)
                   </li>
                 ))}
               </ul>
@@ -304,73 +331,155 @@ export function MachinePlanogramsScreen({ machineId }: { machineId: string }) {
 
 interface SlotEditPanelProps {
   slotCode: string;
-  row: DraftSlot | undefined;
+  /** The slot's products, front to back. An empty slot has one blank entry. */
+  entries: DraftSlot[];
   products: ProductOption[];
-  onChange: (patch: Partial<DraftSlot>) => void;
+  /** Applies one of the planogramDraft helpers to the whole draft. */
+  onRowsChange: (change: (rows: DraftSlot[]) => DraftSlot[]) => void;
   onNext: () => void;
 }
 
 /**
- * Edits one slot of the in-progress planogram version. Picking a product
- * auto-fills the price from its default (still editable) and defaults par to
- * the previous value or 10. "Next slot" walks the machine in slot order so a
- * full setup needs no extra clicks on the grid.
+ * One slot's price, then each product front to back. Picking a single-product
+ * slot's product fills in its default price; in a mixed slot the slot's price
+ * stands, since the machine charges per slot.
  */
 function SlotEditPanel({
   slotCode,
-  row,
+  entries,
   products,
-  onChange,
+  onRowsChange,
   onNext,
 }: SlotEditPanelProps) {
+  const price = entries[0]?.price ?? "";
+  const canAddBehind = entries.every((entry) => entry.productId);
+
   return (
-    <div className="flex flex-wrap items-end gap-2 rounded border border-primary-200 bg-primary-50/50 p-3">
-      <span className="pb-2 font-mono text-sm font-medium text-gray-800">
-        {slotCode}
-      </span>
-      <div className="min-w-48 flex-1 text-xs text-gray-600">
-        Product
-        <ProductCombobox
-          products={products}
-          productId={row?.productId ?? ""}
-          onPick={(product) =>
-            onChange({
-              productId: product.id,
-              price: centsToInput(product.defaultPriceCents),
-              par: row?.par || "10",
-            })
-          }
-        />
+    <div className="flex flex-col gap-2 rounded border border-primary-200 bg-primary-50/50 p-3">
+      <div className="flex flex-wrap items-end gap-2">
+        <span className="pb-2 font-mono text-sm font-medium text-gray-800">
+          {slotCode}
+        </span>
+        <label className="w-28 text-xs text-gray-600">
+          Slot price $
+          <input
+            className={inputClass}
+            value={price}
+            onChange={(e) =>
+              onRowsChange((rows) =>
+                withSlotPrice(rows, { slotCode, price: e.target.value }),
+              )
+            }
+          />
+        </label>
       </div>
-      <label className="w-20 text-xs text-gray-600">
-        Par
-        <input
-          className={inputClass}
-          value={row?.par ?? ""}
-          onChange={(e) => onChange({ par: e.target.value })}
-        />
-      </label>
-      <label className="w-24 text-xs text-gray-600">
-        Price $
-        <input
-          className={inputClass}
-          value={row?.price ?? ""}
-          onChange={(e) => onChange({ price: e.target.value })}
-        />
-      </label>
-      <Button
-        variant="secondary"
-        size="sm"
-        onClick={() => onChange({ productId: "", par: "", price: "" })}
-      >
-        Clear
-      </Button>
-      <Button
-        size="sm"
-        onClick={onNext}
-      >
-        Next slot →
-      </Button>
+
+      {entries.map((entry, index) => (
+        <div
+          // Position is the identity here: a blank entry has no product yet.
+          key={index}
+          className="flex flex-wrap items-end gap-2"
+        >
+          <span className="w-12 pb-2 text-xs text-muted">
+            {slotPositionLabel({ index, count: entries.length })}
+          </span>
+          <div className="min-w-48 flex-1 text-xs text-gray-600">
+            Product
+            <ProductCombobox
+              products={products}
+              productId={entry.productId}
+              onPick={(product) =>
+                onRowsChange((rows) => {
+                  const picked = withEntryPatched(
+                    rows,
+                    { slotCode, index },
+                    { productId: product.id, par: entry.par || "10" },
+                  );
+                  return entries.length === 1
+                    ? withSlotPrice(picked, {
+                        slotCode,
+                        price: centsToInput(product.defaultPriceCents),
+                      })
+                    : picked;
+                })
+              }
+            />
+          </div>
+          <label className="w-20 text-xs text-gray-600">
+            Par
+            <input
+              className={inputClass}
+              value={entry.par}
+              onChange={(e) =>
+                onRowsChange((rows) =>
+                  withEntryPatched(
+                    rows,
+                    { slotCode, index },
+                    { par: e.target.value },
+                  ),
+                )
+              }
+            />
+          </label>
+          {entries.length > 1 ? (
+            <>
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={index === 0}
+                onClick={() =>
+                  onRowsChange((rows) =>
+                    withEntryMoved(rows, { slotCode, index, offset: -1 }),
+                  )
+                }
+              >
+                ↑
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={index === entries.length - 1}
+                onClick={() =>
+                  onRowsChange((rows) =>
+                    withEntryMoved(rows, { slotCode, index, offset: 1 }),
+                  )
+                }
+              >
+                ↓
+              </Button>
+            </>
+          ) : null}
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() =>
+              onRowsChange((rows) =>
+                withEntryRemoved(rows, { slotCode, index }),
+              )
+            }
+          >
+            {entries.length > 1 ? "Remove" : "Clear"}
+          </Button>
+        </div>
+      ))}
+
+      <div className="flex justify-between gap-2">
+        <Button
+          variant="secondary"
+          size="sm"
+          disabled={!canAddBehind}
+          onClick={() => onRowsChange((rows) => withEntryAdded(rows, slotCode))}
+        >
+          + Add product behind
+        </Button>
+        <Button size="sm" onClick={onNext}>
+          Next slot →
+        </Button>
+      </div>
     </div>
   );
 }
+
+/** A mixed slot lists several entries but counts as one slot. */
+const assignedSlotCount = (slots: { slotCode: string }[]): number =>
+  new Set(slots.map((slot) => slot.slotCode)).size;

@@ -15,4 +15,7 @@ export interface PlanogramRepository {
   findCurrentByOrg(orgId: string): Promise<Planogram[]>;
   countByMachine(orgId: string, machineId: string): Promise<number>;
   create(orgId: string, data: PlanogramInput): Promise<Planogram>;
+  /** Undoes a version written alongside a visit whose own write then failed.
+   *  Not a user-facing delete: versions are otherwise immutable. */
+  softDelete(orgId: string, id: string): Promise<void>;
 }

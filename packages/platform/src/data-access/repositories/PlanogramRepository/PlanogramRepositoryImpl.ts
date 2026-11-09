@@ -60,6 +60,13 @@ export class PlanogramRepositoryImpl implements PlanogramRepository {
     const doc = await PlanogramModel.create({ orgId, ...data });
     return toPlanogram(doc.toObject() as PlanogramDoc);
   }
+
+  async softDelete(orgId: string, id: string): Promise<void> {
+    await PlanogramModel.updateOne(
+      { _id: id, orgId, deletedAt: null },
+      { deletedAt: new Date() },
+    );
+  }
 }
 
 function toPlanogram(doc: PlanogramDoc): Planogram {
