@@ -6,7 +6,6 @@ import {
   FakeMachineRepository,
   FakePlanogramRepository,
   FakeProductRepository,
-  FakePurchaseRepository,
   FakeVisitRepository,
   locationInput,
   machineInput,
@@ -22,7 +21,6 @@ describe("VisitService", () => {
   let locations: FakeLocationRepository;
   let products: FakeProductRepository;
   let planograms: FakePlanogramRepository;
-  let purchases: FakePurchaseRepository;
   let service: VisitServiceImpl;
   let machineId: string;
   let locationId: string;
@@ -35,14 +33,12 @@ describe("VisitService", () => {
     locations = new FakeLocationRepository();
     products = new FakeProductRepository();
     planograms = new FakePlanogramRepository();
-    purchases = new FakePurchaseRepository();
     service = new VisitServiceImpl(
       visits,
       machines,
       locations,
       products,
       planograms,
-      purchases,
     );
 
     locationId = locations.seed(ORG, locationInput()).id;
@@ -557,156 +553,6 @@ describe("VisitService", () => {
       expect((await planograms.findCurrentByMachine(ORG, machineId))?.id).toBe(
         current.id,
       );
-    });
-  });
-
-  describe("pnl", () => {
-    const count = (at: string, remaining: number, added: number) =>
-      submit({
-        countedAt: at,
-        lines: [
-          {
-            slotCode: "A1",
-            productId: cokeId,
-            remaining,
-            added,
-            removed: 0,
-            removedReason: null,
-            priceCents: 175,
-            par: 10,
-            bestBy: null,
-          },
-        ],
-      });
-
-    beforeEach(async () => {
-      purchases.seed(ORG, {
-        purchasedAt: "2026-09-01T00:00:00.000Z",
-        vendor: "Costco",
-        lines: [{ productId: cokeId, units: 30, totalCostCents: 1499, packId: null }],
-        receiptTotalCents: 1499,
-        notes: null,
-        clientRequestId: "buy_1",
-      });
-      await count("2026-09-01T17:00:00.000Z", 0, 10);
-      await count("2026-09-08T17:00:00.000Z", 4, 6);
-      await count("2026-09-15T17:00:00.000Z", 2, 8);
-    });
-
-    it("prices every interval against the previous visit's price", async () => {
-      const pnl = await service.pnl(ORG, machineId);
-
-      // 10 left behind then 4 found = 6 sold at 175; then 10 behind, 2 found = 8.
-      expect(pnl.totals.revenueCents).toBe(6 * 175 + 8 * 175);
-      // Rounded once at the end, per interval: 6 and 8 of a 1499/30 basis.
-      expect(pnl.totals.cogsCents).toBe(300 + 400);
-      expect(pnl.totals.grossProfitCents).toBe(2450 - 700);
-      // The first visit has no predecessor, so it carries no sold figure.
-      expect(pnl.totals.unknownSoldRows).toBe(1);
-    });
-
-    // The baseline both supplies the window's opening figure AND stays out of
-    // its report. Count it in and a month opens by declaring the face uncounted.
-    it("measures the window against its predecessor without reporting it", async () => {
-      const pnl = await service.pnl(ORG, machineId, {
-        from: "2026-09-10T00:00:00.000Z",
-      });
-
-      expect(pnl.rows.intervals).toHaveLength(1);
-      expect(pnl.totals.revenueCents).toBe(8 * 175);
-      expect(pnl.totals.cogsCents).toBe(400);
-      expect(pnl.totals.unknownSoldRows).toBe(0);
-      expect(pnl.anomalies).toEqual([]);
-    });
-
-    // Real revenue with an honest null beside it, so the UI can say "profit
-    // unavailable: 1 product lacks purchase history" instead of showing a number.
-    it("reports unknown COGS as null, never as zero", async () => {
-      purchases.rows = [];
-      const pnl = await service.pnl(ORG, machineId);
-
-      expect(pnl.totals.revenueCents).toBe(2450);
-      expect(pnl.totals.cogsCents).toBeNull();
-      expect(pnl.totals.grossProfitCents).toBeNull();
-      expect(pnl.totals.unknownCostRows).toBe(2);
-      expect(pnl.anomalies).toContainEqual({
-        kind: "unknown-cost",
-        productId: cokeId,
-      });
-    });
-
-    it("costs an expiry against net profit but not gross", async () => {
-      await submit({
-        countedAt: "2026-09-22T17:00:00.000Z",
-        lines: [
-          {
-            slotCode: "A1",
-            productId: cokeId,
-            remaining: 10,
-            added: 0,
-            removed: 3,
-            removedReason: "expired",
-            priceCents: 175,
-            par: 10,
-            bestBy: null,
-          },
-        ],
-      });
-      const pnl = await service.pnl(ORG, machineId);
-
-      expect(pnl.totals.writeOffUnits).toBe(3);
-      expect(pnl.totals.writeOffCents).toBe(150);
-      expect(pnl.totals.netProfitCents).toBe(
-        (pnl.totals.grossProfitCents as number) - 150,
-      );
-    });
-
-    // A removal belongs to the visit it happened on, not to the interval after
-    // it — so a write-off on the baseline is last period's loss. Counting it
-    // here would charge the same expired units to two reports.
-    it("leaves the baseline visit's write-off out of the window", async () => {
-      await submit({
-        countedAt: "2026-09-18T17:00:00.000Z",
-        lines: [
-          {
-            slotCode: "A2",
-            productId: cokeId,
-            remaining: 6,
-            added: 4,
-            removed: 3,
-            removedReason: "expired",
-            priceCents: 175,
-            par: 10,
-            bestBy: null,
-          },
-        ],
-      });
-      await submit({
-        countedAt: "2026-09-25T17:00:00.000Z",
-        lines: [
-          {
-            slotCode: "A2",
-            productId: cokeId,
-            remaining: 5,
-            added: 5,
-            removed: 0,
-            removedReason: null,
-            priceCents: 175,
-            par: 10,
-            bestBy: null,
-          },
-        ],
-      });
-
-      const window = await service.pnl(ORG, machineId, {
-        from: "2026-09-20T00:00:00.000Z",
-      });
-      expect(window.totals.writeOffUnits).toBe(0);
-      expect(window.totals.writeOffCents).toBe(0);
-
-      // Same data, no window: the loss is real and has to show up somewhere.
-      const allTime = await service.pnl(ORG, machineId);
-      expect(allTime.totals.writeOffUnits).toBe(3);
     });
   });
 

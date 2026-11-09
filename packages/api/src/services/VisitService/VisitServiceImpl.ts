@@ -1,21 +1,15 @@
 import { inject, injectable } from "tsyringe";
 import {
-  buildCostBasis,
-  buildIntervalPnl,
-  buildPnlTotals,
   calendarDateToday,
-  intervalsForMachine,
   observationsForVisit,
   slotProductKey,
   slotRuleViolation,
 } from "@vendpire/domain";
-import type { VisitAnomaly } from "@vendpire/domain";
 import {
   LOCATION_REPOSITORY_TOKEN,
   MACHINE_REPOSITORY_TOKEN,
   PLANOGRAM_REPOSITORY_TOKEN,
   PRODUCT_REPOSITORY_TOKEN,
-  PURCHASE_REPOSITORY_TOKEN,
   VISIT_REPOSITORY_TOKEN,
 } from "@vendpire/platform";
 import type {
@@ -28,11 +22,9 @@ import type {
   PlanogramRepository,
   Product,
   ProductRepository,
-  PurchaseRepository,
   Visit,
   VisitLine,
   VisitListFilter,
-  VisitRange,
   VisitRepository,
 } from "@vendpire/platform";
 import { isDuplicateKey, ServiceError } from "../errors.ts";
@@ -49,7 +41,6 @@ import {
   type VisitCreation,
   type VisitDraft,
   type VisitNotice,
-  type VisitPnl,
   type VisitService,
   type VisitSubmission,
 } from "./VisitService.ts";
@@ -94,8 +85,6 @@ export class VisitServiceImpl implements VisitService {
     private readonly products: ProductRepository,
     @inject(PLANOGRAM_REPOSITORY_TOKEN)
     private readonly planograms: PlanogramRepository,
-    @inject(PURCHASE_REPOSITORY_TOKEN)
-    private readonly purchases: PurchaseRepository,
   ) {}
 
   list(orgId: string, filter: VisitListFilter): Promise<Visit[]> {
@@ -271,62 +260,6 @@ export class VisitServiceImpl implements VisitService {
     await this.visits.softDelete(orgId, id);
   }
 
-  async pnl(
-    orgId: string,
-    machineId: string,
-    range: VisitRange = {},
-  ): Promise<VisitPnl> {
-    const visits = await this.visits.findByMachineAscending(
-      orgId,
-      machineId,
-      range,
-    );
-    const engine = intervalsForMachine(visits);
-
-    // findByMachineAscending prepends the visit strictly BEFORE the window, so
-    // the first interval has a baseline. That visit belongs to the previous
-    // period, so everything it contributes has to come back out.
-    const baseline = this.baselineOf(visits, range);
-    const opensAfter = baseline ? Date.parse(baseline.countedAt) : null;
-
-    const intervals =
-      opensAfter === null
-        ? engine.intervals
-        : // On `to`, never on `from === to` — a product introduced mid-period
-          // is also from === to, and those are worth reporting.
-          engine.intervals.filter(
-            (interval) => Date.parse(interval.to) > opensAfter,
-          );
-    const removals =
-      opensAfter === null
-        ? engine.removals
-        : engine.removals.filter(
-            (removal) => Date.parse(removal.countedAt) > opensAfter,
-          );
-    const anomalies =
-      baseline === null
-        ? engine.anomalies
-        : withoutAnomaliesOf(engine.anomalies, baseline);
-
-    // All-time and org-wide: the weighted average IS all-time, so a receipt
-    // entered three weeks late still corrects a visit that predates it.
-    const costLines = await this.purchases.findCostBasisLines(orgId);
-    const priced = buildIntervalPnl(
-      intervals,
-      removals,
-      buildCostBasis(costLines),
-    );
-
-    return {
-      machineId,
-      from: range.from ?? null,
-      to: range.to ?? null,
-      rows: priced.rows,
-      totals: buildPnlTotals(priced.rows),
-      anomalies: [...anomalies, ...priced.anomalies],
-    };
-  }
-
   async expiringSoon(
     orgId: string,
     options: ExpiringSoonOptions,
@@ -405,16 +338,6 @@ export class VisitServiceImpl implements VisitService {
         visits.flatMap((visit) => visit.lines.map((line) => line.productId)),
       ),
     ];
-  }
-
-  /** The out-of-window baseline, by timestamp and not position — the window's
-   *  own first visit must not be mistaken for one. */
-  private baselineOf(visits: Visit[], range: VisitRange): Visit | null {
-    const first = visits[0];
-    if (!range.from || !first) {
-      return null;
-    }
-    return Date.parse(first.countedAt) < Date.parse(range.from) ? first : null;
   }
 
   /** Throws on what makes a visit unstorable, returns what merely deserves
@@ -534,33 +457,3 @@ export class VisitServiceImpl implements VisitService {
     return { lines, notices, machineSlotCodes, currentPlanogram };
   }
 }
-
-/**
- * The full run's anomalies, less the baseline visit's own.
- *
- * Anomalies carry no timestamp, so they cannot be date-filtered like intervals
- * and removals. Running the engine over the baseline ALONE reproduces exactly
- * what it contributes as index 0 of the full sequence, so subtracting that
- * multiset re-derives no arithmetic. A multiset and not a set — two slots can
- * legitimately raise the same anomaly.
- */
-const withoutAnomaliesOf = (
-  all: VisitAnomaly[],
-  baseline: Visit,
-): VisitAnomaly[] => {
-  const removable = new Map<string, number>();
-  for (const anomaly of intervalsForMachine([baseline]).anomalies) {
-    const key = JSON.stringify(anomaly);
-    removable.set(key, (removable.get(key) ?? 0) + 1);
-  }
-
-  return all.filter((anomaly) => {
-    const key = JSON.stringify(anomaly);
-    const count = removable.get(key) ?? 0;
-    if (count === 0) {
-      return true;
-    }
-    removable.set(key, count - 1);
-    return false;
-  });
-};

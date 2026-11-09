@@ -6,7 +6,7 @@ import {
   DEFAULT_VISIT_LIST_LIMIT,
 } from "../services/VisitService/VisitService.ts";
 import { visitDto } from "../schemas/index.ts";
-import { objectId } from "./validators.ts";
+import { instant, objectId } from "./validators.ts";
 
 export const visitLineInput = z
   .object({
@@ -39,9 +39,7 @@ const visitInput = z.object({
   // and the submit, the server's idea of its location is the wrong answer.
   locationId: objectId(),
   planogramId: objectId().nullable().default(null),
-  // offset:true — zod's default {offset:false} REJECTS "+00:00", which an
-  // ISO-8601 formatter may well emit.
-  countedAt: z.string().datetime({ offset: true }),
+  countedAt: instant(),
   lines: z.array(visitLineInput).min(1).max(200),
   notes: z.string().max(2000).nullable().default(null),
   // Minted at DRAFT time and stable across retries, so a submit whose response
@@ -65,8 +63,8 @@ const visitInput = z.object({
 // No cursor — visits are bounded by machines times route frequency.
 const visitListInput = z.object({
   machineId: objectId().optional(),
-  from: z.string().datetime({ offset: true }).optional(),
-  to: z.string().datetime({ offset: true }).optional(),
+  from: instant().optional(),
+  to: instant().optional(),
   limit: z.number().int().positive().default(DEFAULT_VISIT_LIST_LIMIT),
 });
 
@@ -102,21 +100,6 @@ export const visitsRouter = router({
     .input(z.object({ id: objectId() }))
     .query(({ ctx, input }) =>
       ctx.services.visitService.get(ctx.auth.orgId, input.id),
-    ),
-
-  pnl: orgProtectedProcedure
-    .input(
-      z.object({
-        machineId: objectId(),
-        from: z.string().datetime({ offset: true }).optional(),
-        to: z.string().datetime({ offset: true }).optional(),
-      }),
-    )
-    .query(({ ctx, input }) =>
-      ctx.services.visitService.pnl(ctx.auth.orgId, input.machineId, {
-        from: input.from ?? null,
-        to: input.to ?? null,
-      }),
     ),
 
   expiringSoon: orgProtectedProcedure

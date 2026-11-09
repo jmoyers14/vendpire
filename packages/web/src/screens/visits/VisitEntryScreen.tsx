@@ -145,7 +145,7 @@ function VisitDraftForm({
     trpc.visits.create.mutationOptions({
       onSuccess: (visit) => {
         queryClient.invalidateQueries({ queryKey: trpc.visits.list.pathKey() });
-        queryClient.invalidateQueries({ queryKey: trpc.visits.pnl.pathKey() });
+        queryClient.invalidateQueries({ queryKey: trpc.pnl.pathKey() });
         setSavedLineCount(visit.lines.length);
         setError(null);
         setUncountedWarning(null);

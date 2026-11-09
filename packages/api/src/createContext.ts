@@ -13,6 +13,7 @@ import {
   PLANOGRAM_SERVICE_TOKEN,
   PURCHASE_SERVICE_TOKEN,
   VISIT_SERVICE_TOKEN,
+  PNL_SERVICE_TOKEN,
   PACK_SERVICE_TOKEN,
   MOBILE_CLIENT_SUPPORT_SERVICE_TOKEN,
 } from "./services/index.ts";
@@ -34,6 +35,7 @@ import type { BarcodeResolverService } from "./services/BarcodeResolverService/B
 import type { PlanogramService } from "./services/PlanogramService/PlanogramService.ts";
 import type { PurchaseService } from "./services/PurchaseService/PurchaseService.ts";
 import type { VisitService } from "./services/VisitService/VisitService.ts";
+import type { PnlService } from "./services/PnlService/PnlService.ts";
 import type { PackService } from "./services/PackService/PackService.ts";
 import type { MobileClientSupportService } from "./services/MobileClientSupportService/MobileClientSupportService.ts";
 import type { Context } from "./context.ts";
@@ -108,6 +110,7 @@ export async function createContext(
       planogramService: container.resolve<PlanogramService>(PLANOGRAM_SERVICE_TOKEN),
       purchaseService: container.resolve<PurchaseService>(PURCHASE_SERVICE_TOKEN),
       visitService: container.resolve<VisitService>(VISIT_SERVICE_TOKEN),
+      pnlService: container.resolve<PnlService>(PNL_SERVICE_TOKEN),
       packService: container.resolve<PackService>(PACK_SERVICE_TOKEN),
       mobileClientSupportService: container.resolve<MobileClientSupportService>(
         MOBILE_CLIENT_SUPPORT_SERVICE_TOKEN,

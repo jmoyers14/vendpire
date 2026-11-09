@@ -60,7 +60,7 @@ export function MachineVisitsScreen({ machineId }: { machineId: string }) {
   const machine = useQuery(trpc.machines.get.queryOptions({ id: machineId }));
   const products = useQuery(trpc.products.list.queryOptions());
   const visits = useQuery(trpc.visits.list.queryOptions({ machineId }));
-  const pnl = useQuery(trpc.visits.pnl.queryOptions({ machineId }));
+  const pnl = useQuery(trpc.pnl.byMachine.queryOptions({ machineId }));
 
   const remove = useMutation(
     trpc.visits.remove.mutationOptions({
@@ -68,7 +68,7 @@ export function MachineVisitsScreen({ machineId }: { machineId: string }) {
         // Both, and not just the list: removing a visit re-opens the interval
         // around it, so every derived figure downstream changes.
         queryClient.invalidateQueries({ queryKey: trpc.visits.list.pathKey() });
-        queryClient.invalidateQueries({ queryKey: trpc.visits.pnl.pathKey() });
+        queryClient.invalidateQueries({ queryKey: trpc.pnl.pathKey() });
         setPendingDelete(null);
         setError(null);
       },

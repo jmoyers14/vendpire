@@ -1,9 +1,4 @@
-import type {
-  CalendarDate,
-  PnlRows,
-  PnlTotals,
-  VisitAnomaly,
-} from "@vendpire/domain";
+import type { CalendarDate, VisitAnomaly } from "@vendpire/domain";
 import type {
   Planogram,
   Visit,
@@ -65,17 +60,6 @@ export interface VisitCreation {
   planogram: Planogram | null;
 }
 
-/** One machine's product-level profitability over a window. */
-export interface VisitPnl {
-  machineId: string;
-  /** Echoed back so a caller can label the period it asked for. */
-  from: string | null;
-  to: string | null;
-  rows: PnlRows;
-  totals: PnlTotals;
-  anomalies: VisitAnomaly[];
-}
-
 /** One stocked slot the operator may need to act on before the next trip. */
 export interface ExpiringSlot {
   machineId: string;
@@ -132,7 +116,6 @@ export interface VisitService {
   /** Soft-delete. No update: a visit's `remaining` is the next visit's
    *  baseline, so editing one rewrites the interval after it. */
   remove(orgId: string, id: string): Promise<void>;
-  pnl(orgId: string, machineId: string, range?: VisitRange): Promise<VisitPnl>;
   /**
    * What is about to go bad, across the whole org. Reads only the LATEST visit
    * per machine: a best-by is a standing fact about a slot's contents, so the

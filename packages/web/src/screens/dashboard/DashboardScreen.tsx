@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Page, PageTitle } from "../../ui.tsx";
 import { trpc } from "../../trpc.ts";
 import { ExpiringSoonCard } from "./ExpiringSoonCard.tsx";
+import { MonthPnlSheet } from "./MonthPnlSheet.tsx";
 
 /**
  * Phase 1 placeholder. Proves the full wiring — Clerk session → tRPC
@@ -30,7 +31,8 @@ export function DashboardScreen() {
         </p>
       )}
 
-      <div className="mt-6">
+      <div className="mt-6 flex flex-col gap-6">
+        <MonthPnlSheet />
         <ExpiringSoonCard />
       </div>
     </Page>
