@@ -8,7 +8,7 @@ import {
   slotsAfterChanges,
 } from "@vendpire/domain";
 import { parseDollarsToCents } from "../../utils/money.ts";
-import type { Arrival, ProductAction, Restock } from "./restock.ts";
+import type { Arrival, ProductAction, PullReason, Restock } from "./restock.ts";
 import {
   CALENDAR_DATE,
   isCounted,
@@ -28,6 +28,13 @@ export type SubmissionProblem =
   | { kind: "answered-but-uncounted"; slotCode: string; productId: string }
   | { kind: "split-reason"; slotCode: string; productId: string }
   | { kind: "added-blank"; slotCode: string; productId: string }
+  // The server takes one line per slot and product. Null reason: it moved out.
+  | {
+      kind: "left-and-came-back";
+      slotCode: string;
+      productId: string;
+      pullReason: PullReason | null;
+    }
   | { kind: "price-missing"; slotCode: string }
   | {
       kind: "invalid-count";
@@ -269,6 +276,8 @@ export const buildVisitSubmission = ({
     }
   }
 
+  problems.push(...leftAndCameBackProblems(lines, restock));
+
   const priceChanges = buildPriceChanges({
     slotCodes: [...new Set([...Object.keys(restock.prices), ...stockedSlotCodes])],
     stockedSlotCodes,
@@ -300,6 +309,36 @@ export const buildVisitSubmission = ({
     return { problems };
   }
   return { submission: { lines, layoutChanges, slotsAfter: after.slots } };
+};
+
+/**
+ * A product that left a slot and arrived in it again gives two lines for one
+ * slot and product. One that stayed is a layout problem instead.
+ */
+const leftAndCameBackProblems = (
+  lines: readonly VisitLineDraft[],
+  restock: Restock,
+): SubmissionProblem[] => {
+  const problems: SubmissionProblem[] = [];
+  const seenKeys = new Set<string>();
+  for (const line of lines) {
+    const key = slotProductKey(line);
+    if (!seenKeys.has(key)) {
+      seenKeys.add(key);
+      continue;
+    }
+    const action = restock.actions[key];
+    if (action === undefined || action.kind === "added") {
+      continue;
+    }
+    problems.push({
+      kind: "left-and-came-back",
+      slotCode: line.slotCode,
+      productId: line.productId,
+      pullReason: action.kind === "pulled" ? action.reason : null,
+    });
+  }
+  return problems;
 };
 
 /** An arrival's line, priced by the caller: it has no `remaining`, only what went in. */
@@ -385,6 +424,17 @@ const violationMessage = (
   }
 };
 
+const leftAndCameBackMessage = (
+  { slotCode, productId, pullReason }: Extract<SubmissionProblem, { kind: "left-and-came-back" }>,
+  nameOf: (productId: string) => string,
+): string => {
+  const name = nameOf(productId);
+  if (pullReason === null) {
+    return `${slotCode}: ${name} moved out and came back in. Record it as Added here, and move the other ${name} straight to where this one went, instead.`;
+  }
+  return `${slotCode}: ${name} left and came back. Record it as Added, with the ${pullReason} units as a Count pull, instead.`;
+};
+
 export const problemMessage = (
   problem: SubmissionProblem,
   nameOf: (productId: string) => string,
@@ -398,6 +448,8 @@ export const problemMessage = (
       return `Slot ${problem.slotCode}: ${nameOf(problem.productId)} was pulled in Count for a different reason than it left in Restock; record every unit under one reason`;
     case "added-blank":
       return `Slot ${problem.slotCode}: enter "Added" for ${nameOf(problem.productId)} (0 if none went in)`;
+    case "left-and-came-back":
+      return leftAndCameBackMessage(problem, nameOf);
     case "price-missing":
       return `Slot ${problem.slotCode}: enter a price`;
     case "invalid-count":

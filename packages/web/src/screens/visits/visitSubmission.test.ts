@@ -511,6 +511,47 @@ describe("buildVisitSubmission: other rules", () => {
     ]);
   });
 
+  it("pulled, then the same product added back to the slot, left and came back", () => {
+    const rows = countRows({ [A1_CHEETOS]: "4" });
+    const pulled = withAction(buildRestock({ shelves: SHELVES, rows }), rowFor(rows, "A1", "cheetos"), {
+      kind: "pulled",
+      reason: "expired",
+    });
+    const readded = restockWithNewStock(pulled, { slotCode: "A1", productId: "cheetos", tracksExpiration: false });
+    const restock = restockWithArrivalChange(readded, { slotCode: "A1", productId: "cheetos" }, { added: "10" });
+
+    expect(problemsOf({ rows, restock })).toEqual([
+      { kind: "left-and-came-back", slotCode: "A1", productId: "cheetos", pullReason: "expired" },
+    ]);
+  });
+
+  it("moved out while the same product moved in from another slot, left and came back", () => {
+    const planogramSlots: LayoutSlot[] = [
+      { slotCode: "A1", productId: "cheetos", par: 10, priceCents: 100 },
+      { slotCode: "A2", productId: "cheetos", par: 10, priceCents: 100 },
+    ];
+    const rows = countRows(
+      { [A1_CHEETOS]: "4", [slotProductKey({ slotCode: "A2", productId: "cheetos" })]: "3" },
+      planogramSlots,
+    );
+    const outOfA1 = withAction(buildRestock({ shelves: SHELVES, rows }), rowFor(rows, "A1", "cheetos"), {
+      kind: "moved",
+      toSlotCode: "B1",
+      isSwap: false,
+    });
+    const intoA1 = withAction(outOfA1, rowFor(rows, "A2", "cheetos"), {
+      kind: "moved",
+      toSlotCode: "A1",
+      isSwap: false,
+    });
+    const filledB1 = restockWithArrivalChange(intoA1, { slotCode: "B1", productId: "cheetos" }, { added: "4" });
+    const restock = restockWithArrivalChange(filledB1, { slotCode: "A1", productId: "cheetos" }, { added: "3" });
+
+    expect(problemsOf({ rows, restock, planogramSlots })).toEqual([
+      { kind: "left-and-came-back", slotCode: "A1", productId: "cheetos", pullReason: null },
+    ]);
+  });
+
   it("nothing counted and nothing put in is a problem, not an empty visit", () => {
     const rows = countRows({});
     const restock = buildRestock({ shelves: SHELVES, rows });
@@ -526,6 +567,27 @@ describe("problemMessage", () => {
     const message = problemMessage({ kind: "split-reason", slotCode: "A1", productId: "cheetos" }, nameOf);
 
     expect(message).toContain("A1");
+    expect(message).toContain("Cheetos");
+  });
+
+  it("tells a product pulled and added back to be Added with a Count pull", () => {
+    const message = problemMessage(
+      { kind: "left-and-came-back", slotCode: "B1", productId: "cheetos", pullReason: "expired" },
+      nameOf,
+    );
+
+    expect(message).toBe(
+      "B1: Cheetos left and came back. Record it as Added, with the expired units as a Count pull, instead.",
+    );
+  });
+
+  it("names the slot and the product when a product moved out and back in", () => {
+    const message = problemMessage(
+      { kind: "left-and-came-back", slotCode: "B1", productId: "cheetos", pullReason: null },
+      nameOf,
+    );
+
+    expect(message).toContain("B1");
     expect(message).toContain("Cheetos");
   });
 

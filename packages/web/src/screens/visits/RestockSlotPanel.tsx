@@ -65,9 +65,12 @@ export function RestockSlotPanel({
   const slotRows = rowsInSlot(rows, slotCode);
   const arrivals = arrivalsIn(restock, slotCode);
   const price = restock.prices[slotCode] ?? "";
-  const productIdsAfter = new Set(
-    productIdsAfterRestock({ rows, restock, slotCode }),
-  );
+  // A product leaving this slot can't come back as new stock: that's one line
+  // for the slot and product, so it's Added on the row instead.
+  const unofferedProductIds = new Set([
+    ...productIdsAfterRestock({ rows, restock, slotCode }),
+    ...slotRows.map((row) => row.productId),
+  ]);
 
   const handleAddProduct = (productId: string) =>
     onRestockChange(
@@ -159,7 +162,7 @@ export function RestockSlotPanel({
       <div className="flex flex-col gap-1 border-t border-line pt-3">
         <span className={labelClass}>+ Add product</span>
         <ProductCombobox
-          products={products.filter((product) => !productIdsAfter.has(product.id))}
+          products={products.filter((product) => !unofferedProductIds.has(product.id))}
           productId=""
           onPick={(product) => handleAddProduct(product.id)}
         />
