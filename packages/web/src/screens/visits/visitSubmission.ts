@@ -7,7 +7,7 @@ import {
   slotProductKey,
   slotsAfterChanges,
 } from "@vendpire/domain";
-import { parseDollarsToCents } from "../../utils/money.ts";
+import { formatCents, parseDollarsToCents } from "../../utils/money.ts";
 import type { Arrival, ProductAction, PullReason, Restock } from "./restock.ts";
 import {
   CALENDAR_DATE,
@@ -36,6 +36,8 @@ export type SubmissionProblem =
       pullReason: PullReason | null;
     }
   | { kind: "price-missing"; slotCode: string }
+  // A slot without lines has nothing for a new price to ride on.
+  | { kind: "price-change-uncounted"; slotCode: string; priceCentsBefore: number }
   | {
       kind: "invalid-count";
       slotCode: string;
@@ -277,6 +279,14 @@ export const buildVisitSubmission = ({
   }
 
   problems.push(...leftAndCameBackProblems(lines, restock));
+  problems.push(
+    ...uncountedPriceChangeProblems({
+      slotCodes: Object.keys(restock.prices),
+      lineSlotCodes: new Set(lines.map((line) => line.slotCode)),
+      priceBeforeBySlot,
+      priceAfterOf,
+    }),
+  );
 
   const priceChanges = buildPriceChanges({
     slotCodes: [...new Set([...Object.keys(restock.prices), ...stockedSlotCodes])],
@@ -398,6 +408,32 @@ const buildPriceChanges = ({
   return changes;
 };
 
+/** A slot whose price input moved off its planogram price but that produced no lines. */
+const uncountedPriceChangeProblems = ({
+  slotCodes,
+  lineSlotCodes,
+  priceBeforeBySlot,
+  priceAfterOf,
+}: {
+  slotCodes: readonly string[];
+  lineSlotCodes: ReadonlySet<string>;
+  priceBeforeBySlot: ReadonlyMap<string, number>;
+  priceAfterOf: (slotCode: string) => number | null;
+}): SubmissionProblem[] => {
+  const problems: SubmissionProblem[] = [];
+  for (const slotCode of slotCodes) {
+    const priceCentsBefore = priceBeforeBySlot.get(slotCode);
+    if (priceCentsBefore === undefined || lineSlotCodes.has(slotCode)) {
+      continue;
+    }
+    if (priceAfterOf(slotCode) === priceCentsBefore) {
+      continue;
+    }
+    problems.push({ kind: "price-change-uncounted", slotCode, priceCentsBefore });
+  }
+  return problems;
+};
+
 const INVALID_COUNT_MESSAGES: Record<
   Extract<SubmissionProblem, { kind: "invalid-count" }>["field"],
   string
@@ -452,6 +488,8 @@ export const problemMessage = (
       return leftAndCameBackMessage(problem, nameOf);
     case "price-missing":
       return `Slot ${problem.slotCode}: enter a price`;
+    case "price-change-uncounted":
+      return `Count ${problem.slotCode} to change its price, or put the price back to ${formatCents(problem.priceCentsBefore)}.`;
     case "invalid-count":
       return `Slot ${problem.slotCode}: ${INVALID_COUNT_MESSAGES[problem.field]}`;
     case "layout":

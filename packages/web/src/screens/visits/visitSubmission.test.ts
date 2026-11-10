@@ -552,6 +552,24 @@ describe("buildVisitSubmission: other rules", () => {
     ]);
   });
 
+  it("a price change on a slot that produced no lines is price-change-uncounted", () => {
+    const rows = countRows({ [A2_FRITOS]: "7" });
+    const answered = withAdded(buildRestock({ shelves: SHELVES, rows }), rowFor(rows, "A2", "fritos"), "0");
+    const restock = restockWithPrice(answered, "A1", "1.25");
+
+    expect(problemsOf({ rows, restock })).toEqual([
+      { kind: "price-change-uncounted", slotCode: "A1", priceCentsBefore: 100 },
+    ]);
+  });
+
+  it("an uncounted slot with its price unchanged is no problem", () => {
+    const rows = countRows({ [A2_FRITOS]: "7" });
+    const answered = withAdded(buildRestock({ shelves: SHELVES, rows }), rowFor(rows, "A2", "fritos"), "0");
+    const restock = restockWithPrice(answered, "A1", "1.00");
+
+    expect(submissionOf({ rows, restock }).layoutChanges).toEqual([]);
+  });
+
   it("nothing counted and nothing put in is a problem, not an empty visit", () => {
     const rows = countRows({});
     const restock = buildRestock({ shelves: SHELVES, rows });
@@ -589,6 +607,12 @@ describe("problemMessage", () => {
 
     expect(message).toContain("B1");
     expect(message).toContain("Cheetos");
+  });
+
+  it("asks for a count or the old price back on an uncounted price change", () => {
+    const message = problemMessage({ kind: "price-change-uncounted", slotCode: "B1", priceCentsBefore: 150 }, nameOf);
+
+    expect(message).toBe("Count B1 to change its price, or put the price back to $1.50.");
   });
 
   it("names the slot on a layout problem", () => {
