@@ -213,6 +213,18 @@ export const restockWithNewStock = (
   ],
 });
 
+/** Takes back a new-stock arrival. A moved one goes by clearing its source's
+ *  action instead, so this leaves it alone. */
+export const restockWithoutNewStock = (
+  restock: Restock,
+  key: SlotProduct,
+): Restock => ({
+  ...restock,
+  arrivals: restock.arrivals.filter(
+    (arrival) => arrival.fromSlotCode !== null || !isSameProduct(arrival, key),
+  ),
+});
+
 export const restockWithArrivalChange = (
   restock: Restock,
   key: SlotProduct,

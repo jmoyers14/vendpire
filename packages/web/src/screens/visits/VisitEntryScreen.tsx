@@ -36,8 +36,18 @@ import { localDateTimeToIso, toLocalDateTimeInput } from "./countedAt.ts";
 import {
   buildRestock,
   type Restock,
+  restockWithAction,
   restockWithRestUnchanged,
+  restockWithSwap,
 } from "./restock.ts";
+import { RestockSlotPanel } from "./RestockSlotPanel.tsx";
+import {
+  attentionSlotCodeFor,
+  isSlotAnswered,
+  nowLevelAfterRestock,
+  productIdsAfterRestock,
+  restockProgressFor,
+} from "./restockSlots.ts";
 import { VisitReview } from "./VisitReview.tsx";
 import {
   buildAddedBehindRow,
@@ -55,7 +65,7 @@ import {
   type VisitRow,
   warningsFor,
 } from "./visitRows.ts";
-import { buildVisitSubmission } from "./visitSubmission.ts";
+import { buildVisitSubmission, problemMessage } from "./visitSubmission.ts";
 
 /**
  * Logging one servicing of one machine, from a phone at the machine, in three
@@ -180,19 +190,27 @@ function VisitDraftForm({
   const replaceRow = (next: VisitRow) =>
     setRows(rows.map((row) => (isSameRow(row, next) ? next : row)));
 
+  // Unknown products keep asking for a date, as in buildVisitRows.
+  const tracksExpirationOf = (productId: string): boolean =>
+    products.data?.find((product) => product.id === productId)
+      ?.tracksExpiration ?? true;
+
   const addBehind = ({ slotCode, productId }: SlotProduct) => {
     const [front] = rowsInSlot(rows, slotCode);
     if (!front) {
       return;
     }
-    const product = products.data?.find((p) => p.id === productId);
     const added = buildAddedBehindRow({
       front,
       productId,
-      // Unknown products keep asking for a date, as in buildVisitRows.
-      tracksExpiration: product?.tracksExpiration ?? true,
+      tracksExpiration: tracksExpirationOf(productId),
     });
     setRows(rowsWithAddedBehind(rows, added));
+  };
+
+  const showCountSlot = (slotCode: string) => {
+    setSelected(slotCode);
+    setStep("count");
   };
 
   const removeAdded = (removed: VisitRow) =>
@@ -382,17 +400,18 @@ function VisitDraftForm({
           ) : null}
 
           {step === "restock" ? (
-            <RestockPlaceholder
-              unansweredCount={
-                rows.filter(
-                  (row) =>
-                    isCounted(row) &&
-                    restock.actions[slotProductKey(row)] === undefined,
-                ).length
-              }
-              onMarkRestUnchanged={() =>
-                setRestock(restockWithRestUnchanged(restock, rows))
-              }
+            <RestockStep
+              shelves={machine.data?.slots ?? []}
+              rows={rows}
+              restock={restock}
+              planogramSlots={planogramSlots}
+              selected={selected}
+              nameOf={productName}
+              tracksExpirationOf={tracksExpirationOf}
+              products={products.data ?? []}
+              onSelect={setSelected}
+              onRestockChange={setRestock}
+              onCountSlot={showCountSlot}
               onNext={() => setStep("review")}
             />
           ) : null}
@@ -454,39 +473,225 @@ function VisitStepBar({
   );
 }
 
-/** Stands in for the Restock step until it's built, so a visit saves today. */
-function RestockPlaceholder({
-  unansweredCount,
-  onMarkRestUnchanged,
+interface SlotPick {
+  row: VisitRow;
+  isSwap: boolean;
+  /** A swap into a mixed slot waits here for which product came back. */
+  partnerSlotCode: string | null;
+  /** Why the last tap didn't take. */
+  notice: string | null;
+}
+
+/**
+ * The Restock step: the grid shows each slot as it will be after, the panel
+ * takes the selected slot's answers, and Moved / Swapped turn the grid into a
+ * slot picker until a tap, Cancel or Escape.
+ */
+function RestockStep({
+  shelves,
+  rows,
+  restock,
+  planogramSlots,
+  selected,
+  nameOf,
+  tracksExpirationOf,
+  products,
+  onSelect,
+  onRestockChange,
+  onCountSlot,
   onNext,
 }: {
-  /** Counted products with no Restock answer yet. */
-  unansweredCount: number;
-  onMarkRestUnchanged: () => void;
+  shelves: string[][];
+  rows: VisitRow[];
+  restock: Restock;
+  planogramSlots: LayoutSlot[];
+  selected: string | null;
+  nameOf: (productId: string) => string;
+  tracksExpirationOf: (productId: string) => boolean;
+  products: ProductOption[];
+  onSelect: (slotCode: string) => void;
+  onRestockChange: (next: Restock) => void;
+  onCountSlot: (slotCode: string) => void;
   onNext: () => void;
 }) {
+  const [pick, setPick] = useState<SlotPick | null>(null);
+
+  useEffect(() => {
+    if (!pick) {
+      return;
+    }
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setPick(null);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [pick]);
+
+  const result = buildVisitSubmission({ rows, restock, planogramSlots });
+  const problems = "problems" in result ? result.problems : [];
+  const attentionSlotCodes = new Set(problems.map(attentionSlotCodeFor));
+  const slotCodes = shelves.flat();
+  const { answeredCount, totalCount } = restockProgressFor({
+    rows,
+    restock,
+    slotCodes,
+  });
+  const unansweredCount = rows.filter(
+    (row) =>
+      isCounted(row) && restock.actions[slotProductKey(row)] === undefined,
+  ).length;
+
+  const handleSwapPartner = (partner: VisitRow) => {
+    if (!pick) {
+      return;
+    }
+    onRestockChange(restockWithSwap(restock, { a: pick.row, b: partner }));
+    setPick(null);
+  };
+
+  const handlePickSlot = (slotCode: string) => {
+    if (!pick || slotCode === pick.row.slotCode) {
+      return;
+    }
+    if (!pick.isSwap) {
+      onRestockChange(
+        restockWithAction(restock, pick.row, {
+          kind: "moved",
+          toSlotCode: slotCode,
+          isSwap: false,
+        }),
+      );
+      setPick(null);
+      return;
+    }
+    const partners = rowsInSlot(rows, slotCode).filter(isCounted);
+    const [onlyPartner] = partners;
+    if (!onlyPartner) {
+      setPick({
+        ...pick,
+        partnerSlotCode: null,
+        notice: `Nothing counted in ${slotCode} to swap with. Use Moved → instead.`,
+      });
+      return;
+    }
+    if (partners.length === 1) {
+      handleSwapPartner(onlyPartner);
+      return;
+    }
+    setPick({ ...pick, partnerSlotCode: slotCode, notice: null });
+  };
+
+  const renderCell = (slotCode: string): SlotCell => {
+    const slot = { rows, restock, slotCode };
+    const productIds = productIdsAfterRestock(slot);
+    const nowLevel = nowLevelAfterRestock(slot);
+    let state: SlotCellState | undefined;
+    if (attentionSlotCodes.has(slotCode)) {
+      state = "attention";
+    } else if (isSlotAnswered(slot)) {
+      state = "done";
+    }
+    return buildProductsCell({
+      slotCode,
+      products: productIds.map((id) => ({ id, name: nameOf(id) })),
+      detail: nowLevel === null ? null : `now ${nowLevel}`,
+      state,
+    });
+  };
+
+  const selectedProblemMessages = selected
+    ? [
+        ...new Set(
+          problems
+            .filter((problem) => attentionSlotCodeFor(problem) === selected)
+            .map((problem) => problemMessage(problem, nameOf)),
+        ),
+      ]
+    : [];
+  const partnerRows = pick?.partnerSlotCode
+    ? rowsInSlot(rows, pick.partnerSlotCode).filter(isCounted)
+    : [];
+
   return (
-    <Card className="flex flex-col gap-3 p-3">
-      <p className="text-sm font-bold text-gray-800">Restock comes next</p>
-      <p className="text-sm text-gray-600 tabular-nums">
-        {unansweredCount === 0
-          ? "Every counted product has an answer."
-          : `${unansweredCount} counted product(s) still need an answer.`}
-      </p>
-      <div className="flex flex-wrap gap-2">
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={onMarkRestUnchanged}
-          disabled={unansweredCount === 0}
+    <>
+      {pick ? (
+        <Alert
+          tone="warning"
+          title={
+            pick.partnerSlotCode
+              ? `Which product in ${pick.partnerSlotCode} came back to ${pick.row.slotCode}?`
+              : `Tap the slot ${nameOf(pick.row.productId)} ${pick.isSwap ? "swapped with" : "went to"}`
+          }
         >
-          Mark the rest unchanged, nothing added
-        </Button>
-        <Button size="sm" onClick={onNext}>
-          On to review →
-        </Button>
+          {pick.notice ? <span>{pick.notice}</span> : null}
+          <div className="mt-1 flex flex-wrap items-center gap-2">
+            {partnerRows.map((partner) => (
+              <Button
+                key={partner.productId}
+                variant="outline"
+                size="sm"
+                onClick={() => handleSwapPartner(partner)}
+              >
+                {nameOf(partner.productId)}
+              </Button>
+            ))}
+            <Button variant="secondary" size="sm" onClick={() => setPick(null)}>
+              Cancel
+            </Button>
+          </div>
+        </Alert>
+      ) : null}
+
+      <SlotFaceGrid
+        shelves={shelves}
+        renderCell={renderCell}
+        selectedCode={pick ? null : selected}
+        onSelect={pick ? handlePickSlot : onSelect}
+      />
+
+      {selected ? (
+        <RestockSlotPanel
+          key={selected}
+          slotCode={selected}
+          rows={rows}
+          restock={restock}
+          nameOf={nameOf}
+          tracksExpirationOf={tracksExpirationOf}
+          products={products}
+          problemMessages={selectedProblemMessages}
+          pickingRowKey={pick ? slotProductKey(pick.row) : null}
+          onRestockChange={onRestockChange}
+          onStartPick={(row, { isSwap }) =>
+            setPick({ row, isSwap, partnerSlotCode: null, notice: null })
+          }
+          onCancelPick={() => setPick(null)}
+          onCountSlot={() => onCountSlot(selected)}
+        />
+      ) : null}
+
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm text-gray-600 tabular-nums">
+          {answeredCount} of {totalCount} slots answered
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() =>
+              onRestockChange(restockWithRestUnchanged(restock, rows))
+            }
+            disabled={unansweredCount === 0}
+          >
+            Mark the rest unchanged, nothing added
+          </Button>
+          <Button size="sm" onClick={onNext}>
+            Review →
+          </Button>
+        </div>
       </div>
-    </Card>
+    </>
   );
 }
 

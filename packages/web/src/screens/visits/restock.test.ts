@@ -6,6 +6,7 @@ import {
   restockWithAction,
   restockWithArrivalChange,
   restockWithNewStock,
+  restockWithoutNewStock,
   restockWithPrice,
   restockWithRestUnchanged,
   restockWithSourceLinked,
@@ -249,6 +250,37 @@ describe("restockWithNewStock", () => {
         tracksExpiration: false,
       },
     ]);
+  });
+});
+
+describe("restockWithoutNewStock", () => {
+  it("removes a new-stock arrival and keeps a moved one", () => {
+    const rows = countedRows();
+    const start = buildRestock({ shelves: SHELVES, rows });
+    const moved = restockWithAction(start, rowFor(rows, "A1", "coke"), {
+      kind: "moved",
+      toSlotCode: "A3",
+      isSwap: false,
+    });
+    const withNew = restockWithNewStock(moved, {
+      slotCode: "A3",
+      productId: "lays",
+      tracksExpiration: false,
+    });
+
+    const withoutLays = restockWithoutNewStock(withNew, {
+      slotCode: "A3",
+      productId: "lays",
+    });
+    const withoutCoke = restockWithoutNewStock(withNew, {
+      slotCode: "A3",
+      productId: "coke",
+    });
+
+    expect(withoutLays.arrivals.map((arrival) => arrival.productId)).toEqual([
+      "coke",
+    ]);
+    expect(withoutCoke.arrivals).toEqual(withNew.arrivals);
   });
 });
 
