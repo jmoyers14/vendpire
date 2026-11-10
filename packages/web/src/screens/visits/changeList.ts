@@ -3,6 +3,7 @@ import { formatCents } from "../../utils/money.ts";
 import type { VisitSubmissionDraft } from "./visitSubmission.ts";
 
 type MoveChange = Extract<LayoutChange, { kind: "move" }>;
+type SetPriceChange = Extract<LayoutChange, { kind: "set-price" }>;
 
 /** The review's list of what changed, in plain words. Pure. */
 
@@ -59,6 +60,21 @@ export const describeChanges = ({
     return `${base} ${pulledPhrase(line.removedReason)} (${line.removed})`;
   };
 
+  // A move's line already gives the price it lands at.
+  const isMoveDestination = (slotCode: string): boolean =>
+    layoutChanges.some((change) => change.kind === "move" && change.toSlotCode === slotCode);
+
+  const describePrice = ({ slotCode, priceCents }: SetPriceChange): string | null => {
+    const before = priceBefore(slotCode);
+    if (before === undefined) {
+      return isMoveDestination(slotCode) ? null : `${slotCode} · price ${formatCents(priceCents)}`;
+    }
+    if (before === priceCents) {
+      return null;
+    }
+    return `${slotCode} · ${formatCents(before)} → ${formatCents(priceCents)}`;
+  };
+
   const descriptions: string[] = [];
   const swappedPartners = new Set<LayoutChange>();
 
@@ -90,11 +106,9 @@ export const describeChanges = ({
         break;
       }
       case "set-price": {
-        const before = priceBefore(change.slotCode);
-        if (before !== undefined && before !== change.priceCents) {
-          descriptions.push(
-            `${change.slotCode} · ${formatCents(before)} → ${formatCents(change.priceCents)}`,
-          );
+        const description = describePrice(change);
+        if (description !== null) {
+          descriptions.push(description);
         }
         break;
       }

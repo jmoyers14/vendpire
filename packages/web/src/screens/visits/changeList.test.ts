@@ -147,7 +147,7 @@ describe("describeChanges", () => {
     expect(result).toEqual(["A1 · $1.00 → $1.25"]);
   });
 
-  it("skips a price line when the slot had no price before", () => {
+  it("gives the new price alone when the slot had no price before", () => {
     const result = describe_(
       submissionOf({
         layoutChanges: [
@@ -157,7 +157,21 @@ describe("describeChanges", () => {
         lines: [line({ slotCode: "66", productId: "kitkat", added: 3 })],
       }),
     );
-    expect(result).toEqual(["66 · KitKat in · 3"]);
+    expect(result).toEqual(["66 · KitKat in · 3", "66 · price $1.50"]);
+  });
+
+  it("leaves the price to the move line when a product moves into an empty slot", () => {
+    const result = describe_(
+      submissionOf({
+        layoutChanges: [
+          { kind: "move", productId: "pistachios", fromSlotCode: "66", toSlotCode: "27" },
+          { kind: "set-price", slotCode: "27", priceCents: 250 },
+        ],
+        slotsAfter: [slot("27", "pistachios", 250)],
+      }),
+      [slot("66", "pistachios", 225)],
+    );
+    expect(result).toEqual(["66 → 27 · Pistachios Chili · now $2.50, was $2.25"]);
   });
 
   it("still emits a price line for a slot that also has other changes", () => {
