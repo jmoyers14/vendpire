@@ -1,7 +1,12 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import type { RemovalReason, SlotProduct } from "@vendpire/domain";
+import {
+  type LayoutSlot,
+  type RemovalReason,
+  type SlotProduct,
+  slotProductKey,
+} from "@vendpire/domain";
 import {
   Alert,
   Button,
@@ -9,6 +14,7 @@ import {
   Card,
   countInputClass,
   ErrorNote,
+  focusRing,
   hintClass,
   inputClass,
   labelClass,
@@ -28,14 +34,17 @@ import {
 } from "../machines/ProductCombobox.tsx";
 import { localDateTimeToIso, toLocalDateTimeInput } from "./countedAt.ts";
 import {
-  addedBehindOf,
+  buildRestock,
+  type Restock,
+  restockWithRestUnchanged,
+} from "./restock.ts";
+import { VisitReview } from "./VisitReview.tsx";
+import {
   buildAddedBehindRow,
-  buildVisitLines,
   buildVisitRows,
+  isCounted,
   isSameRow,
   isSlotCounted,
-  levelOf,
-  rowWithAdded,
   rowWithBestBy,
   rowWithLeft,
   rowWithRemoved,
@@ -46,15 +55,17 @@ import {
   type VisitRow,
   warningsFor,
 } from "./visitRows.ts";
+import { buildVisitSubmission } from "./visitSubmission.ts";
 
 /**
- * Logging one servicing of one machine, from a phone at the machine.
+ * Logging one servicing of one machine, from a phone at the machine, in three
+ * steps: Count (what was in each slot on arrival), Restock (what was done to
+ * each product), Review (then Save).
  *
- * The two inputs per slot are "Left in slot" and "Added" — never "count".
- * `remaining` is a PRE-FILL observation and nothing downstream can detect a
+ * "Left in slot" is a PRE-FILL observation and nothing downstream can detect a
  * violation: enter a post-fill count and every sold figure, every revenue
  * number and every profit line is silently garbage, with no error raised
- * anywhere.
+ * anywhere. That's why Count asks for nothing that's loaded in.
  */
 export function VisitEntryScreen({ machineId }: { machineId: string }) {
   // "Log another visit" REMOUNTS the form rather than resetting its state, so
@@ -79,6 +90,14 @@ const REMOVAL_REASONS: { value: RemovalReason; label: string }[] = [
   { value: "transferred", label: "Transferred to another machine" },
 ];
 
+type VisitStep = "count" | "restock" | "review";
+
+const VISIT_STEPS: { step: VisitStep; label: string }[] = [
+  { step: "count", label: "Count" },
+  { step: "restock", label: "Restock" },
+  { step: "review", label: "Review" },
+];
+
 function VisitDraftForm({
   machineId,
   onLogAnother,
@@ -93,11 +112,12 @@ function VisitDraftForm({
     toLocalDateTimeInput(new Date().toISOString()),
   );
   const [rows, setRows] = useState<VisitRow[]>([]);
+  const [restock, setRestock] = useState<Restock | null>(null);
   const [isBuilt, setIsBuilt] = useState(false);
+  const [step, setStep] = useState<VisitStep>("count");
   const [selected, setSelected] = useState<string | null>(null);
   const [notes, setNotes] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [uncountedWarning, setUncountedWarning] = useState<string | null>(null);
   const [savedLineCount, setSavedLineCount] = useState<number | null>(null);
   // The day the warnings are judged against. Fixed at form open so a visit
   // spanning midnight cannot reclassify rows mid-count.
@@ -128,6 +148,7 @@ function VisitDraftForm({
       products: products.data,
     });
     setRows(built);
+    setRestock(buildRestock({ shelves: machine.data.slots, rows: built }));
     setSelected(built[0]?.slotCode ?? null);
     setIsBuilt(true);
   }, [
@@ -148,7 +169,6 @@ function VisitDraftForm({
         queryClient.invalidateQueries({ queryKey: trpc.pnl.pathKey() });
         setSavedLineCount(visit.lines.length);
         setError(null);
-        setUncountedWarning(null);
       },
       onError: (e) => setError(e.message),
     }),
@@ -181,10 +201,18 @@ function VisitDraftForm({
   const slotOrder = [...new Set(rows.map((row) => row.slotCode))];
   const uncounted = uncountedSlotCodes(rows);
 
-  const submit = ({ allowUncounted = false } = {}) => {
+  const planogramSlots: LayoutSlot[] = (planogram.data?.slots ?? []).map(
+    ({ slotCode, productId, par, priceCents }) => ({
+      slotCode,
+      productId,
+      par,
+      priceCents,
+    }),
+  );
+
+  const save = () => {
     setError(null);
-    setUncountedWarning(null);
-    if (!machine.data) {
+    if (!machine.data || !restock) {
       return;
     }
     const countedAt = localDateTimeToIso(countedAtInput);
@@ -192,15 +220,8 @@ function VisitDraftForm({
       setError("Set when you counted this machine");
       return;
     }
-    const result = buildVisitLines(rows);
-    if ("error" in result) {
-      setError(result.error);
-      return;
-    }
-    if (uncounted.length > 0 && !allowUncounted) {
-      setUncountedWarning(
-        `${uncounted.length} slot(s) weren't fully counted: ${uncounted.join(", ")}.`,
-      );
+    const result = buildVisitSubmission({ rows, restock, planogramSlots });
+    if ("problems" in result) {
       return;
     }
     create.mutate({
@@ -211,11 +232,21 @@ function VisitDraftForm({
       locationId: machine.data.locationId,
       planogramId: planogram.data?.id ?? null,
       countedAt,
-      lines: result.lines,
+      lines: result.submission.lines,
+      layoutChanges: result.submission.layoutChanges,
       notes: notes.trim() === "" ? null : notes.trim(),
       clientRequestId,
-      addedBehind: addedBehindOf(rows),
     });
+  };
+
+  const showNextSlot = (slotCode: string) => {
+    const index = slotOrder.indexOf(slotCode);
+    const next = slotOrder[index + 1];
+    if (next === undefined) {
+      setStep("restock");
+      return;
+    }
+    setSelected(next);
   };
 
   const renderCell = (slotCode: string): SlotCell => {
@@ -245,9 +276,7 @@ function VisitDraftForm({
     // A mixed cell has no room for per-product counts; its badge says enough.
     let detail: string | null = null;
     if (slotRows.length === 1) {
-      detail = isCounted
-        ? `left ${front.left} · +${front.added || "0"}`
-        : `par ${front.par ?? "—"}`;
+      detail = isCounted ? `left ${front.left}` : `par ${front.par ?? "—"}`;
     }
     return buildProductsCell({ slotCode, products, detail, state });
   };
@@ -315,103 +344,149 @@ function VisitDraftForm({
         </Alert>
       ) : null}
 
-      {rows.length > 0 ? (
+      {rows.length > 0 && restock ? (
         <>
-          <SlotFaceGrid
-            shelves={machine.data?.slots ?? []}
-            renderCell={renderCell}
-            selectedCode={selected}
-            onSelect={setSelected}
-          />
+          <VisitStepBar step={step} onSelect={setStep} />
 
-          <p className="text-sm text-gray-600 tabular-nums">
-            {slotOrder.length - uncounted.length} of {slotOrder.length} slots
-            counted
-          </p>
+          {step === "count" ? (
+            <>
+              <SlotFaceGrid
+                shelves={machine.data?.slots ?? []}
+                renderCell={renderCell}
+                selectedCode={selected}
+                onSelect={setSelected}
+              />
 
-          {selected ? (
-            <SlotCountPanel
-              key={selected}
-              slotRows={rowsInSlot(rows, selected)}
-              nameOf={productName}
-              products={products.data ?? []}
-              asOf={asOf}
-              onChange={replaceRow}
-              onAddBehind={(productId) =>
-                addBehind({ slotCode: selected, productId })
+              <p className="text-sm text-gray-600 tabular-nums">
+                {slotOrder.length - uncounted.length} of {slotOrder.length}{" "}
+                slots counted
+              </p>
+
+              {selected ? (
+                <SlotCountPanel
+                  key={selected}
+                  slotRows={rowsInSlot(rows, selected)}
+                  nameOf={productName}
+                  products={products.data ?? []}
+                  asOf={asOf}
+                  isLastSlot={slotOrder[slotOrder.length - 1] === selected}
+                  onChange={replaceRow}
+                  onAddBehind={(productId) =>
+                    addBehind({ slotCode: selected, productId })
+                  }
+                  onRemoveAdded={removeAdded}
+                  onNext={() => showNextSlot(selected)}
+                />
+              ) : null}
+            </>
+          ) : null}
+
+          {step === "restock" ? (
+            <RestockPlaceholder
+              unansweredCount={
+                rows.filter(
+                  (row) =>
+                    isCounted(row) &&
+                    restock.actions[slotProductKey(row)] === undefined,
+                ).length
               }
-              onRemoveAdded={removeAdded}
-              onNext={() => {
-                const index = slotOrder.indexOf(selected);
-                setSelected(slotOrder[(index + 1) % slotOrder.length] ?? null);
-              }}
+              onMarkRestUnchanged={() =>
+                setRestock(restockWithRestUnchanged(restock, rows))
+              }
+              onNext={() => setStep("review")}
             />
           ) : null}
 
-          <Card className="flex flex-col gap-3 p-3">
-            <label className="flex flex-col gap-1">
-              <span className={labelClass}>Counted at</span>
-              <input
-                type="datetime-local"
-                className={countInputClass}
-                value={countedAtInput}
-                onChange={(e) => setCountedAtInput(e.target.value)}
-              />
-              <span className={hintClass}>
-                When you stood at the machine — this orders every interval the
-                engine computes. Back-date it if you're entering this later.
-              </span>
-            </label>
-            <label className="flex flex-col gap-1">
-              <span className={labelClass}>Notes</span>
-              <textarea
-                className={inputClass}
-                rows={2}
-                placeholder="Jammed coil, cold deck warm, …"
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-              />
-            </label>
-          </Card>
-
-          {uncountedWarning ? (
-            <Alert tone="warning" title={uncountedWarning}>
-              <p>
-                An uncounted slot gets no line at all, so the engine reports it
-                as not counted rather than inventing a sold figure. That's
-                correct — but those slots will show no sales for this interval.
-              </p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                <Button
-                  size="sm"
-                  onClick={() => submit({ allowUncounted: true })}
-                  disabled={create.isPending}
-                >
-                  Save anyway
-                </Button>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => setUncountedWarning(null)}
-                >
-                  Keep counting
-                </Button>
-              </div>
-            </Alert>
+          {step === "review" ? (
+            <VisitReview
+              submissionResult={buildVisitSubmission({
+                rows,
+                restock,
+                planogramSlots,
+              })}
+              uncountedSlotCodes={uncounted}
+              productName={productName}
+              countedAtInput={countedAtInput}
+              onCountedAtInputChange={setCountedAtInput}
+              notes={notes}
+              onNotesChange={setNotes}
+              isSaving={create.isPending}
+              onSave={save}
+            />
           ) : null}
-
-          <Button
-            full
-            onClick={() => submit()}
-            disabled={create.isPending || uncountedWarning !== null}
-          >
-            {create.isPending ? "Saving…" : "Save Visit"}
-          </Button>
         </>
       ) : machine.isLoading || planogram.isLoading ? (
         <p className="text-gray-400">Loading…</p>
       ) : null}
     </Page>
+  );
+}
+
+/**
+ * Count · Restock · Review. Every step stays reachable until the visit is
+ * saved, and switching keeps everything typed in each.
+ */
+function VisitStepBar({
+  step,
+  onSelect,
+}: {
+  step: VisitStep;
+  onSelect: (step: VisitStep) => void;
+}) {
+  return (
+    <nav className="flex gap-1 border-b border-line" aria-label="Visit steps">
+      {VISIT_STEPS.map((item) => (
+        <button
+          key={item.step}
+          type="button"
+          onClick={() => onSelect(item.step)}
+          aria-current={item.step === step ? "step" : undefined}
+          className={`border-b-[3px] px-2.5 pt-2 pb-2.5 text-sm font-bold whitespace-nowrap ${focusRing} ${
+            item.step === step
+              ? "border-tab-indicator text-tab-active"
+              : "border-transparent text-tab hover:text-gray-800"
+          }`}
+        >
+          {item.label}
+        </button>
+      ))}
+    </nav>
+  );
+}
+
+/** Stands in for the Restock step until it's built, so a visit saves today. */
+function RestockPlaceholder({
+  unansweredCount,
+  onMarkRestUnchanged,
+  onNext,
+}: {
+  /** Counted products with no Restock answer yet. */
+  unansweredCount: number;
+  onMarkRestUnchanged: () => void;
+  onNext: () => void;
+}) {
+  return (
+    <Card className="flex flex-col gap-3 p-3">
+      <p className="text-sm font-bold text-gray-800">Restock comes next</p>
+      <p className="text-sm text-gray-600 tabular-nums">
+        {unansweredCount === 0
+          ? "Every counted product has an answer."
+          : `${unansweredCount} counted product(s) still need an answer.`}
+      </p>
+      <div className="flex flex-wrap gap-2">
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={onMarkRestUnchanged}
+          disabled={unansweredCount === 0}
+        >
+          Mark the rest unchanged, nothing added
+        </Button>
+        <Button size="sm" onClick={onNext}>
+          On to review →
+        </Button>
+      </div>
+    </Card>
   );
 }
 
@@ -421,6 +496,7 @@ function SlotCountPanel({
   nameOf,
   products,
   asOf,
+  isLastSlot,
   onChange,
   onAddBehind,
   onRemoveAdded,
@@ -431,6 +507,8 @@ function SlotCountPanel({
   products: ProductOption[];
   /** The day expiry warnings are judged against, fixed at form open. */
   asOf: string;
+  /** The last slot's Next goes on to Restock. */
+  isLastSlot: boolean;
   onChange: (next: VisitRow) => void;
   onAddBehind: (productId: string) => void;
   onRemoveAdded: (row: VisitRow) => void;
@@ -441,7 +519,6 @@ function SlotCountPanel({
     return null;
   }
   const inSlot = new Set(slotRows.map((row) => row.productId));
-  const hasAddedBehind = slotRows.some((row) => row.isAddedBehind);
 
   return (
     <Card className="flex flex-col gap-3 border border-primary-200 p-3">
@@ -479,15 +556,13 @@ function SlotCountPanel({
           onPick={(product) => onAddBehind(product.id)}
         />
         <span className={hintClass}>
-          {hasAddedBehind
-            ? "Saving this visit also adds it to the planogram."
-            : `Sells at the slot's ${formatCents(front.priceCents)}.`}
+          Found in the slot but not in the planogram
         </span>
       </div>
 
       <div className="flex justify-end">
         <Button variant="secondary" size="sm" onClick={onNext}>
-          Next slot →
+          {isLastSlot ? "On to restocking →" : "Next slot →"}
         </Button>
       </div>
     </Card>
@@ -496,8 +571,7 @@ function SlotCountPanel({
 
 /**
  * One product's counts. Emits a whole replacement row rather than a patch, so
- * every rule about what a keystroke means — the fill-to-par default, and when
- * it stops applying — stays in `visitRows.ts` and out of this component.
+ * every rule about what a keystroke means stays in `visitRows.ts`.
  */
 function ProductCountRow({
   row,
@@ -520,7 +594,6 @@ function ProductCountRow({
   const [isRemoving, setIsRemoving] = useState(
     row.removed.trim() !== "" && row.removed !== "0",
   );
-  const level = levelOf(row);
   const warnings = warningsFor(row, { asOf });
 
   return (
@@ -562,22 +635,8 @@ function ProductCountRow({
             {row.previousLevel !== null
               ? `Filled to ${row.previousLevel} last visit`
               : row.isAddedBehind
-                ? "Already there before you added it — 0 if none"
+                ? "How many you found in the slot"
                 : "Before you refill"}
-          </span>
-        </label>
-
-        <label className="flex flex-col gap-1">
-          <span className={labelClass}>Added</span>
-          <input
-            inputMode="numeric"
-            className={countInputClass}
-            placeholder="—"
-            value={row.added}
-            onChange={(e) => onChange(rowWithAdded(row, e.target.value))}
-          />
-          <span className={hintClass}>
-            {row.par === null ? "Units loaded in" : `Fill to par ${row.par}`}
           </span>
         </label>
       </div>
@@ -657,20 +716,12 @@ function ProductCountRow({
               ? "Past its best-by date — pull it"
               : warnings.includes("expiring-soon")
                 ? "Expiring soon"
-                : warnings.includes("over-removed")
-                  ? "More removed than was in the slot"
-                  : `Filled past par ${row.par}`
+                : "More removed than was in the slot"
           }
         >
           Saved as entered — this is a note, not a block.
         </Alert>
       ) : null}
-
-      <span className="text-sm text-gray-600 tabular-nums">
-        {level === null
-          ? "Walks away with —"
-          : `Walks away with ${level}${row.par === null ? "" : ` / par ${row.par}`}`}
-      </span>
     </div>
   );
 }

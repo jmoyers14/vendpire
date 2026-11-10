@@ -1,17 +1,10 @@
 import { describe, expect, it } from "bun:test";
 import {
-  addedBehindOf,
   buildAddedBehindRow,
-  buildVisitLines,
   buildVisitRows,
-  fillToPar,
   isCounted,
   isSlotCounted,
-  levelOf,
-  rowWithAdded,
-  rowWithLeft,
-  rowWithRemoved,
-  rowWithRemovedReason,
+  leftAfterPull,
   rowsInSlot,
   rowsWithAddedBehind,
   uncountedSlotCodes,
@@ -41,10 +34,7 @@ const row = (patch: Partial<VisitRow> = {}): VisitRow => ({
   productId: "coke",
   priceCents: 175,
   par: 10,
-  bestBy: null,
   left: "",
-  added: "",
-  isAddedEdited: false,
   removed: "",
   removedReason: null,
   previousLevel: null,
@@ -150,140 +140,29 @@ describe("buildVisitRows", () => {
   });
 });
 
-describe("fill-to-par default", () => {
-  it("defaults Added to par minus what was left", () => {
-    expect(rowWithLeft(row(), "4").added).toBe("6");
+describe("leftAfterPull", () => {
+  it("is left − removed", () => {
+    expect(leftAfterPull(row({ left: "4", removed: "1" }))).toBe(3);
   });
 
-  it("counts units being pulled out, so the slot still reaches par", () => {
-    const counted = rowWithLeft(row(), "4");
-    expect(rowWithRemoved(counted, "2").added).toBe("8");
-  });
-
-  it("never suggests a negative fill when the slot is over par", () => {
-    expect(rowWithLeft(row(), "14").added).toBe("0");
-  });
-
-  it("suggests nothing when the slot has no par", () => {
-    expect(rowWithLeft(row({ par: null }), "4").added).toBe("");
-  });
-
-  it("suggests nothing while Left is still half-typed", () => {
-    expect(fillToPar(row({ left: "" }))).toBe("");
-  });
-
-  // The ergonomics win must not become a number the operator never chose.
-  it("stops overwriting Added once the operator types in it", () => {
-    const overridden = rowWithAdded(rowWithLeft(row(), "4"), "3");
-    expect(rowWithLeft(overridden, "1").added).toBe("3");
-  });
-});
-
-describe("levelOf", () => {
-  it("is left − removed + added", () => {
-    expect(levelOf(row({ left: "4", removed: "1", added: "7" }))).toBe(10);
-  });
-
-  it("treats blank Added and Removed as nothing, not as invalid", () => {
-    expect(levelOf(row({ left: "4" }))).toBe(4);
+  it("treats a blank Removed as nothing, not as invalid", () => {
+    expect(leftAfterPull(row({ left: "4" }))).toBe(4);
   });
 
   it("is null while the row is half-typed", () => {
-    expect(levelOf(row({ left: "" }))).toBeNull();
-  });
-});
-
-describe("buildVisitLines", () => {
-  /**
-   * The most dangerous bug available here. An uncounted slot must be ABSENT
-   * from the submission so the engine reports `slot-not-counted`; sending it
-   * as `remaining: 0` books the whole previous fill as sold and invents
-   * revenue that never happened.
-   */
-  it("drops an uncounted row instead of sending remaining 0", () => {
-    const result = buildVisitLines([
-      row({ left: "4" }),
-      row({ slotCode: "A2", productId: "doritos", left: "" }),
-    ]);
-    expect("lines" in result && result.lines.map((l) => l.slotCode)).toEqual([
-      "A1",
-    ]);
-  });
-
-  it("sends blank Added and Removed as zero", () => {
-    const result = buildVisitLines([row({ left: "4", added: "", removed: "" })]);
-    expect("lines" in result && result.lines[0]).toMatchObject({
-      remaining: 4,
-      added: 0,
-      removed: 0,
-    });
-  });
-
-  it("carries the snapshotted price and par onto the line", () => {
-    const result = buildVisitLines([row({ left: "4" })]);
-    expect("lines" in result && result.lines[0]).toMatchObject({
-      priceCents: 175,
-      par: 10,
-      bestBy: null,
-    });
-  });
-
-  it("rejects a fractional count", () => {
-    const result = buildVisitLines([row({ left: "1.5" })]);
-    expect("error" in result && result.error).toContain("whole number");
-  });
-
-  it("rejects a negative count", () => {
-    const result = buildVisitLines([row({ left: "-2" })]);
-    expect("error" in result && result.error).toContain("whole number");
-  });
-
-  // Mirrors the server's refine: a reason decides loss vs. transfer, and
-  // defaulting either way would overstate or hide the write-off.
-  it("requires a reason once units are removed", () => {
-    const result = buildVisitLines([
-      row({ left: "4", removed: "2", removedReason: null }),
-    ]);
-    expect("error" in result && result.error).toContain("reason");
-  });
-
-  it("accepts a removal that has a reason", () => {
-    const result = buildVisitLines([
-      row({ left: "4", removed: "2", removedReason: "expired" }),
-    ]);
-    expect("lines" in result && result.lines[0]).toMatchObject({
-      removed: 2,
-      removedReason: "expired",
-    });
-  });
-
-  // Leftover UI state, not a fact about the visit: the operator opened the
-  // removal panel, picked a reason, then cleared the count.
-  it("drops a reason left behind with nothing removed", () => {
-    const stale = rowWithRemovedReason(row({ left: "4", removed: "0" }), "damaged");
-    const result = buildVisitLines([stale]);
-    expect("lines" in result && result.lines[0]?.removedReason).toBeNull();
-  });
-
-  it("refuses a submission with nothing counted at all", () => {
-    const result = buildVisitLines([row(), row({ slotCode: "A2" })]);
-    expect("error" in result && result.error).toContain("at least one slot");
+    expect(leftAfterPull(row({ left: "" }))).toBeNull();
   });
 });
 
 describe("warningsFor", () => {
-  it("flags a fill past par", () => {
-    expect(warningsFor(row({ left: "4", added: "9" }), { asOf: "2026-10-17" })).toContain("over-par");
-  });
-
   it("flags removing more than was found", () => {
     expect(warningsFor(row({ left: "2", removed: "5" }), { asOf: "2026-10-17" })).toContain(
       "over-removed",
     );
   });
 
-  it("stays quiet on an ordinary fill to par", () => {
-    expect(warningsFor(row({ left: "4", added: "6" }), { asOf: "2026-10-17" })).toEqual([]);
+  it("stays quiet on an ordinary count", () => {
+    expect(warningsFor(row({ left: "4" }), { asOf: "2026-10-17" })).toEqual([]);
   });
 });
 
@@ -335,55 +214,12 @@ describe("bestBy pre-fill", () => {
   });
 });
 
-describe("buildVisitLines bestBy", () => {
-  it("sends a typed date through", () => {
-    const result = buildVisitLines([
-      row({ left: "5", added: "5", bestBy: "2026-12-15" }),
-    ]);
-    expect("lines" in result && result.lines[0]).toMatchObject({
-      bestBy: "2026-12-15",
-    });
-  });
-
-  it("sends a blank date as null, never a guessed value", () => {
-    const result = buildVisitLines([row({ left: "5", added: "5", bestBy: "" })]);
-    expect("lines" in result && result.lines[0]).toMatchObject({
-      bestBy: null,
-    });
-  });
-
-  it("rejects a malformed date with a slot-prefixed message", () => {
-    const result = buildVisitLines([
-      row({ slotCode: "B3", left: "5", added: "5", bestBy: "Dec 15" }),
-    ]);
-    expect(result).toEqual({
-      error: 'Slot B3: "Best by" must be a date like 2026-12-15',
-    });
-  });
-
-  // A date on a slot with nothing in it describes stock that is not there.
-  it("sends null when the slot ends up empty", () => {
-    const result = buildVisitLines([
-      row({
-        left: "2",
-        added: "0",
-        removed: "2",
-        removedReason: "expired",
-        bestBy: "2026-10-06",
-      }),
-    ]);
-    expect("lines" in result && result.lines[0]).toMatchObject({
-      bestBy: null,
-    });
-  });
-});
-
 describe("warningsFor expiry", () => {
   const ASOF = "2026-10-17";
 
   it("flags an expired slot", () => {
     expect(
-      warningsFor(row({ left: "3", added: "0", bestBy: "2026-10-06" }), {
+      warningsFor(row({ left: "3", bestBy: "2026-10-06" }), {
         asOf: ASOF,
       }),
     ).toContain("expired");
@@ -391,7 +227,7 @@ describe("warningsFor expiry", () => {
 
   it("flags a slot inside the window", () => {
     expect(
-      warningsFor(row({ left: "3", added: "0", bestBy: "2026-10-20" }), {
+      warningsFor(row({ left: "3", bestBy: "2026-10-20" }), {
         asOf: ASOF,
       }),
     ).toContain("expiring-soon");
@@ -399,7 +235,7 @@ describe("warningsFor expiry", () => {
 
   it("stays quiet beyond the window", () => {
     expect(
-      warningsFor(row({ left: "3", added: "0", bestBy: "2026-12-16" }), {
+      warningsFor(row({ left: "3", bestBy: "2026-12-16" }), {
         asOf: ASOF,
       }),
     ).toEqual([]);
@@ -407,15 +243,24 @@ describe("warningsFor expiry", () => {
 
   it("stays quiet on an empty slot, nothing in there to go bad", () => {
     expect(
-      warningsFor(row({ left: "0", added: "0", bestBy: "2026-10-06" }), {
+      warningsFor(row({ left: "0", bestBy: "2026-10-06" }), {
         asOf: ASOF,
       }),
     ).toEqual([]);
   });
 
+  it("stays quiet when the pull emptied the slot", () => {
+    expect(
+      warningsFor(
+        row({ left: "3", removed: "3", removedReason: "expired", bestBy: "2026-10-06" }),
+        { asOf: ASOF },
+      ),
+    ).toEqual([]);
+  });
+
   it("stays quiet with no date recorded", () => {
     expect(
-      warningsFor(row({ left: "3", added: "0", bestBy: "" }), { asOf: ASOF }),
+      warningsFor(row({ left: "3", bestBy: "" }), { asOf: ASOF }),
     ).toEqual([]);
   });
 });
@@ -451,16 +296,6 @@ describe("mixed slots", () => {
     expect(isSlotCounted(rows, "A2")).toBe(true);
     expect(uncountedSlotCodes(rows)).toEqual(["A1"]);
   });
-
-  it("sends a line per counted product, never a zero for the blank one", () => {
-    const result = buildVisitLines([
-      row({ productId: "ruffles", left: "1" }),
-      row({ productId: "wavy" }),
-    ]);
-    expect("lines" in result && result.lines.map((l) => l.productId)).toEqual([
-      "ruffles",
-    ]);
-  });
 });
 
 describe("adding a product behind", () => {
@@ -495,36 +330,5 @@ describe("adding a product behind", () => {
       "A2:doritos",
     ]);
     expect(rowsInSlot(next, "A1")).toHaveLength(2);
-  });
-
-  it("lists what was added, for the planogram update", () => {
-    const next = rowsWithAddedBehind(rows, added);
-    expect(addedBehindOf(next)).toEqual([{ slotCode: "A1", productId: "wavy" }]);
-  });
-
-  // An added product with no count would be in the next planogram with no
-  // line on this visit, so next week's sales for it could never be computed.
-  it("requires a count for an added product, 0 if none were there", () => {
-    const result = buildVisitLines([
-      row({ productId: "ruffles", left: "1" }),
-      { ...added, added: "3" },
-    ]);
-    expect(result).toEqual({
-      error: 'Slot A1: enter "Left in slot" for the product you added behind (0 if none were there)',
-    });
-  });
-
-  it("sends an added product once it's counted", () => {
-    const result = buildVisitLines([
-      row({ productId: "ruffles", left: "1" }),
-      { ...added, left: "0", added: "3", isAddedEdited: true },
-    ]);
-    expect("lines" in result && result.lines[1]).toMatchObject({
-      slotCode: "A1",
-      productId: "wavy",
-      remaining: 0,
-      added: 3,
-      priceCents: 150,
-    });
   });
 });
