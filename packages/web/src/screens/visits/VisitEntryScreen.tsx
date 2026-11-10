@@ -47,6 +47,7 @@ import {
   nowLevelAfterRestock,
   productIdsAfterRestock,
   restockProgressFor,
+  visitWithoutCountRow,
 } from "./restockSlots.ts";
 import { VisitReview } from "./VisitReview.tsx";
 import {
@@ -213,8 +214,14 @@ function VisitDraftForm({
     setStep("count");
   };
 
-  const removeAdded = (removed: VisitRow) =>
-    setRows(rows.filter((row) => !isSameRow(row, removed)));
+  const removeAdded = (removed: VisitRow) => {
+    if (!restock) {
+      return;
+    }
+    const next = visitWithoutCountRow({ rows, restock, removed });
+    setRows(next.rows);
+    setRestock(next.restock);
+  };
 
   const slotOrder = [...new Set(rows.map((row) => row.slotCode))];
   const uncounted = uncountedSlotCodes(rows);

@@ -5,15 +5,23 @@ import {
   restockWithAction,
   restockWithArrivalChange,
   restockWithNewStock,
+  restockWithSwap,
 } from "./restock.ts";
 import {
   attentionSlotCodeFor,
   isSlotAnswered,
   nowLevelAfterRestock,
+  nowLevelFor,
   productIdsAfterRestock,
   restockProgressFor,
+  visitWithoutCountRow,
 } from "./restockSlots.ts";
-import { buildVisitRows, type VisitRow } from "./visitRows.ts";
+import {
+  buildAddedBehindRow,
+  buildVisitRows,
+  rowsWithAddedBehind,
+  type VisitRow,
+} from "./visitRows.ts";
 
 const SHELVES = [["A1", "A2", "A3"]];
 
@@ -214,5 +222,69 @@ describe("attentionSlotCodeFor", () => {
         violation: { kind: "move-to-same-slot", slotCode: "B2" },
       }),
     ).toBe("B2");
+  });
+});
+
+describe("nowLevelFor", () => {
+  it("is Left − pulled + Added, null while either is blank or half-typed", () => {
+    const [row] = buildRows();
+    if (!row) {
+      throw new Error("no rows");
+    }
+    const pulled = { ...row, left: "5", removed: "2", removedReason: "expired" as const };
+
+    expect(nowLevelFor(pulled, "4")).toBe(7);
+    expect(nowLevelFor(pulled, "")).toBe(null);
+    expect(nowLevelFor({ ...pulled, left: "x" }, "4")).toBe(null);
+  });
+});
+
+describe("visitWithoutCountRow", () => {
+  it("drops a found-behind row's move and the arrival it created", () => {
+    const rows = buildRows();
+    const found = {
+      ...buildAddedBehindRow({
+        front: rowFor(rows, "A1", "coke"),
+        productId: "lays",
+        tracksExpiration: false,
+      }),
+      left: "3",
+    };
+    const withFound = rowsWithAddedBehind(rows, found);
+    const restock = restockWithAction(
+      buildRestock({ shelves: SHELVES, rows: withFound }),
+      found,
+      { kind: "moved", toSlotCode: "A3", isSwap: false },
+    );
+
+    const next = visitWithoutCountRow({ rows: withFound, restock, removed: found });
+
+    expect(next.rows).toEqual(rows);
+    expect(next.restock.actions).toEqual({});
+    expect(next.restock.arrivals).toEqual([]);
+    expect(
+      restockProgressFor({
+        rows: next.rows,
+        restock: next.restock,
+        slotCodes: SHELVES.flat(),
+      }),
+    ).toEqual({ answeredCount: 0, totalCount: 2 });
+  });
+
+  it("clears the swap partner too", () => {
+    const rows = buildRows();
+    const restock = restockWithSwap(buildRestock({ shelves: SHELVES, rows }), {
+      a: rowFor(rows, "A1", "coke"),
+      b: rowFor(rows, "A2", "doritos"),
+    });
+
+    const next = visitWithoutCountRow({
+      rows,
+      restock,
+      removed: rowFor(rows, "A1", "coke"),
+    });
+
+    expect(next.restock.actions).toEqual({});
+    expect(next.restock.arrivals).toEqual([]);
   });
 });

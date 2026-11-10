@@ -1,6 +1,13 @@
 import { slotProductKey } from "@vendpire/domain";
-import { arrivalsIn, type Restock } from "./restock.ts";
-import { isCounted, leftAfterPull, parseCount, type VisitRow } from "./visitRows.ts";
+import { arrivalsIn, type Restock, restockWithAction } from "./restock.ts";
+import {
+  isCounted,
+  isSameRow,
+  leftAfterPull,
+  parseCount,
+  rowsInSlot,
+  type VisitRow,
+} from "./visitRows.ts";
 import type { SubmissionProblem } from "./visitSubmission.ts";
 
 /**
@@ -15,7 +22,7 @@ export interface RestockSlot {
 }
 
 const rowsOf = ({ rows, slotCode }: RestockSlot): VisitRow[] =>
-  rows.filter((row) => row.slotCode === slotCode);
+  rowsInSlot(rows, slotCode);
 
 const isStaying = (row: VisitRow, restock: Restock): boolean => {
   const action = restock.actions[slotProductKey(row)];
@@ -99,12 +106,18 @@ export const nowLevelAfterRestock = (slot: RestockSlot): number | null => {
   if (!row || action?.kind !== "added") {
     return null;
   }
+  return nowLevelFor(row, action.added);
+};
+
+/** Left − pulled + Added for a product that stays, or null while either is
+ *  blank or half-typed. */
+export const nowLevelFor = (row: VisitRow, added: string): number | null => {
   const left = leftAfterPull(row);
-  const added = parseCount(action.added);
-  if (left === null || added === null) {
+  const parsedAdded = parseCount(added);
+  if (left === null || parsedAdded === null) {
     return null;
   }
-  return left + added;
+  return left + parsedAdded;
 };
 
 /**
@@ -123,3 +136,20 @@ export const attentionSlotCodeFor = (problem: SubmissionProblem): string | null 
       return problem.slotCode;
   }
 };
+
+/**
+ * Count without `removed`, and Restock without its answer: a move's arrival
+ * and a swap partner go too, so nothing is left pointing at a row that's gone.
+ */
+export const visitWithoutCountRow = ({
+  rows,
+  restock,
+  removed,
+}: {
+  rows: readonly VisitRow[];
+  restock: Restock;
+  removed: VisitRow;
+}): { rows: VisitRow[]; restock: Restock } => ({
+  rows: rows.filter((row) => !isSameRow(row, removed)),
+  restock: restockWithAction(restock, removed, null),
+});

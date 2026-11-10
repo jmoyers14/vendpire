@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Button, countInputClass, hintClass } from "../../ui.tsx";
 import type { ProductAction, PullReason } from "./restock.ts";
-import { isCounted, leftAfterPull, parseCount, type VisitRow } from "./visitRows.ts";
+import { nowLevelFor } from "./restockSlots.ts";
+import { isCounted, type VisitRow } from "./visitRows.ts";
 
 const PULL_REASONS: { reason: PullReason; label: string }[] = [
   { reason: "destocked", label: "Back to the van" },
@@ -31,16 +32,6 @@ const actionSummary = (action: ProductAction): string => {
 };
 
 const linkClass = "text-sm text-primary-600 hover:text-primary-500";
-
-/** Left − pulled + Added, or null while either is half-typed. */
-const nowLevelFor = (row: VisitRow, added: string): number | null => {
-  const left = leftAfterPull(row);
-  const parsedAdded = parseCount(added);
-  if (left === null || parsedAdded === null) {
-    return null;
-  }
-  return left + parsedAdded;
-};
 
 /**
  * One Count product in Restock: four actions until one is chosen, then the
