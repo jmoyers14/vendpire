@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+  layoutChangeLineMismatch,
   slotsAfterChanges,
   type LayoutChange,
   type LayoutSlot,
@@ -179,5 +180,130 @@ describe("slotsAfterChanges", () => {
     expect(layout("76")).toEqual([["hersheys-almonds", 100]]);
     expect(layout("86")).toEqual([["trident", 100]]);
     expect(slots).toHaveLength(6);
+  });
+});
+
+describe("layoutChangeLineMismatch", () => {
+  type Line = Parameters<typeof layoutChangeLineMismatch>[1][number];
+  const line = (
+    slotCode: string,
+    productId: string,
+    overrides: Partial<Line> = {},
+  ): Line => ({
+    slotCode,
+    productId,
+    remaining: 0,
+    removed: 0,
+    removedReason: null,
+    added: 0,
+    ...overrides,
+  });
+  const transferredOut = (slotCode: string, productId: string, remaining: number) =>
+    line(slotCode, productId, {
+      remaining,
+      removed: remaining,
+      removedReason: "transferred",
+    });
+  const move: LayoutChange = {
+    kind: "move",
+    productId: "cheetos",
+    fromSlotCode: "A1",
+    toSlotCode: "B1",
+  };
+
+  test("accepts the swap lines from visit-layout-changes.md", () => {
+    const changes: LayoutChange[] = [
+      { kind: "move", productId: "cheetos", fromSlotCode: "A1", toSlotCode: "A2" },
+      { kind: "move", productId: "fritos", fromSlotCode: "A2", toSlotCode: "A1" },
+    ];
+    const lines = [
+      transferredOut("A1", "cheetos", 4),
+      transferredOut("A2", "fritos", 7),
+      line("A2", "cheetos", { added: 10 }),
+      line("A1", "fritos", { added: 10 }),
+    ];
+    expect(layoutChangeLineMismatch(changes, lines)).toBeNull();
+  });
+
+  test("accepts a set-price with no lines", () => {
+    expect(
+      layoutChangeLineMismatch([{ kind: "set-price", slotCode: "A1", priceCents: 125 }], []),
+    ).toBeNull();
+  });
+
+  test("reports a move with no source line as missing-line", () => {
+    expect(layoutChangeLineMismatch([move], [line("B1", "cheetos", { added: 10 })])).toEqual({
+      kind: "missing-line",
+      slotCode: "A1",
+      productId: "cheetos",
+    });
+  });
+
+  test("reports a move with no destination line as missing-line", () => {
+    expect(layoutChangeLineMismatch([move], [transferredOut("A1", "cheetos", 4)])).toEqual({
+      kind: "missing-line",
+      slotCode: "B1",
+      productId: "cheetos",
+    });
+  });
+
+  test("reports an add with no line as missing-line", () => {
+    expect(
+      layoutChangeLineMismatch([{ kind: "add", slotCode: "B1", productId: "pretzels" }], []),
+    ).toEqual({ kind: "missing-line", slotCode: "B1", productId: "pretzels" });
+  });
+
+  test("reports a remove that leaves units behind as not-fully-removed", () => {
+    const lines = [
+      line("A1", "cheetos", { remaining: 4, removed: 2, removedReason: "destocked" }),
+    ];
+    expect(
+      layoutChangeLineMismatch([{ kind: "remove", slotCode: "A1", productId: "cheetos" }], lines),
+    ).toEqual({ kind: "not-fully-removed", slotCode: "A1", productId: "cheetos" });
+  });
+
+  test("reports a remove with no reason as not-fully-removed", () => {
+    expect(
+      layoutChangeLineMismatch(
+        [{ kind: "remove", slotCode: "A1", productId: "cheetos" }],
+        [line("A1", "cheetos", { remaining: 0 })],
+      ),
+    ).toEqual({ kind: "not-fully-removed", slotCode: "A1", productId: "cheetos" });
+  });
+
+  test("reports a move whose pull is not a transfer as move-not-transferred", () => {
+    const lines = [
+      line("A1", "cheetos", { remaining: 4, removed: 4, removedReason: "expired" }),
+      line("B1", "cheetos", { added: 10 }),
+    ];
+    expect(layoutChangeLineMismatch([move], lines)).toEqual({
+      kind: "move-not-transferred",
+      slotCode: "A1",
+      productId: "cheetos",
+    });
+  });
+
+  test("reports units loaded onto a departing product as added-on-outgoing", () => {
+    const lines = [
+      { ...transferredOut("A1", "cheetos", 4), added: 2 },
+      line("B1", "cheetos", { added: 10 }),
+    ];
+    expect(layoutChangeLineMismatch([move], lines)).toEqual({
+      kind: "added-on-outgoing",
+      slotCode: "A1",
+      productId: "cheetos",
+    });
+  });
+
+  test("returns the first mismatch in change-list order", () => {
+    const changes: LayoutChange[] = [
+      { kind: "add", slotCode: "B2", productId: "gum" },
+      { kind: "add", slotCode: "B3", productId: "mints" },
+    ];
+    expect(layoutChangeLineMismatch(changes, [])).toEqual({
+      kind: "missing-line",
+      slotCode: "B2",
+      productId: "gum",
+    });
   });
 });

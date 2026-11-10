@@ -4,6 +4,9 @@
  * thrown, as in `slotRuleViolation`. Verbs: `docs/diagrams/visit-layout-changes.md`.
  */
 
+import type { VisitLine } from "../visits/types.ts";
+import { slotProductKey } from "./mixedSlots.ts";
+
 /** Par is ignored in this operation; every new entry carries this placeholder. */
 export const PLACEHOLDER_PAR = 10;
 
@@ -128,4 +131,67 @@ export const slotsAfterChanges = (
     result.push({ ...entry, priceCents });
   }
   return { slots: result };
+};
+
+export type LayoutLineMismatch =
+  | { kind: "missing-line"; slotCode: string; productId: string }
+  | { kind: "not-fully-removed"; slotCode: string; productId: string }
+  | { kind: "move-not-transferred"; slotCode: string; productId: string }
+  | { kind: "added-on-outgoing"; slotCode: string; productId: string };
+
+type CheckedLine = Pick<
+  VisitLine,
+  "slotCode" | "productId" | "remaining" | "removed" | "removedReason" | "added"
+>;
+
+/**
+ * The first change, in list order, whose visit lines don't back it up, or
+ * null. A departing product needs a line that takes out everything counted
+ * (a move says `transferred`) and loads nothing; an arriving one needs a line.
+ */
+export const layoutChangeLineMismatch = (
+  changes: readonly LayoutChange[],
+  lines: readonly CheckedLine[],
+): LayoutLineMismatch | null => {
+  const lineBySlotProduct = new Map<string, CheckedLine>();
+  for (const line of lines) {
+    lineBySlotProduct.set(slotProductKey(line), line);
+  }
+
+  for (const change of changes) {
+    if (change.kind === "set-price") {
+      continue;
+    }
+
+    if (change.kind === "add") {
+      const { slotCode, productId } = change;
+      if (!lineBySlotProduct.has(slotProductKey(change))) {
+        return { kind: "missing-line", slotCode, productId };
+      }
+      continue;
+    }
+
+    const { productId } = change;
+    const slotCode = change.kind === "move" ? change.fromSlotCode : change.slotCode;
+    const departing = lineBySlotProduct.get(slotProductKey({ slotCode, productId }));
+    if (!departing) {
+      return { kind: "missing-line", slotCode, productId };
+    }
+    if (departing.removed !== departing.remaining || departing.removedReason === null) {
+      return { kind: "not-fully-removed", slotCode, productId };
+    }
+    if (change.kind === "move" && departing.removedReason !== "transferred") {
+      return { kind: "move-not-transferred", slotCode, productId };
+    }
+    if (departing.added !== 0) {
+      return { kind: "added-on-outgoing", slotCode, productId };
+    }
+    if (change.kind === "move") {
+      const arriving = { slotCode: change.toSlotCode, productId };
+      if (!lineBySlotProduct.has(slotProductKey(arriving))) {
+        return { kind: "missing-line", ...arriving };
+      }
+    }
+  }
+  return null;
 };
