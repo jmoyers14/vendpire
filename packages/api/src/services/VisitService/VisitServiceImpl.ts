@@ -65,7 +65,7 @@ const replayOf = (visit: Visit): VisitCreation => ({
 const normalizeSlotCode = (slotCode: string): string =>
   slotCode.trim().toUpperCase();
 
-const normalizeSlotCodes = (change: LayoutChange): LayoutChange =>
+const withNormalizedSlotCodes = (change: LayoutChange): LayoutChange =>
   change.kind === "move"
     ? {
         ...change,
@@ -194,7 +194,7 @@ export class VisitServiceImpl implements VisitService {
   /**
    * The version the visit was counted against, with the layout changes applied,
    * effective from the visit's time. Refuses rather than merging when the
-   * planogram moved on, since the operator added to a layout they no longer see.
+   * planogram moved on, since the operator changed a layout they no longer see.
    */
   private planogramAfter({
     draft,
@@ -212,23 +212,23 @@ export class VisitServiceImpl implements VisitService {
     if (!current) {
       throw new ServiceError(
         "BAD_REQUEST",
-        "This visit has no planogram to add products to",
+        "This visit has no planogram for its layout and price changes to apply to",
       );
     }
     if (draft.planogramId !== current.id) {
       throw new ServiceError(
         "CONFLICT",
-        "The planogram changed after this visit was started. Reload and add the products again.",
+        "The planogram changed after this visit was started. Reload and enter its layout and price changes again.",
       );
     }
     if (Date.parse(draft.countedAt) <= Date.parse(current.effectiveFrom)) {
       throw new ServiceError(
         "CONFLICT",
-        "The planogram has changed since this visit's date, so products can't be added behind from it. Save the visit without them and change the planogram instead.",
+        "The planogram changed after this visit's date, so its layout and price changes can't be saved from it. Save the visit without them and change the planogram instead.",
       );
     }
 
-    const changes = layoutChanges.map(normalizeSlotCodes);
+    const changes = layoutChanges.map(withNormalizedSlotCodes);
     const mismatch = layoutChangeLineMismatch(changes, lines);
     if (mismatch) {
       throw new ServiceError("BAD_REQUEST", layoutChangeMessage(mismatch));
@@ -366,7 +366,7 @@ export class VisitServiceImpl implements VisitService {
     // uncounted forever.
     const lines = draft.lines.map((line) => ({
       ...line,
-      slotCode: line.slotCode.trim().toUpperCase(),
+      slotCode: normalizeSlotCode(line.slotCode),
     }));
 
     const machineSlotCodes = new Set(machine.slots.flat());

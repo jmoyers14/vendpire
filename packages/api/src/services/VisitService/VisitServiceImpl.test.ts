@@ -526,7 +526,7 @@ describe("VisitService", () => {
     it("refuses a visit dated before the current planogram", async () => {
       await expect(
         submitAddingFritos({ countedAt: "2026-08-20T17:00:00.000Z" }),
-      ).rejects.toThrow(/planogram has changed since/i);
+      ).rejects.toThrow(/planogram changed after this visit's date/i);
       expect(await visits.findByOrg(ORG)).toHaveLength(0);
     });
 
