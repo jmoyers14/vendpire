@@ -5,6 +5,7 @@ import {
   Button,
   Card,
   countInputClass,
+  ErrorNote,
   hintClass,
   inputClass,
   labelClass,
@@ -46,6 +47,7 @@ export function VisitReview({
   notes,
   onNotesChange,
   isSaving,
+  saveError,
   onSave,
 }: {
   submissionResult: VisitSubmissionResult;
@@ -64,6 +66,8 @@ export function VisitReview({
   notes: string;
   onNotesChange: (notes: string) => void;
   isSaving: boolean;
+  /** Why the last Save failed, shown beside Save. */
+  saveError: string | null;
   onSave: () => void;
 }) {
   const [isUncountedWarningShown, setIsUncountedWarningShown] = useState(false);
@@ -253,6 +257,8 @@ export function VisitReview({
           </div>
         </Alert>
       ) : null}
+
+      <ErrorNote message={saveError} />
 
       <Button
         full

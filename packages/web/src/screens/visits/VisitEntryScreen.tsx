@@ -364,7 +364,7 @@ function VisitDraftForm({
       </div>
       <p className="text-sm text-gray-600">{machine.data?.name ?? "…"}</p>
 
-      <ErrorNote message={error} />
+      {step === "review" ? null : <ErrorNote message={error} />}
 
       {machine.isSuccess && !hasPlanogram ? (
         <Alert tone="warning" title="This machine has no planogram yet">
@@ -457,6 +457,7 @@ function VisitDraftForm({
               notes={notes}
               onNotesChange={setNotes}
               isSaving={create.isPending}
+              saveError={error}
               onSave={save}
             />
           ) : null}
