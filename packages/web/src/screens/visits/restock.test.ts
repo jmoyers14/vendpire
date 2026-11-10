@@ -188,11 +188,13 @@ describe("restockWithSwap", () => {
       kind: "moved",
       toSlotCode: "A2",
       isSwap: true,
+      withProductId: "doritos",
     });
     expect(next.actions[slotProductKey(doritos)]).toEqual({
       kind: "moved",
       toSlotCode: "A1",
       isSwap: true,
+      withProductId: "coke",
     });
     expect(arrivalsIn(next, "A2").map((arrival) => arrival.productId)).toEqual([
       "coke",
@@ -218,6 +220,7 @@ describe("restockWithSwap", () => {
       kind: "moved",
       toSlotCode: "A1",
       isSwap: true,
+      withProductId: "coke",
     });
     expect(next.arrivals.map((arrival) => arrival.productId).sort()).toEqual([
       "coke",
@@ -404,4 +407,177 @@ describe("restockWithSourceLinked", () => {
     expect(next.arrivals).toHaveLength(1);
     expect(next.arrivals[0]).toMatchObject({ added: "10", fromSlotCode: "A1" });
   });
+});
+
+const move = (toSlotCode: string) => ({
+  kind: "moved" as const,
+  toSlotCode,
+  isSwap: false,
+});
+
+describe("swap partner and re-moves", () => {
+  it("clearing a swap in a mixed slot clears the partner, not an earlier plain move", () => {
+    const rows = countedRows();
+    const coke = rowFor(rows, "A1", "coke");
+    const doritos = rowFor(rows, "A2", "doritos");
+    const lays = rowFor(rows, "A2", "lays");
+    const start = buildRestock({ shelves: SHELVES, rows });
+    const plain = restockWithAction(start, doritos, move("A1"));
+    const swapped = restockWithSwap(plain, { a: coke, b: lays });
+
+    const next = restockWithAction(swapped, coke, null);
+
+    expect(next.actions).toEqual({ [slotProductKey(doritos)]: move("A1") });
+    expect(next.arrivals).toHaveLength(1);
+    expect(next.arrivals[0]).toMatchObject({
+      productId: "doritos",
+      slotCode: "A1",
+      fromSlotCode: "A2",
+    });
+  });
+
+  it("changing one swap side to a plain move clears the partner", () => {
+    const rows = countedRows();
+    const coke = rowFor(rows, "A1", "coke");
+    const doritos = rowFor(rows, "A2", "doritos");
+    const swapped = restockWithSwap(buildRestock({ shelves: SHELVES, rows }), {
+      a: coke,
+      b: doritos,
+    });
+
+    const next = restockWithAction(swapped, coke, move("B1"));
+
+    expect(next.actions).toEqual({ [slotProductKey(coke)]: move("B1") });
+    expect(next.arrivals).toHaveLength(1);
+    expect(next.arrivals[0]).toMatchObject({ slotCode: "B1", productId: "coke" });
+  });
+
+  it("re-moving a row to a different slot replaces its arrival", () => {
+    const rows = countedRows();
+    const coke = rowFor(rows, "A1", "coke");
+    const first = restockWithAction(buildRestock({ shelves: SHELVES, rows }), coke, move("B1"));
+
+    const next = restockWithAction(first, coke, move("A3"));
+
+    expect(next.arrivals.map((arrival) => arrival.slotCode)).toEqual(["A3"]);
+    expect(next.actions[slotProductKey(coke)]).toEqual(move("A3"));
+  });
+
+  it("two products moved into one slot keep both arrivals, and clearing one keeps the other", () => {
+    const rows = countedRows();
+    const coke = rowFor(rows, "A1", "coke");
+    const doritos = rowFor(rows, "A2", "doritos");
+    const both = restockWithAction(
+      restockWithAction(buildRestock({ shelves: SHELVES, rows }), coke, move("B1")),
+      doritos,
+      move("B1"),
+    );
+
+    const next = restockWithAction(both, coke, null);
+
+    expect(arrivalsIn(both, "B1")).toHaveLength(2);
+    expect(arrivalsIn(next, "B1").map((arrival) => arrival.productId)).toEqual(["doritos"]);
+  });
+});
+
+describe("restockWithSourceLinked edge cases", () => {
+  const cokeArrival = (restock: ReturnType<typeof buildRestock>) =>
+    arrivalsIn(restock, "B1")[0] as NonNullable<ReturnType<typeof arrivalsIn>[0]>;
+
+  it("does nothing when the source already moved there", () => {
+    const rows = countedRows();
+    const coke = rowFor(rows, "A1", "coke");
+    const moved = restockWithAction(buildRestock({ shelves: SHELVES, rows }), coke, move("B1"));
+    const typed = restockWithArrivalChange(moved, { slotCode: "B1", productId: "coke" }, { added: "10" });
+
+    const next = restockWithSourceLinked(typed, { arrival: cokeArrival(typed), source: coke });
+
+    expect(next).toEqual(typed);
+  });
+
+  it("keeps the typed Added when the source moved there but the arrival is separate new stock", () => {
+    const rows = countedRows();
+    const coke = rowFor(rows, "A1", "coke");
+    const moved = restockWithAction(buildRestock({ shelves: SHELVES, rows }), coke, move("B1"));
+    const stocked = restockWithNewStock(moved, {
+      slotCode: "B1",
+      productId: "coke",
+      tracksExpiration: true,
+    });
+    const typed = restockWithArrivalChange(stocked, { slotCode: "B1", productId: "coke" }, { added: "10" });
+    // The duplicate key resolves to every arrival, so pass the new-stock one.
+    const newStock = { ...cokeArrival(typed), fromSlotCode: null };
+
+    const next = restockWithSourceLinked(typed, { arrival: newStock, source: coke });
+
+    expect(next.actions[slotProductKey(coke)]).toEqual(move("B1"));
+    expect(next.arrivals).toHaveLength(1);
+    expect(next.arrivals[0]).toMatchObject({ added: "10", fromSlotCode: "A1" });
+  });
+
+  it("releases the previous source when the arrival was linked to another", () => {
+    const rows = countedRows();
+    const coke = rowFor(rows, "A1", "coke");
+    const otherCoke = { ...rowFor(rows, "A2", "doritos"), productId: "coke" };
+    const first = restockWithSourceLinked(
+      restockWithNewStock(buildRestock({ shelves: SHELVES, rows }), {
+        slotCode: "B1",
+        productId: "coke",
+        tracksExpiration: true,
+      }),
+      {
+        arrival: {
+          slotCode: "B1",
+          productId: "coke",
+          fromSlotCode: null,
+          added: "",
+          bestBy: "",
+          tracksExpiration: true,
+        },
+        source: otherCoke,
+      },
+    );
+    const typed = restockWithArrivalChange(first, { slotCode: "B1", productId: "coke" }, { added: "7", bestBy: "2027-02-02" });
+
+    const next = restockWithSourceLinked(typed, { arrival: cokeArrival(typed), source: coke });
+
+    expect(next.actions[slotProductKey(otherCoke)]).toBeUndefined();
+    expect(next.actions[slotProductKey(coke)]).toEqual(move("B1"));
+    expect(next.arrivals).toHaveLength(1);
+    expect(next.arrivals[0]).toMatchObject({ added: "7", bestBy: "2027-02-02", fromSlotCode: "A1" });
+  });
+});
+
+describe("immutability", () => {
+  const rows = countedRows();
+  const coke = rowFor(rows, "A1", "coke");
+  const doritos = rowFor(rows, "A2", "doritos");
+  const base = restockWithNewStock(
+    restockWithAction(buildRestock({ shelves: SHELVES, rows }), coke, move("B1")),
+    { slotCode: "A3", productId: "lays", tracksExpiration: false },
+  );
+  const arrival = arrivalsIn(base, "A3")[0] as NonNullable<ReturnType<typeof arrivalsIn>[0]>;
+
+  const calls: Record<string, (restock: typeof base) => unknown> = {
+    restockWithAction: (r) => restockWithAction(r, coke, null),
+    restockWithSwap: (r) => restockWithSwap(r, { a: coke, b: doritos }),
+    restockWithNewStock: (r) =>
+      restockWithNewStock(r, { slotCode: "A3", productId: "coke", tracksExpiration: true }),
+    restockWithArrivalChange: (r) =>
+      restockWithArrivalChange(r, { slotCode: "A3", productId: "lays" }, { added: "3" }),
+    restockWithPrice: (r) => restockWithPrice(r, "A1", "9"),
+    restockWithRestUnchanged: (r) => restockWithRestUnchanged(r, rows),
+    restockWithSourceLinked: (r) =>
+      restockWithSourceLinked(r, { arrival, source: doritos }),
+  };
+
+  for (const [name, call] of Object.entries(calls)) {
+    it(`${name} does not mutate its input`, () => {
+      const before = structuredClone(base);
+
+      call(base);
+
+      expect(base).toEqual(before);
+    });
+  }
 });

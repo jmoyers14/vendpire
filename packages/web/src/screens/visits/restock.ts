@@ -14,7 +14,14 @@ export type PullReason = "destocked" | "expired" | "damaged" | "recalled";
 
 export type ProductAction =
   | { kind: "added"; added: string }
-  | { kind: "moved"; toSlotCode: string; isSwap: boolean }
+  | {
+      kind: "moved";
+      toSlotCode: string;
+      isSwap: boolean;
+      /** On a swap, the product that moved the other way, so the partner is
+       *  found exactly even in a mixed slot. */
+      withProductId?: string;
+    }
   | { kind: "pulled"; reason: PullReason };
 
 /** A product that lands in a slot this visit, waiting for its Added. */
@@ -88,25 +95,18 @@ const withoutRowAction = (restock: Restock, row: VisitRow): Restock => {
   };
 };
 
-/** The row that was swapped with `row`, found through the arrival it left
- *  behind. Null when `row` isn't half of a swap. */
+/** The row that was swapped with `row`. Null when `row` isn't half of a
+ *  swap. */
 const swapPartnerKey = (restock: Restock, row: VisitRow): SlotProduct | null => {
   const previous = actionOf(restock, row);
-  if (previous?.kind !== "moved" || !previous.isSwap) {
+  if (
+    previous?.kind !== "moved" ||
+    !previous.isSwap ||
+    previous.withProductId === undefined
+  ) {
     return null;
   }
-  const partnerArrival = restock.arrivals.find(
-    (arrival) =>
-      arrival.slotCode === row.slotCode &&
-      arrival.fromSlotCode === previous.toSlotCode,
-  );
-  if (!partnerArrival) {
-    return null;
-  }
-  return {
-    slotCode: previous.toSlotCode,
-    productId: partnerArrival.productId,
-  };
+  return { slotCode: previous.toSlotCode, productId: previous.withProductId };
 };
 
 const withMove = (
@@ -191,11 +191,13 @@ export const restockWithSwap = (
     kind: "moved",
     toSlotCode: b.slotCode,
     isSwap: true,
+    withProductId: b.productId,
   });
   return withMove(movedA, b, {
     kind: "moved",
     toSlotCode: a.slotCode,
     isSwap: true,
+    withProductId: a.productId,
   });
 };
 
@@ -247,13 +249,45 @@ export const restockWithRestUnchanged = (
   return { ...restock, actions };
 };
 
-/** The operator said the arrival came from `source`: the source becomes a move
- *  to the arrival's slot, and the arrival keeps its Added. */
+/**
+ * The operator said the arrival came from `source`: the source becomes a move
+ * to the arrival's slot, and the arrival keeps its Added and best-by. Whatever
+ * the arrival was linked to before is released.
+ */
 export const restockWithSourceLinked = (
   restock: Restock,
   { arrival, source }: { arrival: Arrival; source: VisitRow },
 ): Restock => {
-  const cleared = restockWithAction(restock, source, null);
+  const sourceAction = actionOf(restock, source);
+  const isAlreadyLinked =
+    sourceAction?.kind === "moved" &&
+    sourceAction.toSlotCode === arrival.slotCode &&
+    arrival.fromSlotCode === source.slotCode;
+  if (isAlreadyLinked) {
+    return restock;
+  }
+
+  const arrivalIndex = restock.arrivals.findIndex((candidate) =>
+    isSameProduct(candidate, arrival),
+  );
+  // Clearing a source removes the arrival it created, so the arrival is taken
+  // out here and put back afterwards.
+  let cleared = restock;
+  if (arrival.fromSlotCode !== null) {
+    const previousSource = {
+      ...source,
+      slotCode: arrival.fromSlotCode,
+      productId: arrival.productId,
+    };
+    cleared = restockWithAction(cleared, previousSource, null);
+  }
+  cleared = restockWithAction(cleared, source, null);
+
+  const others = cleared.arrivals.filter(
+    (candidate) => !isSameProduct(candidate, arrival),
+  );
+  const linked: Arrival = { ...arrival, fromSlotCode: source.slotCode };
+  const index = arrivalIndex < 0 ? others.length : Math.min(arrivalIndex, others.length);
   return {
     actions: {
       ...cleared.actions,
@@ -263,11 +297,7 @@ export const restockWithSourceLinked = (
         isSwap: false,
       },
     },
-    arrivals: cleared.arrivals.map((candidate) =>
-      isSameProduct(candidate, arrival)
-        ? { ...candidate, fromSlotCode: source.slotCode }
-        : candidate,
-    ),
+    arrivals: [...others.slice(0, index), linked, ...others.slice(index)],
     prices: pricesWithFallback(cleared.prices, {
       toSlotCode: arrival.slotCode,
       fromSlotCode: source.slotCode,
