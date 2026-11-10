@@ -266,7 +266,7 @@ describe("layoutChangeLineMismatch", () => {
     expect(
       layoutChangeLineMismatch(
         [{ kind: "remove", slotCode: "A1", productId: "cheetos" }],
-        [line("A1", "cheetos", { remaining: 0 })],
+        [line("A1", "cheetos", { remaining: 4, removed: 4 })],
       ),
     ).toEqual({ kind: "not-fully-removed", slotCode: "A1", productId: "cheetos" });
   });
@@ -290,6 +290,36 @@ describe("layoutChangeLineMismatch", () => {
     ];
     expect(layoutChangeLineMismatch([move], lines)).toEqual({
       kind: "added-on-outgoing",
+      slotCode: "A1",
+      productId: "cheetos",
+    });
+  });
+
+  const removeCheetos: LayoutChange = { kind: "remove", slotCode: "A1", productId: "cheetos" };
+
+  test("accepts a sold-out product pulled with no reason", () => {
+    expect(layoutChangeLineMismatch([removeCheetos], [line("A1", "cheetos")])).toBeNull();
+  });
+
+  test("accepts a sold-out product moved with no reason", () => {
+    const lines = [line("A1", "cheetos"), line("B1", "cheetos", { added: 10 })];
+    expect(layoutChangeLineMismatch([move], lines)).toBeNull();
+  });
+
+  test("reports added-on-outgoing on a remove", () => {
+    const lines = [
+      line("A1", "cheetos", { remaining: 4, removed: 4, removedReason: "destocked", added: 2 }),
+    ];
+    expect(layoutChangeLineMismatch([removeCheetos], lines)).toEqual({
+      kind: "added-on-outgoing",
+      slotCode: "A1",
+      productId: "cheetos",
+    });
+  });
+
+  test("reports missing-line for a remove", () => {
+    expect(layoutChangeLineMismatch([removeCheetos], [])).toEqual({
+      kind: "missing-line",
       slotCode: "A1",
       productId: "cheetos",
     });

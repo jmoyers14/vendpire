@@ -177,10 +177,15 @@ export const layoutChangeLineMismatch = (
     if (!departing) {
       return { kind: "missing-line", slotCode, productId };
     }
-    if (departing.removed !== departing.remaining || departing.removedReason === null) {
+    // Sold out: nothing to pull, so no reason is needed (the engine reads it only when removed > 0).
+    const isSoldOut = departing.remaining === 0;
+    if (departing.removed !== departing.remaining) {
       return { kind: "not-fully-removed", slotCode, productId };
     }
-    if (change.kind === "move" && departing.removedReason !== "transferred") {
+    if (!isSoldOut && departing.removedReason === null) {
+      return { kind: "not-fully-removed", slotCode, productId };
+    }
+    if (!isSoldOut && change.kind === "move" && departing.removedReason !== "transferred") {
       return { kind: "move-not-transferred", slotCode, productId };
     }
     if (departing.added !== 0) {
