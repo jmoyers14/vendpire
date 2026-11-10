@@ -31,13 +31,22 @@ const submissionOf = (patch: Partial<VisitSubmissionDraft>): VisitSubmissionDraf
   ...patch,
 });
 
+const row = (slotCode: string, productId: string, left: string, isAddedBehind = false) => ({
+  slotCode,
+  productId,
+  left,
+  isAddedBehind,
+  priceCents: 0,
+  par: null,
+});
+
 describe("buildBeforeFace", () => {
   it("shows the planogram with Left, and no units for a blank Left", () => {
     const face = buildBeforeFace({
       planogramSlots: [slot("A1", "nerds", 200), slot("A2", "kars", 150)],
       rows: [
-        { slotCode: "A1", productId: "nerds", left: "4" },
-        { slotCode: "A2", productId: "kars", left: "" },
+        row("A1", "nerds", "4"),
+        row("A2", "kars", ""),
       ],
     });
     expect(face.get("A1")?.products).toEqual([
@@ -59,12 +68,41 @@ describe("buildBeforeFace", () => {
   });
 });
 
+describe("found in a slot", () => {
+  const planogramSlots = [slot("A1", "nerds", 200)];
+  const rows = [row("A1", "nerds", "4"), row("A1", "amos", "2", true)];
+
+  it("shows on the Before face behind the planogram product, at the slot price", () => {
+    const face = buildBeforeFace({ planogramSlots, rows });
+    expect(face.get("A1")?.products).toEqual([
+      { productId: "nerds", priceCents: 200, units: 4, wasPriceCents: null },
+      { productId: "amos", priceCents: 200, units: 2, wasPriceCents: null },
+    ]);
+  });
+
+  it("is not a change on the After face when it stayed", () => {
+    const face = buildAfterFace({
+      planogramSlots,
+      rows,
+      submission: submissionOf({
+        slotsAfter: [slot("A1", "nerds", 200), slot("A1", "amos", 200)],
+        lines: [
+          line({ slotCode: "A1", productId: "nerds", remaining: 4 }),
+          line({ slotCode: "A1", productId: "amos", remaining: 2 }),
+        ],
+      }),
+    });
+    expect(face.get("A1")?.isChanged).toBe(false);
+  });
+});
+
 describe("buildAfterFace", () => {
   const planogramSlots = [slot("A1", "nerds", 200), slot("B1", "kars", 150)];
 
   it("derives Now as remaining minus removed plus added", () => {
     const face = buildAfterFace({
       planogramSlots,
+      rows: [],
       submission: submissionOf({
         slotsAfter: planogramSlots,
         lines: [
@@ -80,6 +118,7 @@ describe("buildAfterFace", () => {
   it("shows a moved product in its new slot with its Now", () => {
     const face = buildAfterFace({
       planogramSlots,
+      rows: [],
       submission: submissionOf({
         slotsAfter: [slot("A1", "nerds", 200), slot("C1", "kars", 150)],
         lines: [
@@ -98,6 +137,7 @@ describe("buildAfterFace", () => {
   it("drops a pulled product and keeps the old one for strike-through", () => {
     const face = buildAfterFace({
       planogramSlots,
+      rows: [],
       submission: submissionOf({
         slotsAfter: [slot("A1", "nerds", 200)],
         lines: [line({ slotCode: "B1", productId: "kars", remaining: 2, removed: 2 })],
@@ -110,6 +150,7 @@ describe("buildAfterFace", () => {
   it("carries the old price on a repriced product", () => {
     const face = buildAfterFace({
       planogramSlots,
+      rows: [],
       submission: submissionOf({
         slotsAfter: [slot("A1", "nerds", 250), slot("B1", "kars", 150)],
         lines: [line({ slotCode: "A1", productId: "nerds", remaining: 4, added: 2 })],
@@ -126,6 +167,7 @@ describe("buildAfterFace", () => {
   it("lists a mixed slot front first", () => {
     const face = buildAfterFace({
       planogramSlots,
+      rows: [],
       submission: submissionOf({
         slotsAfter: [slot("A1", "nerds", 200), slot("A1", "amos", 200), slot("B1", "kars", 150)],
       }),

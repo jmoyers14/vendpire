@@ -81,6 +81,7 @@ export function VisitReview({
     "submission" in submissionResult
       ? buildAfterFace({
           planogramSlots,
+          rows,
           submission: submissionResult.submission,
         })
       : null;
@@ -120,7 +121,7 @@ export function VisitReview({
         </div>
       ) : null}
 
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className={`grid gap-3 ${afterFace ? "sm:grid-cols-2" : ""}`}>
         <div className={afterFace ? sideClass("before") : ""}>
           <ReviewFace
             title="Before"
@@ -161,7 +162,10 @@ export function VisitReview({
         <Alert tone="warning" title="Fix these before saving">
           <ul className="list-disc pl-5">
             {problemItems.map(([message, problem]) => {
-              const slotCode = attentionSlotCodeFor(problem);
+              const slotCode =
+                "slotCode" in problem
+                  ? problem.slotCode
+                  : attentionSlotCodeFor(problem);
               return (
                 <li key={message}>
                   {message}
