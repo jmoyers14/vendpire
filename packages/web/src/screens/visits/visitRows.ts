@@ -100,7 +100,7 @@ interface PreviousVisitLike {
 
 /** A whole non-negative count, or null if the text isn't one. Rejects "1.5"
  *  and "-2"; `""` is the caller's business, not a parse failure. */
-const parseCount = (text: string): number | null => {
+export const parseCount = (text: string): number | null => {
   const trimmed = text.trim();
   if (!/^\d+$/.test(trimmed)) {
     return null;
@@ -109,7 +109,7 @@ const parseCount = (text: string): number | null => {
 };
 
 /** Rejects an ISO instant and a non-padded date — both break the ordering. */
-const CALENDAR_DATE = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
+export const CALENDAR_DATE = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
 
 /** Matches the server's default window, so the slot row and the pre-trip
  *  report cannot disagree about what "soon" means. */

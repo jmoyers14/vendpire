@@ -1,0 +1,410 @@
+import {
+  type LayoutChange,
+  type LayoutChangeViolation,
+  type LayoutSlot,
+  PLACEHOLDER_PAR,
+  type RemovalReason,
+  slotProductKey,
+  slotsAfterChanges,
+} from "@vendpire/domain";
+import { parseDollarsToCents } from "../../utils/money.ts";
+import type { Arrival, ProductAction, Restock } from "./restock.ts";
+import {
+  CALENDAR_DATE,
+  isCounted,
+  parseCount,
+  type VisitLineDraft,
+  type VisitRow,
+} from "./visitRows.ts";
+
+/**
+ * Count and Restock as what the server saves: the visit lines, the layout
+ * changes, and the planogram they produce. Pure. The review and the save both
+ * read this, so they can't disagree. Verbs: `docs/diagrams/visit-layout-changes.md`.
+ */
+
+export type SubmissionProblem =
+  | { kind: "unanswered"; slotCode: string; productId: string }
+  | { kind: "answered-but-uncounted"; slotCode: string; productId: string }
+  | { kind: "split-reason"; slotCode: string; productId: string }
+  | { kind: "added-blank"; slotCode: string; productId: string }
+  | { kind: "price-missing"; slotCode: string }
+  | {
+      kind: "invalid-count";
+      slotCode: string;
+      field: "left" | "added" | "removed" | "bestBy";
+    }
+  | { kind: "layout"; violation: LayoutChangeViolation }
+  // The server takes at least one line.
+  | { kind: "nothing-counted" };
+
+export interface VisitSubmissionDraft {
+  lines: VisitLineDraft[];
+  layoutChanges: LayoutChange[];
+  /** The review's after face. */
+  slotsAfter: LayoutSlot[];
+}
+
+/** A Count row's numbers, parsed. */
+interface RowCount {
+  remaining: number;
+  removed: number;
+  removedReason: RemovalReason | null;
+  bestBy: string;
+}
+
+/** `""` is 0 here: a blank Pulled means nothing was pulled. */
+const parseOptionalCount = (text: string): number | null =>
+  text.trim() === "" ? 0 : parseCount(text);
+
+const isCalendarDateOrBlank = (bestBy: string): boolean =>
+  bestBy === "" || CALENDAR_DATE.test(bestBy);
+
+/** A date on an emptied slot describes stock that is not there. */
+const bestByFor = (bestBy: string, level: number): string | null =>
+  bestBy === "" || level === 0 ? null : bestBy;
+
+const parseRowCount = (
+  row: VisitRow,
+): { count: RowCount } | { problems: SubmissionProblem[] } => {
+  const { slotCode } = row;
+  const problems: SubmissionProblem[] = [];
+  const remaining = parseCount(row.left);
+  if (remaining === null) {
+    problems.push({ kind: "invalid-count", slotCode, field: "left" });
+  }
+  const removed = parseOptionalCount(row.removed);
+  if (removed === null || (removed > 0 && row.removedReason === null)) {
+    problems.push({ kind: "invalid-count", slotCode, field: "removed" });
+  }
+  const bestBy = row.bestBy.trim();
+  if (!isCalendarDateOrBlank(bestBy)) {
+    problems.push({ kind: "invalid-count", slotCode, field: "bestBy" });
+  }
+  if (remaining === null || removed === null || problems.length > 0) {
+    return { problems };
+  }
+  return {
+    count: {
+      remaining,
+      removed,
+      // A reason without a removal is leftover UI state, not a fact.
+      removedReason: removed > 0 ? row.removedReason : null,
+      bestBy,
+    },
+  };
+};
+
+/** Added text as a number. Blank is its own problem: it is never 0. */
+const parseAdded = (
+  added: string,
+  key: { slotCode: string; productId: string },
+): { added: number } | { problem: SubmissionProblem } => {
+  if (added.trim() === "") {
+    return { problem: { kind: "added-blank", ...key } };
+  }
+  const parsed = parseCount(added);
+  if (parsed === null) {
+    return {
+      problem: { kind: "invalid-count", slotCode: key.slotCode, field: "added" },
+    };
+  }
+  return { added: parsed };
+};
+
+/**
+ * Everything counted goes out under one reason. Sold out has nothing to pull,
+ * and the server needs no reason for it.
+ */
+const departingLine = (
+  row: VisitRow,
+  count: RowCount,
+  { reason, priceCents }: { reason: RemovalReason; priceCents: number },
+): VisitLineDraft => ({
+  slotCode: row.slotCode,
+  productId: row.productId,
+  remaining: count.remaining,
+  added: 0,
+  removed: count.remaining,
+  removedReason: count.remaining > 0 ? reason : null,
+  priceCents,
+  par: row.par,
+  bestBy: null,
+});
+
+/** A line has one `removed` and one reason, so a Count pull must match the way the rest left. */
+const isSplitReason = (
+  count: RowCount,
+  action: Exclude<ProductAction, { kind: "added" }>,
+): boolean => {
+  if (count.removed === 0) {
+    return false;
+  }
+  return action.kind === "moved" || count.removedReason !== action.reason;
+};
+
+export const buildVisitSubmission = ({
+  rows,
+  restock,
+  planogramSlots,
+}: {
+  rows: readonly VisitRow[];
+  restock: Restock;
+  planogramSlots: readonly LayoutSlot[];
+}): { submission: VisitSubmissionDraft } | { problems: SubmissionProblem[] } => {
+  const problems: SubmissionProblem[] = [];
+  const lines: VisitLineDraft[] = [];
+  const foundHereChanges: LayoutChange[] = [];
+  const moveChanges: LayoutChange[] = [];
+  const removeChanges: LayoutChange[] = [];
+  const newStockChanges: LayoutChange[] = [];
+  const stockedSlotCodes = new Set<string>();
+  const priceMissingSlotCodes = new Set<string>();
+
+  const priceBeforeBySlot = new Map<string, number>();
+  for (const slot of planogramSlots) {
+    priceBeforeBySlot.set(slot.slotCode, slot.priceCents);
+  }
+
+  const priceAfterOf = (slotCode: string): number | null =>
+    parseDollarsToCents(restock.prices[slotCode] ?? "");
+
+  /** The after price for a line that stays or arrives; a missing one is reported once per slot. */
+  const priceStockedLine = (slotCode: string): number => {
+    stockedSlotCodes.add(slotCode);
+    const priceAfter = priceAfterOf(slotCode);
+    if (priceAfter !== null) {
+      return priceAfter;
+    }
+    if (!priceMissingSlotCodes.has(slotCode)) {
+      priceMissingSlotCodes.add(slotCode);
+      problems.push({ kind: "price-missing", slotCode });
+    }
+    return 0;
+  };
+
+  for (const row of rows) {
+    const { slotCode, productId } = row;
+    if (row.isAddedBehind) {
+      foundHereChanges.push({ kind: "add", slotCode, productId });
+    }
+    const action = restock.actions[slotProductKey(row)];
+
+    if (!isCounted(row)) {
+      // A found product joins the planogram, so it must have a line.
+      if (row.isAddedBehind) {
+        problems.push({ kind: "invalid-count", slotCode, field: "left" });
+      } else if (action !== undefined) {
+        problems.push({ kind: "answered-but-uncounted", slotCode, productId });
+      }
+      continue;
+    }
+
+    const parsed = parseRowCount(row);
+    if ("problems" in parsed) {
+      problems.push(...parsed.problems);
+      continue;
+    }
+    const { count } = parsed;
+
+    if (action === undefined) {
+      problems.push({ kind: "unanswered", slotCode, productId });
+      continue;
+    }
+
+    if (action.kind === "added") {
+      const added = parseAdded(action.added, { slotCode, productId });
+      if ("problem" in added) {
+        problems.push(added.problem);
+        continue;
+      }
+      const level = count.remaining - count.removed + added.added;
+      lines.push({
+        slotCode,
+        productId,
+        remaining: count.remaining,
+        added: added.added,
+        removed: count.removed,
+        removedReason: count.removedReason,
+        priceCents: priceStockedLine(slotCode),
+        par: row.par,
+        bestBy: bestByFor(count.bestBy, level),
+      });
+      continue;
+    }
+
+    if (isSplitReason(count, action)) {
+      problems.push({ kind: "split-reason", slotCode, productId });
+      continue;
+    }
+    const priceCents = priceBeforeBySlot.get(slotCode) ?? row.priceCents;
+    if (action.kind === "moved") {
+      lines.push(departingLine(row, count, { reason: "transferred", priceCents }));
+      moveChanges.push({
+        kind: "move",
+        productId,
+        fromSlotCode: slotCode,
+        toSlotCode: action.toSlotCode,
+      });
+      continue;
+    }
+    lines.push(departingLine(row, count, { reason: action.reason, priceCents }));
+    removeChanges.push({ kind: "remove", slotCode, productId });
+  }
+
+  for (const arrival of restock.arrivals) {
+    const arrivalLine = buildArrivalLine(arrival);
+    if ("problem" in arrivalLine) {
+      problems.push(arrivalLine.problem);
+      continue;
+    }
+    lines.push({ ...arrivalLine.line, priceCents: priceStockedLine(arrival.slotCode) });
+    // A linked arrival's change is its source's move.
+    if (arrival.fromSlotCode === null) {
+      newStockChanges.push({
+        kind: "add",
+        slotCode: arrival.slotCode,
+        productId: arrival.productId,
+      });
+    }
+  }
+
+  const priceChanges = buildPriceChanges({
+    slotCodes: [...new Set([...Object.keys(restock.prices), ...stockedSlotCodes])],
+    stockedSlotCodes,
+    priceBeforeBySlot,
+    priceAfterOf,
+  });
+  const layoutChanges = [
+    ...foundHereChanges,
+    ...moveChanges,
+    ...removeChanges,
+    ...newStockChanges,
+    ...priceChanges,
+  ];
+
+  const after = slotsAfterChanges(planogramSlots, layoutChanges);
+  if ("violation" in after) {
+    const { violation } = after;
+    if (violation.kind !== "missing-price") {
+      problems.push({ kind: "layout", violation });
+    } else if (!priceMissingSlotCodes.has(violation.slotCode)) {
+      problems.push({ kind: "price-missing", slotCode: violation.slotCode });
+    }
+  }
+
+  if (problems.length === 0 && lines.length === 0) {
+    problems.push({ kind: "nothing-counted" });
+  }
+  if (problems.length > 0 || "violation" in after) {
+    return { problems };
+  }
+  return { submission: { lines, layoutChanges, slotsAfter: after.slots } };
+};
+
+/** An arrival's line, priced by the caller: it has no `remaining`, only what went in. */
+const buildArrivalLine = (
+  arrival: Arrival,
+): { line: Omit<VisitLineDraft, "priceCents"> } | { problem: SubmissionProblem } => {
+  const { slotCode, productId } = arrival;
+  const added = parseAdded(arrival.added, { slotCode, productId });
+  if ("problem" in added) {
+    return added;
+  }
+  const bestBy = arrival.bestBy.trim();
+  if (!isCalendarDateOrBlank(bestBy)) {
+    return { problem: { kind: "invalid-count", slotCode, field: "bestBy" } };
+  }
+  return {
+    line: {
+      slotCode,
+      productId,
+      remaining: 0,
+      added: added.added,
+      removed: 0,
+      removedReason: null,
+      par: PLACEHOLDER_PAR,
+      bestBy: bestByFor(bestBy, added.added),
+    },
+  };
+};
+
+/**
+ * A `set-price` for each slot that holds a product after Restock and whose
+ * price changed or never existed. An emptied slot keeps no planogram entry for
+ * a price to land on.
+ */
+const buildPriceChanges = ({
+  slotCodes,
+  stockedSlotCodes,
+  priceBeforeBySlot,
+  priceAfterOf,
+}: {
+  slotCodes: readonly string[];
+  stockedSlotCodes: ReadonlySet<string>;
+  priceBeforeBySlot: ReadonlyMap<string, number>;
+  priceAfterOf: (slotCode: string) => number | null;
+}): LayoutChange[] => {
+  const changes: LayoutChange[] = [];
+  for (const slotCode of slotCodes) {
+    const priceAfter = priceAfterOf(slotCode);
+    if (!stockedSlotCodes.has(slotCode) || priceAfter === null) {
+      continue;
+    }
+    if (priceBeforeBySlot.get(slotCode) === priceAfter) {
+      continue;
+    }
+    changes.push({ kind: "set-price", slotCode, priceCents: priceAfter });
+  }
+  return changes;
+};
+
+const INVALID_COUNT_MESSAGES: Record<
+  Extract<SubmissionProblem, { kind: "invalid-count" }>["field"],
+  string
+> = {
+  left: `"Left in slot" must be a whole number (0 if none were there)`,
+  added: `"Added" must be a whole number`,
+  removed: `"Pulled" must be a whole number, with a reason`,
+  bestBy: `"Best by" must be a date like 2026-12-15`,
+};
+
+const violationMessage = (
+  violation: LayoutChangeViolation,
+  nameOf: (productId: string) => string,
+): string => {
+  switch (violation.kind) {
+    case "product-not-in-slot":
+      return `Slot ${violation.slotCode}: ${nameOf(violation.productId)} isn't in this slot to move or pull`;
+    case "product-already-in-slot":
+      return `Slot ${violation.slotCode}: ${nameOf(violation.productId)} is already in this slot`;
+    case "missing-price":
+      return `Slot ${violation.slotCode}: enter a price`;
+    case "move-to-same-slot":
+      return `Slot ${violation.slotCode}: a product can't move to the slot it's already in`;
+  }
+};
+
+export const problemMessage = (
+  problem: SubmissionProblem,
+  nameOf: (productId: string) => string,
+): string => {
+  switch (problem.kind) {
+    case "unanswered":
+      return `Slot ${problem.slotCode}: say what happened to ${nameOf(problem.productId)} in Restock`;
+    case "answered-but-uncounted":
+      return `Slot ${problem.slotCode}: ${nameOf(problem.productId)} has a Restock answer but no "Left in slot" count`;
+    case "split-reason":
+      return `Slot ${problem.slotCode}: ${nameOf(problem.productId)} was pulled in Count for a different reason than it left in Restock; record every unit under one reason`;
+    case "added-blank":
+      return `Slot ${problem.slotCode}: enter "Added" for ${nameOf(problem.productId)} (0 if none went in)`;
+    case "price-missing":
+      return `Slot ${problem.slotCode}: enter a price`;
+    case "invalid-count":
+      return `Slot ${problem.slotCode}: ${INVALID_COUNT_MESSAGES[problem.field]}`;
+    case "layout":
+      return violationMessage(problem.violation, nameOf);
+    case "nothing-counted":
+      return "Count at least one slot before saving this visit";
+  }
+};
