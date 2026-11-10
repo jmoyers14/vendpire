@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { visitLineInput } from "./visits.ts";
+import { layoutChangesFrom, visitLineInput } from "./visits.ts";
 
 const line = (over: Record<string, unknown> = {}) => ({
   slotCode: "B3",
@@ -41,5 +41,19 @@ describe("visitLineInput bestBy", () => {
 
   it("rejects a non-padded date, which would break lexicographic ordering", () => {
     expect(() => visitLineInput.parse(line({ bestBy: "2026-1-5" }))).toThrow();
+  });
+});
+
+describe("layoutChangesFrom", () => {
+  it("puts addedBehind first as add changes", () => {
+    const changes = layoutChangesFrom({
+      addedBehind: [{ slotCode: "A1", productId: "p1" }],
+      layoutChanges: [{ kind: "set-price", slotCode: "A1", priceCents: 200 }],
+    });
+
+    expect(changes).toEqual([
+      { kind: "add", slotCode: "A1", productId: "p1" },
+      { kind: "set-price", slotCode: "A1", priceCents: 200 },
+    ]);
   });
 });

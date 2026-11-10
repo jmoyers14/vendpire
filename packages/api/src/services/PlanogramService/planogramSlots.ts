@@ -1,12 +1,8 @@
-import {
-  lastIndexInSlot,
-  type SlotProduct,
-  type SlotRuleViolation,
+import type {
+  LayoutChangeViolation,
+  LayoutLineMismatch,
+  SlotRuleViolation,
 } from "@vendpire/domain";
-import type { PlanogramSlot } from "@vendpire/platform";
-
-/** A product loaded behind a slot's existing ones during a visit. */
-export type AddedBehind = SlotProduct;
 
 export const slotRuleMessage = (violation: SlotRuleViolation): string => {
   switch (violation.kind) {
@@ -19,23 +15,25 @@ export const slotRuleMessage = (violation: SlotRuleViolation): string => {
   }
 };
 
-/** Each addition placed behind its slot's last product, at that slot's price and par. */
-export const slotsWithAddedBehind = (
-  slots: readonly PlanogramSlot[],
-  additions: readonly AddedBehind[],
-): PlanogramSlot[] => {
-  const result = [...slots];
-  for (const addition of additions) {
-    const lastIndex = lastIndexInSlot(result, addition.slotCode);
-    const back = result[lastIndex];
-    if (!back) {
-      throw new Error(`Slot ${addition.slotCode} has no product to add behind`);
-    }
-    result.splice(lastIndex + 1, 0, {
-      ...addition,
-      par: back.par,
-      priceCents: back.priceCents,
-    });
+export const layoutChangeMessage = (
+  problem: LayoutChangeViolation | LayoutLineMismatch,
+): string => {
+  switch (problem.kind) {
+    case "product-not-in-slot":
+      return `Slot ${problem.slotCode} does not hold product ${problem.productId}`;
+    case "product-already-in-slot":
+      return `Slot ${problem.slotCode} already holds product ${problem.productId}`;
+    case "missing-price":
+      return `Slot ${problem.slotCode} has no price; set one for the product going in`;
+    case "move-to-same-slot":
+      return `Slot ${problem.slotCode}: a move needs a different destination slot`;
+    case "missing-line":
+      return `Slot ${problem.slotCode}: product ${problem.productId} has no count on this visit`;
+    case "not-fully-removed":
+      return `Slot ${problem.slotCode}: product ${problem.productId} leaves the slot, so everything counted must be removed with a reason`;
+    case "move-not-transferred":
+      return `Slot ${problem.slotCode}: product ${problem.productId} is moving, so its removal reason must be transferred`;
+    case "added-on-outgoing":
+      return `Slot ${problem.slotCode}: product ${problem.productId} is leaving, so nothing can be added to it`;
   }
-  return result;
 };

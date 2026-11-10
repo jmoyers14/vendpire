@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { LayoutChange } from "@vendpire/domain";
 import { orgProtectedProcedure, router } from "../trpc.ts";
 import { ANALYTICS_EVENTS } from "../analytics/events.ts";
 import {
@@ -33,6 +34,47 @@ export const visitLineInput = z
     message: "removedReason is required when removed > 0",
   });
 
+const slotCodeInput = z.string().min(1).max(8);
+
+// Published in openapi/vendpire.yaml; later changes must be additive.
+const layoutChangeInput = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("move"),
+    productId: objectId(),
+    fromSlotCode: slotCodeInput,
+    toSlotCode: slotCodeInput,
+  }),
+  z.object({
+    kind: z.literal("remove"),
+    slotCode: slotCodeInput,
+    productId: objectId(),
+  }),
+  z.object({
+    kind: z.literal("add"),
+    slotCode: slotCodeInput,
+    productId: objectId(),
+  }),
+  z.object({
+    kind: z.literal("set-price"),
+    slotCode: slotCodeInput,
+    priceCents: z.number().int().min(0).max(100_000),
+  }),
+]);
+
+/** Old payloads' addedBehind come first, so a Count "found here" add applies before the moves. */
+export const layoutChangesFrom = ({
+  addedBehind,
+  layoutChanges,
+}: {
+  addedBehind: readonly { slotCode: string; productId: string }[];
+  layoutChanges: readonly LayoutChange[];
+}): LayoutChange[] => [
+  ...addedBehind.map(
+    ({ slotCode, productId }): LayoutChange => ({ kind: "add", slotCode, productId }),
+  ),
+  ...layoutChanges,
+];
+
 const visitInput = z.object({
   machineId: objectId(),
   // A client snapshot, never re-derived: if the machine moved between the count
@@ -57,6 +99,13 @@ const visitInput = z.object({
     .default([])
     .describe(
       "Products loaded behind a slot's existing ones during this visit. Saving also writes the next planogram version with them in it.",
+    ),
+  layoutChanges: z
+    .array(layoutChangeInput)
+    .max(100)
+    .default([])
+    .describe(
+      "Moves, pulls, additions and price changes made during this visit, applied in order. Saving also writes the next planogram version with them applied.",
     ),
 });
 
@@ -144,11 +193,11 @@ export const visitsRouter = router({
     .input(visitInput)
     .output(visitDto)
     .mutation(async ({ ctx, input }) => {
-      const { addedBehind, ...draft } = input;
+      const { addedBehind, layoutChanges, ...draft } = input;
       const creation = await ctx.services.visitService.create(ctx.auth.orgId, {
         draft,
         recordedByUserId: ctx.auth.userId,
-        addedBehind,
+        layoutChanges: layoutChangesFrom({ addedBehind, layoutChanges }),
       });
 
       // A replay wrote nothing, so it is neither logged nor counted — one

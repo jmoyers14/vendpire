@@ -1,4 +1,4 @@
-import type { CalendarDate, VisitAnomaly } from "@vendpire/domain";
+import type { CalendarDate, LayoutChange, VisitAnomaly } from "@vendpire/domain";
 import type {
   Planogram,
   Visit,
@@ -7,7 +7,6 @@ import type {
   VisitListFilter,
   VisitRange,
 } from "@vendpire/platform";
-import type { AddedBehind } from "../PlanogramService/planogramSlots.ts";
 
 export type { Visit, VisitInput, VisitLine, VisitListFilter, VisitRange };
 
@@ -19,9 +18,9 @@ export type VisitDraft = Omit<VisitInput, "recordedByUserId">;
 export interface VisitSubmission {
   draft: VisitDraft;
   recordedByUserId: string;
-  /** Products loaded behind a slot's existing ones. When non-empty, the visit
-   *  and the next planogram version are saved together or not at all. */
-  addedBehind?: AddedBehind[];
+  /** When non-empty, the visit and the next planogram version are saved
+   *  together or not at all. */
+  layoutChanges?: LayoutChange[];
 }
 
 /**
@@ -55,7 +54,7 @@ export interface VisitCreation {
    *  unknown-removal-reason. The read path derives the same set. */
   anomalies: VisitAnomaly[];
   notices: VisitNotice[];
-  /** The planogram version this submit wrote, when it added products behind.
+  /** The planogram version this submit wrote, when it made layout changes.
    *  Null on a replay: the first submit already wrote it. */
   planogram: Planogram | null;
 }

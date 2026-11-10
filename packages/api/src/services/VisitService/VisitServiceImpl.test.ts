@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it } from "bun:test";
 import { VisitServiceImpl } from "./VisitServiceImpl.ts";
+import type { LayoutChange } from "@vendpire/domain";
+import type { VisitLine } from "@vendpire/platform";
 import type { VisitDraft } from "./VisitService.ts";
 import {
   FakeLocationRepository,
@@ -467,7 +469,7 @@ describe("VisitService", () => {
           lines: [...base.lines, { ...fritosLine, productId: fritosId }],
         },
         recordedByUserId: USER,
-        addedBehind: [{ slotCode: "a1", productId: fritosId }],
+        layoutChanges: [{ kind: "add", slotCode: "a1", productId: fritosId }],
       });
     };
 
@@ -475,11 +477,15 @@ describe("VisitService", () => {
       const { planogram } = await submitAddingFritos();
 
       expect(planogram?.effectiveFrom).toBe("2026-09-20T17:00:00.000Z");
-      expect(planogram?.slots).toEqual([
-        { slotCode: "A1", productId: cokeId, par: 10, priceCents: 175 },
-        { slotCode: "A1", productId: fritosId, par: 10, priceCents: 175 },
-        { slotCode: "A2", productId: cokeId, par: 8, priceCents: 150 },
-      ]);
+      // Order across slots is not meaningful; within a slot the new product is last.
+      expect(planogram?.slots).toHaveLength(3);
+      expect(planogram?.slots).toEqual(
+        expect.arrayContaining([
+          { slotCode: "A1", productId: cokeId, par: 10, priceCents: 175 },
+          { slotCode: "A1", productId: fritosId, par: 10, priceCents: 175 },
+          { slotCode: "A2", productId: cokeId, par: 8, priceCents: 150 },
+        ]),
+      );
       expect((await planograms.findCurrentByMachine(ORG, machineId))?.id).toBe(
         planogram?.id,
       );
@@ -529,7 +535,7 @@ describe("VisitService", () => {
         service.create(ORG, {
           draft: draft({ planogramId: current.id }),
           recordedByUserId: USER,
-          addedBehind: [{ slotCode: "A1", productId: cokeId }],
+          layoutChanges: [{ kind: "add", slotCode: "A1", productId: cokeId }],
         }),
       ).rejects.toThrow(/already/i);
     });
@@ -539,7 +545,7 @@ describe("VisitService", () => {
         service.create(ORG, {
           draft: draft({ planogramId: current.id }),
           recordedByUserId: USER,
-          addedBehind: [{ slotCode: "A1", productId: fritosId }],
+          layoutChanges: [{ kind: "add", slotCode: "A1", productId: fritosId }],
         }),
       ).rejects.toThrow(/count/i);
     });
@@ -553,6 +559,159 @@ describe("VisitService", () => {
       expect((await planograms.findCurrentByMachine(ORG, machineId))?.id).toBe(
         current.id,
       );
+    });
+  });
+
+  describe("layout changes", () => {
+    let current: ReturnType<typeof planograms.seed>;
+
+    beforeEach(() => {
+      current = planograms.seed(ORG, {
+        machineId,
+        effectiveFrom: "2026-09-01T00:00:00.000Z",
+        slots: [
+          { slotCode: "A1", productId: cokeId, par: 10, priceCents: 175 },
+          { slotCode: "A2", productId: fritosId, par: 10, priceCents: 150 },
+        ],
+      });
+    });
+
+    const line = (over: Partial<VisitLine>): VisitLine => ({
+      slotCode: "A1",
+      productId: cokeId,
+      remaining: 0,
+      added: 0,
+      removed: 0,
+      removedReason: null,
+      priceCents: 175,
+      par: 10,
+      bestBy: null,
+      ...over,
+    });
+
+    const submitWith = (
+      lines: VisitLine[],
+      layoutChanges: LayoutChange[],
+    ) =>
+      service.create(ORG, {
+        draft: draft({ planogramId: current.id, lines }),
+        recordedByUserId: USER,
+        layoutChanges,
+      });
+
+    // A function because cokeId is only assigned once beforeEach has run.
+    const moveCoke = (): LayoutChange => ({
+      kind: "move",
+      productId: cokeId,
+      fromSlotCode: "A1",
+      toSlotCode: "A2",
+    });
+
+    it("saves a move: source pulled transferred, destination loaded, planogram moved", async () => {
+      const { planogram, visit } = await submitWith(
+        [
+          line({ remaining: 4, removed: 4, removedReason: "transferred" }),
+          line({ slotCode: "A2", remaining: 0, added: 4, priceCents: 150 }),
+          line({
+            slotCode: "A2",
+            productId: fritosId,
+            remaining: 2,
+            priceCents: 150,
+          }),
+        ],
+        [moveCoke()],
+      );
+
+      expect(visit.lines).toHaveLength(3);
+      expect(planogram?.slots).toEqual([
+        { slotCode: "A2", productId: fritosId, par: 10, priceCents: 150 },
+        { slotCode: "A2", productId: cokeId, par: 10, priceCents: 150 },
+      ]);
+    });
+
+    it("saves a swap and each product takes the other slot's price", async () => {
+      const { planogram } = await submitWith(
+        [
+          line({ remaining: 4, removed: 4, removedReason: "transferred" }),
+          line({ slotCode: "A2", added: 4, priceCents: 150 }),
+          line({
+            slotCode: "A2",
+            productId: fritosId,
+            remaining: 2,
+            removed: 2,
+            removedReason: "transferred",
+            priceCents: 150,
+          }),
+          line({ productId: fritosId, added: 2, priceCents: 175 }),
+        ],
+        [
+          moveCoke(),
+          {
+            kind: "move",
+            productId: fritosId,
+            fromSlotCode: "A2",
+            toSlotCode: "A1",
+          },
+        ],
+      );
+
+      expect(planogram?.slots).toEqual(
+        expect.arrayContaining([
+          { slotCode: "A2", productId: cokeId, par: 10, priceCents: 150 },
+          { slotCode: "A1", productId: fritosId, par: 10, priceCents: 175 },
+        ]),
+      );
+      expect(planogram?.slots).toHaveLength(2);
+    });
+
+    it("rejects a move whose source line was not fully removed", async () => {
+      await expect(
+        submitWith(
+          [
+            line({ remaining: 4, removed: 1, removedReason: "transferred" }),
+            line({ slotCode: "A2", added: 4, priceCents: 150 }),
+          ],
+          [moveCoke()],
+        ),
+      ).rejects.toThrow(/A1/);
+      expect(await visits.findByOrg(ORG)).toHaveLength(0);
+    });
+
+    it("rejects an add into a slot that never had a price without set-price", async () => {
+      const emptied = planograms.seed(ORG, {
+        machineId,
+        effectiveFrom: "2026-09-05T00:00:00.000Z",
+        slots: [
+          { slotCode: "A1", productId: cokeId, par: 10, priceCents: 175 },
+        ],
+      });
+      const submitAdd = (layoutChanges: LayoutChange[]) =>
+        service.create(ORG, {
+          draft: draft({
+            planogramId: emptied.id,
+            lines: [line({ slotCode: "A2", productId: fritosId, added: 3 })],
+          }),
+          recordedByUserId: USER,
+          layoutChanges,
+        });
+      const addFritos: LayoutChange = {
+        kind: "add",
+        slotCode: "A2",
+        productId: fritosId,
+      };
+
+      await expect(submitAdd([addFritos])).rejects.toThrow(/A2.*price/);
+
+      const { planogram } = await submitAdd([
+        addFritos,
+        { kind: "set-price", slotCode: "A2", priceCents: 200 },
+      ]);
+      expect(planogram?.slots).toContainEqual({
+        slotCode: "A2",
+        productId: fritosId,
+        par: 10,
+        priceCents: 200,
+      });
     });
   });
 

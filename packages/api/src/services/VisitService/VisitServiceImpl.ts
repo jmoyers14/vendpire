@@ -1,9 +1,12 @@
 import { inject, injectable } from "tsyringe";
 import {
   calendarDateToday,
+  layoutChangeLineMismatch,
   observationsForVisit,
   slotProductKey,
   slotRuleViolation,
+  slotsAfterChanges,
+  type LayoutChange,
 } from "@vendpire/domain";
 import {
   LOCATION_REPOSITORY_TOKEN,
@@ -29,9 +32,8 @@ import type {
 } from "@vendpire/platform";
 import { isDuplicateKey, ServiceError } from "../errors.ts";
 import {
-  type AddedBehind,
+  layoutChangeMessage,
   slotRuleMessage,
-  slotsWithAddedBehind,
 } from "../PlanogramService/planogramSlots.ts";
 import { buildExpiringReport, type PopulatedVisit } from "./expiringReport.ts";
 import {
@@ -59,6 +61,18 @@ const replayOf = (visit: Visit): VisitCreation => ({
   notices: [],
   planogram: null,
 });
+
+const normalizeSlotCode = (slotCode: string): string =>
+  slotCode.trim().toUpperCase();
+
+const normalizeSlotCodes = (change: LayoutChange): LayoutChange =>
+  change.kind === "move"
+    ? {
+        ...change,
+        fromSlotCode: normalizeSlotCode(change.fromSlotCode),
+        toSlotCode: normalizeSlotCode(change.toSlotCode),
+      }
+    : { ...change, slotCode: normalizeSlotCode(change.slotCode) };
 
 /**
  * Visit business rules. Two shapes run through all of them:
@@ -104,7 +118,7 @@ export class VisitServiceImpl implements VisitService {
 
   async create(
     orgId: string,
-    { draft, recordedByUserId, addedBehind = [] }: VisitSubmission,
+    { draft, recordedByUserId, layoutChanges = [] }: VisitSubmission,
   ): Promise<VisitCreation> {
     // Checked FIRST and returned verbatim — no re-validation. A retrying client
     // can only act on 200 with the original; re-validating would reject an
@@ -121,11 +135,11 @@ export class VisitServiceImpl implements VisitService {
       await this.validate(orgId, draft);
     const stored = { ...draft, lines, recordedByUserId };
     const nextPlanogram =
-      addedBehind.length > 0
+      layoutChanges.length > 0
         ? this.planogramAfter({
             draft,
             lines,
-            addedBehind,
+            layoutChanges,
             current: currentPlanogram,
             machineSlotCodes,
           })
@@ -178,20 +192,20 @@ export class VisitServiceImpl implements VisitService {
   }
 
   /**
-   * The version the visit was counted against, with the additions behind,
+   * The version the visit was counted against, with the layout changes applied,
    * effective from the visit's time. Refuses rather than merging when the
    * planogram moved on, since the operator added to a layout they no longer see.
    */
   private planogramAfter({
     draft,
     lines,
-    addedBehind,
+    layoutChanges,
     current,
     machineSlotCodes,
   }: {
     draft: VisitDraft;
     lines: VisitLine[];
-    addedBehind: AddedBehind[];
+    layoutChanges: LayoutChange[];
     current: Planogram | null;
     machineSlotCodes: ReadonlySet<string>;
   }): PlanogramInput {
@@ -214,36 +228,16 @@ export class VisitServiceImpl implements VisitService {
       );
     }
 
-    const countedKeys = new Set(lines.map(slotProductKey));
-    const additions = addedBehind.map((addition) => ({
-      ...addition,
-      slotCode: addition.slotCode.trim().toUpperCase(),
-    }));
-    for (const addition of additions) {
-      const entries = current.slots.filter(
-        (entry) => entry.slotCode === addition.slotCode,
-      );
-      if (entries.length === 0) {
-        throw new ServiceError(
-          "BAD_REQUEST",
-          `Slot ${addition.slotCode} has no product to add behind`,
-        );
-      }
-      if (entries.some((entry) => entry.productId === addition.productId)) {
-        throw new ServiceError(
-          "BAD_REQUEST",
-          `Slot ${addition.slotCode} already holds product ${addition.productId}`,
-        );
-      }
-      if (!countedKeys.has(slotProductKey(addition))) {
-        throw new ServiceError(
-          "BAD_REQUEST",
-          `Slot ${addition.slotCode}: product ${addition.productId} was added behind but has no count on this visit`,
-        );
-      }
+    const changes = layoutChanges.map(normalizeSlotCodes);
+    const mismatch = layoutChangeLineMismatch(changes, lines);
+    if (mismatch) {
+      throw new ServiceError("BAD_REQUEST", layoutChangeMessage(mismatch));
     }
-
-    const slots = slotsWithAddedBehind(current.slots, additions);
+    const applied = slotsAfterChanges(current.slots, changes);
+    if ("violation" in applied) {
+      throw new ServiceError("BAD_REQUEST", layoutChangeMessage(applied.violation));
+    }
+    const { slots } = applied;
     const violation = slotRuleViolation(slots, machineSlotCodes);
     if (violation) {
       throw new ServiceError("BAD_REQUEST", slotRuleMessage(violation));
