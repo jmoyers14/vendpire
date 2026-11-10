@@ -13,6 +13,7 @@ import {
 } from "../machines/ProductCombobox.tsx";
 import { ArrivalRow } from "./ArrivalRow.tsx";
 import {
+  type Arrival,
   arrivalsIn,
   type Restock,
   restockWithAction,
@@ -25,7 +26,7 @@ import {
 } from "./restock.ts";
 import { RestockProductRow } from "./RestockProductRow.tsx";
 import { productIdsAfterRestock } from "./restockSlots.ts";
-import { rowsInSlot, type VisitRow } from "./visitRows.ts";
+import { isCounted, rowsInSlot, type VisitRow } from "./visitRows.ts";
 
 /**
  * One slot in Restock: its price, an action per Count product front to back,
@@ -71,6 +72,14 @@ export function RestockSlotPanel({
     ...productIdsAfterRestock({ rows, restock, slotCode }),
     ...slotRows.map((row) => row.productId),
   ]);
+
+  const uncountedSourceOf = (arrival: Arrival): VisitRow | undefined =>
+    rows.find(
+      (row) =>
+        row.slotCode === arrival.fromSlotCode &&
+        row.productId === arrival.productId &&
+        !isCounted(row),
+    );
 
   const handleAddProduct = (productId: string) =>
     onRestockChange(
@@ -137,27 +146,38 @@ export function RestockSlotPanel({
         />
       ))}
 
-      {arrivals.map((arrival) => (
-        <ArrivalRow
-          key={arrival.productId}
-          arrival={arrival}
-          productName={nameOf(arrival.productId)}
-          suggestedSources={
-            arrival.fromSlotCode === null
-              ? suggestedSourcesFor(restock, rows, arrival)
-              : []
-          }
-          onChange={(patch) =>
-            onRestockChange(restockWithArrivalChange(restock, arrival, patch))
-          }
-          onSourceLink={(source) =>
-            onRestockChange(restockWithSourceLinked(restock, { arrival, source }))
-          }
-          onRemove={() =>
-            onRestockChange(restockWithoutNewStock(restock, arrival))
-          }
-        />
-      ))}
+      {arrivals.map((arrival) => {
+        const uncountedSource = uncountedSourceOf(arrival);
+        return (
+          <ArrivalRow
+            key={arrival.productId}
+            arrival={arrival}
+            productName={nameOf(arrival.productId)}
+            suggestedSources={
+              arrival.fromSlotCode === null
+                ? suggestedSourcesFor(restock, rows, arrival)
+                : []
+            }
+            onChange={(patch) =>
+              onRestockChange(restockWithArrivalChange(restock, arrival, patch))
+            }
+            onSourceLink={(source) =>
+              onRestockChange(restockWithSourceLinked(restock, { arrival, source }))
+            }
+            onRemove={() =>
+              onRestockChange(restockWithoutNewStock(restock, arrival))
+            }
+            onClearSource={
+              uncountedSource
+                ? () =>
+                    onRestockChange(
+                      restockWithAction(restock, uncountedSource, null),
+                    )
+                : undefined
+            }
+          />
+        );
+      })}
 
       <div className="flex flex-col gap-1 border-t border-line pt-3">
         <span className={labelClass}>+ Add product</span>

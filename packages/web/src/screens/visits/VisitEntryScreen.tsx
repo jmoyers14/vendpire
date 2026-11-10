@@ -223,6 +223,18 @@ function VisitDraftForm({
     setRestock(next.restock);
   };
 
+  const clearAnswer = (key: SlotProduct) => {
+    const row = rows.find(
+      (candidate) =>
+        candidate.slotCode === key.slotCode &&
+        candidate.productId === key.productId,
+    );
+    if (!restock || !row) {
+      return;
+    }
+    setRestock(restockWithAction(restock, row, null));
+  };
+
   const slotOrder = [...new Set(rows.map((row) => row.slotCode))];
   const uncounted = uncountedSlotCodes(rows);
 
@@ -437,6 +449,7 @@ function VisitDraftForm({
                 setSelected(slotCode);
                 setStep(nextStep);
               }}
+              onClearAnswer={clearAnswer}
               uncountedSlotCodes={uncounted}
               productName={productName}
               countedAtInput={countedAtInput}

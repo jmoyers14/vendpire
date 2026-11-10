@@ -110,6 +110,12 @@ export function RestockProductRow({
           <button type="button" onClick={onCountSlot} className={linkClass}>
             Count it first →
           </button>
+          {action ? (
+            // Left was blanked after the answer; without this nothing clears it.
+            <button type="button" onClick={handleChange} className={linkClass}>
+              Clear answer
+            </button>
+          ) : null}
         </div>
       ) : isPicking ? (
         <div className="flex flex-wrap items-baseline gap-2 text-sm">

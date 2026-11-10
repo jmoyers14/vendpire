@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { LayoutSlot } from "@vendpire/domain";
+import type { LayoutSlot, SlotProduct } from "@vendpire/domain";
 import {
   Alert,
   Button,
@@ -38,6 +38,7 @@ export function VisitReview({
   rows,
   planogramSlots,
   onShowSlot,
+  onClearAnswer,
   uncountedSlotCodes,
   productName,
   countedAtInput,
@@ -53,6 +54,8 @@ export function VisitReview({
   planogramSlots: readonly LayoutSlot[];
   /** Goes to a step with the slot selected. */
   onShowSlot: (target: { step: VisitStepName; slotCode: string }) => void;
+  /** Drops the Restock answer of a row whose count was blanked. */
+  onClearAnswer: (row: SlotProduct) => void;
   /** Slots with a product still uncounted, which Save asks about first. */
   uncountedSlotCodes: readonly string[];
   productName: (productId: string) => string;
@@ -180,6 +183,15 @@ export function VisitReview({
                       Go to {slotCode}
                     </button>
                   )}
+                  {problem.kind === "answered-but-uncounted" ? (
+                    <button
+                      type="button"
+                      className="ml-2 font-bold underline"
+                      onClick={() => onClearAnswer(problem)}
+                    >
+                      Clear answer
+                    </button>
+                  ) : null}
                 </li>
               );
             })}

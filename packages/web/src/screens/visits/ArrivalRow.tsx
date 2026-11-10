@@ -16,6 +16,7 @@ export function ArrivalRow({
   onChange,
   onSourceLink,
   onRemove,
+  onClearSource,
 }: {
   arrival: Arrival;
   productName: string;
@@ -24,6 +25,9 @@ export function ArrivalRow({
   onChange: (patch: Partial<Pick<Arrival, "added" | "bestBy">>) => void;
   onSourceLink: (source: VisitRow) => void;
   onRemove: () => void;
+  /** Set when the move's source has since lost its count, so it can't be
+   *  changed there. */
+  onClearSource?: () => void;
 }) {
   const isNewStock = arrival.fromSlotCode === null;
 
@@ -40,6 +44,10 @@ export function ArrivalRow({
         {isNewStock ? (
           <button type="button" onClick={onRemove} className={linkClass}>
             Remove
+          </button>
+        ) : onClearSource ? (
+          <button type="button" onClick={onClearSource} className={linkClass}>
+            Clear answer
           </button>
         ) : (
           <span className="shrink-0 text-xs text-muted">
