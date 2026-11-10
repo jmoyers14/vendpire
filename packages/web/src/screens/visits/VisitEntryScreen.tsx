@@ -430,6 +430,13 @@ function VisitDraftForm({
                 restock,
                 planogramSlots,
               })}
+              shelves={machine.data?.slots ?? []}
+              rows={rows}
+              planogramSlots={planogramSlots}
+              onShowSlot={({ step: nextStep, slotCode }) => {
+                setSelected(slotCode);
+                setStep(nextStep);
+              }}
               uncountedSlotCodes={uncounted}
               productName={productName}
               countedAtInput={countedAtInput}
