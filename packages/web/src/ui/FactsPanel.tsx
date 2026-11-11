@@ -11,11 +11,12 @@ export const FactsPanel = ({ children }: { children: ReactNode }) => (
   </dl>
 );
 
-export type FactTone = "neutral" | "success" | "danger";
+export type FactTone = StatusTone | "neutral";
 
 const VALUE_TONE: Record<FactTone, string> = {
   neutral: "text-ink",
   success: "font-bold text-success",
+  warning: "font-bold text-warning",
   danger: "font-bold text-danger",
 };
 
