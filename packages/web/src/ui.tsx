@@ -20,7 +20,7 @@ export {
   inputClass,
   labelClass,
 } from "./ui/Field.tsx";
-export { focusRing } from "./ui/focus.ts";
+export { focusRing, insetFocusRing } from "./ui/focus.ts";
 export { FieldRow, FormSection, SectionDivider } from "./ui/FormSection.tsx";
 export { InfoHint } from "./ui/InfoHint.tsx";
 export { Kbd } from "./ui/Kbd.tsx";
