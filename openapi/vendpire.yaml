@@ -811,6 +811,86 @@ paths:
                     required:
                       - slotCode
                       - productId
+                layoutChanges:
+                  default: []
+                  description: Moves, pulls, additions and price changes made during this visit,
+                    applied in order. Saving also writes the next planogram
+                    version with them applied.
+                  maxItems: 100
+                  type: array
+                  items:
+                    oneOf:
+                      - type: object
+                        properties:
+                          kind:
+                            type: string
+                            const: move
+                          productId:
+                            type: string
+                            pattern: ^[0-9a-f]{24}$
+                          fromSlotCode:
+                            type: string
+                            minLength: 1
+                            maxLength: 8
+                          toSlotCode:
+                            type: string
+                            minLength: 1
+                            maxLength: 8
+                        required:
+                          - kind
+                          - productId
+                          - fromSlotCode
+                          - toSlotCode
+                      - type: object
+                        properties:
+                          kind:
+                            type: string
+                            const: remove
+                          slotCode:
+                            type: string
+                            minLength: 1
+                            maxLength: 8
+                          productId:
+                            type: string
+                            pattern: ^[0-9a-f]{24}$
+                        required:
+                          - kind
+                          - slotCode
+                          - productId
+                      - type: object
+                        properties:
+                          kind:
+                            type: string
+                            const: add
+                          slotCode:
+                            type: string
+                            minLength: 1
+                            maxLength: 8
+                          productId:
+                            type: string
+                            pattern: ^[0-9a-f]{24}$
+                        required:
+                          - kind
+                          - slotCode
+                          - productId
+                      - type: object
+                        properties:
+                          kind:
+                            type: string
+                            const: set-price
+                          slotCode:
+                            type: string
+                            minLength: 1
+                            maxLength: 8
+                          priceCents:
+                            type: integer
+                            minimum: 0
+                            maximum: 100000
+                        required:
+                          - kind
+                          - slotCode
+                          - priceCents
+                    type: object
               required:
                 - machineId
                 - locationId

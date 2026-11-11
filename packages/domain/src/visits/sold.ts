@@ -56,7 +56,9 @@ export interface SlotRemoval {
  * draws down from. Exported because capture and history screens want to show
  * "filled to 10" without re-deriving it.
  */
-export const levelAfter = (line: VisitLine): number =>
+export const levelAfter = (
+  line: Pick<VisitLine, "remaining" | "removed" | "added">,
+): number =>
   line.remaining - line.removed + line.added;
 
 const firstVisitInterval = (line: VisitLine, countedAt: string): SlotInterval => ({

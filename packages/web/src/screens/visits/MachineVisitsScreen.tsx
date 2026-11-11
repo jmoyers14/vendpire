@@ -20,6 +20,7 @@ import {
   TableScroll,
 } from "../../ui.tsx";
 import { queryClient, trpc } from "../../trpc.ts";
+import { buildFaceLines } from "./visitFace.ts";
 import { formatCents, formatSignedCents } from "../../utils/money.ts";
 import {
   buildProductSales,
@@ -373,13 +374,21 @@ function VisitCard({
       content: (
         <>
           <div className="font-mono text-[10px] text-muted">{slotCode}</div>
-          {lines.map((line) => (
-            <div key={line.productId}>
-              <div className="truncate text-[11px] font-medium text-gray-800">
+          {buildFaceLines(lines).map(({ line, hasLeftSlot }) => (
+            <div key={line.productId} className={hasLeftSlot ? "opacity-60" : ""}>
+              <div
+                className={`truncate ${
+                  hasLeftSlot
+                    ? "text-[10px] text-gray-500 line-through"
+                    : "text-[11px] font-medium text-gray-800"
+                }`}
+              >
                 {productName(line.productId)}
               </div>
-              <div className="text-[10px] tabular-nums text-gray-600">
-                {line.remaining} → {levelAfter(line)}
+              <div
+                className={`text-[10px] tabular-nums ${hasLeftSlot ? "text-gray-500" : "text-gray-600"}`}
+              >
+                {line.remaining} → {hasLeftSlot ? "out" : levelAfter(line)}
               </div>
             </div>
           ))}

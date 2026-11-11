@@ -1,7 +1,6 @@
 import {
   calendarDateAfter,
   calendarDaysUntil,
-  lastIndexInSlot,
   levelAfter,
   type RemovalReason,
   slotProductKey,
@@ -9,16 +8,15 @@ import {
 } from "@vendpire/domain";
 
 /**
- * The visit-entry form's state and its conversion to a submittable draft.
+ * The Count step's state: what was in each slot on arrival.
  *
- * Every rule that decides WHAT GETS SENT lives here rather than in the screen,
- * because these rules are where a visit becomes wrong in ways nothing
- * downstream can detect. Pure, so they're tested without a browser.
+ * Pure, so these rules are tested without a browser. What gets sent is built
+ * from these rows and the Restock in `visitSubmission.ts`.
  */
 
 /**
- * One slot being counted. Counts are strings because they back text inputs;
- * they only become numbers in `buildVisitLines`.
+ * One product in a slot being counted. Counts are strings because they back
+ * text inputs; they only become numbers in `buildVisitSubmission`.
  */
 export interface VisitRow {
   readonly slotCode: string;
@@ -34,14 +32,10 @@ export interface VisitRow {
    * `""` means NOT COUNTED, and must never be coerced to `0`. An omitted line
    * tells the engine `slot-not-counted` and it books no sale; a zero claims the
    * entire previous fill sold, inventing revenue that never happened. The two
-   * are indistinguishable once stored, which is why a blank row is dropped in
-   * `buildVisitLines` rather than defaulted.
+   * are indistinguishable once stored, which is why a blank row is dropped
+   * rather than defaulted.
    */
   readonly left: string;
-  readonly added: string;
-  /** Set once the operator types in Added, which retires the fill-to-par
-   *  default so a later Left edit can't overwrite a deliberate number. */
-  readonly isAddedEdited: boolean;
   readonly removed: string;
   readonly removedReason: RemovalReason | null;
   /** The previous visit's walk-away level — the "filled to 10 last time"
@@ -54,11 +48,6 @@ export interface VisitRow {
   readonly previousBestBy: string | null;
   /** False hides the date field entirely. */
   readonly tracksExpiration: boolean;
-  /**
-   * Loaded behind the slot's existing products during this visit. Saving the
-   * visit also adds it to the planogram.
-   */
-  readonly isAddedBehind: boolean;
 }
 
 /** A line as the `visits.create` mutation takes it. */
@@ -73,10 +62,6 @@ export interface VisitLineDraft {
   par: number | null;
   bestBy: string | null;
 }
-
-export type VisitLinesResult =
-  | { readonly lines: VisitLineDraft[] }
-  | { readonly error: string };
 
 /** What the planogram contributes to a row. Declared here, not imported, so
  *  this module stays independent of the wire. */
@@ -100,7 +85,7 @@ interface PreviousVisitLike {
 
 /** A whole non-negative count, or null if the text isn't one. Rejects "1.5"
  *  and "-2"; `""` is the caller's business, not a parse failure. */
-const parseCount = (text: string): number | null => {
+export const parseCount = (text: string): number | null => {
   const trimmed = text.trim();
   if (!/^\d+$/.test(trimmed)) {
     return null;
@@ -109,24 +94,11 @@ const parseCount = (text: string): number | null => {
 };
 
 /** Rejects an ISO instant and a non-padded date — both break the ordering. */
-const CALENDAR_DATE = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
+export const CALENDAR_DATE = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
 
 /** Matches the server's default window, so the slot row and the pre-trip
  *  report cannot disagree about what "soon" means. */
 const EXPIRY_WINDOW_DAYS = 14;
-
-/** A row as a line, with its counts still to be filled in. */
-const toLine = (row: VisitRow): VisitLineDraft => ({
-  slotCode: row.slotCode,
-  productId: row.productId,
-  remaining: 0,
-  added: 0,
-  removed: 0,
-  removedReason: row.removedReason,
-  priceCents: row.priceCents,
-  par: row.par,
-  bestBy: null,
-});
 
 export const isCounted = (row: VisitRow): boolean => row.left.trim() !== "";
 
@@ -152,51 +124,26 @@ export const isSameRow = (a: VisitRow, b: VisitRow): boolean =>
   a.slotCode === b.slotCode && a.productId === b.productId;
 
 /**
- * How full the slot will be when you walk away. Null while the row is still
- * half-typed. Delegates to the engine's `levelAfter` rather than restating
- * `left − removed + added`, so the form and the P&L can't disagree.
+ * Units still in the slot once the Count pull is out, before anything is
+ * loaded. Null while the row is half-typed.
  */
-export const levelOf = (row: VisitRow): number | null => {
+export const leftAfterPull = (row: VisitRow): number | null => {
   const remaining = parseCount(row.left);
-  if (remaining === null) {
-    return null;
-  }
-  const added = row.added.trim() === "" ? 0 : parseCount(row.added);
   const removed = row.removed.trim() === "" ? 0 : parseCount(row.removed);
-  if (added === null || removed === null) {
+  if (remaining === null || removed === null) {
     return null;
   }
-  return levelAfter({ ...toLine(row), remaining, added, removed });
+  return Math.max(0, remaining - removed);
 };
 
-/**
- * The fill-to-par default: enough to bring the slot back to par, counting the
- * units you're about to pull out. `""` when there's nothing to compute from —
- * a guess here would be a number the operator never entered.
- */
-export const fillToPar = (row: VisitRow): string => {
-  const remaining = parseCount(row.left);
-  if (row.par === null || remaining === null) {
-    return "";
-  }
-  const removed = row.removed.trim() === "" ? 0 : (parseCount(row.removed) ?? 0);
-  return String(Math.max(0, row.par - (remaining - removed)));
-};
-
-const withFillToPar = (row: VisitRow): VisitRow =>
-  row.isAddedEdited ? row : { ...row, added: fillToPar(row) };
-
-export const rowWithLeft = (row: VisitRow, left: string): VisitRow =>
-  withFillToPar({ ...row, left });
-
-export const rowWithRemoved = (row: VisitRow, removed: string): VisitRow =>
-  withFillToPar({ ...row, removed });
-
-/** Typing in Added is the operator overriding the default, permanently. */
-export const rowWithAdded = (row: VisitRow, added: string): VisitRow => ({
+export const rowWithLeft = (row: VisitRow, left: string): VisitRow => ({
   ...row,
-  added,
-  isAddedEdited: true,
+  left,
+});
+
+export const rowWithRemoved = (row: VisitRow, removed: string): VisitRow => ({
+  ...row,
+  removed,
 });
 
 export const rowWithBestBy = (row: VisitRow, bestBy: string): VisitRow => ({
@@ -216,30 +163,21 @@ const buildBlankRow = ({
   priceCents,
   par,
   tracksExpiration,
-  isAddedBehind,
 }: Pick<
   VisitRow,
-  | "slotCode"
-  | "productId"
-  | "priceCents"
-  | "par"
-  | "tracksExpiration"
-  | "isAddedBehind"
+  "slotCode" | "productId" | "priceCents" | "par" | "tracksExpiration"
 >): VisitRow => ({
   slotCode,
   productId,
   priceCents,
   par,
   left: "",
-  added: "",
-  isAddedEdited: false,
   removed: "",
   removedReason: null,
   previousLevel: null,
   bestBy: "",
   previousBestBy: null,
   tracksExpiration,
-  isAddedBehind,
 });
 
 /**
@@ -277,7 +215,6 @@ export const buildVisitRows = ({
           // silently stops asking for a date is the failure this whole feature
           // exists to avoid, so the safe default is to keep asking.
           tracksExpiration: tracksExpirationById.get(slot.productId) ?? true,
-          isAddedBehind: false,
         }),
         previousLevel: previous ? levelAfter(previous) : null,
         bestBy: previous?.bestBy ?? "",
@@ -288,110 +225,12 @@ export const buildVisitRows = ({
   return rows;
 };
 
-/** A product loaded behind the slot's existing ones, at the slot's price. */
-export const buildAddedBehindRow = ({
-  front,
-  productId,
-  tracksExpiration,
-}: {
-  front: VisitRow;
-  productId: string;
-  tracksExpiration: boolean;
-}): VisitRow =>
-  buildBlankRow({ ...front, productId, tracksExpiration, isAddedBehind: true });
-
-/** The rows with `added` placed directly behind its slot's last product. */
-export const rowsWithAddedBehind = (
-  rows: readonly VisitRow[],
-  added: VisitRow,
-): VisitRow[] => {
-  const lastIndex = lastIndexInSlot(rows, added.slotCode);
-  return [...rows.slice(0, lastIndex + 1), added, ...rows.slice(lastIndex + 1)];
-};
-
-/** What this visit added behind, for the server to put in the planogram. */
-export const addedBehindOf = (
-  rows: readonly VisitRow[],
-): { slotCode: string; productId: string }[] =>
-  rows
-    .filter((row) => row.isAddedBehind)
-    .map(({ slotCode, productId }) => ({ slotCode, productId }));
-
-/**
- * The counted rows as lines, or the first problem found. Uncounted rows are
- * dropped, NOT sent as zero — see `VisitRow.left`.
- *
- * Mirrors the server's own refusal to default a removal reason: it decides
- * loss vs. transfer, and either default would overstate or hide a write-off.
- */
-export const buildVisitLines = (rows: readonly VisitRow[]): VisitLinesResult => {
-  const lines: VisitLineDraft[] = [];
-
-  for (const row of rows) {
-    // An added product must be counted: it joins the planogram on save, and
-    // without a line here its first week's sales could never be computed.
-    if (row.isAddedBehind && !isCounted(row)) {
-      return {
-        error: `Slot ${row.slotCode}: enter "Left in slot" for the product you added behind (0 if none were there)`,
-      };
-    }
-    if (!isCounted(row)) {
-      continue;
-    }
-    const remaining = parseCount(row.left);
-    if (remaining === null) {
-      return {
-        error: `Slot ${row.slotCode}: "Left in slot" must be a whole number`,
-      };
-    }
-    const added = row.added.trim() === "" ? 0 : parseCount(row.added);
-    if (added === null) {
-      return { error: `Slot ${row.slotCode}: "Added" must be a whole number` };
-    }
-    const removed = row.removed.trim() === "" ? 0 : parseCount(row.removed);
-    if (removed === null) {
-      return { error: `Slot ${row.slotCode}: "Removed" must be a whole number` };
-    }
-    if (removed > 0 && row.removedReason === null) {
-      return {
-        error: `Slot ${row.slotCode}: choose a reason for the ${removed} unit(s) pulled out`,
-      };
-    }
-    const bestBy = row.bestBy.trim();
-    if (bestBy !== "" && !CALENDAR_DATE.test(bestBy)) {
-      return {
-        error: `Slot ${row.slotCode}: "Best by" must be a date like 2026-12-15`,
-      };
-    }
-    lines.push({
-      ...toLine(row),
-      remaining,
-      added,
-      removed,
-      // A reason without a removal is leftover UI state, not a fact.
-      removedReason: removed > 0 ? row.removedReason : null,
-      // A date on an emptied slot describes stock that is not there.
-      bestBy:
-        bestBy === "" || remaining - removed + added === 0 ? null : bestBy,
-    });
-  }
-
-  if (lines.length === 0) {
-    return { error: "Count at least one slot before saving this visit" };
-  }
-  return { lines };
-};
-
 /**
  * Things worth flagging on the cell, none of which block a submit — the engine
  * records what happened in the field and reports oddities rather than
  * rejecting them.
  */
-export type RowWarning =
-  | "over-par"
-  | "over-removed"
-  | "expired"
-  | "expiring-soon";
+export type RowWarning = "over-removed" | "expired" | "expiring-soon";
 
 export const warningsFor = (
   row: VisitRow,
@@ -403,13 +242,9 @@ export const warningsFor = (
   if (remaining !== null && removed !== null && removed > remaining) {
     warnings.push("over-removed");
   }
-  const level = levelOf(row);
-  if (level !== null && row.par !== null && level > row.par) {
-    warnings.push("over-par");
-  }
-  // Against the level AFTER the fill: an emptied slot has nothing to go bad.
+  // A slot emptied by the pull has nothing left to go bad.
   const bestBy = row.bestBy.trim();
-  if (bestBy !== "" && CALENDAR_DATE.test(bestBy) && (level ?? 0) > 0) {
+  if (bestBy !== "" && CALENDAR_DATE.test(bestBy) && (leftAfterPull(row) ?? 0) > 0) {
     const days = calendarDaysUntil(bestBy, asOf);
     if (days < 0) {
       warnings.push("expired");

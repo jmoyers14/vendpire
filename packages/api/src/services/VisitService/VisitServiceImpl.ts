@@ -1,9 +1,13 @@
 import { inject, injectable } from "tsyringe";
 import {
   calendarDateToday,
+  isMoveChange,
+  layoutChangeLineMismatch,
   observationsForVisit,
   slotProductKey,
   slotRuleViolation,
+  slotsAfterChanges,
+  type LayoutChange,
 } from "@vendpire/domain";
 import {
   LOCATION_REPOSITORY_TOKEN,
@@ -29,9 +33,8 @@ import type {
 } from "@vendpire/platform";
 import { isDuplicateKey, ServiceError } from "../errors.ts";
 import {
-  type AddedBehind,
+  layoutChangeMessage,
   slotRuleMessage,
-  slotsWithAddedBehind,
 } from "../PlanogramService/planogramSlots.ts";
 import { buildExpiringReport, type PopulatedVisit } from "./expiringReport.ts";
 import {
@@ -49,6 +52,11 @@ import {
  *  the predecessor of every real visit after it and poisons their baselines. */
 const MAX_FUTURE_MS = 2 * 60 * 60 * 1000;
 
+const MINUTE_MS = 60 * 1000;
+
+const startOfMinute = (epochMs: number): number =>
+  Math.floor(epochMs / MINUTE_MS) * MINUTE_MS;
+
 /** An already-stored visit handed back for a repeated submit. Logging and
  *  analytics skip it, and it wrote no planogram this time. */
 const replayOf = (visit: Visit): VisitCreation => ({
@@ -59,6 +67,18 @@ const replayOf = (visit: Visit): VisitCreation => ({
   notices: [],
   planogram: null,
 });
+
+const normalizeSlotCode = (slotCode: string): string =>
+  slotCode.trim().toUpperCase();
+
+const withNormalizedSlotCodes = (change: LayoutChange): LayoutChange =>
+  isMoveChange(change)
+    ? {
+        ...change,
+        fromSlotCode: normalizeSlotCode(change.fromSlotCode),
+        toSlotCode: normalizeSlotCode(change.toSlotCode),
+      }
+    : { ...change, slotCode: normalizeSlotCode(change.slotCode) };
 
 /**
  * Visit business rules. Two shapes run through all of them:
@@ -104,7 +124,7 @@ export class VisitServiceImpl implements VisitService {
 
   async create(
     orgId: string,
-    { draft, recordedByUserId, addedBehind = [] }: VisitSubmission,
+    { draft, recordedByUserId, layoutChanges = [] }: VisitSubmission,
   ): Promise<VisitCreation> {
     // Checked FIRST and returned verbatim — no re-validation. A retrying client
     // can only act on 200 with the original; re-validating would reject an
@@ -121,11 +141,11 @@ export class VisitServiceImpl implements VisitService {
       await this.validate(orgId, draft);
     const stored = { ...draft, lines, recordedByUserId };
     const nextPlanogram =
-      addedBehind.length > 0
+      layoutChanges.length > 0
         ? this.planogramAfter({
             draft,
             lines,
-            addedBehind,
+            layoutChanges,
             current: currentPlanogram,
             machineSlotCodes,
           })
@@ -178,80 +198,64 @@ export class VisitServiceImpl implements VisitService {
   }
 
   /**
-   * The version the visit was counted against, with the additions behind,
+   * The version the visit was counted against, with the layout changes applied,
    * effective from the visit's time. Refuses rather than merging when the
-   * planogram moved on, since the operator added to a layout they no longer see.
+   * planogram moved on, since the operator changed a layout they no longer see.
    */
   private planogramAfter({
     draft,
     lines,
-    addedBehind,
+    layoutChanges,
     current,
     machineSlotCodes,
   }: {
     draft: VisitDraft;
     lines: VisitLine[];
-    addedBehind: AddedBehind[];
+    layoutChanges: LayoutChange[];
     current: Planogram | null;
     machineSlotCodes: ReadonlySet<string>;
   }): PlanogramInput {
     if (!current) {
       throw new ServiceError(
         "BAD_REQUEST",
-        "This visit has no planogram to add products to",
+        "This visit has no planogram for its layout and price changes to apply to",
       );
     }
     if (draft.planogramId !== current.id) {
       throw new ServiceError(
         "CONFLICT",
-        "The planogram changed after this visit was started. Reload and add the products again.",
+        "The planogram changed after this visit was started. Reload and enter its layout and price changes again.",
       );
     }
-    if (Date.parse(draft.countedAt) <= Date.parse(current.effectiveFrom)) {
+    const countedAtMs = Date.parse(draft.countedAt);
+    const currentFromMs = Date.parse(current.effectiveFrom);
+    // Visits are timed to the minute, so a planogram from earlier in the same
+    // minute came before the visit, not after it.
+    if (countedAtMs < startOfMinute(currentFromMs)) {
       throw new ServiceError(
         "CONFLICT",
-        "The planogram has changed since this visit's date, so products can't be added behind from it. Save the visit without them and change the planogram instead.",
+        "The planogram changed after this visit's date, so its layout and price changes can't be saved from it. Save the visit without them and change the planogram instead.",
       );
     }
 
-    const countedKeys = new Set(lines.map(slotProductKey));
-    const additions = addedBehind.map((addition) => ({
-      ...addition,
-      slotCode: addition.slotCode.trim().toUpperCase(),
-    }));
-    for (const addition of additions) {
-      const entries = current.slots.filter(
-        (entry) => entry.slotCode === addition.slotCode,
-      );
-      if (entries.length === 0) {
-        throw new ServiceError(
-          "BAD_REQUEST",
-          `Slot ${addition.slotCode} has no product to add behind`,
-        );
-      }
-      if (entries.some((entry) => entry.productId === addition.productId)) {
-        throw new ServiceError(
-          "BAD_REQUEST",
-          `Slot ${addition.slotCode} already holds product ${addition.productId}`,
-        );
-      }
-      if (!countedKeys.has(slotProductKey(addition))) {
-        throw new ServiceError(
-          "BAD_REQUEST",
-          `Slot ${addition.slotCode}: product ${addition.productId} was added behind but has no count on this visit`,
-        );
-      }
+    const changes = layoutChanges.map(withNormalizedSlotCodes);
+    const mismatch = layoutChangeLineMismatch(changes, lines);
+    if (mismatch) {
+      throw new ServiceError("BAD_REQUEST", layoutChangeMessage(mismatch));
     }
-
-    const slots = slotsWithAddedBehind(current.slots, additions);
+    const applied = slotsAfterChanges(current.slots, changes);
+    if ("violation" in applied) {
+      throw new ServiceError("BAD_REQUEST", layoutChangeMessage(applied.violation));
+    }
+    const { slots } = applied;
     const violation = slotRuleViolation(slots, machineSlotCodes);
     if (violation) {
       throw new ServiceError("BAD_REQUEST", slotRuleMessage(violation));
     }
     return {
       machineId: draft.machineId,
-      // Normalized, so a client's "+00:00" orders the same as every other "Z".
-      effectiveFrom: new Date(draft.countedAt).toISOString(),
+      // Strictly after the current version, which may share the visit's minute.
+      effectiveFrom: new Date(Math.max(countedAtMs, currentFromMs + 1)).toISOString(),
       slots,
     };
   }
@@ -372,7 +376,7 @@ export class VisitServiceImpl implements VisitService {
     // uncounted forever.
     const lines = draft.lines.map((line) => ({
       ...line,
-      slotCode: line.slotCode.trim().toUpperCase(),
+      slotCode: normalizeSlotCode(line.slotCode),
     }));
 
     const machineSlotCodes = new Set(machine.slots.flat());
