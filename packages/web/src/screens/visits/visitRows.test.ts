@@ -1,12 +1,10 @@
 import { describe, expect, it } from "bun:test";
 import {
-  buildAddedBehindRow,
   buildVisitRows,
   isCounted,
   isSlotCounted,
   leftAfterPull,
   rowsInSlot,
-  rowsWithAddedBehind,
   uncountedSlotCodes,
   type VisitRow,
   warningsFor,
@@ -41,7 +39,6 @@ const row = (patch: Partial<VisitRow> = {}): VisitRow => ({
   bestBy: "",
   previousBestBy: null,
   tracksExpiration: true,
-  isAddedBehind: false,
   ...patch,
 });
 
@@ -295,40 +292,5 @@ describe("mixed slots", () => {
     expect(isSlotCounted(rows, "A1")).toBe(false);
     expect(isSlotCounted(rows, "A2")).toBe(true);
     expect(uncountedSlotCodes(rows)).toEqual(["A1"]);
-  });
-});
-
-describe("adding a product behind", () => {
-  const rows = [
-    row({ productId: "ruffles", priceCents: 150, par: 10 }),
-    row({ slotCode: "A2", productId: "doritos" }),
-  ];
-  const added = buildAddedBehindRow({
-    front: rows[0] as VisitRow,
-    productId: "wavy",
-    tracksExpiration: false,
-  });
-
-  it("takes the slot's price and par, and starts uncounted", () => {
-    expect(added).toMatchObject({
-      slotCode: "A1",
-      productId: "wavy",
-      priceCents: 150,
-      par: 10,
-      left: "",
-      isAddedBehind: true,
-      previousLevel: null,
-      tracksExpiration: false,
-    });
-  });
-
-  it("lands directly behind the slot's last product", () => {
-    const next = rowsWithAddedBehind(rows, added);
-    expect(next.map((r) => `${r.slotCode}:${r.productId}`)).toEqual([
-      "A1:ruffles",
-      "A1:wavy",
-      "A2:doritos",
-    ]);
-    expect(rowsInSlot(next, "A1")).toHaveLength(2);
   });
 });

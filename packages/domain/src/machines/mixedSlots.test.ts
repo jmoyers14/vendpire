@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { lastIndexInSlot, slotRuleViolation } from "./mixedSlots.ts";
+import { slotRuleViolation } from "./mixedSlots.ts";
 
 const MACHINE = new Set(["A1", "A2"]);
 const slot = (over: Record<string, unknown> = {}) => ({
@@ -44,13 +44,5 @@ describe("slotRuleViolation", () => {
       kind: "unknown-slot",
       slotCode: "Z9",
     });
-  });
-});
-
-describe("lastIndexInSlot", () => {
-  it("finds the slot's back-most entry", () => {
-    const items = [{ slotCode: "A1" }, { slotCode: "A1" }, { slotCode: "A2" }];
-    expect(lastIndexInSlot(items, "A1")).toBe(1);
-    expect(lastIndexInSlot(items, "B1")).toBe(-1);
   });
 });

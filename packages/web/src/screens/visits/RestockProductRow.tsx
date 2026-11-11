@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button, countInputClass, hintClass } from "../../ui.tsx";
 import type { ProductAction, PullReason } from "./restock.ts";
 import { nowLevelFor } from "./restockSlots.ts";
-import { isCounted, type VisitRow } from "./visitRows.ts";
+import { isCounted, leftAfterPull, type VisitRow } from "./visitRows.ts";
 
 const PULL_REASONS: { reason: PullReason; label: string }[] = [
   { reason: "destocked", label: "Back to the van" },
@@ -53,7 +53,7 @@ export function RestockProductRow({
   productName: string;
   position: string;
   action: ProductAction | undefined;
-  /** The grid is waiting for this row's Moved / Swapped destination. */
+  /** The grid is waiting for this row's Move / Swap destination. */
   isPicking: boolean;
   isFirst: boolean;
   onActionChange: (action: ProductAction | null) => void;
@@ -87,6 +87,7 @@ export function RestockProductRow({
     onActionChange(null);
   };
 
+  const unitsInSlot = leftAfterPull(row);
   const isAddedOpen =
     action?.kind === "added" && (isEditingAdded || action.added.trim() === "");
 
@@ -96,12 +97,12 @@ export function RestockProductRow({
     >
       <div className="flex items-baseline justify-between gap-2">
         <span className="truncate text-sm font-medium text-gray-800">
+          {unitsInSlot !== null && (
+            <span className="tabular-nums">{unitsInSlot}× </span>
+          )}
           {productName}
         </span>
-        <span className="flex shrink-0 items-baseline gap-2 text-xs text-muted tabular-nums">
-          {position}
-          {isCounted(row) ? <span>Left {row.left}</span> : null}
-        </span>
+        <span className="shrink-0 text-xs text-muted">{position}</span>
       </div>
 
       {!isCounted(row) ? (
@@ -167,28 +168,28 @@ export function RestockProductRow({
       ) : (
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" size="sm" onClick={handleAdded}>
-            Added
+            Add
           </Button>
           <Button
             variant="outline"
             size="sm"
             onClick={() => handlePickStart({ isSwap: false })}
           >
-            Moved →
+            Move →
           </Button>
           <Button
             variant="outline"
             size="sm"
             onClick={() => handlePickStart({ isSwap: true })}
           >
-            Swapped ⇄
+            Swap ⇄
           </Button>
           <Button
             variant="outline"
             size="sm"
             onClick={() => setIsChoosingReason(true)}
           >
-            Pulled ▾
+            Pull ▾
           </Button>
         </div>
       )}

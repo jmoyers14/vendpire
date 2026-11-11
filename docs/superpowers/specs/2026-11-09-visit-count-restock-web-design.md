@@ -83,8 +83,9 @@ browser, back-dated (`countedAt`). Phone-width web must work too.
 
 ### Count
 
-Today's form: the machine grid, a slot panel per slot, Left for every product
-in the slot (mixed slots front to back), Best by where tracked.
+Today's form: the machine grid, a slot panel per slot, "Found in slot" (Left)
+for every product in the slot (mixed slots front to back), Best by where
+tracked. Found is counted before anything is pulled or loaded.
 
 **Pulls of expired, damaged or recalled stock are entered here** ("Pulled
 something out?", as today). Comparing Count and Restock can't detect these: "pull 2
@@ -95,22 +96,25 @@ Added moves out of Count. It's entered in Restock.
 
 ### Restock (four actions)
 
-Same grid. Each slot lists what Count recorded (product, Left, price). Every
-counted product gets exactly one of four actions, front to back:
+Same grid, walked slot by slot with Next like Count. Each slot lists what
+Count recorded as "2× Skittles" (Found less any Count pull), with its price.
+Every counted product gets exactly one of four actions, front to back. The
+buttons are present tense; the answered summary reads past tense ("✓ Moved →
+B2"):
 
 | Action | Operator enters | Line it fills |
 |---|---|---|
-| **Added** | units that went in (0 allowed) | `added` |
-| **Moved →** | the destination slot | `removed = remaining`, `transferred` |
-| **Swapped ⇄** | the other slot | two linked moves |
-| **Pulled ▾** | Back to the van / Expired / Damaged / Recalled | `removed = remaining`, `destocked` or the bin reason |
+| **Add** | units that went in (0 allowed) | `added` |
+| **Move →** | the destination slot | `removed = remaining`, `transferred` |
+| **Swap ⇄** | the other slot | two linked moves |
+| **Pull ▾** | Back to the van / Expired / Damaged / Recalled | `removed = remaining`, `destocked` or the bin reason |
 
 Each slot also has:
 
 - **Price**, always visible, pre-filled from before (see Price).
 - **+ Add product**: pick a product and enter its Added. It goes in front when
-  the slot has no staying product, behind otherwise. "Replace" is Moved or
-  Pulled on the old product plus + Add product. There is no separate replace,
+  the slot has no staying product, behind otherwise. "Replace" is Move or
+  Pull on the old product plus + Add product. There is no separate replace,
   put-in, emptied or add-behind action.
 
 **Added always means the line's `added`:** every unit of this product that
@@ -193,11 +197,12 @@ The machine charges per slot.
   on the review, and Save is blocked until they're answered. One explicit
   button, "Mark the rest unchanged, nothing added", answers them all as
   Added 0. Nothing is defaulted without the operator pressing it.
-- **"Found here, not in the planogram" is entered in Count** (Nov 5 One Stop
-  E4, NV Biscuits behind the Reese's). Count keeps "Add a product behind"
-  with a Left count. That's the existing PR #46 behavior, and it saves as an
-  add-behind change with `remaining` set. In Restock, + Add product means newly
-  loaded stock (`added` only, no `remaining`).
+- **"Found here, not in the planogram" is entered in Restock** (Nov 5 One Stop
+  E4, NV Biscuits behind the Reese's) with + Add product, its Added being
+  everything in the slot after. Count has no "Add a product behind" (removed
+  2026-11-10 at Jeremy's request). Nothing is lost for sales: a product new to
+  the planogram has no previous fill, so its first interval is unknown either
+  way. Its Count pulls and its Before-face entry are what go.
 
 ## Save path
 

@@ -31,13 +31,10 @@ const submissionOf = (patch: Partial<VisitSubmissionDraft>): VisitSubmissionDraf
   ...patch,
 });
 
-const row = (slotCode: string, productId: string, left: string, isAddedBehind = false) => ({
+const row = (slotCode: string, productId: string, left: string) => ({
   slotCode,
   productId,
   left,
-  isAddedBehind,
-  priceCents: 0,
-  par: null,
 });
 
 describe("buildBeforeFace", () => {
@@ -65,34 +62,6 @@ describe("buildBeforeFace", () => {
       "nerds",
       "kars",
     ]);
-  });
-});
-
-describe("found in a slot", () => {
-  const planogramSlots = [slot("A1", "nerds", 200)];
-  const rows = [row("A1", "nerds", "4"), row("A1", "amos", "2", true)];
-
-  it("shows on the Before face behind the planogram product, at the slot price", () => {
-    const face = buildBeforeFace({ planogramSlots, rows });
-    expect(face.get("A1")?.products).toEqual([
-      { productId: "nerds", priceCents: 200, units: 4, wasPriceCents: null },
-      { productId: "amos", priceCents: 200, units: 2, wasPriceCents: null },
-    ]);
-  });
-
-  it("is not a change on the After face when it stayed", () => {
-    const face = buildAfterFace({
-      planogramSlots,
-      rows,
-      submission: submissionOf({
-        slotsAfter: [slot("A1", "nerds", 200), slot("A1", "amos", 200)],
-        lines: [
-          line({ slotCode: "A1", productId: "nerds", remaining: 4 }),
-          line({ slotCode: "A1", productId: "amos", remaining: 2 }),
-        ],
-      }),
-    });
-    expect(face.get("A1")?.isChanged).toBe(false);
   });
 });
 

@@ -12,16 +12,6 @@ export interface SlotProduct {
 export const slotProductKey = ({ slotCode, productId }: SlotProduct): string =>
   `${slotCode}\u0000${productId}`;
 
-/** Index of the slot's back-most entry, or -1 when the slot has none. */
-export const lastIndexInSlot = (
-  items: readonly { slotCode: string }[],
-  slotCode: string,
-): number =>
-  items.reduce(
-    (found, item, index) => (item.slotCode === slotCode ? index : found),
-    -1,
-  );
-
 export type SlotRuleViolation =
   | { readonly kind: "unknown-slot"; readonly slotCode: string }
   | {

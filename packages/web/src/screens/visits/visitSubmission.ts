@@ -163,7 +163,6 @@ export const buildVisitSubmission = ({
 }): { submission: VisitSubmissionDraft } | { problems: SubmissionProblem[] } => {
   const problems: SubmissionProblem[] = [];
   const lines: VisitLineDraft[] = [];
-  const foundHereChanges: LayoutChange[] = [];
   const moveChanges: LayoutChange[] = [];
   const removeChanges: LayoutChange[] = [];
   const newStockChanges: LayoutChange[] = [];
@@ -194,16 +193,10 @@ export const buildVisitSubmission = ({
 
   for (const row of rows) {
     const { slotCode, productId } = row;
-    if (row.isAddedBehind) {
-      foundHereChanges.push({ kind: "add", slotCode, productId });
-    }
     const action = restock.actions[slotProductKey(row)];
 
     if (!isCounted(row)) {
-      // A found product joins the planogram, so it must have a line.
-      if (row.isAddedBehind) {
-        problems.push({ kind: "invalid-count", slotCode, field: "left" });
-      } else if (action !== undefined) {
+      if (action !== undefined) {
         problems.push({ kind: "answered-but-uncounted", slotCode, productId });
       }
       continue;
@@ -295,7 +288,6 @@ export const buildVisitSubmission = ({
     priceAfterOf,
   });
   const layoutChanges = [
-    ...foundHereChanges,
     ...moveChanges,
     ...removeChanges,
     ...newStockChanges,
@@ -438,9 +430,9 @@ const INVALID_COUNT_MESSAGES: Record<
   Extract<SubmissionProblem, { kind: "invalid-count" }>["field"],
   string
 > = {
-  left: `"Left in slot" must be a whole number (0 if none were there)`,
+  left: `"Found in slot" must be a whole number (0 if none were there)`,
   added: `"Added" must be a whole number`,
-  removed: `"Pulled" must be a whole number, with a reason`,
+  removed: `"Pulled out" must be a whole number, with a reason`,
   bestBy: `"Best by" must be a date like 2026-12-15`,
 };
 
@@ -466,7 +458,7 @@ const leftAndCameBackMessage = (
 ): string => {
   const name = nameOf(productId);
   if (pullReason === null) {
-    return `${slotCode}: ${name} moved out and came back in. Record it as Added here, and move the other ${name} straight to where this one went, instead.`;
+    return `${slotCode}: ${name} moved out and came back in. Use Add here, and move the other ${name} straight to where this one went, instead.`;
   }
   return `${slotCode}: ${name} left and came back. Record it as Added, with the ${pullReason} units as a Count pull, instead.`;
 };
@@ -479,7 +471,7 @@ export const problemMessage = (
     case "unanswered":
       return `Slot ${problem.slotCode}: say what happened to ${nameOf(problem.productId)} in Restock`;
     case "answered-but-uncounted":
-      return `Slot ${problem.slotCode}: ${nameOf(problem.productId)} has a Restock answer but no "Left in slot" count`;
+      return `Slot ${problem.slotCode}: ${nameOf(problem.productId)} has a Restock answer but no "Found in slot" count`;
     case "split-reason":
       return `Slot ${problem.slotCode}: ${nameOf(problem.productId)} was pulled in Count for a different reason than it left in Restock; record every unit under one reason`;
     case "added-blank":

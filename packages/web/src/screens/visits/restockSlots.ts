@@ -1,8 +1,7 @@
 import { slotProductKey } from "@vendpire/domain";
-import { arrivalsIn, type Restock, restockWithAction } from "./restock.ts";
+import { arrivalsIn, type Restock } from "./restock.ts";
 import {
   isCounted,
-  isSameRow,
   leftAfterPull,
   parseCount,
   rowsInSlot,
@@ -43,6 +42,26 @@ export const productIdsAfterRestock = (slot: RestockSlot): string[] => [
 export const hasRestockQuestions = (slot: RestockSlot): boolean =>
   rowsOf(slot).some(isCounted) ||
   arrivalsIn(slot.restock, slot.slotCode).length > 0;
+
+/** Where Restock's Next goes: the next slot in walking order with something
+ *  to answer, or null when the rest is Review. A null `afterSlotCode` starts
+ *  from the top. */
+export const nextRestockSlotCode = ({
+  rows,
+  restock,
+  slotCodes,
+  afterSlotCode,
+}: {
+  rows: readonly VisitRow[];
+  restock: Restock;
+  slotCodes: readonly string[];
+  afterSlotCode: string | null;
+}): string | null =>
+  slotCodes
+    .slice(afterSlotCode === null ? 0 : slotCodes.indexOf(afterSlotCode) + 1)
+    .find((candidate) =>
+      hasRestockQuestions({ rows, restock, slotCode: candidate }),
+    ) ?? null;
 
 /** Every counted product has an action with a non-blank Added where one is
  *  asked, and every arrival has its Added. False when there is nothing to
@@ -136,20 +155,3 @@ export const attentionSlotCodeFor = (problem: SubmissionProblem): string | null 
       return problem.slotCode;
   }
 };
-
-/**
- * Count without `removed`, and Restock without its answer: a move's arrival
- * and a swap partner go too, so nothing is left pointing at a row that's gone.
- */
-export const visitWithoutCountRow = ({
-  rows,
-  restock,
-  removed,
-}: {
-  rows: readonly VisitRow[];
-  restock: Restock;
-  removed: VisitRow;
-}): { rows: VisitRow[]; restock: Restock } => ({
-  rows: rows.filter((row) => !isSameRow(row, removed)),
-  restock: restockWithAction(restock, removed, null),
-});

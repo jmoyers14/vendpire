@@ -1,6 +1,7 @@
 import { slotProductKey } from "@vendpire/domain";
 import {
   Alert,
+  Button,
   Card,
   countInputClass,
   hintClass,
@@ -46,6 +47,8 @@ export function RestockSlotPanel({
   onStartPick,
   onCancelPick,
   onCountSlot,
+  isLastSlot,
+  onNext,
 }: {
   slotCode: string;
   /** Every Count row, not just this slot's: "Came from?" looks elsewhere. */
@@ -62,12 +65,15 @@ export function RestockSlotPanel({
   onStartPick: (row: VisitRow, options: { isSwap: boolean }) => void;
   onCancelPick: () => void;
   onCountSlot: () => void;
+  /** The last slot's Next goes on to Review. */
+  isLastSlot: boolean;
+  onNext: () => void;
 }) {
   const slotRows = rowsInSlot(rows, slotCode);
   const arrivals = arrivalsIn(restock, slotCode);
   const price = restock.prices[slotCode] ?? "";
   // A product leaving this slot can't come back as new stock: that's one line
-  // for the slot and product, so it's Added on the row instead.
+  // for the slot and product, so it's Add on the row instead.
   const unofferedProductIds = new Set([
     ...productIdsAfterRestock({ rows, restock, slotCode }),
     ...slotRows.map((row) => row.productId),
@@ -129,11 +135,7 @@ export function RestockSlotPanel({
           key={row.productId}
           row={row}
           productName={nameOf(row.productId)}
-          position={
-            row.isAddedBehind
-              ? "Found behind"
-              : slotPositionLabel({ index, count: slotRows.length })
-          }
+          position={slotPositionLabel({ index, count: slotRows.length })}
           action={restock.actions[slotProductKey(row)]}
           isPicking={pickingRowKey === slotProductKey(row)}
           isFirst={index === 0}
@@ -187,9 +189,15 @@ export function RestockSlotPanel({
           onPick={(product) => handleAddProduct(product.id)}
         />
         <span className={hintClass}>
-          Newly loaded stock. Replacing a product is Moved or Pulled on the old
+          Newly loaded stock. Replacing a product is Move or Pull on the old
           one, then this.
         </span>
+      </div>
+
+      <div className="flex justify-end">
+        <Button variant="secondary" size="sm" onClick={onNext}>
+          {isLastSlot ? "On to review →" : "Next slot →"}
+        </Button>
       </div>
     </Card>
   );

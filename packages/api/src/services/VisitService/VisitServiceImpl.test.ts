@@ -530,6 +530,32 @@ describe("VisitService", () => {
       expect(await visits.findByOrg(ORG)).toHaveLength(0);
     });
 
+    it("saves a visit in the same minute as the current planogram, just after it", async () => {
+      const editedMidMinute = planograms.seed(ORG, {
+        machineId,
+        effectiveFrom: "2026-09-10T14:34:33.056Z",
+        slots: current.slots,
+      });
+
+      const { planogram } = await submitAddingFritos({
+        planogramId: editedMidMinute.id,
+        countedAt: "2026-09-10T14:34:00.000Z",
+      });
+
+      expect(planogram?.effectiveFrom).toBe("2026-09-10T14:34:33.057Z");
+      expect((await planograms.findCurrentByMachine(ORG, machineId))?.id).toBe(
+        planogram?.id,
+      );
+    });
+
+    it("saves a second visit counted at the same minute as the first", async () => {
+      const { planogram } = await submitAddingFritos({
+        countedAt: "2026-09-01T00:00:00.000Z",
+      });
+
+      expect(planogram?.effectiveFrom).toBe("2026-09-01T00:00:00.001Z");
+    });
+
     it("refuses to add a product the slot already holds", async () => {
       await expect(
         service.create(ORG, {

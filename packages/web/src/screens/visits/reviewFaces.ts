@@ -36,28 +36,7 @@ const groupBySlot = (slots: readonly LayoutSlot[]): Map<string, LayoutSlot[]> =>
   return grouped;
 };
 
-type FaceRow = Pick<
-  VisitRow,
-  "slotCode" | "productId" | "left" | "isAddedBehind" | "priceCents" | "par"
->;
-
-/** The planogram plus products found in a slot, behind the planogram's, at the slot's price. */
-const slotsBeforeVisit = (
-  planogramSlots: readonly LayoutSlot[],
-  rows: readonly FaceRow[],
-): LayoutSlot[] => {
-  const found = rows
-    .filter((row) => row.isAddedBehind)
-    .map((row) => ({
-      slotCode: row.slotCode,
-      productId: row.productId,
-      par: row.par ?? 0,
-      priceCents:
-        planogramSlots.find((slot) => slot.slotCode === row.slotCode)?.priceCents ??
-        row.priceCents,
-    }));
-  return [...planogramSlots, ...found];
-};
+type FaceRow = Pick<VisitRow, "slotCode" | "productId" | "left">;
 
 export const buildBeforeFace = ({
   planogramSlots,
@@ -67,7 +46,7 @@ export const buildBeforeFace = ({
   rows: readonly FaceRow[];
 }): ReviewFace => {
   const face = new Map<string, ReviewCell>();
-  for (const [slotCode, slots] of groupBySlot(slotsBeforeVisit(planogramSlots, rows))) {
+  for (const [slotCode, slots] of groupBySlot(planogramSlots)) {
     const products = slots.map(({ productId, priceCents }) => {
       const row = rows.find(
         (candidate) => candidate.slotCode === slotCode && candidate.productId === productId,
@@ -94,7 +73,7 @@ export const buildAfterFace = ({
   submission: VisitSubmissionDraft;
 }): ReviewFace => {
   const { lines, slotsAfter } = submission;
-  const beforeBySlot = groupBySlot(slotsBeforeVisit(planogramSlots, rows));
+  const beforeBySlot = groupBySlot(planogramSlots);
   const afterBySlot = groupBySlot(slotsAfter);
   const slotCodes = new Set([...beforeBySlot.keys(), ...afterBySlot.keys()]);
 

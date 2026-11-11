@@ -51,6 +51,11 @@ import {
  *  the predecessor of every real visit after it and poisons their baselines. */
 const MAX_FUTURE_MS = 2 * 60 * 60 * 1000;
 
+const MINUTE_MS = 60 * 1000;
+
+const startOfMinute = (epochMs: number): number =>
+  Math.floor(epochMs / MINUTE_MS) * MINUTE_MS;
+
 /** An already-stored visit handed back for a repeated submit. Logging and
  *  analytics skip it, and it wrote no planogram this time. */
 const replayOf = (visit: Visit): VisitCreation => ({
@@ -221,7 +226,11 @@ export class VisitServiceImpl implements VisitService {
         "The planogram changed after this visit was started. Reload and enter its layout and price changes again.",
       );
     }
-    if (Date.parse(draft.countedAt) <= Date.parse(current.effectiveFrom)) {
+    const countedAtMs = Date.parse(draft.countedAt);
+    const currentFromMs = Date.parse(current.effectiveFrom);
+    // Visits are timed to the minute, so a planogram from earlier in the same
+    // minute came before the visit, not after it.
+    if (countedAtMs < startOfMinute(currentFromMs)) {
       throw new ServiceError(
         "CONFLICT",
         "The planogram changed after this visit's date, so its layout and price changes can't be saved from it. Save the visit without them and change the planogram instead.",
@@ -244,8 +253,8 @@ export class VisitServiceImpl implements VisitService {
     }
     return {
       machineId: draft.machineId,
-      // Normalized, so a client's "+00:00" orders the same as every other "Z".
-      effectiveFrom: new Date(draft.countedAt).toISOString(),
+      // Strictly after the current version, which may share the visit's minute.
+      effectiveFrom: new Date(Math.max(countedAtMs, currentFromMs + 1)).toISOString(),
       slots,
     };
   }

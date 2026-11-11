@@ -348,31 +348,6 @@ describe("buildVisitSubmission: each change in verbs", () => {
 });
 
 describe("buildVisitSubmission: other rules", () => {
-  it("a product found in Count is added first, so a later change can act on it", () => {
-    const counted = countRows({ [A1_CHEETOS]: "4" });
-    const found: VisitRow = {
-      ...rowFor(counted, "A1", "cheetos"),
-      productId: "pretzels",
-      left: "3",
-      isAddedBehind: true,
-    };
-    const rows = [...counted, found];
-    const answered = withAdded(buildRestock({ shelves: SHELVES, rows }), rowFor(rows, "A1", "cheetos"), "0");
-    const restock = withAction(answered, found, { kind: "moved", toSlotCode: "B1", isSwap: false });
-    const loaded = restockWithArrivalChange(restock, { slotCode: "B1", productId: "pretzels" }, { added: "3" });
-
-    const submission = submissionOf({ rows, restock: loaded });
-
-    expect(submission.layoutChanges).toEqual([
-      { kind: "add", slotCode: "A1", productId: "pretzels" },
-      { kind: "move", productId: "pretzels", fromSlotCode: "A1", toSlotCode: "B1" },
-      { kind: "set-price", slotCode: "B1", priceCents: 100 },
-    ]);
-    expect(submission.lines).toContainEqual(
-      line({ slotCode: "A1", productId: "pretzels", remaining: 3, removed: 3, removedReason: "transferred" }),
-    );
-  });
-
   it("a best-by is kept on a stocked slot and dropped on an emptied one", () => {
     const rows = countRows({ [A1_CHEETOS]: "4", [A2_FRITOS]: "0" }).map((row) => ({
       ...row,

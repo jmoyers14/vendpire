@@ -1,7 +1,6 @@
 import {
   calendarDateAfter,
   calendarDaysUntil,
-  lastIndexInSlot,
   levelAfter,
   type RemovalReason,
   slotProductKey,
@@ -49,11 +48,6 @@ export interface VisitRow {
   readonly previousBestBy: string | null;
   /** False hides the date field entirely. */
   readonly tracksExpiration: boolean;
-  /**
-   * Loaded behind the slot's existing products during this visit. Saving the
-   * visit also adds it to the planogram.
-   */
-  readonly isAddedBehind: boolean;
 }
 
 /** A line as the `visits.create` mutation takes it. */
@@ -169,15 +163,9 @@ const buildBlankRow = ({
   priceCents,
   par,
   tracksExpiration,
-  isAddedBehind,
 }: Pick<
   VisitRow,
-  | "slotCode"
-  | "productId"
-  | "priceCents"
-  | "par"
-  | "tracksExpiration"
-  | "isAddedBehind"
+  "slotCode" | "productId" | "priceCents" | "par" | "tracksExpiration"
 >): VisitRow => ({
   slotCode,
   productId,
@@ -190,7 +178,6 @@ const buildBlankRow = ({
   bestBy: "",
   previousBestBy: null,
   tracksExpiration,
-  isAddedBehind,
 });
 
 /**
@@ -228,7 +215,6 @@ export const buildVisitRows = ({
           // silently stops asking for a date is the failure this whole feature
           // exists to avoid, so the safe default is to keep asking.
           tracksExpiration: tracksExpirationById.get(slot.productId) ?? true,
-          isAddedBehind: false,
         }),
         previousLevel: previous ? levelAfter(previous) : null,
         bestBy: previous?.bestBy ?? "",
@@ -237,27 +223,6 @@ export const buildVisitRows = ({
     }
   }
   return rows;
-};
-
-/** A product loaded behind the slot's existing ones, at the slot's price. */
-export const buildAddedBehindRow = ({
-  front,
-  productId,
-  tracksExpiration,
-}: {
-  front: VisitRow;
-  productId: string;
-  tracksExpiration: boolean;
-}): VisitRow =>
-  buildBlankRow({ ...front, productId, tracksExpiration, isAddedBehind: true });
-
-/** The rows with `added` placed directly behind its slot's last product. */
-export const rowsWithAddedBehind = (
-  rows: readonly VisitRow[],
-  added: VisitRow,
-): VisitRow[] => {
-  const lastIndex = lastIndexInSlot(rows, added.slotCode);
-  return [...rows.slice(0, lastIndex + 1), added, ...rows.slice(lastIndex + 1)];
 };
 
 /**

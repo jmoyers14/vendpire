@@ -28,10 +28,7 @@ import {
 } from "../../ui.tsx";
 import { queryClient, trpc } from "../../trpc.ts";
 import { formatCents } from "../../utils/money.ts";
-import {
-  ProductCombobox,
-  type ProductOption,
-} from "../machines/ProductCombobox.tsx";
+import type { ProductOption } from "../machines/ProductCombobox.tsx";
 import { localDateTimeToIso, toLocalDateTimeInput } from "./countedAt.ts";
 import {
   buildRestock,
@@ -44,14 +41,13 @@ import { RestockSlotPanel } from "./RestockSlotPanel.tsx";
 import {
   attentionSlotCodeFor,
   isSlotAnswered,
+  nextRestockSlotCode,
   nowLevelAfterRestock,
   productIdsAfterRestock,
   restockProgressFor,
-  visitWithoutCountRow,
 } from "./restockSlots.ts";
 import { VisitReview } from "./VisitReview.tsx";
 import {
-  buildAddedBehindRow,
   buildVisitRows,
   isCounted,
   isSameRow,
@@ -61,7 +57,6 @@ import {
   rowWithRemoved,
   rowWithRemovedReason,
   rowsInSlot,
-  rowsWithAddedBehind,
   uncountedSlotCodes,
   type VisitRow,
   warningsFor,
@@ -73,7 +68,7 @@ import { buildVisitSubmission, problemMessage } from "./visitSubmission.ts";
  * steps: Count (what was in each slot on arrival), Restock (what was done to
  * each product), Review (then Save).
  *
- * "Left in slot" is a PRE-FILL observation and nothing downstream can detect a
+ * "Found in slot" is a PRE-FILL observation and nothing downstream can detect a
  * violation: enter a post-fill count and every sold figure, every revenue
  * number and every profit line is silently garbage, with no error raised
  * anywhere. That's why Count asks for nothing that's loaded in.
@@ -196,31 +191,9 @@ function VisitDraftForm({
     products.data?.find((product) => product.id === productId)
       ?.tracksExpiration ?? true;
 
-  const addBehind = ({ slotCode, productId }: SlotProduct) => {
-    const [front] = rowsInSlot(rows, slotCode);
-    if (!front) {
-      return;
-    }
-    const added = buildAddedBehindRow({
-      front,
-      productId,
-      tracksExpiration: tracksExpirationOf(productId),
-    });
-    setRows(rowsWithAddedBehind(rows, added));
-  };
-
   const showCountSlot = (slotCode: string) => {
     setSelected(slotCode);
     setStep("count");
-  };
-
-  const removeAdded = (removed: VisitRow) => {
-    if (!restock) {
-      return;
-    }
-    const next = visitWithoutCountRow({ rows, restock, removed });
-    setRows(next.rows);
-    setRestock(next.restock);
   };
 
   const clearAnswer = (key: SlotProduct) => {
@@ -281,6 +254,16 @@ function VisitDraftForm({
     const next = slotOrder[index + 1];
     if (next === undefined) {
       setStep("restock");
+      if (restock) {
+        setSelected(
+          nextRestockSlotCode({
+            rows,
+            restock,
+            slotCodes: machine.data?.slots.flat() ?? [],
+            afterSlotCode: null,
+          }),
+        );
+      }
       return;
     }
     setSelected(next);
@@ -313,7 +296,7 @@ function VisitDraftForm({
     // A mixed cell has no room for per-product counts; its badge says enough.
     let detail: string | null = null;
     if (slotRows.length === 1) {
-      detail = isCounted ? `left ${front.left}` : `par ${front.par ?? "—"}`;
+      detail = isCounted ? `found ${front.left}` : `par ${front.par ?? "—"}`;
     }
     return buildProductsCell({ slotCode, products, detail, state });
   };
@@ -404,14 +387,9 @@ function VisitDraftForm({
                   key={selected}
                   slotRows={rowsInSlot(rows, selected)}
                   nameOf={productName}
-                  products={products.data ?? []}
                   asOf={asOf}
                   isLastSlot={slotOrder[slotOrder.length - 1] === selected}
                   onChange={replaceRow}
-                  onAddBehind={(productId) =>
-                    addBehind({ slotCode: selected, productId })
-                  }
-                  onRemoveAdded={removeAdded}
                   onNext={() => showNextSlot(selected)}
                 />
               ) : null}
@@ -512,7 +490,7 @@ interface SlotPick {
 
 /**
  * The Restock step: the grid shows each slot as it will be after, the panel
- * takes the selected slot's answers, and Moved / Swapped turn the grid into a
+ * takes the selected slot's answers, and Move / Swap turn the grid into a
  * slot picker until a tap, Cancel or Escape.
  */
 function RestockStep({
@@ -571,6 +549,22 @@ function RestockStep({
       isCounted(row) && restock.actions[slotProductKey(row)] === undefined,
   ).length;
 
+  const nextSlotCode = nextRestockSlotCode({
+    rows,
+    restock,
+    slotCodes,
+    afterSlotCode: selected,
+  });
+
+  const handleNextSlot = () => {
+    setPick(null);
+    if (nextSlotCode === null) {
+      onNext();
+      return;
+    }
+    onSelect(nextSlotCode);
+  };
+
   const handleSwapPartner = (partner: VisitRow) => {
     if (!pick) {
       return;
@@ -600,7 +594,7 @@ function RestockStep({
       setPick({
         ...pick,
         partnerSlotCode: null,
-        notice: `Nothing counted in ${slotCode} to swap with. Use Moved → instead.`,
+        notice: `Nothing counted in ${slotCode} to swap with. Use Move → instead.`,
       });
       return;
     }
@@ -696,6 +690,8 @@ function RestockStep({
           }
           onCancelPick={() => setPick(null)}
           onCountSlot={() => onCountSlot(selected)}
+          isLastSlot={nextSlotCode === null}
+          onNext={handleNextSlot}
         />
       ) : null}
 
@@ -727,31 +723,24 @@ function RestockStep({
 function SlotCountPanel({
   slotRows,
   nameOf,
-  products,
   asOf,
   isLastSlot,
   onChange,
-  onAddBehind,
-  onRemoveAdded,
   onNext,
 }: {
   slotRows: VisitRow[];
   nameOf: (productId: string) => string;
-  products: ProductOption[];
   /** The day expiry warnings are judged against, fixed at form open. */
   asOf: string;
   /** The last slot's Next goes on to Restock. */
   isLastSlot: boolean;
   onChange: (next: VisitRow) => void;
-  onAddBehind: (productId: string) => void;
-  onRemoveAdded: (row: VisitRow) => void;
   onNext: () => void;
 }) {
   const [front] = slotRows;
   if (!front) {
     return null;
   }
-  const inSlot = new Set(slotRows.map((row) => row.productId));
 
   return (
     <Card className="flex flex-col gap-3 border border-primary-200 p-3">
@@ -769,29 +758,12 @@ function SlotCountPanel({
           key={row.productId}
           row={row}
           productName={nameOf(row.productId)}
-          position={
-            row.isAddedBehind
-              ? "Added behind"
-              : slotPositionLabel({ index, count: slotRows.length })
-          }
+          position={slotPositionLabel({ index, count: slotRows.length })}
           isFirst={index === 0}
           asOf={asOf}
           onChange={onChange}
-          onRemove={row.isAddedBehind ? () => onRemoveAdded(row) : undefined}
         />
       ))}
-
-      <div className="flex flex-col gap-1 border-t border-line pt-3">
-        <span className={labelClass}>Add a product behind</span>
-        <ProductCombobox
-          products={products.filter((product) => !inSlot.has(product.id))}
-          productId=""
-          onPick={(product) => onAddBehind(product.id)}
-        />
-        <span className={hintClass}>
-          Found in the slot but not in the planogram
-        </span>
-      </div>
 
       <div className="flex justify-end">
         <Button variant="secondary" size="sm" onClick={onNext}>
@@ -813,7 +785,6 @@ function ProductCountRow({
   isFirst,
   asOf,
   onChange,
-  onRemove,
 }: {
   row: VisitRow;
   productName: string;
@@ -821,8 +792,6 @@ function ProductCountRow({
   isFirst: boolean;
   asOf: string;
   onChange: (next: VisitRow) => void;
-  /** Present only for a product added behind on this visit. */
-  onRemove: (() => void) | undefined;
 }) {
   const [isRemoving, setIsRemoving] = useState(
     row.removed.trim() !== "" && row.removed !== "0",
@@ -837,23 +806,12 @@ function ProductCountRow({
         <span className="truncate text-sm font-medium text-gray-800">
           {productName}
         </span>
-        <span className="flex shrink-0 items-baseline gap-2 text-xs text-muted">
-          {position}
-          {onRemove ? (
-            <button
-              type="button"
-              onClick={onRemove}
-              className="text-primary-600 hover:text-primary-500"
-            >
-              Remove
-            </button>
-          ) : null}
-        </span>
+        <span className="shrink-0 text-xs text-muted">{position}</span>
       </div>
 
       <div className="grid grid-cols-2 gap-2">
         <label className="flex flex-col gap-1">
-          <span className={labelClass}>Left in slot</span>
+          <span className={labelClass}>Found in slot</span>
           <input
             // The front product's Left field takes focus on every slot change,
             // so counting a machine is tap-type-tap rather than tap-tap-type.
@@ -866,10 +824,8 @@ function ProductCountRow({
           />
           <span className={hintClass}>
             {row.previousLevel !== null
-              ? `Filled to ${row.previousLevel} last visit`
-              : row.isAddedBehind
-                ? "How many you found in the slot"
-                : "Before you refill"}
+              ? `Before pulling or refilling · filled to ${row.previousLevel} last visit`
+              : "Before pulling or refilling"}
           </span>
         </label>
       </div>
@@ -894,7 +850,7 @@ function ProductCountRow({
       {isRemoving ? (
         <div className="grid gap-2 rounded-xl bg-gray-50 p-2.5 sm:grid-cols-[6rem_1fr]">
           <label className="flex flex-col gap-1">
-            <span className={labelClass}>Removed</span>
+            <span className={labelClass}>Pulled out</span>
             <input
               inputMode="numeric"
               className={countInputClass}
