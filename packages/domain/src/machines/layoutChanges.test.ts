@@ -1,5 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import {
+  isAddChange,
+  isMoveChange,
+  isRemoveChange,
+  isSetPriceChange,
   layoutChangeLineMismatch,
   slotsAfterChanges,
   type LayoutChange,
@@ -335,5 +339,21 @@ describe("layoutChangeLineMismatch", () => {
       slotCode: "B2",
       productId: "gum",
     });
+  });
+});
+
+describe("layout change type guards", () => {
+  const changes: LayoutChange[] = [
+    { kind: "move", productId: "a", fromSlotCode: "A1", toSlotCode: "A2" },
+    { kind: "remove", slotCode: "A1", productId: "a" },
+    { kind: "add", slotCode: "A1", productId: "a" },
+    { kind: "set-price", slotCode: "A1", priceCents: 150 },
+  ];
+
+  test("each guard matches only its own kind", () => {
+    expect(changes.map(isMoveChange)).toEqual([true, false, false, false]);
+    expect(changes.map(isRemoveChange)).toEqual([false, true, false, false]);
+    expect(changes.map(isAddChange)).toEqual([false, false, true, false]);
+    expect(changes.map(isSetPriceChange)).toEqual([false, false, false, true]);
   });
 });

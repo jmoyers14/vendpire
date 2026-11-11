@@ -10,11 +10,44 @@ import { slotProductKey } from "./mixedSlots.ts";
 /** Par is ignored in this operation; every new entry carries this placeholder. */
 export const PLACEHOLDER_PAR = 10;
 
-export type LayoutChange =
-  | { kind: "move"; productId: string; fromSlotCode: string; toSlotCode: string }
-  | { kind: "remove"; slotCode: string; productId: string }
-  | { kind: "add"; slotCode: string; productId: string }
-  | { kind: "set-price"; slotCode: string; priceCents: number };
+export interface MoveChange {
+  kind: "move";
+  productId: string;
+  fromSlotCode: string;
+  toSlotCode: string;
+}
+
+export interface RemoveChange {
+  kind: "remove";
+  slotCode: string;
+  productId: string;
+}
+
+export interface AddChange {
+  kind: "add";
+  slotCode: string;
+  productId: string;
+}
+
+export interface SetPriceChange {
+  kind: "set-price";
+  slotCode: string;
+  priceCents: number;
+}
+
+export type LayoutChange = MoveChange | RemoveChange | AddChange | SetPriceChange;
+
+export const isMoveChange = (change: LayoutChange): change is MoveChange =>
+  change.kind === "move";
+
+export const isRemoveChange = (change: LayoutChange): change is RemoveChange =>
+  change.kind === "remove";
+
+export const isAddChange = (change: LayoutChange): change is AddChange =>
+  change.kind === "add";
+
+export const isSetPriceChange = (change: LayoutChange): change is SetPriceChange =>
+  change.kind === "set-price";
 
 export interface LayoutSlot {
   slotCode: string;
@@ -56,12 +89,12 @@ export const slotsAfterChanges = (
   let working: WorkingEntry[] = slots.map((slot) => ({ ...slot }));
 
   for (const change of changes) {
-    if (change.kind === "set-price") {
+    if (isSetPriceChange(change)) {
       priceOverrideBySlot.set(change.slotCode, change.priceCents);
       continue;
     }
 
-    if (change.kind === "add") {
+    if (isAddChange(change)) {
       if (working.some(isEntry(change.slotCode, change.productId))) {
         return {
           violation: {
@@ -81,7 +114,7 @@ export const slotsAfterChanges = (
     }
 
     const sourceSlotCode =
-      change.kind === "move" ? change.fromSlotCode : change.slotCode;
+      isMoveChange(change) ? change.fromSlotCode : change.slotCode;
     const source = working.find(isEntry(sourceSlotCode, change.productId));
     if (!source) {
       return {
@@ -93,7 +126,7 @@ export const slotsAfterChanges = (
       };
     }
 
-    if (change.kind === "move") {
+    if (isMoveChange(change)) {
       if (change.fromSlotCode === change.toSlotCode) {
         return {
           violation: { kind: "move-to-same-slot", slotCode: change.toSlotCode },
@@ -111,7 +144,7 @@ export const slotsAfterChanges = (
     }
 
     working = working.filter((entry) => entry !== source);
-    if (change.kind === "move") {
+    if (isMoveChange(change)) {
       working.push({
         ...source,
         slotCode: change.toSlotCode,
@@ -159,11 +192,11 @@ export const layoutChangeLineMismatch = (
   }
 
   for (const change of changes) {
-    if (change.kind === "set-price") {
+    if (isSetPriceChange(change)) {
       continue;
     }
 
-    if (change.kind === "add") {
+    if (isAddChange(change)) {
       const { slotCode, productId } = change;
       if (!lineBySlotProduct.has(slotProductKey(change))) {
         return { kind: "missing-line", slotCode, productId };
@@ -172,7 +205,7 @@ export const layoutChangeLineMismatch = (
     }
 
     const { productId } = change;
-    const slotCode = change.kind === "move" ? change.fromSlotCode : change.slotCode;
+    const slotCode = isMoveChange(change) ? change.fromSlotCode : change.slotCode;
     const departing = lineBySlotProduct.get(slotProductKey({ slotCode, productId }));
     if (!departing) {
       return { kind: "missing-line", slotCode, productId };
@@ -185,13 +218,13 @@ export const layoutChangeLineMismatch = (
     if (!isSoldOut && departing.removedReason === null) {
       return { kind: "not-fully-removed", slotCode, productId };
     }
-    if (!isSoldOut && change.kind === "move" && departing.removedReason !== "transferred") {
+    if (!isSoldOut && isMoveChange(change) && departing.removedReason !== "transferred") {
       return { kind: "move-not-transferred", slotCode, productId };
     }
     if (departing.added !== 0) {
       return { kind: "added-on-outgoing", slotCode, productId };
     }
-    if (change.kind === "move") {
+    if (isMoveChange(change)) {
       const arriving = { slotCode: change.toSlotCode, productId };
       if (!lineBySlotProduct.has(slotProductKey(arriving))) {
         return { kind: "missing-line", ...arriving };
