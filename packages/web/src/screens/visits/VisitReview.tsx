@@ -1,23 +1,32 @@
-import { useState } from "react";
 import type { LayoutSlot, SlotProduct } from "@vendpire/domain";
+import { useState } from "react";
 import {
   Alert,
   Button,
-  Card,
-  countInputClass,
   ErrorNote,
-  hintClass,
-  inputClass,
-  labelClass,
+  Field,
+  FieldRow,
+  RowTable,
+  RowTableBody,
+  RowTableEmpty,
+  RowTableHeader,
+  RowTableRow,
+  TextArea,
+  TextInput,
 } from "../../ui.tsx";
+import { formatCents } from "../../utils/money.ts";
+import { plural } from "../../utils/text.ts";
 import { describeChanges } from "./changeList.ts";
-import { ReviewFace } from "./ReviewFace.tsx";
 import { attentionSlotCodeFor } from "./restockSlots.ts";
-import { buildAfterFace, buildBeforeFace } from "./reviewFaces.ts";
-import type { VisitRow } from "./visitRows.ts";
+import { EditorCard, EditorFooter } from "./SlotEditor.tsx";
 import {
-  problemMessage,
+  hasActivity,
+  type ProductActivity,
+  visitTotalsFor,
+} from "./visitActivity.ts";
+import {
   type buildVisitSubmission,
+  problemMessage,
   type SubmissionProblem,
 } from "./visitSubmission.ts";
 
@@ -30,18 +39,24 @@ const stepFor = (problem: SubmissionProblem): VisitStepName =>
     ? "count"
     : "restock";
 
-type FaceSide = "before" | "after";
+// Unanswered slots get their own warning row with "Mark unchanged".
+const isUnansweredWork = (problem: SubmissionProblem): boolean =>
+  problem.kind === "unanswered" || problem.kind === "added-blank";
 
-/** The last step: what will be saved, anything blocking it, and Save. */
+const REVIEW_COLUMNS = "48px minmax(0,2.6fr) repeat(5,minmax(0,0.9fr))";
+
+/** The last step: totals, anything still open, what changed, and Save. */
 export function VisitReview({
   submissionResult,
-  shelves,
-  rows,
+  activities,
   planogramSlots,
+  productName,
+  uncountedSlotCodes,
+  unansweredSlotCount,
   onShowSlot,
   onClearAnswer,
-  uncountedSlotCodes,
-  productName,
+  onMarkRestUnchanged,
+  onBackToRestock,
   countedAtInput,
   onCountedAtInputChange,
   notes,
@@ -51,16 +66,18 @@ export function VisitReview({
   onSave,
 }: {
   submissionResult: VisitSubmissionResult;
-  shelves: string[][];
-  rows: readonly VisitRow[];
+  activities: readonly ProductActivity[];
   planogramSlots: readonly LayoutSlot[];
+  productName: (productId: string) => string;
+  /** Slots with a product still uncounted, which Save asks about first. */
+  uncountedSlotCodes: readonly string[];
+  unansweredSlotCount: number;
   /** Goes to a step with the slot selected. */
   onShowSlot: (target: { step: VisitStepName; slotCode: string }) => void;
   /** Drops the Restock answer of a row whose count was blanked. */
   onClearAnswer: (row: SlotProduct) => void;
-  /** Slots with a product still uncounted, which Save asks about first. */
-  uncountedSlotCodes: readonly string[];
-  productName: (productId: string) => string;
+  onMarkRestUnchanged: () => void;
+  onBackToRestock: () => void;
   countedAtInput: string;
   onCountedAtInputChange: (countedAtInput: string) => void;
   notes: string;
@@ -70,28 +87,18 @@ export function VisitReview({
   saveError: string | null;
   onSave: () => void;
 }) {
+  const [isShowingAll, setIsShowingAll] = useState(false);
   const [isUncountedWarningShown, setIsUncountedWarningShown] = useState(false);
-  const [side, setSide] = useState<FaceSide>("after");
-  const problems =
-    "problems" in submissionResult ? submissionResult.problems : [];
+
+  const problems = "problems" in submissionResult ? submissionResult.problems : [];
   // A mixed slot can report the same problem once per product.
   const problemItems = [
     ...new Map(
-      problems.map((problem) => [
-        problemMessage(problem, productName),
-        problem,
-      ]),
+      problems
+        .filter((problem) => !isUnansweredWork(problem))
+        .map((problem) => [problemMessage(problem, productName), problem]),
     ),
   ];
-  const beforeFace = buildBeforeFace({ planogramSlots, rows });
-  const afterFace =
-    "submission" in submissionResult
-      ? buildAfterFace({
-          planogramSlots,
-          rows,
-          submission: submissionResult.submission,
-        })
-      : null;
   const changeDescriptions =
     "submission" in submissionResult
       ? describeChanges({
@@ -100,8 +107,10 @@ export function VisitReview({
           nameOf: productName,
         })
       : [];
-  const sideClass = (faceSide: FaceSide) =>
-    `${side === faceSide ? "" : "hidden"} sm:block`;
+  const totals = visitTotalsFor(activities);
+  const activeRows = activities.filter(hasActivity);
+  const shownRows = isShowingAll ? activities : activeRows;
+  const [firstUncounted] = uncountedSlotCodes;
 
   const handleSave = () => {
     if (uncountedSlotCodes.length > 0) {
@@ -111,140 +120,168 @@ export function VisitReview({
     onSave();
   };
 
+  const stats = [
+    { label: "Sold", value: totals.soldCount === null ? "—" : String(totals.soldCount) },
+    { label: "Est. revenue", value: formatCents(totals.revenueCents) },
+    { label: "Added", value: `+${totals.addedCount}` },
+    { label: "Pulled", value: String(totals.pulledCount) },
+  ];
+
   return (
-    <div className="flex flex-col gap-4">
-      {afterFace ? (
-        <div className="flex gap-1 sm:hidden" role="group" aria-label="Face">
-          {(["before", "after"] as const).map((faceSide) => (
-            <Button
-              key={faceSide}
-              size="sm"
-              variant={side === faceSide ? "primary" : "secondary"}
-              onClick={() => setSide(faceSide)}
-            >
-              {faceSide === "before" ? "Before" : "After"}
-            </Button>
-          ))}
+    <EditorCard label="Review visit">
+      <header className="grid gap-1 border-b border-divider pb-6">
+        <h2 className="font-display text-title text-ink">Review visit</h2>
+        <p className="text-body text-muted-strong">
+          Check the numbers, then save. Click a slot on the map to fix it.
+        </p>
+      </header>
+
+      <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {stats.map((stat) => (
+          <div key={stat.label} className="rounded-control border border-divider bg-app p-4">
+            <dt className="text-overline text-muted-strong uppercase">{stat.label}</dt>
+            <dd className="mt-1 font-display text-stat text-ink tabular-nums">{stat.value}</dd>
+          </div>
+        ))}
+      </dl>
+
+      {firstUncounted || unansweredSlotCount > 0 || problemItems.length > 0 ? (
+        <div className="grid gap-3">
+          {firstUncounted ? (
+            <Alert
+              tone="warning"
+              title={`${plural(uncountedSlotCodes.length, { one: "slot wasn't", many: "slots weren't" })} counted, so their sales are missing from the totals.`}
+              action={
+                <Button
+                  variant="text"
+                  onClick={() => onShowSlot({ step: "count", slotCode: firstUncounted })}
+                >
+                  Count them
+                </Button>
+              }
+            />
+          ) : null}
+          {unansweredSlotCount > 0 ? (
+            <Alert
+              tone="warning"
+              title={`${plural(unansweredSlotCount, { one: "slot has", many: "slots have" })} no restock answer yet.`}
+              action={
+                <Button variant="text" onClick={onMarkRestUnchanged}>
+                  Mark unchanged
+                </Button>
+              }
+            />
+          ) : null}
+          {problemItems.map(([message, problem]) => {
+            const slotCode = attentionSlotCodeFor(problem);
+            return (
+              <Alert
+                key={message}
+                tone="warning"
+                title={message}
+                action={
+                  <>
+                    {problem.kind === "answered-but-uncounted" ? (
+                      <Button variant="text" onClick={() => onClearAnswer(problem)}>
+                        Clear answer
+                      </Button>
+                    ) : null}
+                    {slotCode === null ? null : (
+                      <Button
+                        variant="text"
+                        onClick={() => onShowSlot({ step: stepFor(problem), slotCode })}
+                      >
+                        Fix {slotCode}
+                      </Button>
+                    )}
+                  </>
+                }
+              />
+            );
+          })}
         </div>
       ) : null}
 
-      <div className={`grid gap-3 ${afterFace ? "sm:grid-cols-2" : ""}`}>
-        <div className={afterFace ? sideClass("before") : ""}>
-          <ReviewFace
-            title="Before"
-            shelves={shelves}
-            face={beforeFace}
-            nameOf={productName}
-          />
+      <div className="grid gap-3">
+        <div className="flex items-center justify-between gap-3">
+          <h3 className="text-body font-bold text-ink">
+            {isShowingAll ? "All slots" : `Slots with activity (${activeRows.length})`}
+          </h3>
+          <Button variant="text" onClick={() => setIsShowingAll(!isShowingAll)}>
+            {isShowingAll ? "Show activity only" : "Show all slots"}
+          </Button>
         </div>
-        {afterFace ? (
-          <div className={sideClass("after")}>
-            <ReviewFace
-              title="After"
-              shelves={shelves}
-              face={afterFace}
-              nameOf={productName}
-            />
-          </div>
-        ) : null}
+        <RowTable columns={REVIEW_COLUMNS} minWidth="640px">
+            <RowTableHeader>
+              <span>Slot</span>
+              <span>Product</span>
+              <span className="text-right">Found</span>
+              <span className="text-right">Sold</span>
+              <span className="text-right">Added</span>
+              <span className="text-right">Pulled</span>
+              <span className="text-right">Now</span>
+            </RowTableHeader>
+            {shownRows.length === 0 ? (
+              <RowTableEmpty>Nothing sold, added or pulled yet.</RowTableEmpty>
+            ) : (
+              <RowTableBody>
+                {shownRows.map((activity, index) => (
+                  <ReviewRow
+                    key={`${activity.slotCode}-${activity.productId}-${activity.outcome}`}
+                    activity={activity}
+                    isFirstInSlot={shownRows[index - 1]?.slotCode !== activity.slotCode}
+                    productName={productName(activity.productId)}
+                  />
+                ))}
+              </RowTableBody>
+            )}
+        </RowTable>
       </div>
 
-      {afterFace ? (
-        <Card className="p-3">
-          {changeDescriptions.length > 0 ? (
-            <ul className="list-disc pl-5 text-sm text-gray-800">
-              {changeDescriptions.map((description) => (
-                <li key={description}>{description}</li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-sm text-gray-600">
-              No layout changes. Check the After face against your photo.
-            </p>
-          )}
-        </Card>
-      ) : null}
-
-      {problemItems.length > 0 ? (
-        <Alert tone="warning" title="Fix these before saving">
-          <ul className="list-disc pl-5">
-            {problemItems.map(([message, problem]) => {
-              const slotCode =
-                "slotCode" in problem
-                  ? problem.slotCode
-                  : attentionSlotCodeFor(problem);
-              return (
-                <li key={message}>
-                  {message}
-                  {slotCode === null ? null : (
-                    <button
-                      type="button"
-                      className="ml-2 font-bold underline"
-                      onClick={() =>
-                        onShowSlot({ step: stepFor(problem), slotCode })
-                      }
-                    >
-                      Go to {slotCode}
-                    </button>
-                  )}
-                  {problem.kind === "answered-but-uncounted" ? (
-                    <button
-                      type="button"
-                      className="ml-2 font-bold underline"
-                      onClick={() => onClearAnswer(problem)}
-                    >
-                      Clear answer
-                    </button>
-                  ) : null}
-                </li>
-              );
-            })}
+      {changeDescriptions.length > 0 ? (
+        <div className="grid gap-2">
+          <h3 className="text-body font-bold text-ink">Layout changes</h3>
+          <ul className="list-disc pl-5 text-body text-ink-soft">
+            {changeDescriptions.map((description) => (
+              <li key={description}>{description}</li>
+            ))}
           </ul>
-        </Alert>
+        </div>
       ) : null}
 
-      <Card className="flex flex-col gap-3 p-3">
-        <label className="flex flex-col gap-1">
-          <span className={labelClass}>Counted at</span>
-          <input
+      <FieldRow>
+        <Field
+          label="Counted at"
+          hint="When you stood at the machine. Back-date it if you're entering this later."
+        >
+          <TextInput
             type="datetime-local"
-            className={countInputClass}
             value={countedAtInput}
-            onChange={(e) => onCountedAtInputChange(e.target.value)}
+            onChange={(event) => onCountedAtInputChange(event.target.value)}
           />
-          <span className={hintClass}>
-            When you stood at the machine — this orders every interval the
-            engine computes. Back-date it if you're entering this later.
-          </span>
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className={labelClass}>Notes</span>
-          <textarea
-            className={inputClass}
+        </Field>
+        <Field label="Notes" isOptional>
+          <TextArea
             rows={2}
-            placeholder="Jammed coil, cold deck warm, …"
+            placeholder="e.g. Jammed coil, cold deck warm"
             value={notes}
-            onChange={(e) => onNotesChange(e.target.value)}
+            onChange={(event) => onNotesChange(event.target.value)}
           />
-        </label>
-      </Card>
+        </Field>
+      </FieldRow>
 
       {isUncountedWarningShown ? (
         <Alert
           tone="warning"
-          title={`${uncountedSlotCodes.length} slot(s) weren't fully counted: ${uncountedSlotCodes.join(", ")}.`}
+          title={`${plural(uncountedSlotCodes.length, { one: "slot wasn't", many: "slots weren't" })} fully counted: ${uncountedSlotCodes.join(", ")}.`}
         >
           <p>
-            An uncounted slot gets no line at all, so the engine reports it as
-            not counted rather than inventing a sold figure. That's correct —
-            but those slots will show no sales for this interval.
+            An uncounted slot gets no line at all, so it shows as not counted
+            rather than an invented sold figure. Those slots will show no sales
+            for this interval.
           </p>
           <div className="mt-2 flex flex-wrap gap-2">
-            <Button
-              size="sm"
-              onClick={onSave}
-              disabled={isSaving || problems.length > 0}
-            >
+            <Button size="sm" onClick={onSave} disabled={isSaving || problems.length > 0}>
               Save anyway
             </Button>
             <Button
@@ -260,13 +297,71 @@ export function VisitReview({
 
       <ErrorNote message={saveError} />
 
-      <Button
-        isFullWidth
-        onClick={handleSave}
-        disabled={isSaving || problems.length > 0 || isUncountedWarningShown}
+      <EditorFooter
+        hint={
+          <Button variant="secondary" onClick={onBackToRestock}>
+            ← Back to restock
+          </Button>
+        }
       >
-        {isSaving ? "Saving…" : "Save Visit"}
-      </Button>
-    </div>
+        <Button
+          onClick={handleSave}
+          disabled={isSaving || problems.length > 0 || isUncountedWarningShown}
+        >
+          {isSaving ? "Saving…" : "Save visit"}
+        </Button>
+      </EditorFooter>
+    </EditorCard>
+  );
+}
+
+const numberOrDash = (value: number | null, { isSigned = false } = {}) => {
+  if (value === null) {
+    return "—";
+  }
+  return isSigned && value > 0 ? `+${value}` : String(value);
+};
+
+function ReviewRow({
+  activity,
+  isFirstInSlot,
+  productName,
+}: {
+  activity: ProductActivity;
+  isFirstInSlot: boolean;
+  productName: string;
+}) {
+  const nowText =
+    activity.now === null
+      ? "—"
+      : `${activity.now}${activity.par === null ? "" : ` / ${activity.par}`}`;
+  const cells = [
+    numberOrDash(activity.found),
+    numberOrDash(activity.sold),
+    numberOrDash(activity.added, { isSigned: true }),
+    String(activity.pulled),
+    nowText,
+  ];
+  return (
+    <RowTableRow className="text-body">
+      <span className="font-mono text-body-sm text-muted-strong">
+        {isFirstInSlot ? activity.slotCode : ""}
+      </span>
+      <span className="grid min-w-0">
+        <span className="truncate font-bold text-ink">{productName}</span>
+        {activity.notes.length > 0 ? (
+          <span className="text-body-sm text-muted-strong">{activity.notes.join(" · ")}</span>
+        ) : null}
+      </span>
+      {cells.map((cell, index) => (
+        <span
+          // Columns are positional and fixed: Found, Sold, Added, Pulled, Now.
+          key={index}
+          className="text-right font-mono text-body-sm text-ink tabular-nums"
+        >
+          {cell}
+        </span>
+      ))}
+    </RowTableRow>
   );
 }

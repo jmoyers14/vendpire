@@ -37,6 +37,21 @@ export const productIdsAfterRestock = (slot: RestockSlot): string[] => [
   ...arrivalsIn(slot.restock, slot.slotCode).map((arrival) => arrival.productId),
 ];
 
+/** Counted products still in the slot: the ones Add stock and Pull act on. */
+export const stayingRowsIn = (slot: RestockSlot): VisitRow[] =>
+  rowsOf(slot).filter((row) => isCounted(row) && isStaying(row, slot.restock));
+
+/**
+ * Products the slot can't take as new stock: anything already in it or leaving
+ * it. A product leaving can't come back as new stock, since that's one line for
+ * the slot and product; it's Add stock instead.
+ */
+export const unloadableProductIdsFor = (slot: RestockSlot): Set<string> =>
+  new Set([
+    ...productIdsAfterRestock(slot),
+    ...rowsOf(slot).map((row) => row.productId),
+  ]);
+
 /** Counted rows and arrivals are the only things Restock asks about; an
  *  uncounted row goes back to Count instead. */
 export const hasRestockQuestions = (slot: RestockSlot): boolean =>
@@ -62,6 +77,32 @@ export const nextRestockSlotCode = ({
     .find((candidate) =>
       hasRestockQuestions({ rows, restock, slotCode: candidate }),
     ) ?? null;
+
+/** Where Restock's Previous goes: the nearest earlier slot with something to
+ *  answer, or null at the top. */
+export const previousRestockSlotCode = ({
+  rows,
+  restock,
+  slotCodes,
+  beforeSlotCode,
+}: {
+  rows: readonly VisitRow[];
+  restock: Restock;
+  slotCodes: readonly string[];
+  beforeSlotCode: string;
+}): string | null => {
+  const index = slotCodes.indexOf(beforeSlotCode);
+  if (index <= 0) {
+    return null;
+  }
+  return (
+    slotCodes
+      .slice(0, index)
+      .reverse()
+      .find((candidate) => hasRestockQuestions({ rows, restock, slotCode: candidate })) ??
+    null
+  );
+};
 
 /** Every counted product has an action with a non-blank Added where one is
  *  asked, and every arrival has its Added. False when there is nothing to

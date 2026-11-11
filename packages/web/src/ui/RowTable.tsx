@@ -13,23 +13,35 @@ export type RowTableVariant = "boxed" | "plain";
 export const RowTable = ({
   columns,
   variant = "boxed",
+  minWidth,
   className = "",
   children,
 }: {
   /** A grid-template-columns value, e.g. "minmax(0,1fr) 128px 140px 40px". */
   columns: string;
   variant?: RowTableVariant;
+  /**
+   * Below this width the table scrolls sideways instead of crushing its
+   * columns, e.g. "520px" for a phone.
+   */
+  minWidth?: string;
   className?: string;
   children: ReactNode;
-}) => (
-  <div
-    data-variant={variant}
-    style={{ "--row-columns": columns } as CSSProperties}
-    className={`group/rows ${variant === "boxed" ? "overflow-hidden rounded-panel border border-line" : ""} ${className}`}
-  >
-    {children}
-  </div>
-);
+}) => {
+  const table = (
+    <div
+      data-variant={variant}
+      style={{ "--row-columns": columns, minWidth } as CSSProperties}
+      className={`group/rows ${variant === "boxed" ? "overflow-hidden rounded-panel border border-line" : ""} ${minWidth ? "" : className}`}
+    >
+      {children}
+    </div>
+  );
+  if (!minWidth) {
+    return table;
+  }
+  return <div className={`min-w-0 overflow-x-auto ${className}`}>{table}</div>;
+};
 
 const ROW = "grid grid-cols-(--row-columns) items-center gap-3";
 const INSET = "group-data-[variant=boxed]/rows:px-4";

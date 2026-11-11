@@ -1,34 +1,26 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
-import {
-  type LayoutSlot,
-  type RemovalReason,
-  type SlotProduct,
-  slotProductKey,
-} from "@vendpire/domain";
+import { type LayoutSlot, type SlotProduct, slotProductKey } from "@vendpire/domain";
+import { type KeyboardEvent, useEffect, useState } from "react";
+import type { ApiPlanogram, ApiProduct } from "../../apiTypes.ts";
 import {
   Alert,
   Button,
   buttonClass,
-  Card,
-  countInputClass,
   ErrorNote,
-  focusRing,
-  hintClass,
-  inputClass,
-  labelClass,
+  eyebrowLinkClass,
+  type MachineTile,
   Page,
-  PageTitle,
-  buildProductsCell,
-  type SlotCell,
-  type SlotCellState,
-  SlotFaceGrid,
-  slotPositionLabel,
+  PageHeader,
+  pageLinkClass,
+  type Step,
+  Stepper,
 } from "../../ui.tsx";
+import { shelfLabel } from "../../ui/machineMap.ts";
+import { formatShortDate } from "../../utils/dates.ts";
+import { plural } from "../../utils/text.ts";
 import { queryClient, trpc } from "../../trpc.ts";
-import { formatCents } from "../../utils/money.ts";
-import type { ProductOption } from "../machines/ProductCombobox.tsx";
+import { CountSlotEditor } from "./CountSlotEditor.tsx";
 import { localDateTimeToIso, toLocalDateTimeInput } from "./countedAt.ts";
 import {
   buildRestock,
@@ -37,36 +29,32 @@ import {
   restockWithRestUnchanged,
   restockWithSwap,
 } from "./restock.ts";
-import { RestockSlotPanel } from "./RestockSlotPanel.tsx";
+import { type RestockPanel, RestockSlotEditor, type SlotPick } from "./RestockSlotEditor.tsx";
 import {
   attentionSlotCodeFor,
-  isSlotAnswered,
+  hasRestockQuestions,
   nextRestockSlotCode,
-  nowLevelAfterRestock,
-  productIdsAfterRestock,
+  previousRestockSlotCode,
   restockProgressFor,
 } from "./restockSlots.ts";
+import { slotActivityFor, visitActivityFor, visitTotalsFor } from "./visitActivity.ts";
+import { VisitMapPane } from "./VisitMapPane.tsx";
 import { VisitReview } from "./VisitReview.tsx";
 import {
   buildVisitRows,
   isCounted,
   isSameRow,
-  isSlotCounted,
-  rowWithBestBy,
-  rowWithLeft,
-  rowWithRemoved,
-  rowWithRemovedReason,
   rowsInSlot,
   uncountedSlotCodes,
   type VisitRow,
-  warningsFor,
 } from "./visitRows.ts";
 import { buildVisitSubmission, problemMessage } from "./visitSubmission.ts";
+import { countTileFor, restockTileFor } from "./visitTiles.ts";
 
 /**
- * Logging one servicing of one machine, from a phone at the machine, in three
- * steps: Count (what was in each slot on arrival), Restock (what was done to
- * each product), Review (then Save).
+ * Logging one servicing of one machine in three steps: Count (what was in each
+ * slot on arrival), Restock (what was done to each product), Review (then
+ * Save). The machine map stays on the left; the right edits one slot.
  *
  * "Found in slot" is a PRE-FILL observation and nothing downstream can detect a
  * violation: enter a post-fill count and every sold figure, every revenue
@@ -88,22 +76,9 @@ export function VisitEntryScreen({ machineId }: { machineId: string }) {
   );
 }
 
-const REMOVAL_REASONS: { value: RemovalReason; label: string }[] = [
-  { value: "expired", label: "Expired — binned" },
-  { value: "damaged", label: "Damaged — binned" },
-  { value: "recalled", label: "Recalled — binned" },
-  { value: "destocked", label: "Destocked — back to the van" },
-  { value: "transferred", label: "Transferred to another machine" },
-];
-
 type VisitStep = "count" | "restock" | "review";
 
-const VISIT_STEPS: { step: VisitStep; label: string }[] = [
-  { step: "count", label: "Count" },
-  { step: "restock", label: "Restock" },
-  { step: "review", label: "Review" },
-];
-
+/** Loads the machine, builds the visit's rows once, and shows the result of a save. */
 function VisitDraftForm({
   machineId,
   onLogAnother,
@@ -114,51 +89,39 @@ function VisitDraftForm({
   // Minted at form OPEN, not at submit: a submit whose response was lost is
   // retried with the same key and cannot double-post.
   const [clientRequestId] = useState(() => crypto.randomUUID());
-  const [countedAtInput, setCountedAtInput] = useState(() =>
-    toLocalDateTimeInput(new Date().toISOString()),
+  const [initial, setInitial] = useState<{ rows: VisitRow[]; restock: Restock } | null>(
+    null,
   );
-  const [rows, setRows] = useState<VisitRow[]>([]);
-  const [restock, setRestock] = useState<Restock | null>(null);
-  const [isBuilt, setIsBuilt] = useState(false);
-  const [step, setStep] = useState<VisitStep>("count");
-  const [selected, setSelected] = useState<string | null>(null);
-  const [notes, setNotes] = useState("");
-  const [error, setError] = useState<string | null>(null);
   const [savedLineCount, setSavedLineCount] = useState<number | null>(null);
-  // The day the warnings are judged against. Fixed at form open so a visit
-  // spanning midnight cannot reclassify rows mid-count.
-  const [asOf] = useState(() => new Date().toISOString().slice(0, 10));
 
   const machine = useQuery(trpc.machines.get.queryOptions({ id: machineId }));
-  const planogram = useQuery(
-    trpc.planograms.getCurrent.queryOptions({ machineId }),
-  );
+  const planogram = useQuery(trpc.planograms.getCurrent.queryOptions({ machineId }));
   const products = useQuery(trpc.products.list.queryOptions());
-  const previousVisits = useQuery(
-    trpc.visits.list.queryOptions({ machineId, limit: 1 }),
-  );
+  const previousVisits = useQuery(trpc.visits.list.queryOptions({ machineId, limit: 1 }));
+  // Machine names aren't unique enough on their own; the location says which one this is.
+  const location = useQuery({
+    ...trpc.locations.get.queryOptions({ id: machine.data?.locationId ?? "" }),
+    enabled: Boolean(machine.data),
+  });
 
   // Built ONCE. These queries refetch on window focus, and rebuilding would
   // wipe counts already typed in — the one thing this screen must never do.
   useEffect(() => {
-    if (isBuilt || !machine.data || !planogram.isSuccess) {
+    if (initial || !machine.data || !planogram.isSuccess) {
       return;
     }
     if (!previousVisits.isSuccess || !products.isSuccess) {
       return;
     }
-    const built = buildVisitRows({
+    const rows = buildVisitRows({
       shelves: machine.data.slots,
       planogramSlots: planogram.data?.slots ?? [],
       previousVisit: previousVisits.data[0] ?? null,
       products: products.data,
     });
-    setRows(built);
-    setRestock(buildRestock({ shelves: machine.data.slots, rows: built }));
-    setSelected(built[0]?.slotCode ?? null);
-    setIsBuilt(true);
+    setInitial({ rows, restock: buildRestock({ shelves: machine.data.slots, rows }) });
   }, [
-    isBuilt,
+    initial,
     machine.data,
     planogram.isSuccess,
     planogram.data,
@@ -168,162 +131,56 @@ function VisitDraftForm({
     products.data,
   ]);
 
-  const create = useMutation(
-    trpc.visits.create.mutationOptions({
-      onSuccess: (visit) => {
-        queryClient.invalidateQueries({ queryKey: trpc.visits.list.pathKey() });
-        queryClient.invalidateQueries({ queryKey: trpc.pnl.pathKey() });
-        setSavedLineCount(visit.lines.length);
-        setError(null);
-      },
-      onError: (e) => setError(e.message),
-    }),
+  const shelves = machine.data?.slots ?? [];
+  const lastVisitAt = previousVisits.data?.[0]?.countedAt;
+  const details = lastVisitAt ? `Last visit ${formatShortDate(lastVisitAt)}` : "First visit";
+  const meta = location.data ? (
+    <>
+      <span className="font-bold text-ink">{location.data.name}</span> · {details}
+    </>
+  ) : (
+    details
   );
 
-  const productName = (id: string): string =>
-    products.data?.find((product) => product.id === id)?.name ?? id;
-
-  const replaceRow = (next: VisitRow) =>
-    setRows(rows.map((row) => (isSameRow(row, next) ? next : row)));
-
-  // Unknown products keep asking for a date, as in buildVisitRows.
-  const tracksExpirationOf = (productId: string): boolean =>
-    products.data?.find((product) => product.id === productId)
-      ?.tracksExpiration ?? true;
-
-  const showCountSlot = (slotCode: string) => {
-    setSelected(slotCode);
-    setStep("count");
-  };
-
-  const clearAnswer = (key: SlotProduct) => {
-    const row = rows.find(
-      (candidate) =>
-        candidate.slotCode === key.slotCode &&
-        candidate.productId === key.productId,
-    );
-    if (!restock || !row) {
-      return;
-    }
-    setRestock(restockWithAction(restock, row, null));
-  };
-
-  const slotOrder = [...new Set(rows.map((row) => row.slotCode))];
-  const uncounted = uncountedSlotCodes(rows);
-
-  const planogramSlots: LayoutSlot[] = (planogram.data?.slots ?? []).map(
-    ({ slotCode, productId, par, priceCents }) => ({
-      slotCode,
-      productId,
-      par,
-      priceCents,
-    }),
-  );
-
-  const save = () => {
-    setError(null);
-    if (!machine.data || !restock) {
-      return;
-    }
-    const countedAt = localDateTimeToIso(countedAtInput);
-    if (!countedAt) {
-      setError("Set when you counted this machine");
-      return;
-    }
-    const result = buildVisitSubmission({ rows, restock, planogramSlots });
-    if ("problems" in result) {
-      return;
-    }
-    create.mutate({
-      machineId,
-      // The machine's location as the CLIENT saw it. Never re-derived: if the
-      // machine moved between the count and the submit, the server's idea of
-      // where it stands is the wrong answer for this visit.
-      locationId: machine.data.locationId,
-      planogramId: planogram.data?.id ?? null,
-      countedAt,
-      lines: result.submission.lines,
-      layoutChanges: result.submission.layoutChanges,
-      notes: notes.trim() === "" ? null : notes.trim(),
-      clientRequestId,
-    });
-  };
-
-  const showNextSlot = (slotCode: string) => {
-    const index = slotOrder.indexOf(slotCode);
-    const next = slotOrder[index + 1];
-    if (next === undefined) {
-      setStep("restock");
-      if (restock) {
-        setSelected(
-          nextRestockSlotCode({
-            rows,
-            restock,
-            slotCodes: machine.data?.slots.flat() ?? [],
-            afterSlotCode: null,
-          }),
-        );
+  const header = (
+    <PageHeader
+      eyebrow={
+        <>
+          <Link to="/machines" className={eyebrowLinkClass}>
+            Machines
+          </Link>{" "}
+          / Log visit
+        </>
       }
-      return;
-    }
-    setSelected(next);
-  };
-
-  const renderCell = (slotCode: string): SlotCell => {
-    const slotRows = rowsInSlot(rows, slotCode);
-    const products = slotRows.map((row) => ({
-      id: row.productId,
-      name: productName(row.productId),
-    }));
-    const [front] = slotRows;
-    if (!front) {
-      return buildProductsCell({
-        slotCode,
-        products,
-        title: `${slotCode}: not in the current planogram`,
-      });
-    }
-    const isCounted = isSlotCounted(rows, slotCode);
-    const hasWarnings = slotRows.some(
-      (row) => warningsFor(row, { asOf }).length > 0,
-    );
-    let state: SlotCellState = "assigned";
-    if (hasWarnings) {
-      state = "attention";
-    } else if (isCounted) {
-      state = "done";
-    }
-    // A mixed cell has no room for per-product counts; its badge says enough.
-    let detail: string | null = null;
-    if (slotRows.length === 1) {
-      detail = isCounted ? `found ${front.left}` : `par ${front.par ?? "—"}`;
-    }
-    return buildProductsCell({ slotCode, products, detail, state });
-  };
+      title={machine.data?.name ?? "…"}
+      meta={machine.data ? meta : undefined}
+      aside={
+        <Link to="/machines/$machineId/visits" params={{ machineId }} className={pageLinkClass}>
+          History →
+        </Link>
+      }
+    />
+  );
 
   if (savedLineCount !== null) {
     return (
-      <Page max="xl" className="flex flex-col gap-4">
-        <PageTitle>Visit saved</PageTitle>
-        <Alert tone="success" title={`${savedLineCount} slot(s) recorded`}>
-          {machine.data?.name ?? "This machine"} is counted. Sold figures and
-          profit for the interval that just closed are on the history screen.
+      <Page max="wide" className="grid gap-6">
+        {header}
+        <Alert
+          tone="success"
+          title={`Visit saved · ${plural(savedLineCount, { one: "slot", many: "slots" })} recorded`}
+        >
+          Sold figures and profit for the interval that just closed are on the
+          history screen.
         </Alert>
         <div className="flex flex-wrap gap-2">
-          <Link
-            to="/machines/$machineId/visits"
-            params={{ machineId }}
-            className={buttonClass({ size: "sm" })}
-          >
+          <Link to="/machines/$machineId/visits" params={{ machineId }} className={buttonClass()}>
             View history &amp; P&amp;L
           </Link>
-          <Button variant="secondary" size="sm" onClick={onLogAnother}>
+          <Button variant="secondary" onClick={onLogAnother}>
             Log another visit
           </Button>
-          <Link
-            to="/machines"
-            className={buttonClass({ variant: "secondary", size: "sm" })}
-          >
+          <Link to="/machines" className={buttonClass({ variant: "secondary" })}>
             Machines
           </Link>
         </div>
@@ -334,21 +191,8 @@ function VisitDraftForm({
   const hasPlanogram = (planogram.data?.slots.length ?? 0) > 0;
 
   return (
-    <Page max="xl" className="flex flex-col gap-4">
-      <div className="flex items-center justify-between gap-3">
-        <PageTitle>Log Visit</PageTitle>
-        <Link
-          to="/machines/$machineId/visits"
-          params={{ machineId }}
-          className="text-sm text-gray-600 hover:text-gray-800"
-        >
-          History →
-        </Link>
-      </div>
-      <p className="text-sm text-gray-600">{machine.data?.name ?? "…"}</p>
-
-      {step === "review" ? null : <ErrorNote message={error} />}
-
+    <Page max="wide" className="grid gap-6">
+      {header}
       {machine.isSuccess && !hasPlanogram ? (
         <Alert tone="warning" title="This machine has no planogram yet">
           A visit records what was in each slot at the price it was selling for,
@@ -363,213 +207,168 @@ function VisitDraftForm({
           .
         </Alert>
       ) : null}
-
-      {rows.length > 0 && restock ? (
-        <>
-          <VisitStepBar step={step} onSelect={setStep} />
-
-          {step === "count" ? (
-            <>
-              <SlotFaceGrid
-                shelves={machine.data?.slots ?? []}
-                renderCell={renderCell}
-                selectedCode={selected}
-                onSelect={setSelected}
-              />
-
-              <p className="text-sm text-gray-600 tabular-nums">
-                {slotOrder.length - uncounted.length} of {slotOrder.length}{" "}
-                slots counted
-              </p>
-
-              {selected ? (
-                <SlotCountPanel
-                  key={selected}
-                  slotRows={rowsInSlot(rows, selected)}
-                  nameOf={productName}
-                  asOf={asOf}
-                  isLastSlot={slotOrder[slotOrder.length - 1] === selected}
-                  onChange={replaceRow}
-                  onNext={() => showNextSlot(selected)}
-                />
-              ) : null}
-            </>
-          ) : null}
-
-          {step === "restock" ? (
-            <RestockStep
-              shelves={machine.data?.slots ?? []}
-              rows={rows}
-              restock={restock}
-              planogramSlots={planogramSlots}
-              selected={selected}
-              nameOf={productName}
-              tracksExpirationOf={tracksExpirationOf}
-              products={products.data ?? []}
-              onSelect={setSelected}
-              onRestockChange={setRestock}
-              onCountSlot={showCountSlot}
-              onNext={() => setStep("review")}
-            />
-          ) : null}
-
-          {step === "review" ? (
-            <VisitReview
-              submissionResult={buildVisitSubmission({
-                rows,
-                restock,
-                planogramSlots,
-              })}
-              shelves={machine.data?.slots ?? []}
-              rows={rows}
-              planogramSlots={planogramSlots}
-              onShowSlot={({ step: nextStep, slotCode }) => {
-                setSelected(slotCode);
-                setStep(nextStep);
-              }}
-              onClearAnswer={clearAnswer}
-              uncountedSlotCodes={uncounted}
-              productName={productName}
-              countedAtInput={countedAtInput}
-              onCountedAtInputChange={setCountedAtInput}
-              notes={notes}
-              onNotesChange={setNotes}
-              isSaving={create.isPending}
-              saveError={error}
-              onSave={save}
-            />
-          ) : null}
-        </>
+      {initial && initial.rows.length > 0 && machine.data ? (
+        <VisitFlow
+          machineId={machineId}
+          locationId={machine.data.locationId}
+          shelves={shelves}
+          initialRows={initial.rows}
+          initialRestock={initial.restock}
+          products={products.data ?? []}
+          planogram={planogram.data ?? null}
+          clientRequestId={clientRequestId}
+          onSaved={setSavedLineCount}
+        />
       ) : machine.isLoading || planogram.isLoading ? (
-        <p className="text-gray-400">Loading…</p>
+        <p className="text-body text-muted-strong">Loading…</p>
       ) : null}
     </Page>
   );
 }
 
 /**
- * Count · Restock · Review. Every step stays reachable until the visit is
- * saved, and switching keeps everything typed in each.
+ * Stepper, map and slot editor for a visit whose rows are built. Owns the
+ * visit being entered; the form above remounts it for "Log another visit".
  */
-function VisitStepBar({
-  step,
-  onSelect,
-}: {
-  step: VisitStep;
-  onSelect: (step: VisitStep) => void;
-}) {
-  return (
-    <nav className="flex gap-1 border-b border-line" aria-label="Visit steps">
-      {VISIT_STEPS.map((item) => (
-        <button
-          key={item.step}
-          type="button"
-          onClick={() => onSelect(item.step)}
-          aria-current={item.step === step ? "step" : undefined}
-          className={`border-b-[3px] px-2.5 pt-2 pb-2.5 text-sm font-bold whitespace-nowrap ${focusRing} ${
-            item.step === step
-              ? "border-tab-indicator text-tab-active"
-              : "border-transparent text-tab hover:text-gray-800"
-          }`}
-        >
-          {item.label}
-        </button>
-      ))}
-    </nav>
-  );
-}
-
-interface SlotPick {
-  row: VisitRow;
-  isSwap: boolean;
-  /** A swap into a mixed slot waits here for which product came back. */
-  partnerSlotCode: string | null;
-  /** Why the last tap didn't take. */
-  notice: string | null;
-}
-
-/**
- * The Restock step: the grid shows each slot as it will be after, the panel
- * takes the selected slot's answers, and Move / Swap turn the grid into a
- * slot picker until a tap, Cancel or Escape.
- */
-function RestockStep({
+function VisitFlow({
+  machineId,
+  locationId,
   shelves,
-  rows,
-  restock,
-  planogramSlots,
-  selected,
-  nameOf,
-  tracksExpirationOf,
+  initialRows,
+  initialRestock,
   products,
-  onSelect,
-  onRestockChange,
-  onCountSlot,
-  onNext,
+  planogram,
+  clientRequestId,
+  onSaved,
 }: {
+  machineId: string;
+  locationId: string;
   shelves: string[][];
-  rows: VisitRow[];
-  restock: Restock;
-  planogramSlots: LayoutSlot[];
-  selected: string | null;
-  nameOf: (productId: string) => string;
-  tracksExpirationOf: (productId: string) => boolean;
-  products: ProductOption[];
-  onSelect: (slotCode: string) => void;
-  onRestockChange: (next: Restock) => void;
-  onCountSlot: (slotCode: string) => void;
-  onNext: () => void;
+  initialRows: VisitRow[];
+  initialRestock: Restock;
+  products: ApiProduct[];
+  planogram: ApiPlanogram | null;
+  clientRequestId: string;
+  onSaved: (lineCount: number) => void;
 }) {
+  const [rows, setRows] = useState(initialRows);
+  const [restock, setRestock] = useState(initialRestock);
+  const [step, setStep] = useState<VisitStep>("count");
+  const [selected, setSelected] = useState<string | null>(initialRows[0]?.slotCode ?? null);
   const [pick, setPick] = useState<SlotPick | null>(null);
+  // The inset open in the Restock editor. Moving to another slot or step closes it.
+  const [panel, setPanel] = useState<RestockPanel | null>(null);
+  const [countedAtInput, setCountedAtInput] = useState(() =>
+    toLocalDateTimeInput(new Date().toISOString()),
+  );
+  const [notes, setNotes] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  // The day the warnings are judged against. Fixed at form open so a visit
+  // spanning midnight cannot reclassify rows mid-count.
+  const [asOf] = useState(() => new Date().toISOString().slice(0, 10));
 
-  useEffect(() => {
-    if (!pick) {
+  const create = useMutation(
+    trpc.visits.create.mutationOptions({
+      onSuccess: (visit) => {
+        queryClient.invalidateQueries({ queryKey: trpc.visits.list.pathKey() });
+        queryClient.invalidateQueries({ queryKey: trpc.pnl.pathKey() });
+        onSaved(visit.lines.length);
+      },
+      onError: (e) => setError(e.message),
+    }),
+  );
+
+  const planogramSlots: LayoutSlot[] = (planogram?.slots ?? []).map(
+    ({ slotCode, productId, par, priceCents }) => ({ slotCode, productId, par, priceCents }),
+  );
+  const slotCodes = shelves.flat();
+  const productById = new Map(products.map((product) => [product.id, product]));
+  const nameOf = (id: string): string => productById.get(id)?.name ?? id;
+  // Unknown products keep asking for a date, as in buildVisitRows.
+  const tracksExpirationOf = (productId: string): boolean =>
+    productById.get(productId)?.tracksExpiration ?? true;
+  const shelfLabelOf = (slotCode: string): string => {
+    const index = shelves.findIndex((shelf) => shelf.includes(slotCode));
+    return index < 0 ? "" : shelfLabel(shelves[index] ?? [], index);
+  };
+
+  const countSlotCodes = slotCodes.filter((code) => rowsInSlot(rows, code).length > 0);
+  const uncounted = uncountedSlotCodes(rows);
+  const restockSlotCodes = slotCodes.filter((slotCode) =>
+    hasRestockQuestions({ rows, restock, slotCode }),
+  );
+  const { answeredCount, totalCount } = restockProgressFor({ rows, restock, slotCodes });
+  const unansweredSlotCount = totalCount - answeredCount;
+  const isEverySlotAnswered = totalCount > 0 && unansweredSlotCount === 0;
+  const submissionResult = buildVisitSubmission({ rows, restock, planogramSlots });
+  const problems = "problems" in submissionResult ? submissionResult.problems : [];
+  const attentionSlotCodes = new Set(problems.map(attentionSlotCodeFor));
+  const hasUnansweredProduct = rows.some(
+    (row) => isCounted(row) && restock.actions[slotProductKey(row)] === undefined,
+  );
+
+  // Functional, so several row edits in one handler (Undo) all land.
+  const replaceRow = (next: VisitRow) =>
+    setRows((current) => current.map((row) => (isSameRow(row, next) ? next : row)));
+
+  /** Every move to another slot or step: drops any pending Move / Swap and open panel. */
+  const goTo = ({
+    step: nextStep = step,
+    slotCode = selected,
+  }: {
+    step?: VisitStep;
+    slotCode?: string | null;
+  }) => {
+    setPick(null);
+    setPanel(null);
+    setStep(nextStep);
+    setSelected(slotCode);
+  };
+
+  const selectSlot = (slotCode: string | null) => goTo({ slotCode });
+
+  const showStep = (next: VisitStep) => {
+    const needsRestockSlot =
+      next === "restock" && (selected === null || !restockSlotCodes.includes(selected));
+    goTo({
+      step: next,
+      slotCode: needsRestockSlot
+        ? nextRestockSlotCode({ rows, restock, slotCodes, afterSlotCode: null })
+        : selected,
+    });
+  };
+
+  const showSlot = ({ step: nextStep, slotCode }: { step: VisitStep; slotCode: string }) =>
+    goTo({ step: nextStep, slotCode });
+
+  // Count walks every slot with products in it.
+  const countIndex = selected === null ? -1 : countSlotCodes.indexOf(selected);
+  const showNextCountSlot = () => {
+    const next = countSlotCodes[countIndex + 1];
+    if (next === undefined) {
+      showStep("restock");
       return;
     }
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setPick(null);
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [pick]);
+    selectSlot(next);
+  };
 
-  const result = buildVisitSubmission({ rows, restock, planogramSlots });
-  const problems = "problems" in result ? result.problems : [];
-  const attentionSlotCodes = new Set(problems.map(attentionSlotCodeFor));
-  const slotCodes = shelves.flat();
-  const { answeredCount, totalCount } = restockProgressFor({
-    rows,
-    restock,
-    slotCodes,
-  });
-  const unansweredCount = rows.filter(
-    (row) =>
-      isCounted(row) && restock.actions[slotProductKey(row)] === undefined,
-  ).length;
-
-  const nextSlotCode = nextRestockSlotCode({
+  // Restock walks only the slots with something to answer.
+  const previousRestockCode =
+    selected === null
+      ? null
+      : previousRestockSlotCode({ rows, restock, slotCodes, beforeSlotCode: selected });
+  const nextRestockCode = nextRestockSlotCode({
     rows,
     restock,
     slotCodes,
     afterSlotCode: selected,
   });
 
-  const handleNextSlot = () => {
-    setPick(null);
-    if (nextSlotCode === null) {
-      onNext();
-      return;
-    }
-    onSelect(nextSlotCode);
-  };
-
   const handleSwapPartner = (partner: VisitRow) => {
     if (!pick) {
       return;
     }
-    onRestockChange(restockWithSwap(restock, { a: pick.row, b: partner }));
+    setRestock(restockWithSwap(restock, { a: pick.row, b: partner }));
     setPick(null);
   };
 
@@ -578,7 +377,7 @@ function RestockStep({
       return;
     }
     if (!pick.isSwap) {
-      onRestockChange(
+      setRestock(
         restockWithAction(restock, pick.row, {
           kind: "moved",
           toSlotCode: slotCode,
@@ -594,7 +393,7 @@ function RestockStep({
       setPick({
         ...pick,
         partnerSlotCode: null,
-        notice: `Nothing counted in ${slotCode} to swap with. Use Move → instead.`,
+        notice: `Nothing counted in ${slotCode} to swap with. Use Move instead.`,
       });
       return;
     }
@@ -605,312 +404,225 @@ function RestockStep({
     setPick({ ...pick, partnerSlotCode: slotCode, notice: null });
   };
 
-  const renderCell = (slotCode: string): SlotCell => {
-    const slot = { rows, restock, slotCode };
-    const productIds = productIdsAfterRestock(slot);
-    const nowLevel = nowLevelAfterRestock(slot);
-    let state: SlotCellState | undefined;
-    if (attentionSlotCodes.has(slotCode)) {
-      state = "attention";
-    } else if (isSlotAnswered(slot)) {
-      state = "done";
+  const handleMapSelect = (slotCode: string) => {
+    if (pick) {
+      handlePickSlot(slotCode);
+      return;
     }
-    return buildProductsCell({
+    if (step === "review") {
+      showSlot({ step: "restock", slotCode });
+      return;
+    }
+    selectSlot(slotCode);
+  };
+
+  // Escape cancels a pending Move / Swap from anywhere inside the flow,
+  // without a listener on the whole window.
+  const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === "Escape" && pick) {
+      setPick(null);
+    }
+  };
+
+  const tileFor = (slotCode: string): MachineTile => {
+    if (step === "count") {
+      return countTileFor({ rows, slotCode, nameOf });
+    }
+    const tile = restockTileFor({
+      rows,
+      restock,
       slotCode,
-      products: productIds.map((id) => ({ id, name: nameOf(id) })),
-      detail: nowLevel === null ? null : `now ${nowLevel}`,
-      state,
+      nameOf,
+      needsAttention: attentionSlotCodes.has(slotCode),
+    });
+    if (!pick) {
+      return tile;
+    }
+    const isSource = slotCode === pick.row.slotCode;
+    return { ...tile, isSource, isTarget: !isSource };
+  };
+
+  const pickBanner = (() => {
+    if (!pick) {
+      return null;
+    }
+    const from = pick.row.slotCode;
+    if (pick.partnerSlotCode) {
+      return `Which product in ${pick.partnerSlotCode} came back to ${from}?`;
+    }
+    return pick.isSwap ? `Pick the slot to swap with ${from}` : `Pick the slot ${from} moved to`;
+  })();
+
+  const statusOf = (id: VisitStep, { isComplete }: { isComplete: boolean }) => {
+    if (id === step) {
+      return "current" as const;
+    }
+    return isComplete ? ("done" as const) : ("upcoming" as const);
+  };
+  const steps: Step<VisitStep>[] = [
+    {
+      id: "count",
+      label: "Count",
+      detail: `${countSlotCodes.length - uncounted.length} of ${countSlotCodes.length} counted`,
+      status: statusOf("count", { isComplete: uncounted.length === 0 }),
+    },
+    {
+      id: "restock",
+      label: "Restock",
+      detail: `${answeredCount} of ${totalCount} answered`,
+      status: statusOf("restock", { isComplete: isEverySlotAnswered }),
+    },
+    {
+      id: "review",
+      label: "Review",
+      detail: "Check and save",
+      status: statusOf("review", { isComplete: false }),
+    },
+  ];
+
+  const save = () => {
+    setError(null);
+    const countedAt = localDateTimeToIso(countedAtInput);
+    if (!countedAt) {
+      setError("Set when you counted this machine");
+      return;
+    }
+    if ("problems" in submissionResult) {
+      return;
+    }
+    create.mutate({
+      machineId,
+      // The machine's location as the CLIENT saw it. Never re-derived: if the
+      // machine moved between the count and the submit, the server's idea of
+      // where it stands is the wrong answer for this visit.
+      locationId,
+      planogramId: planogram?.id ?? null,
+      countedAt,
+      lines: submissionResult.submission.lines,
+      layoutChanges: submissionResult.submission.layoutChanges,
+      notes: notes.trim() === "" ? null : notes.trim(),
+      clientRequestId,
     });
   };
 
-  const selectedProblemMessages = selected
-    ? [
-        ...new Set(
-          problems
-            .filter((problem) => attentionSlotCodeFor(problem) === selected)
-            .map((problem) => problemMessage(problem, nameOf)),
-        ),
-      ]
-    : [];
-  const partnerRows = pick?.partnerSlotCode
-    ? rowsInSlot(rows, pick.partnerSlotCode).filter(isCounted)
-    : [];
+  const markRestUnchanged = () => setRestock(restockWithRestUnchanged(restock, rows));
+
+  const clearAnswer = (key: SlotProduct) => {
+    const row = rows.find(
+      (candidate) =>
+        candidate.slotCode === key.slotCode && candidate.productId === key.productId,
+    );
+    if (row) {
+      setRestock(restockWithAction(restock, row, null));
+    }
+  };
+
+  const selectedProblemMessages =
+    selected === null
+      ? []
+      : [
+          ...new Set(
+            problems
+              .filter((problem) => attentionSlotCodeFor(problem) === selected)
+              .map((problem) => problemMessage(problem, nameOf)),
+          ),
+        ];
+
+  const countedSlotCount = countSlotCodes.length - uncounted.length;
 
   return (
-    <>
-      {pick ? (
-        <Alert
-          tone="warning"
-          title={
-            pick.partnerSlotCode
-              ? `Which product in ${pick.partnerSlotCode} came back to ${pick.row.slotCode}?`
-              : `Tap the slot ${nameOf(pick.row.productId)} ${pick.isSwap ? "swapped with" : "went to"}`
+    <div className="grid gap-6" onKeyDown={handleKeyDown}>
+      {step === "review" ? null : <ErrorNote message={error} />}
+      <Stepper label="Visit steps" steps={steps} onSelect={showStep} />
+      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,520px)_minmax(0,1fr)]">
+        <VisitMapPane
+          step={step}
+          shelves={shelves}
+          tileFor={tileFor}
+          selectedCode={step === "review" || pick ? null : selected}
+          onSelect={handleMapSelect}
+          progress={
+            step === "count"
+              ? { done: countedSlotCount, total: countSlotCodes.length }
+              : { done: answeredCount, total: totalCount }
           }
-        >
-          {pick.notice ? <span>{pick.notice}</span> : null}
-          <div className="mt-1 flex flex-wrap items-center gap-2">
-            {partnerRows.map((partner) => (
-              <Button
-                key={partner.productId}
-                variant="secondary"
-                size="sm"
-                onClick={() => handleSwapPartner(partner)}
-              >
-                {nameOf(partner.productId)}
-              </Button>
-            ))}
-            <Button variant="secondary" size="sm" onClick={() => setPick(null)}>
-              Cancel
-            </Button>
-          </div>
-        </Alert>
-      ) : null}
-
-      <SlotFaceGrid
-        shelves={shelves}
-        renderCell={renderCell}
-        selectedCode={pick ? null : selected}
-        onSelect={pick ? handlePickSlot : onSelect}
-      />
-
-      {selected ? (
-        <RestockSlotPanel
-          key={selected}
-          slotCode={selected}
-          rows={rows}
-          restock={restock}
-          nameOf={nameOf}
-          tracksExpirationOf={tracksExpirationOf}
-          products={products}
-          problemMessages={selectedProblemMessages}
-          pickingRowKey={pick ? slotProductKey(pick.row) : null}
-          onRestockChange={onRestockChange}
-          onStartPick={(row, { isSwap }) =>
-            setPick({ row, isSwap, partnerSlotCode: null, notice: null })
+          pickBanner={pickBanner ? { text: pickBanner, onCancel: () => setPick(null) } : null}
+          onMarkRestUnchanged={
+            step === "restock" && hasUnansweredProduct ? markRestUnchanged : null
           }
-          onCancelPick={() => setPick(null)}
-          onCountSlot={() => onCountSlot(selected)}
-          isLastSlot={nextSlotCode === null}
-          onNext={handleNextSlot}
         />
-      ) : null}
 
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm text-gray-600 tabular-nums">
-          {answeredCount} of {totalCount} slots answered
-        </p>
-        <div className="flex flex-wrap gap-2">
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() =>
-              onRestockChange(restockWithRestUnchanged(restock, rows))
+        {step === "count" && selected ? (
+          <CountSlotEditor
+            key={selected}
+            slotCode={selected}
+            shelfLabel={shelfLabelOf(selected)}
+            slotRows={rowsInSlot(rows, selected)}
+            sold={visitTotalsFor(slotActivityFor({ rows, restock, slotCode: selected }))}
+            nameOf={nameOf}
+            asOf={asOf}
+            isFirstSlot={countIndex <= 0}
+            isLastSlot={countIndex === countSlotCodes.length - 1}
+            onRowChange={replaceRow}
+            onPrevious={() => selectSlot(countSlotCodes[countIndex - 1] ?? selected)}
+            onNext={showNextCountSlot}
+          />
+        ) : null}
+
+        {step === "restock" && selected ? (
+          <RestockSlotEditor
+            key={selected}
+            slotCode={selected}
+            shelfLabel={shelfLabelOf(selected)}
+            rows={rows}
+            restock={restock}
+            nameOf={nameOf}
+            tracksExpirationOf={tracksExpirationOf}
+            products={products}
+            problemMessages={selectedProblemMessages}
+            pick={pick}
+            panel={panel}
+            onPanelChange={setPanel}
+            isFirstSlot={previousRestockCode === null}
+            isLastSlot={nextRestockCode === null}
+            isEverySlotAnswered={isEverySlotAnswered}
+            unansweredSlotCount={unansweredSlotCount}
+            onRowChange={replaceRow}
+            onRestockChange={setRestock}
+            onStartPick={(row, { isSwap }) =>
+              setPick({ row, isSwap, partnerSlotCode: null, notice: null })
             }
-            disabled={unansweredCount === 0}
-          >
-            Mark the rest unchanged, nothing added
-          </Button>
-          <Button size="sm" onClick={onNext}>
-            Review →
-          </Button>
-        </div>
-      </div>
-    </>
-  );
-}
-
-/** One slot: its price once, then a count row per product, front to back. */
-function SlotCountPanel({
-  slotRows,
-  nameOf,
-  asOf,
-  isLastSlot,
-  onChange,
-  onNext,
-}: {
-  slotRows: VisitRow[];
-  nameOf: (productId: string) => string;
-  /** The day expiry warnings are judged against, fixed at form open. */
-  asOf: string;
-  /** The last slot's Next goes on to Restock. */
-  isLastSlot: boolean;
-  onChange: (next: VisitRow) => void;
-  onNext: () => void;
-}) {
-  const [front] = slotRows;
-  if (!front) {
-    return null;
-  }
-
-  return (
-    <Card className="flex flex-col gap-3 border border-primary-200 p-3">
-      <div className="flex items-baseline justify-between gap-2">
-        <span className="font-mono text-sm font-bold text-gray-800">
-          {front.slotCode}
-        </span>
-        <span className="text-sm tabular-nums text-ink-soft">
-          Slot price {formatCents(front.priceCents)}
-        </span>
-      </div>
-
-      {slotRows.map((row, index) => (
-        <ProductCountRow
-          key={row.productId}
-          row={row}
-          productName={nameOf(row.productId)}
-          position={slotPositionLabel({ index, count: slotRows.length })}
-          isFirst={index === 0}
-          asOf={asOf}
-          onChange={onChange}
-        />
-      ))}
-
-      <div className="flex justify-end">
-        <Button variant="secondary" size="sm" onClick={onNext}>
-          {isLastSlot ? "On to restocking →" : "Next slot →"}
-        </Button>
-      </div>
-    </Card>
-  );
-}
-
-/**
- * One product's counts. Emits a whole replacement row rather than a patch, so
- * every rule about what a keystroke means stays in `visitRows.ts`.
- */
-function ProductCountRow({
-  row,
-  productName,
-  position,
-  isFirst,
-  asOf,
-  onChange,
-}: {
-  row: VisitRow;
-  productName: string;
-  position: string;
-  isFirst: boolean;
-  asOf: string;
-  onChange: (next: VisitRow) => void;
-}) {
-  const [isRemoving, setIsRemoving] = useState(
-    row.removed.trim() !== "" && row.removed !== "0",
-  );
-  const warnings = warningsFor(row, { asOf });
-
-  return (
-    <div
-      className={`flex flex-col gap-3 ${isFirst ? "" : "border-t border-line pt-3"}`}
-    >
-      <div className="flex items-baseline justify-between gap-2">
-        <span className="truncate text-sm font-medium text-gray-800">
-          {productName}
-        </span>
-        <span className="shrink-0 text-xs text-muted">{position}</span>
-      </div>
-
-      <div className="grid grid-cols-2 gap-2">
-        <label className="flex flex-col gap-1">
-          <span className={labelClass}>Found in slot</span>
-          <input
-            // The front product's Left field takes focus on every slot change,
-            // so counting a machine is tap-type-tap rather than tap-tap-type.
-            autoFocus={isFirst}
-            inputMode="numeric"
-            className={countInputClass}
-            placeholder="—"
-            value={row.left}
-            onChange={(e) => onChange(rowWithLeft(row, e.target.value))}
+            onCancelPick={() => setPick(null)}
+            onSwapPartner={handleSwapPartner}
+            onCountSlot={() => showSlot({ step: "count", slotCode: selected })}
+            onPrevious={() => selectSlot(previousRestockCode)}
+            onNext={() => selectSlot(nextRestockCode)}
+            onReview={() => showStep("review")}
           />
-          <span className={hintClass}>
-            {row.previousLevel !== null
-              ? `Before pulling or refilling · filled to ${row.previousLevel} last visit`
-              : "Before pulling or refilling"}
-          </span>
-        </label>
-      </div>
+        ) : null}
 
-      {row.tracksExpiration ? (
-        <label className="flex flex-col gap-1">
-          <span className={labelClass}>Best by</span>
-          <input
-            type="date"
-            className={inputClass}
-            value={row.bestBy}
-            onChange={(e) => onChange(rowWithBestBy(row, e.target.value))}
+        {step === "review" ? (
+          <VisitReview
+            submissionResult={submissionResult}
+            activities={visitActivityFor({ rows, restock, slotCodes })}
+            planogramSlots={planogramSlots}
+            productName={nameOf}
+            uncountedSlotCodes={uncounted}
+            unansweredSlotCount={unansweredSlotCount}
+            onShowSlot={showSlot}
+            onClearAnswer={clearAnswer}
+            onMarkRestUnchanged={markRestUnchanged}
+            onBackToRestock={() => showStep("restock")}
+            countedAtInput={countedAtInput}
+            onCountedAtInputChange={setCountedAtInput}
+            notes={notes}
+            onNotesChange={setNotes}
+            isSaving={create.isPending}
+            saveError={error}
+            onSave={save}
           />
-          <span className={hintClass}>
-            {row.previousBestBy === null
-              ? "The front item — the one that sells next"
-              : `Last visit: ${row.previousBestBy}`}
-          </span>
-        </label>
-      ) : null}
-
-      {isRemoving ? (
-        <div className="grid gap-2 rounded-xl bg-gray-50 p-2.5 sm:grid-cols-[6rem_1fr]">
-          <label className="flex flex-col gap-1">
-            <span className={labelClass}>Pulled out</span>
-            <input
-              inputMode="numeric"
-              className={countInputClass}
-              placeholder="0"
-              value={row.removed}
-              onChange={(e) => onChange(rowWithRemoved(row, e.target.value))}
-            />
-          </label>
-          <label className="flex flex-col gap-1">
-            <span className={labelClass}>Why</span>
-            <select
-              className={inputClass}
-              value={row.removedReason ?? ""}
-              onChange={(e) =>
-                onChange(
-                  rowWithRemovedReason(
-                    row,
-                    e.target.value === ""
-                      ? null
-                      : (e.target.value as RemovalReason),
-                  ),
-                )
-              }
-            >
-              <option value="">— choose a reason —</option>
-              {REMOVAL_REASONS.map((reason) => (
-                <option key={reason.value} value={reason.value}>
-                  {reason.label}
-                </option>
-              ))}
-            </select>
-            <span className={hintClass}>
-              Decides whether these units are a write-off or still your stock.
-            </span>
-          </label>
-        </div>
-      ) : (
-        <button
-          type="button"
-          onClick={() => setIsRemoving(true)}
-          className="self-start text-sm text-primary-600 hover:text-primary-500"
-        >
-          Pulled something out?
-        </button>
-      )}
-
-      {warnings.length > 0 ? (
-        <Alert
-          tone="warning"
-          title={
-            warnings.includes("expired")
-              ? "Past its best-by date — pull it"
-              : warnings.includes("expiring-soon")
-                ? "Expiring soon"
-                : "More removed than was in the slot"
-          }
-        >
-          Saved as entered — this is a note, not a block.
-        </Alert>
-      ) : null}
+        ) : null}
+      </div>
     </div>
   );
 }

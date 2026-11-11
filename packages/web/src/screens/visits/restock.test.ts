@@ -11,6 +11,7 @@ import {
   restockWithRestUnchanged,
   restockWithSourceLinked,
   restockWithSwap,
+  restockWithoutSlot,
   suggestedSourcesFor,
 } from "./restock.ts";
 import { buildVisitRows, type VisitRow } from "./visitRows.ts";
@@ -612,4 +613,69 @@ describe("immutability", () => {
       expect(base).toEqual(before);
     });
   }
+});
+
+describe("restockWithoutSlot", () => {
+  it("clears every product's answer in the slot and the stock loaded into it", () => {
+    const rows = countedRows();
+    let restock = buildRestock({ shelves: SHELVES, rows });
+    restock = restockWithAction(restock, rowFor(rows, "A2", "doritos"), {
+      kind: "added",
+      added: "3",
+    });
+    restock = restockWithAction(restock, rowFor(rows, "A2", "lays"), {
+      kind: "pulled",
+      reason: "expired",
+    });
+    restock = restockWithNewStock(restock, {
+      slotCode: "A2",
+      productId: "coke",
+      tracksExpiration: true,
+    });
+
+    const cleared = restockWithoutSlot(restock, { rows, slotCode: "A2" });
+
+    expect(cleared.actions).toEqual({});
+    expect(arrivalsIn(cleared, "A2")).toEqual([]);
+  });
+
+  it("undoing a move also takes back the arrival it created", () => {
+    const rows = countedRows();
+    const moved = restockWithAction(
+      buildRestock({ shelves: SHELVES, rows }),
+      rowFor(rows, "A1", "coke"),
+      { kind: "moved", toSlotCode: "A3", isSwap: false },
+    );
+
+    const cleared = restockWithoutSlot(moved, { rows, slotCode: "A1" });
+
+    expect(arrivalsIn(cleared, "A3")).toEqual([]);
+  });
+
+  it("leaves stock moved in from another slot, which is that slot's answer", () => {
+    const rows = countedRows();
+    const moved = restockWithAction(
+      buildRestock({ shelves: SHELVES, rows }),
+      rowFor(rows, "A1", "coke"),
+      { kind: "moved", toSlotCode: "A3", isSwap: false },
+    );
+
+    const cleared = restockWithoutSlot(moved, { rows, slotCode: "A3" });
+
+    expect(arrivalsIn(cleared, "A3")).toHaveLength(1);
+    expect(cleared.actions[slotProductKey(rowFor(rows, "A1", "coke"))]).toBeDefined();
+  });
+
+  it("leaves other slots' answers alone", () => {
+    const rows = countedRows();
+    const restock = restockWithAction(
+      buildRestock({ shelves: SHELVES, rows }),
+      rowFor(rows, "A1", "coke"),
+      { kind: "added", added: "6" },
+    );
+
+    const cleared = restockWithoutSlot(restock, { rows, slotCode: "A2" });
+
+    expect(cleared).toEqual(restock);
+  });
 });

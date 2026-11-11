@@ -339,3 +339,23 @@ export const suggestedSourcesFor = (
 
 export const arrivalsIn = (restock: Restock, slotCode: string): Arrival[] =>
   restock.arrivals.filter((arrival) => arrival.slotCode === slotCode);
+
+/**
+ * Undoes everything answered in one slot: its products' actions (with
+ * whatever a move or swap created) and the new stock loaded into it. Stock
+ * moved in from another slot is that slot's answer, so it stays.
+ */
+export const restockWithoutSlot = (
+  restock: Restock,
+  { rows, slotCode }: { rows: readonly VisitRow[]; slotCode: string },
+): Restock => {
+  const cleared = rows
+    .filter((row) => row.slotCode === slotCode)
+    .reduce((current, row) => restockWithAction(current, row, null), restock);
+  return {
+    ...cleared,
+    arrivals: cleared.arrivals.filter(
+      (arrival) => arrival.slotCode !== slotCode || arrival.fromSlotCode !== null,
+    ),
+  };
+};
