@@ -1,65 +1,84 @@
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 import { focusRing } from "./focus.ts";
 
-export type ButtonVariant = "primary" | "secondary" | "danger" | "outline";
-export type ButtonSize = "md" | "sm";
+/**
+ * One `primary` per view; everything else is `secondary` or `text`. `danger` is
+ * for confirming a destructive action, never a page's main action.
+ */
+export type ButtonVariant = "primary" | "secondary" | "text" | "danger";
+export type ButtonSize = "md" | "sm" | "lg";
 
 const VARIANT: Record<ButtonVariant, string> = {
-  primary: "bg-primary-600 text-white hover:bg-primary-700 active:bg-primary-800",
-  secondary: "bg-gray-200 text-gray-800 hover:bg-gray-300",
-  danger: "bg-red-50 text-red-700 hover:bg-red-100",
-  // For a list of equally-valid choices: carrying primary in the border
-  // rather than a fill keeps them siblings instead of making one look like
-  // the recommended action. Transparent so it sits on any card colour.
-  outline:
-    "border-2 border-primary-500 bg-transparent text-primary-700 hover:bg-primary-50",
+  primary: "bg-action text-on-action hover:bg-action-hover",
+  secondary:
+    "border border-line-strong bg-card text-link hover:border-action hover:bg-app",
+  text: "text-link hover:underline",
+  danger: "bg-danger-fill text-on-action hover:bg-danger",
 };
 
-// `md` is the design system's documented button. `sm` exists for dense contexts
-// (table row actions, toolbars) where the full-size control would crowd the row.
+// `lg` matches a 48px input it sits beside ("Look up", "Add"). `sm` is for
+// dense contexts like table row actions.
 const SIZE: Record<ButtonSize, string> = {
-  md: "px-5 py-3",
-  sm: "px-3.5 py-1.5 text-sm",
+  md: "h-11 px-5 text-button",
+  sm: "h-9 px-3.5 text-label",
+  lg: "h-12 px-5 text-button",
 };
+
+// The text variant has no box to size, so it only takes the type size.
+const TEXT_SIZE: Record<ButtonSize, string> = {
+  md: "rounded-md px-1 py-1 text-button",
+  sm: "rounded-md px-1 py-0.5 text-label",
+  lg: "rounded-md px-1 py-1.5 text-button",
+};
+
+// Disabled is a neutral fill, not a faded teal: a faded primary still reads
+// as the thing to press.
+const DISABLED_BOX =
+  "disabled:cursor-not-allowed disabled:border-disabled disabled:bg-disabled disabled:text-on-disabled";
+const DISABLED_TEXT =
+  "disabled:cursor-not-allowed disabled:text-on-disabled disabled:no-underline";
 
 const BASE =
-  "inline-flex items-center justify-center rounded-full font-bold transition-transform active:scale-[.96] motion-reduce:transition-none disabled:opacity-50 disabled:pointer-events-none";
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap font-bold transition-colors motion-reduce:transition-none";
 
-// Buttons are always pills. Exported separately so anchors and router Links can
-// wear the same styling without duplicating the class string.
+// Exported separately so anchors and router Links can wear the same styling
+// without duplicating the class string.
 export const buttonClass = ({
   variant = "primary",
   size = "md",
-  full = false,
+  isFullWidth = false,
   className = "",
 }: {
   variant?: ButtonVariant;
   size?: ButtonSize;
-  full?: boolean;
+  isFullWidth?: boolean;
   className?: string;
-} = {}): string =>
-  [
+} = {}): string => {
+  const isText = variant === "text";
+  return [
     BASE,
     VARIANT[variant],
-    SIZE[size],
+    isText ? TEXT_SIZE[size] : `rounded-full ${SIZE[size]}`,
+    isText ? DISABLED_TEXT : DISABLED_BOX,
     focusRing,
-    full ? "w-full" : "",
+    isFullWidth ? "w-full" : "",
     className,
   ]
     .filter(Boolean)
     .join(" ");
+};
 
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: ButtonVariant;
   size?: ButtonSize;
-  full?: boolean;
+  isFullWidth?: boolean;
   children: ReactNode;
 };
 
 export const Button = ({
   variant = "primary",
   size = "md",
-  full = false,
+  isFullWidth = false,
   className = "",
   type = "button",
   children,
@@ -67,7 +86,36 @@ export const Button = ({
 }: ButtonProps) => (
   <button
     type={type}
-    className={buttonClass({ variant, size, full, className })}
+    className={buttonClass({ variant, size, isFullWidth, className })}
+    {...rest}
+  >
+    {children}
+  </button>
+);
+
+const ICON_TONE = {
+  neutral: "text-muted-strong hover:bg-action-soft hover:text-link",
+  danger: "text-muted-strong hover:bg-danger-soft hover:text-danger",
+} as const;
+
+/** A round, icon-only button. `label` is required because there's no text. */
+export const IconButton = ({
+  label,
+  tone = "neutral",
+  className = "",
+  type = "button",
+  children,
+  ...rest
+}: Omit<ButtonHTMLAttributes<HTMLButtonElement>, "aria-label"> & {
+  label: string;
+  tone?: keyof typeof ICON_TONE;
+  children: ReactNode;
+}) => (
+  <button
+    type={type}
+    aria-label={label}
+    title={label}
+    className={`inline-flex size-9 flex-none items-center justify-center rounded-full ${ICON_TONE[tone]} ${DISABLED_TEXT} ${focusRing} ${className}`}
     {...rest}
   >
     {children}

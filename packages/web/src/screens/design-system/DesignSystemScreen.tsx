@@ -1,7 +1,7 @@
 import { useState } from "react";
+import { ComponentGallery } from "./ComponentGallery.tsx";
 import {
   Alert,
-  Button,
   Card,
   CardTitle,
   EmptyState,
@@ -110,13 +110,19 @@ const SLOTS = [
 
 export function DesignSystemScreen() {
   return (
-    <Page max="4xl" className="grid gap-6">
+    <Page max="wide" className="grid gap-10">
       <div className="grid gap-1">
         <PageTitle>Design system</PageTitle>
         <PageSubtitle>
           Lagoon teal · light mode only · every primitive on one page
         </PageSubtitle>
       </div>
+
+      <ComponentGallery />
+
+      <h2 className="border-t border-line pt-8 font-display text-title text-ink">
+        Older primitives
+      </h2>
 
       <Section title="Color scales">
         <Card className="grid gap-2 p-3">
@@ -164,29 +170,12 @@ export function DesignSystemScreen() {
         </Card>
       </Section>
 
-      <Section title="Buttons">
-        <Card className="grid gap-3 p-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <Button>Primary</Button>
-            <Button variant="secondary">Secondary</Button>
-            <Button variant="danger">Danger</Button>
-            <Button variant="outline">Outline</Button>
-            <span className="inline-flex items-center gap-1 text-sm text-ink-soft">
-              Info hint
-              <InfoHint text="Explains a field without a permanent line of helper text under it." />
-            </span>
-            <Button disabled>Disabled</Button>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Button size="sm">Primary sm</Button>
-            <Button size="sm" variant="secondary">
-              Secondary sm
-            </Button>
-            <Button size="sm" variant="danger">
-              Danger sm
-            </Button>
-          </div>
-          <Button full>Start fill visit</Button>
+      <Section title="Info hint">
+        <Card className="p-3">
+          <span className="inline-flex items-center gap-1 text-sm text-ink-soft">
+            Info hint
+            <InfoHint text="Explains a field without a permanent line of helper text under it." />
+          </span>
         </Card>
       </Section>
 

@@ -3,20 +3,38 @@
 
 export type { AlertTone } from "./ui/Alert.tsx";
 export { Alert, ErrorNote } from "./ui/Alert.tsx";
+export type { BadgeSize, BadgeTone } from "./ui/Badge.tsx";
+export { Badge } from "./ui/Badge.tsx";
 export type { ButtonSize, ButtonVariant } from "./ui/Button.tsx";
-export { Button, buttonClass } from "./ui/Button.tsx";
+export { Button, buttonClass, IconButton } from "./ui/Button.tsx";
 export type { KpiTone } from "./ui/Card.tsx";
 export { Card, CardTitle, KpiCard, KpiGrid } from "./ui/Card.tsx";
+export type { ChipOption } from "./ui/ChipGroup.tsx";
+export { ChipGroup } from "./ui/ChipGroup.tsx";
+export type { FactTone, VerdictTone } from "./ui/FactsPanel.tsx";
+export { Fact, FactsPanel, FactVerdict } from "./ui/FactsPanel.tsx";
 export {
   checkboxClass,
   countInputClass,
+  Field,
   hintClass,
   inputClass,
   labelClass,
+  useFieldControl,
 } from "./ui/Field.tsx";
 export { focusRing } from "./ui/focus.ts";
+export { FieldRow, FormSection, SectionDivider } from "./ui/FormSection.tsx";
 export { InfoHint } from "./ui/InfoHint.tsx";
+export { Kbd } from "./ui/Kbd.tsx";
 export { LoadMore } from "./ui/LoadMore.tsx";
+export type {
+  LegendIndicator,
+  MachineTile,
+  MachineTileTone,
+} from "./ui/MachineMap.tsx";
+export { MachineMap, MachineMapLegend } from "./ui/MachineMap.tsx";
+export type { NumberInputSize } from "./ui/NumberInput.tsx";
+export { MoneyInput, NumberInput } from "./ui/NumberInput.tsx";
 export {
   EmptyState,
   Page,
@@ -24,6 +42,22 @@ export {
   PageTitle,
   TableScroll,
 } from "./ui/Page.tsx";
+export {
+  eyebrowLinkClass,
+  PageHeader,
+  pageLinkClass,
+} from "./ui/PageHeader.tsx";
+export { ProgressBar } from "./ui/ProgressBar.tsx";
+export type { RowTableVariant } from "./ui/RowTable.tsx";
+export {
+  RowTable,
+  RowTableBody,
+  RowTableEmpty,
+  RowTableFooter,
+  RowTableHeader,
+  RowTableRow,
+} from "./ui/RowTable.tsx";
+export { SaveBar } from "./ui/SaveBar.tsx";
 export { SearchInput } from "./ui/SearchInput.tsx";
 export type { SlotCell, SlotCellState } from "./ui/SlotFaceGrid.tsx";
 export {
@@ -34,3 +68,8 @@ export {
 export { SlotList, SlotRow } from "./ui/SlotList.tsx";
 export type { Tone } from "./ui/StatusPill.tsx";
 export { StatusPill, stockTone } from "./ui/StatusPill.tsx";
+export type { Step, StepStatus } from "./ui/Stepper.tsx";
+export { Stepper } from "./ui/Stepper.tsx";
+export { Switch } from "./ui/Switch.tsx";
+export { controlClass, Select, TextArea, TextInput } from "./ui/TextInput.tsx";
+export { useFormDraft } from "./ui/useFormDraft.ts";

@@ -388,13 +388,13 @@ export function BarcodeNotFoundPanel({
 
       {mode === "choose" ? (
         <div className="grid gap-2">
-          <Button variant="outline" onClick={() => setMode("attach")}>
+          <Button variant="secondary" onClick={() => setMode("attach")}>
             Link barcode to an existing product
           </Button>
-          <Button variant="outline" onClick={() => setMode("create")}>
+          <Button variant="secondary" onClick={() => setMode("create")}>
             Create new product for barcode
           </Button>
-          <Button variant="outline" size="sm" onClick={onCancel}>
+          <Button variant="secondary" size="sm" onClick={onCancel}>
             Cancel
           </Button>
         </div>

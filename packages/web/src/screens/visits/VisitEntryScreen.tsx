@@ -652,7 +652,7 @@ function RestockStep({
             {partnerRows.map((partner) => (
               <Button
                 key={partner.productId}
-                variant="outline"
+                variant="secondary"
                 size="sm"
                 onClick={() => handleSwapPartner(partner)}
               >
