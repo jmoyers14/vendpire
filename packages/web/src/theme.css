@@ -76,8 +76,8 @@
   --color-card: var(--color-white);
   --color-divider: var(--color-gray-100);
   --color-line: var(--color-gray-200);
-  --color-heading: var(--color-gray-900);
-  --color-body: var(--color-gray-700);
+  --color-ink: var(--color-gray-900);
+  --color-ink-soft: var(--color-gray-700);
   --color-muted: var(--color-gray-500);
   --color-nav: var(--color-gray-100);
   --color-tab: var(--color-gray-600);
@@ -85,18 +85,83 @@
   --color-tab-indicator: var(--color-primary-500);
   --color-profit: var(--color-green-700);
   --color-loss: var(--color-red-700);
+  --color-muted-strong: var(--color-gray-600);  /* small secondary text: muted fails 4.5:1 */
+
+  --color-action: var(--color-primary-600);
+  --color-action-hover: var(--color-primary-700);
+  --color-action-soft: var(--color-primary-50);
+  --color-on-action: var(--color-white);
+  --color-link: var(--color-primary-700);
+  --color-field: var(--color-gray-500);         /* input borders, 3:1 on white */
+  --color-line-strong: var(--color-gray-300);   /* outline button border */
+  --color-focus: var(--color-primary-500);
+  --color-disabled: var(--color-gray-100);
+  --color-on-disabled: var(--color-gray-600);
+
+  --color-success: var(--color-green-700);
+  --color-success-soft: var(--color-green-50);
+  --color-warning: var(--color-amber-800);
+  --color-warning-soft: var(--color-amber-50);
+  --color-danger: var(--color-red-700);
+  --color-danger-soft: var(--color-red-50);
+  --color-danger-fill: var(--color-red-600);
+  /* Meters, legend swatches and status dots. Too light for text. */
+  --color-success-indicator: var(--color-green-400);
+  --color-warning-indicator: var(--color-amber-500);
+  --color-danger-indicator: var(--color-red-200);
 
   /* Type */
   --font-display: "Bricolage Grotesque", "Avenir Next", system-ui, sans-serif;
   --font-sans: "Atkinson Hyperlegible", "Helvetica Neue", Arial, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
 
+  /* Type scale. A --text-* token can't carry a font family or text-transform,
+   * so components pair these with font-display / font-mono / uppercase. */
+  --text-display: 2rem;
+  --text-display--line-height: 2.25rem;
+  --text-display--font-weight: 700;
+  --text-display--letter-spacing: -0.01em;
+  --text-title: 1.5rem;
+  --text-title--line-height: 1.875rem;
+  --text-title--font-weight: 700;
+  --text-heading: 1.125rem;
+  --text-heading--line-height: 1.5rem;
+  --text-heading--font-weight: 600;
+  --text-stat: 1.75rem;
+  --text-stat--line-height: 2rem;
+  --text-stat--font-weight: 700;
+  --text-body: 1rem;
+  --text-body--line-height: 1.5rem;
+  --text-body--font-weight: 400;
+  --text-body-sm: 0.875rem;
+  --text-body-sm--line-height: 1.25rem;
+  --text-body-sm--font-weight: 400;
+  --text-label: 0.875rem;
+  --text-label--line-height: 1.25rem;
+  --text-label--font-weight: 700;
+  --text-overline: 0.75rem;
+  --text-overline--line-height: 1rem;
+  --text-overline--font-weight: 700;
+  --text-overline--letter-spacing: 0.06em;
+  --text-mono: 0.9375rem;
+  --text-mono--line-height: 1.25rem;
+  --text-mono--font-weight: 500;
+  --text-button: 0.9375rem;
+  --text-button--line-height: 1.25rem;
+  --text-button--font-weight: 700;
+
+  /* Content widths: forms vs. data and flow pages */
+  --container-form: 1080px;
+  --container-wide: 1320px;
+
   /* Shape */
+  --radius-control: 12px;
+  --radius-panel: 14px;                         /* insets, tables, steps */
   --radius-card: 18px;
   --shadow-card: 0 1px 2px rgb(16 31 31 / 0.08);
 }
 
 @layer base {
-  html { background: var(--color-app); color: var(--color-body); font-family: var(--font-sans); }
-  h1, h2, h3 { font-family: var(--font-display); color: var(--color-heading); text-wrap: balance; }
+  html { background: var(--color-app); color: var(--color-ink-soft); font-family: var(--font-sans); }
+  h1, h2, h3 { font-family: var(--font-display); color: var(--color-ink); text-wrap: balance; }
 }

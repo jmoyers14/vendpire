@@ -144,13 +144,13 @@ export function DesignSystemScreen() {
 
       <Section title="Typography">
         <Card className="grid gap-2 p-3">
-          <p className="font-display text-2xl font-extrabold text-heading">
+          <p className="font-display text-2xl font-extrabold text-ink">
             Page title · font-display 2xl extrabold
           </p>
-          <p className="font-display text-lg font-extrabold text-heading">
+          <p className="font-display text-lg font-extrabold text-ink">
             Card title · font-display lg extrabold
           </p>
-          <p className="text-base text-body">Body · text-base text-body</p>
+          <p className="text-base text-ink-soft">Body · text-base text-ink-soft</p>
           <p className="text-sm text-gray-600">Secondary · text-sm gray-600</p>
           <p className="font-mono text-xs text-muted">
             Slot code · font-mono xs muted — A1 B2 C3
@@ -171,7 +171,7 @@ export function DesignSystemScreen() {
             <Button variant="secondary">Secondary</Button>
             <Button variant="danger">Danger</Button>
             <Button variant="outline">Outline</Button>
-            <span className="inline-flex items-center gap-1 text-sm text-body">
+            <span className="inline-flex items-center gap-1 text-sm text-ink-soft">
               Info hint
               <InfoHint text="Explains a field without a permanent line of helper text under it." />
             </span>

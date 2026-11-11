@@ -352,7 +352,7 @@ export function BarcodeNotFoundPanel({
           operator's catalog. */}
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h2 className="font-display text-xl font-extrabold text-heading">
+          <h2 className="font-display text-xl font-extrabold text-ink">
             Barcode not found
           </h2>
           <p className="font-mono text-sm text-amber-900">{gtin14}</p>
@@ -373,10 +373,10 @@ export function BarcodeNotFoundPanel({
             ) : null}
             <span className="min-w-0">
               <span className="flex items-center gap-1">
-                <span className="text-sm font-bold text-heading">Maybe</span>
+                <span className="text-sm font-bold text-ink">Maybe</span>
                 <InfoHint text="From Open Food Facts — a community product database, not your catalog." />
               </span>
-              <span className="line-clamp-2 text-xs leading-snug text-body">
+              <span className="line-clamp-2 text-xs leading-snug text-ink-soft">
                 {candidateName(candidate)}
               </span>
             </span>
@@ -436,7 +436,7 @@ export function BarcodeNotFoundPanel({
                         {isPackItem(item) ? "Case" : "Item"}
                       </span>
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm text-body">
+                        <span className="block truncate text-sm text-ink-soft">
                           {item.name}
                         </span>
                         <span className="block font-mono text-xs text-muted">

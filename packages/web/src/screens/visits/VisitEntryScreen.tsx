@@ -748,7 +748,7 @@ function SlotCountPanel({
         <span className="font-mono text-sm font-bold text-gray-800">
           {front.slotCode}
         </span>
-        <span className="text-sm tabular-nums text-body">
+        <span className="text-sm tabular-nums text-ink-soft">
           Slot price {formatCents(front.priceCents)}
         </span>
       </div>

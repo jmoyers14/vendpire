@@ -36,7 +36,7 @@ export const PageTitle = ({
   children: ReactNode;
 }) => (
   <h1
-    className={`font-display text-2xl font-extrabold text-heading ${className}`}
+    className={`font-display text-2xl font-extrabold text-ink ${className}`}
   >
     {children}
   </h1>

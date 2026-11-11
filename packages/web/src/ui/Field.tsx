@@ -2,7 +2,7 @@ import { focusRing } from "./focus.ts";
 
 // Form controls are not buttons, so they keep a soft rectangle rather than a
 // pill — a fully rounded text input reads as a search box.
-const fieldBase = `w-full rounded-xl border border-line bg-card px-3 py-2 text-body placeholder:text-gray-400 ${focusRing} focus-visible:border-primary-500`;
+const fieldBase = `w-full rounded-xl border border-line bg-card px-3 py-2 text-ink-soft placeholder:text-gray-400 ${focusRing} focus-visible:border-primary-500`;
 
 export const inputClass = `${fieldBase} text-sm`;
 
