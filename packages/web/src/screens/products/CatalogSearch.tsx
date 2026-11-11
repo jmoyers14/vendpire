@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { trpcClient } from "../../trpc.ts";
-import { TextInput } from "../../ui.tsx";
+import { insetFocusRing, TextInput } from "../../ui.tsx";
+import { catalogNameFor } from "./productForm.ts";
 
 export interface CatalogPick {
   upc: string;
@@ -17,12 +18,7 @@ interface Result {
 
 const DEBOUNCE_MS = 350;
 
-const displayName = (result: Result): string => {
-  if (result.name && result.brand && !result.name.toLowerCase().includes(result.brand.toLowerCase())) {
-    return `${result.brand} ${result.name}`;
-  }
-  return result.name ?? result.upc;
-};
+const displayName = (result: Result): string => catalogNameFor(result) ?? result.upc;
 
 /**
  * Search-as-you-type over the product catalog (Open Food Facts, proxied
@@ -76,7 +72,7 @@ export function CatalogSearch({ onPick }: { onPick: (pick: CatalogPick) => void 
 
   return (
     <div className="flex flex-col gap-3 rounded-panel bg-action-soft px-5 py-4 sm:flex-row sm:items-center sm:gap-4">
-      <label htmlFor={inputId} className="text-button whitespace-nowrap text-link">
+      <label htmlFor={inputId} className="text-label whitespace-nowrap text-link">
         Fill from catalog
       </label>
       <div className="relative flex-1">
@@ -108,7 +104,7 @@ export function CatalogSearch({ onPick }: { onPick: (pick: CatalogPick) => void 
                     type="button"
                     onMouseDown={(event) => event.preventDefault()}
                     onClick={() => pick(result)}
-                    className="flex w-full items-center gap-3 px-4 py-2.5 text-left hover:bg-action-soft focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus"
+                    className={`flex w-full items-center gap-3 px-4 py-2.5 text-left hover:bg-action-soft ${insetFocusRing}`}
                   >
                     {result.imageUrl ? (
                       <img src={result.imageUrl} alt="" className="size-9 shrink-0 rounded object-contain" />

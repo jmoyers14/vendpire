@@ -4,6 +4,7 @@ import {
   Button,
   ChipGroup,
   Field,
+  insetFocusRing,
   NumberInput,
   RowTable,
   RowTableBody,
@@ -405,7 +406,7 @@ export function LoadProductPanel({
               <button
                 type="button"
                 onClick={() => onLoad(product)}
-                className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left text-body text-ink hover:bg-action-soft focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus"
+                className={`flex w-full items-center justify-between gap-3 px-4 py-3 text-left text-body text-ink hover:bg-action-soft ${insetFocusRing}`}
               >
                 <span className="truncate">{product.name}</span>
                 <span className="flex-none text-label text-link">Load into {slotCode}</span>

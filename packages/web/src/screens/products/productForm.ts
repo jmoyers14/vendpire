@@ -78,3 +78,24 @@ export const categorySuggestionsFor = (products: readonly { category: string }[]
   [...new Set(products.map((product) => product.category.trim()).filter(Boolean))].sort(
     (a, b) => a.localeCompare(b),
   );
+
+/**
+ * A catalog item's name with its brand in front, unless the name already
+ * says it ("Doritos Nacho" stays; "Nacho" from Doritos becomes "Doritos Nacho").
+ * Null when the catalog has no name.
+ */
+export const catalogNameFor = ({
+  name,
+  brand,
+}: {
+  name: string | null;
+  brand: string | null;
+}): string | null => {
+  if (!name) {
+    return null;
+  }
+  if (!brand || name.toLowerCase().includes(brand.toLowerCase())) {
+    return name;
+  }
+  return `${brand} ${name}`;
+};

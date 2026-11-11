@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   buildProductInput,
+  catalogNameFor,
   categorySuggestionsFor,
   EMPTY_PRODUCT_DRAFT,
   type ProductDraft,
@@ -64,5 +65,22 @@ describe("categorySuggestionsFor", () => {
     ];
 
     expect(categorySuggestionsFor(products)).toEqual(["Candy", "chips", "Soda"]);
+  });
+});
+
+describe("catalogNameFor", () => {
+  test("puts the brand in front of a name that doesn't include it", () => {
+    expect(catalogNameFor({ name: "Nacho Cheese 1.75 oz", brand: "Doritos" })).toBe(
+      "Doritos Nacho Cheese 1.75 oz",
+    );
+  });
+
+  test("leaves a name that already says the brand, whatever its case", () => {
+    expect(catalogNameFor({ name: "DORITOS Nacho", brand: "Doritos" })).toBe("DORITOS Nacho");
+  });
+
+  test("no brand: just the name; no name: null", () => {
+    expect(catalogNameFor({ name: "Pretzels", brand: null })).toBe("Pretzels");
+    expect(catalogNameFor({ name: null, brand: "Doritos" })).toBeNull();
   });
 });

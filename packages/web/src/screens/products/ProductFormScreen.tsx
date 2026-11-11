@@ -33,6 +33,7 @@ import { CatalogSearch } from "./CatalogSearch.tsx";
 import { buildPricingDisplay } from "./pricing.ts";
 import {
   buildProductInput,
+  catalogNameFor,
   categorySuggestionsFor,
   EMPTY_PRODUCT_DRAFT,
   type ProductDraft,
@@ -42,7 +43,7 @@ import {
 const FORM_ID = "product-form";
 
 /** Two decimals, so a loaded $2 reads "2.00" like the mockup, not "2". */
-const priceInput = (cents: number) => (cents / 100).toFixed(2);
+const priceInputFor = (cents: number) => (cents / 100).toFixed(2);
 
 /** Create + edit form: `productId` present means edit. */
 export function ProductFormScreen({ productId }: { productId?: string }) {
@@ -53,6 +54,8 @@ export function ProductFormScreen({ productId }: { productId?: string }) {
   const [formError, setFormError] = useState<string | null>(null);
   const [upcNote, setUpcNote] = useState<string | null>(null);
   const [isLookingUp, setIsLookingUp] = useState(false);
+  // Loaded once: a refetch on window focus must not wipe edits in progress.
+  const [hasLoaded, setHasLoaded] = useState(false);
   const categoryListId = useId();
 
   const existing = useQuery({
@@ -68,43 +71,38 @@ export function ProductFormScreen({ productId }: { productId?: string }) {
 
   useEffect(() => {
     const product = existing.data;
-    if (!product) {
+    if (!product || hasLoaded) {
       return;
     }
+    setHasLoaded(true);
     load({
       name: product.name,
       category: product.category,
       upc: product.upc ?? "",
       taxClass: product.taxClass ?? "",
-      price: priceInput(product.defaultPriceCents),
+      price: priceInputFor(product.defaultPriceCents),
       imageUrl: product.imageUrl,
       isActive: product.active,
       tracksExpiration: product.tracksExpiration,
     });
-  }, [existing.data, load]);
+  }, [existing.data, hasLoaded, load]);
 
-  const onSaved = () => {
+  const handleSaved = () => {
     queryClient.invalidateQueries({ queryKey: trpc.products.list.queryKey() });
     if (productId) {
       queryClient.invalidateQueries({ queryKey: trpc.products.get.queryKey({ id: productId }) });
     }
     navigate({ to: "/products" });
   };
-  const create = useMutation(
-    trpc.products.create.mutationOptions({
-      onSuccess: onSaved,
-      onError: (e) => setFormError(e.message),
-    }),
-  );
-  const update = useMutation(
-    trpc.products.update.mutationOptions({
-      onSuccess: onSaved,
-      onError: (e) => setFormError(e.message),
-    }),
-  );
+  const saveCallbacks = {
+    onSuccess: handleSaved,
+    onError: (error: { message: string }) => setFormError(error.message),
+  };
+  const create = useMutation(trpc.products.create.mutationOptions(saveCallbacks));
+  const update = useMutation(trpc.products.update.mutationOptions(saveCallbacks));
 
   // An edit clears that field's error, so a fix doesn't keep showing it.
-  const change = (patch: Partial<ProductDraft>) => {
+  const editDraft = (patch: Partial<ProductDraft>) => {
     set(patch);
     setErrors((current) => {
       const next = { ...current };
@@ -124,23 +122,20 @@ export function ProductFormScreen({ productId }: { productId?: string }) {
         setUpcNote("No catalog match for that UPC. Enter the details by hand.");
         return;
       }
-      const name =
-        found.name && found.brand && !found.name.includes(found.brand)
-          ? `${found.brand} ${found.name}`
-          : (found.name ?? draft.name);
+      const name = catalogNameFor(found) ?? draft.name;
       // Prefill, but never clobber something already typed.
-      change({
+      editDraft({
         name: draft.name.trim() ? draft.name : name,
         imageUrl: found.imageUrl ?? draft.imageUrl,
       });
-    } catch (e) {
-      setUpcNote(e instanceof Error ? e.message : "Lookup failed");
+    } catch (error) {
+      setUpcNote(error instanceof Error ? error.message : "Lookup failed");
     } finally {
       setIsLookingUp(false);
     }
   };
 
-  const submit = (event: FormEvent) => {
+  const handleSubmit = (event: FormEvent) => {
     event.preventDefault();
     setFormError(null);
     const result = buildProductInput(draft);
@@ -198,12 +193,12 @@ export function ProductFormScreen({ productId }: { productId?: string }) {
         {isEditing ? null : (
           <CatalogSearch
             onPick={(pick) =>
-              change({ name: pick.name, upc: pick.upc, imageUrl: pick.imageUrl ?? draft.imageUrl })
+              editDraft({ name: pick.name, upc: pick.upc, imageUrl: pick.imageUrl ?? draft.imageUrl })
             }
           />
         )}
 
-        <form id={FORM_ID} onSubmit={submit} noValidate>
+        <form id={FORM_ID} onSubmit={handleSubmit} noValidate>
           <FormSection
             title="Basics"
             description="What the product is called and how you find it when restocking."
@@ -213,7 +208,7 @@ export function ProductFormScreen({ productId }: { productId?: string }) {
                 imageUrl={draft.imageUrl}
                 name={draft.name}
                 emptyHint={isEditing ? "Look up adds one" : "Fill from catalog or Look up adds one"}
-                onRemove={() => change({ imageUrl: null })}
+                onRemove={() => editDraft({ imageUrl: null })}
               />
               <div className="grid gap-5">
                 <Field
@@ -221,7 +216,7 @@ export function ProductFormScreen({ productId }: { productId?: string }) {
                   hint='Include the size, e.g. "7up - 12 oz", so similar products stay distinct.'
                   error={errors.name}
                 >
-                  <TextInput value={draft.name} onChange={(event) => change({ name: event.target.value })} />
+                  <TextInput value={draft.name} onChange={(event) => editDraft({ name: event.target.value })} />
                 </Field>
                 <Field
                   label="Category"
@@ -233,7 +228,7 @@ export function ProductFormScreen({ productId }: { productId?: string }) {
                     autoComplete="off"
                     placeholder="e.g. Chips"
                     value={draft.category}
-                    onChange={(event) => change({ category: event.target.value })}
+                    onChange={(event) => editDraft({ category: event.target.value })}
                   />
                 </Field>
                 <datalist id={categoryListId}>
@@ -247,19 +242,19 @@ export function ProductFormScreen({ productId }: { productId?: string }) {
             <Field
               label="UPC"
               isOptional
-              hint={upcNote ? undefined : "Scan it or type it in, then Look up to pull the name and photo."}
-              error={upcNote ?? undefined}
+              // A lookup miss is information, not a validation error.
+              hint={upcNote ?? "Scan it or type it in, then Look up to pull the name and photo."}
             >
               <div className="flex gap-2">
                 <TextInput
                   inputMode="numeric"
                   autoComplete="off"
-                  className="font-mono"
+                  className="font-mono tabular-nums"
                   placeholder="e.g. 078000113464"
                   value={draft.upc}
                   onChange={(event) => {
                     setUpcNote(null);
-                    change({ upc: event.target.value });
+                    editDraft({ upc: event.target.value });
                   }}
                 />
                 <Button
@@ -282,7 +277,7 @@ export function ProductFormScreen({ productId }: { productId?: string }) {
               price={draft.price}
               error={errors.price}
               pricing={pricing}
-              onPriceChange={(price) => change({ price })}
+              onPriceChange={(price) => editDraft({ price })}
             />
           </FormSection>
 
@@ -290,7 +285,7 @@ export function ProductFormScreen({ productId }: { productId?: string }) {
             <Field label="Tax class" isOptional hint="Used for California vending tax rules.">
               <TextInput
                 value={draft.taxClass}
-                onChange={(event) => change({ taxClass: event.target.value })}
+                onChange={(event) => editDraft({ taxClass: event.target.value })}
               />
             </Field>
             <SectionDivider />
@@ -298,14 +293,14 @@ export function ProductFormScreen({ productId }: { productId?: string }) {
               title="Track expiration dates"
               description="On for anything with a printed best-by date. Turn it off for gum, bulk candy and non-food, and visits will stop asking for a date."
               isChecked={draft.tracksExpiration}
-              onChange={(tracksExpiration) => change({ tracksExpiration })}
+              onChange={(tracksExpiration) => editDraft({ tracksExpiration })}
             />
             <SectionDivider />
             <Switch
               title="Active"
               description="Inactive products stay in history and reports but drop out of pickers."
               isChecked={draft.isActive}
-              onChange={(isActive) => change({ isActive })}
+              onChange={(isActive) => editDraft({ isActive })}
             />
           </FormSection>
         </form>
@@ -392,11 +387,12 @@ function PricingFields({
       hint={
         suggested === null ? undefined : (
           <>
-            Suggested <span className="font-bold text-ink">{formatCents(suggested)}</span>.{" "}
+            Suggested{" "}
+            <span className="font-mono font-medium text-ink tabular-nums">{formatCents(suggested)}</span>.{" "}
             <Button
               variant="text"
               size="sm"
-              onClick={() => onPriceChange(priceInput(suggested))}
+              onClick={() => onPriceChange(priceInputFor(suggested))}
             >
               Use it
             </Button>
@@ -426,11 +422,13 @@ function PricingFields({
           value={formatSignedCents(display.grossPerUnitCents)}
           tone={display.grossPerUnitCents < 0 ? "danger" : "success"}
         />
-        <Fact
-          label={display.isUnderTarget ? "Margin, under target" : "Margin"}
-          value={display.marginFraction === null ? "—" : formatPercent(display.marginFraction)}
-          tone={display.isUnderTarget ? "warning" : "success"}
-        />
+        {display.marginFraction === null ? null : (
+          <Fact
+            label={display.isUnderTarget ? "Margin, under target" : "Margin"}
+            value={formatPercent(display.marginFraction)}
+            tone={display.isUnderTarget ? "warning" : "success"}
+          />
+        )}
       </FactsPanel>
     </div>
   );
