@@ -150,7 +150,7 @@ export function RestockProductRow({
           {PULL_REASONS.map(({ reason, label }) => (
             <Button
               key={reason}
-              variant="outline"
+              variant="secondary"
               size="sm"
               onClick={() => handleReason(reason)}
             >
@@ -167,25 +167,25 @@ export function RestockProductRow({
         </div>
       ) : (
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" size="sm" onClick={handleAdded}>
+          <Button variant="secondary" size="sm" onClick={handleAdded}>
             Add
           </Button>
           <Button
-            variant="outline"
+            variant="secondary"
             size="sm"
             onClick={() => handlePickStart({ isSwap: false })}
           >
             Move →
           </Button>
           <Button
-            variant="outline"
+            variant="secondary"
             size="sm"
             onClick={() => handlePickStart({ isSwap: true })}
           >
             Swap ⇄
           </Button>
           <Button
-            variant="outline"
+            variant="secondary"
             size="sm"
             onClick={() => setIsChoosingReason(true)}
           >

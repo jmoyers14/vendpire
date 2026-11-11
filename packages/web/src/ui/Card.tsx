@@ -20,7 +20,7 @@ export const CardTitle = ({
   className?: string;
   children: ReactNode;
 }) => (
-  <h2 className={`font-display text-lg font-extrabold text-heading ${className}`}>
+  <h2 className={`font-display text-lg font-extrabold text-ink ${className}`}>
     {children}
   </h2>
 );
@@ -28,7 +28,7 @@ export const CardTitle = ({
 export type KpiTone = "neutral" | "profit" | "loss";
 
 const KPI_TONE: Record<KpiTone, string> = {
-  neutral: "text-heading",
+  neutral: "text-ink",
   profit: "text-profit",
   loss: "text-loss",
 };

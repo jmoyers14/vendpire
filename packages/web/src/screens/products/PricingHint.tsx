@@ -54,7 +54,7 @@ export function PricingHint({
           <button
             type="button"
             onClick={() => onUse(suggestedPriceCents)}
-            className={buttonClass({ variant: "outline", size: "sm" })}
+            className={buttonClass({ variant: "secondary", size: "sm" })}
           >
             Use {formatCents(suggestedPriceCents)}
           </button>

@@ -119,7 +119,7 @@ export function PurchasesScreen() {
                   size: "sm",
                   // Outline for the inactive siblings: they're equally valid
                   // choices, so only the current one carries a fill.
-                  variant: preset === id ? "primary" : "outline",
+                  variant: preset === id ? "primary" : "secondary",
                 })}
               >
                 {label}

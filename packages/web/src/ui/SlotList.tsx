@@ -27,7 +27,7 @@ export const SlotRow = ({
 }) => (
   <div className="grid grid-cols-[36px_1fr_auto] items-center gap-2.5 px-3 py-2.5 text-sm">
     <span className="font-mono text-xs text-muted">{code}</span>
-    <span className="truncate text-body">{label}</span>
+    <span className="truncate text-ink-soft">{label}</span>
     {status ?? <span />}
   </div>
 );

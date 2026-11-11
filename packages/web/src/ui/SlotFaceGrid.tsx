@@ -38,7 +38,7 @@ const SELECTED_CELL = "border-primary-500 bg-card ring-2 ring-primary-300";
 
 /** Bare slot code — what a layout with nothing assigned to it yet shows. */
 const slotCodeCell = (slotCode: string): SlotCell => ({
-  content: <span className="font-mono text-xs text-body">{slotCode}</span>,
+  content: <span className="font-mono text-xs text-ink-soft">{slotCode}</span>,
   state: "assigned",
 });
 

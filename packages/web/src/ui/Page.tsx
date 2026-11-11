@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-type PageWidth = "xl" | "2xl" | "3xl" | "4xl" | "6xl";
+type PageWidth = "xl" | "2xl" | "3xl" | "4xl" | "6xl" | "form" | "wide";
 
 const MAX_WIDTH: Record<PageWidth, string> = {
   xl: "max-w-xl",
@@ -8,9 +8,12 @@ const MAX_WIDTH: Record<PageWidth, string> = {
   "3xl": "max-w-3xl",
   "4xl": "max-w-4xl",
   "6xl": "max-w-6xl",
+  form: "max-w-form lg:px-10 lg:py-10",
+  wide: "max-w-wide lg:px-10 lg:py-10",
 };
 
 // Centered page container using the design system's gutter (px-4 sm:px-6).
+// `form` (1080px) is for forms, `wide` (1320px) for data and flow pages.
 // Sections inside should be spaced with flex/grid `gap`, not margins.
 export const Page = ({
   max = "3xl",
@@ -36,7 +39,7 @@ export const PageTitle = ({
   children: ReactNode;
 }) => (
   <h1
-    className={`font-display text-2xl font-extrabold text-heading ${className}`}
+    className={`font-display text-2xl font-extrabold text-ink ${className}`}
   >
     {children}
   </h1>

@@ -13,7 +13,7 @@ const appearance = {
     formButtonPrimary:
       "rounded-full bg-primary-600 hover:bg-primary-700 active:bg-primary-800 font-bold normal-case",
     organizationPreviewMainIdentifier: "text-gray-800 font-bold",
-    headerTitle: "font-display font-extrabold text-heading",
+    headerTitle: "font-display font-extrabold text-ink",
     navbarButton: "text-tab",
   },
 };

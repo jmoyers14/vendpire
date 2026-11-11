@@ -227,7 +227,7 @@ export function MachineVisitsScreen({ machineId }: { machineId: string }) {
                       key={sales.productId}
                       className="border-t border-divider"
                     >
-                      <td className="py-1.5 text-body">
+                      <td className="py-1.5 text-ink-soft">
                         {productName(sales.productId)}
                         {/* A product measured over fewer intervals than it
                             actually traded is not a product that sells badly
@@ -260,7 +260,7 @@ export function MachineVisitsScreen({ machineId }: { machineId: string }) {
           {notableAnomalies.length > 0 ? (
             <Card className="flex flex-col gap-1.5 p-3">
               <CardTitle>Worth a look</CardTitle>
-              <ul className="flex flex-col gap-1 text-sm text-body">
+              <ul className="flex flex-col gap-1 text-sm text-ink-soft">
                 {notableAnomalies.map((description) => (
                   <li key={description}>{description}</li>
                 ))}
@@ -405,7 +405,7 @@ function VisitCard({
         className="flex flex-wrap items-baseline justify-between gap-2 text-left"
       >
         <span className="flex flex-col">
-          <span className="font-bold text-heading">
+          <span className="font-bold text-ink">
             {whenOf(visit.countedAt)}
           </span>
           <span className="text-xs text-muted tabular-nums">
@@ -418,7 +418,7 @@ function VisitCard({
         <span className="flex items-baseline gap-3 tabular-nums">
           {group ? (
             <>
-              <span className="text-sm text-body">
+              <span className="text-sm text-ink-soft">
                 {formatCents(group.totals.revenueCents)}
               </span>
               <span
@@ -441,7 +441,7 @@ function VisitCard({
       {isExpanded ? (
         <>
           {visit.notes ? (
-            <p className="text-sm italic text-body">“{visit.notes}”</p>
+            <p className="text-sm italic text-ink-soft">“{visit.notes}”</p>
           ) : null}
 
           <SlotFaceGrid shelves={shelves} renderCell={renderCell} />
@@ -475,7 +475,7 @@ function VisitCard({
                         <td className="px-3 py-2 font-mono text-xs text-muted">
                           {interval.slotCode}
                         </td>
-                        <td className="px-3 py-2 text-body">
+                        <td className="px-3 py-2 text-ink-soft">
                           {productName(interval.productId)}
                         </td>
                         <td className="px-3 py-2 text-right tabular-nums">
@@ -516,7 +516,7 @@ function VisitCard({
           )}
 
           {group && group.rows.removals.length > 0 ? (
-            <ul className="flex flex-col gap-1 text-sm text-body">
+            <ul className="flex flex-col gap-1 text-sm text-ink-soft">
               {group.rows.removals.map((row) => (
                 <li key={`${row.removal.slotCode}-${row.removal.productId}`}>
                   {row.removal.slotCode}: {row.removal.units} unit(s) out —{" "}

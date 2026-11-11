@@ -26,12 +26,12 @@ const cell = "border border-line px-3 py-1";
 const numberCell = `${cell} text-right font-mono tabular-nums`;
 
 const ROW_STYLE: Record<SheetRow["kind"], string> = {
-  location: "bg-gray-200 font-semibold text-heading",
-  machine: "bg-gray-100 font-medium text-heading",
-  item: "bg-card text-body",
+  location: "bg-gray-200 font-semibold text-ink",
+  machine: "bg-gray-100 font-medium text-ink",
+  item: "bg-card text-ink-soft",
   pulled: "bg-red-50 text-red-700",
-  total: "bg-gray-50 italic text-heading",
-  net: "bg-gray-50 italic text-heading",
+  total: "bg-gray-50 italic text-ink",
+  net: "bg-gray-50 italic text-ink",
 };
 
 const SCOPE_STYLE: Record<TotalScope, string> = {
@@ -125,7 +125,7 @@ export function MonthPnlSheet() {
           >
             ◀
           </Button>
-          <span className="min-w-32 text-center text-sm font-medium text-heading">
+          <span className="min-w-32 text-center text-sm font-medium text-ink">
             {monthLabel(month)}
           </span>
           <Button

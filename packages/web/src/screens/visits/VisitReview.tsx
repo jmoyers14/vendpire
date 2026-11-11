@@ -261,7 +261,7 @@ export function VisitReview({
       <ErrorNote message={saveError} />
 
       <Button
-        full
+        isFullWidth
         onClick={handleSave}
         disabled={isSaving || problems.length > 0 || isUncountedWarningShown}
       >

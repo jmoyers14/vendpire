@@ -44,15 +44,31 @@ one-off hex.
 | `card` | white | `bg-card` |
 | `divider` | gray-100 | `divide-divider`, `border-divider` |
 | `line` | gray-200 | `border-line` |
-| `heading` | gray-900 | `text-heading` |
-| `body` | gray-700 | `text-body` |
-| `muted` | gray-500 | `text-muted` |
+| `ink` | gray-900 | `text-ink` (headings) |
+| `ink-soft` | gray-700 | `text-ink-soft` (body text) |
+| `muted` | gray-500 | `text-muted` (16px+ only; fails 4.5:1 smaller) |
+| `muted-strong` | gray-600 | `text-muted-strong` (secondary text under 18px) |
 | `nav` | gray-100 | `bg-nav` |
 | `tab` / `tab-active` / `tab-indicator` | gray-600 / primary-700 / primary-500 | `text-tab`, `text-tab-active`, `border-tab-indicator` |
 | `profit` / `loss` | green-700 / red-700 | `text-profit`, `text-loss` |
+| `action` / `action-hover` / `action-soft` / `on-action` | primary-600 / primary-700 / primary-50 / white | `bg-action` (primary button), `bg-action-soft` (selected rows) |
+| `link` | primary-700 | `text-link` (text links, outline and text button labels) |
+| `field` | gray-500 | `border-field` (input borders, 3:1 on white) |
+| `line-strong` | gray-300 | `border-line-strong` (outline button border) |
+| `focus` | primary-500 | `outline-focus` |
+| `disabled` / `on-disabled` | gray-100 / gray-600 | `bg-disabled text-on-disabled` (neutral, never faded teal) |
+| `success` / `success-soft` | green-700 / green-50 | good, stocked, profit |
+| `warning` / `warning-soft` | amber-800 / amber-50 | low, expiring, attention |
+| `danger` / `danger-soft` / `danger-fill` | red-700 / red-50 / red-600 | empty, errors, loss; `danger-fill` is reserved for a solid destructive fill (unused today) |
 
-Also defined: `font-display`, `font-sans` (default body), `font-mono`, `rounded-card`
-(18px), `shadow-card`.
+`heading` and `body` were renamed to `ink` and `ink-soft` so the names `text-heading`
+and `text-body` belong to the type scale below; Tailwind resolves a shared name to the
+color and silently drops the size.
+
+Also defined: `font-display`, `font-sans` (default body), `font-mono`, `rounded-control`
+(12px), `rounded-panel` (14px: insets, tables, steps), `rounded-card` (18px), `shadow-card`,
+`max-w-form` (1080px) and `max-w-wide` (1320px). Meter and dot colors: `success-indicator`,
+`warning-indicator`, `danger-indicator` (never for text).
 
 ## Color rules
 
@@ -71,17 +87,41 @@ Also defined: `font-display`, `font-sans` (default body), `font-mono`, `rounded-
 
 | Role | Classes |
 |---|---|
-| Page title | `font-display text-2xl font-extrabold text-heading` (`<PageTitle>`) |
-| Card/section title | `font-display text-lg font-extrabold text-heading` (`<CardTitle>`) |
+| Page title | `font-display text-2xl font-extrabold text-ink` (`<PageTitle>`) |
+| Card/section title | `font-display text-lg font-extrabold text-ink` (`<CardTitle>`) |
 | KPI value | `font-display text-2xl font-extrabold tabular-nums` |
 | KPI label | `text-xs uppercase tracking-wider text-gray-600` |
-| Body | `text-base text-body` (default) |
+| Body | `text-base text-ink-soft` (default) |
 | Secondary / meta | `text-sm text-gray-600` |
 | Slot codes (A1, B2) | `font-mono text-xs text-muted` |
 
 Use `tabular-nums` anywhere numbers line up (counts, money).
 
+### Type scale
+
+Each `text-*` sets size, line height and weight (and tracking where noted). A
+Tailwind `--text-*` token can't carry a font family or text-transform, so pair it
+with the family class shown.
+
+| Utility | Pair with | Size / line | Weight | Use |
+|---|---|---|---|---|
+| `text-display` | `font-display` | 32 / 36, -0.01em | 700 | Page H1, one per page |
+| `text-title` | `font-display` | 24 / 30 | 700 | Card or editor title |
+| `text-heading` | `font-display` | 18 / 24 | 600 | Section titles |
+| `text-stat` | `font-display tabular-nums` | 28 / 32 | 700 | Big numbers |
+| `text-body` | — | 16 / 24 | 400 | Default |
+| `text-body-sm` | — | 14 / 20 | 400 | Hints, meta, descriptions |
+| `text-label` | — | 14 / 20 | 700 | Field labels |
+| `text-overline` | `uppercase` | 12 / 16, 0.06em | 700 | Table headers, small captions |
+| `text-mono` | `font-mono tabular-nums` | 15 / 20 | 500 | Slot codes, counts, prices |
+
 ## Shape & spacing
+
+- **Inputs:** 48px tall (`h-12`), 56px for big count inputs (`h-14`), `rounded-control`.
+- **Cards:** `rounded-card`, 24px padding (`p-6`) on web.
+- **Buttons:** pills, 44px tall (`h-11`), `text-button` (15/20 bold).
+- **Spacing:** 8px label to input, 20–24px between fields, 32px between sections.
+- **Shadow:** `shadow-card` is the only shadow.
 
 - **Buttons and pills:** `rounded-full`. Never `rounded-md`/`rounded-lg` on a button.
 - **Cards, list groups, alerts:** `rounded-card`. Cards on the page background also get
@@ -106,43 +146,44 @@ transparent 3px border, so the label doesn't shift when it becomes current.
 Current tabs: **Dashboard, Locations, Machines, Products, Packs, Purchases,
 Settings**.
 
-### Buttons — `<Button>` / `buttonClass()`
+### Buttons — `<Button>` / `buttonClass()` / `<IconButton>`
 
-Base: `inline-flex items-center justify-center rounded-full font-bold transition-transform
-active:scale-[.96] motion-reduce:transition-none disabled:opacity-50
-disabled:pointer-events-none`
+Every button is a pill (`rounded-full`), text buttons included — it's the shape their
+focus ring takes. **One `primary` per view**; everything else is `secondary` or `text`.
 
-| Variant | Add |
-|---|---|
-| `primary` | `bg-primary-600 text-white hover:bg-primary-700 active:bg-primary-800` |
-| `secondary` | `bg-gray-200 text-gray-800 hover:bg-gray-300` |
-| `danger` | `bg-red-50 text-red-700 hover:bg-red-100` |
+| Variant | Look | Use |
+|---|---|---|
+| `primary` | `bg-action text-on-action`, hover `action-hover` | The view's one main action |
+| `secondary` | `border-line-strong bg-card text-link`, hover border `action` | Other actions, Previous, Discard/Cancel |
+| `text` | `text-link`, underline on hover | Low-weight actions inside content ("Use it", "Mark the rest unchanged") |
+| `danger` | `border-danger-indicator bg-danger-soft text-danger` | Confirming a destructive action, never a page's main action |
 
-Sizes: `md` (`px-5 py-3`, the documented default) and `sm` (`px-3.5 py-1.5 text-sm`) for
-dense contexts like table-row actions. `full` makes it `w-full` — use that for a page's
-main action (e.g. "Start fill visit").
+Sizes: `md` (`h-11`, the default), `lg` (`h-12`, beside a 48px input: "Look up", "Add") and
+`sm` (`h-9`) for dense contexts like table-row actions. `isFullWidth` makes it `w-full`.
+Disabled is a neutral `bg-disabled text-on-disabled` fill, never a faded teal.
 
 Use `<Button>` for `<button>` elements and `buttonClass({ ... })` for router `<Link>`s and
-anchors, so both wear identical styling.
+anchors, so both wear identical styling. `<IconButton label tone>` is the round icon-only
+button (`neutral` or `danger` hover); `label` becomes its accessible name and tooltip.
+
+### Status tones — `StatusTone`
+
+One vocabulary for status across components: `success`, `warning`, `danger`, named after
+the color tokens. Components that need more add `neutral` (and `pending` on MachineMap
+tiles, `action` on badges). `stockTone(remaining, capacity)` picks the status from the
+shared thresholds: danger at 0, warning at 30% or below, otherwise success.
+`countMeterFor({ found, par })` turns a count into a MachineMap tile's meter and tone.
 
 ### Status pill — `<StatusPill tone>`
 
-Base: `inline-flex rounded-full px-2.5 py-0.5 text-xs font-bold tabular-nums whitespace-nowrap`
-
-| Tone | Add |
-|---|---|
-| `ok` | `bg-green-100 text-green-800` |
-| `warning` | `bg-amber-100 text-amber-800` |
-| `critical` | `bg-red-100 text-red-800` |
-
-`stockTone(remaining, capacity)` picks the tone from the shared thresholds: critical at 0,
-warning at 30% or below, otherwise ok.
+Base: `inline-flex rounded-full px-2.5 py-0.5 text-xs font-bold tabular-nums whitespace-nowrap`.
+Tones `success` / `warning` / `danger` (green, amber, red 100/800). New screens use `<Badge>`.
 
 ### Alert banner — `<Alert tone title>`
 
 Base: `rounded-card border px-3.5 py-3 text-sm grid gap-0.5`, bold title line plus
-optional detail line. Tones: `warning` (amber-50/200/900), `critical` (red-50/200/900),
-`success` (green-50/200/900). `<ErrorNote message>` is the critical variant for
+optional detail line. Tones: `warning` (amber-50/200/900), `danger` (red-50/200/900),
+`success` (green-50/200/900). `<ErrorNote message>` is the danger variant for
 query/mutation failures and renders nothing when `message` is null.
 
 ### KPI card — `<KpiCard label value tone>` inside `<KpiGrid>`
@@ -158,7 +199,9 @@ query/mutation failures and renders nothing when `message` is null.
 
 ### Layout — `<Page>`, `<PageTitle>`, `<PageSubtitle>`, `<Card>`, `<CardTitle>`, `<TableScroll>`, `<EmptyState>`
 
-### Form controls — `inputClass`, `countInputClass`, `labelClass`, `hintClass`, `checkboxClass`
+### Form controls — `inputClass`, `countInputClass`, `labelClass`, `hintClass`, `checkboxClass` (deprecated)
+
+New screens use `<Field>` with `<TextInput>`, `<NumberInput>`, `<Switch>` and friends (see Lagoon components). These class strings stay until every screen migrates.
 
 `checkboxClass` applies `accent-primary-600` so native checkboxes stop rendering in the
 browser's default blue.
@@ -169,7 +212,9 @@ browser's default blue.
 from one shared base, because two font-size utilities on one element leaves the winner up
 to stylesheet order. Use it with `inputMode="numeric"` for count fields.
 
-### Machine face — `<SlotFaceGrid shelves renderCell onSelect selectedCode>`
+### Machine face — `<SlotFaceGrid shelves renderCell onSelect selectedCode>` (deprecated)
+
+Replaced by `<MachineMap>`; stays until the visit, planogram and machine screens migrate.
 
 One strip of cells per shelf, cells spanning equal width, on a `bg-gray-100 rounded-md`
 tray. Every screen that shows a machine layout renders through this — the machine form
@@ -197,6 +242,27 @@ it.
 renders nothing when `hasMore` is false, so screens can include it unconditionally. A
 `secondary` `sm` button, centered — secondary so it doesn't compete with the page's
 primary action.
+
+## Lagoon components
+
+All live in `packages/web/src/ui/`, are exported from `ui.tsx`, and render in every state on `/design`.
+
+| Component | Use |
+|---|---|
+| `PageHeader` | Eyebrow breadcrumb, H1 (the record's name on edit/detail pages), badge + meta row, a right-hand link that names its destination. Use `eyebrowLinkClass` / `pageLinkClass` on the links. |
+| `FormSection`, `FieldRow`, `SectionDivider` | 260px title + description column beside a card of fields; sections divided by a rule. `FieldRow` puts two fields side by side. |
+| `Field` + `TextInput` / `Select` / `TextArea` | Visible label, optional "optional" marker, hint and error. The control picks up its id and `aria-describedby` from the Field. |
+| `NumberInput`, `MoneyInput` | Mono, tabular, `inputMode` set, password managers kept out. Sizes `sm` (table row), `md` (form), `lg` (count at the machine); optional prefix and suffix. Values stay strings. |
+| `Button`, `IconButton` | See Buttons above. |
+| `Switch` | Title + description + switch over a real checkbox. |
+| `SaveBar` + `useFormDraft` | Sticky footer with saved/unsaved state or a summary; Save is disabled on a clean form. `dismissal="discard"` (edit pages) or `"cancel"` (create pages). Render it after the page container and pass `formId`. |
+| `RowTable` (+ `Header`, `Body`, `Row`, `Footer`, `Empty`) | CSS-grid rows of inputs. `boxed` or `plain`. Inputs need their own `aria-label`. |
+| `FactsPanel`, `Fact`, `FactVerdict` | Tinted key/value list with an optional success/warning verdict row. |
+| `Stepper` | Numbered steps with done/current/upcoming and a progress line; replaces tabs for sequential flows. |
+| `MachineMap`, `MachineMapLegend` | The machine face: one row per shelf, tiles sharing the width, value + meter + ×N marker, optional product name (read-only maps); selected, empty, target, source and search-dimmed states; optional "go to slot or product" search. Replaces `SlotFaceGrid`. |
+| `Badge`, `ChipGroup`, `Kbd`, `ProgressBar` | Uppercase status labels, single-choice chips, key hints, the thin progress bar. |
+
+The old class strings in `Field.tsx` (`inputClass`, `labelClass`, …) and `SlotFaceGrid` are deprecated and go away as screens migrate.
 
 ## Don'ts
 

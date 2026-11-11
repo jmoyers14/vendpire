@@ -57,7 +57,7 @@ export function ExpiringSoonCard() {
                 <span className="font-mono text-xs text-muted">
                   {slot.slotCode}
                 </span>{" "}
-                <span className="text-body">{slot.productName}</span>{" "}
+                <span className="text-ink-soft">{slot.productName}</span>{" "}
                 <span className="text-gray-500">
                   · {slot.locationName} / {slot.machineName}
                 </span>

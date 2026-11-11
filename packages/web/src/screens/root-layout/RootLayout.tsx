@@ -35,7 +35,7 @@ const Header = () => (
       <div className="flex items-center justify-between gap-4">
         <Link
           to="/"
-          className={`flex items-center gap-2 font-display font-extrabold text-heading ${focusRing}`}
+          className={`flex items-center gap-2 font-display font-extrabold text-ink ${focusRing}`}
         >
           <span className="size-[18px] rounded-md bg-primary-500" />
           Vendpire
@@ -101,7 +101,7 @@ const SignedInArea = () => {
       <Page max="xl" className="grid gap-4">
         <div className="grid gap-1">
           <PageTitle>Create your business</PageTitle>
-          <p className="text-body">
+          <p className="text-ink-soft">
             Set up your vending business to continue. You can invite your
             partner afterward.
           </p>

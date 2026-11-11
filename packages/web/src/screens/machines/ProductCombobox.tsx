@@ -117,7 +117,7 @@ export function ProductCombobox({
                 onMouseDown={(e) => e.preventDefault()}
                 onMouseEnter={() => setHighlightedIndex(index)}
                 onClick={() => pick(product)}
-                className={`cursor-pointer truncate px-3 py-2 text-sm text-body ${
+                className={`cursor-pointer truncate px-3 py-2 text-sm text-ink-soft ${
                   index === highlightedIndex ? "bg-gray-100" : ""
                 } ${product.id === productId ? "font-bold" : ""}`}
               >
