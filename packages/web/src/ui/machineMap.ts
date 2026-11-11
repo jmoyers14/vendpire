@@ -1,4 +1,5 @@
 import { matchesSearch } from "../utils/textMatch.ts";
+import { type StatusTone, stockTone } from "./tone.ts";
 
 /**
  * The letter beside a shelf: the letters its first slot code starts with ("A"
@@ -31,3 +32,18 @@ export const isSlotMatch = ({
   }
   return matchesSearch(`${slotCode} ${searchText}`, query);
 };
+
+/**
+ * A Count-step tile's meter: found ÷ par, green normally, amber at 30% or
+ * less, a red track when the slot is empty.
+ */
+export const countMeterFor = ({
+  found,
+  par,
+}: {
+  found: number;
+  par: number;
+}): { meter: number; tone: StatusTone } => ({
+  meter: par > 0 ? found / par : 0,
+  tone: stockTone(found, par),
+});

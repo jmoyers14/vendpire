@@ -1,7 +1,6 @@
 // Design system barrel. Screens import from here; the implementations live in
 // ./ui/ so each primitive stays small and independently readable.
 
-export type { AlertTone } from "./ui/Alert.tsx";
 export { Alert, ErrorNote } from "./ui/Alert.tsx";
 export type { BadgeSize, BadgeTone } from "./ui/Badge.tsx";
 export { Badge } from "./ui/Badge.tsx";
@@ -20,7 +19,6 @@ export {
   hintClass,
   inputClass,
   labelClass,
-  useFieldControl,
 } from "./ui/Field.tsx";
 export { focusRing } from "./ui/focus.ts";
 export { FieldRow, FormSection, SectionDivider } from "./ui/FormSection.tsx";
@@ -33,6 +31,7 @@ export type {
   MachineTileTone,
 } from "./ui/MachineMap.tsx";
 export { MachineMap, MachineMapLegend } from "./ui/MachineMap.tsx";
+export { countMeterFor } from "./ui/machineMap.ts";
 export type { NumberInputSize } from "./ui/NumberInput.tsx";
 export { MoneyInput, NumberInput } from "./ui/NumberInput.tsx";
 export {
@@ -66,10 +65,11 @@ export {
   slotPositionLabel,
 } from "./ui/SlotFaceGrid.tsx";
 export { SlotList, SlotRow } from "./ui/SlotList.tsx";
-export type { Tone } from "./ui/StatusPill.tsx";
-export { StatusPill, stockTone } from "./ui/StatusPill.tsx";
+export { StatusPill } from "./ui/StatusPill.tsx";
 export type { Step, StepStatus } from "./ui/Stepper.tsx";
 export { Stepper } from "./ui/Stepper.tsx";
 export { Switch } from "./ui/Switch.tsx";
-export { controlClass, Select, TextArea, TextInput } from "./ui/TextInput.tsx";
+export type { StatusTone } from "./ui/tone.ts";
+export { stockTone } from "./ui/tone.ts";
+export { Select, TextArea, TextInput } from "./ui/TextInput.tsx";
 export { useFormDraft } from "./ui/useFormDraft.ts";

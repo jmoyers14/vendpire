@@ -13,6 +13,7 @@ import {
   Kbd,
   MachineMap,
   MachineMapLegend,
+  countMeterFor,
   type MachineTile,
   MoneyInput,
   NumberInput,
@@ -29,11 +30,11 @@ import {
   Select,
   type Step,
   Stepper,
-  stockTone,
   Switch,
   TextArea,
   TextInput,
   pageLinkClass,
+  eyebrowLinkClass,
   useFormDraft,
 } from "../../ui.tsx";
 
@@ -294,8 +295,8 @@ const FactsDemo = () => (
     <div className="grid gap-6 sm:grid-cols-2">
       <FactsPanel>
         <Fact label="Last paid" detail="Previous Owner · Oct 29, 2026" value="$0.64 / unit" />
-        <Fact label="You keep per sale" value="+$1.36" tone="good" />
-        <Fact label="Margin" value="68%" tone="good" />
+        <Fact label="You keep per sale" value="+$1.36" tone="success" />
+        <Fact label="Margin" value="68%" tone="success" />
       </FactsPanel>
       <FactsPanel>
         <Fact label="Items total" value="$51.97" />
@@ -387,23 +388,21 @@ const countTile = (slotCode: string): MachineTile => {
   if (found === undefined) {
     return { ...base, value: "—", tone: "pending", label: `${slotCode}: ${names}, not counted` };
   }
-  const tone = stockTone(found, PAR);
   return {
     ...base,
+    ...countMeterFor({ found, par: PAR }),
     value: found,
-    meter: found / PAR,
-    tone: tone === "critical" ? "out" : tone === "warning" ? "low" : "neutral",
     label: `${slotCode}: ${names}, ${found} of ${PAR}`,
   };
 };
 
 const RESTOCK_VALUES: Record<string, Pick<MachineTile, "value" | "tone">> = {
-  A0: { value: "+3", tone: "done" },
-  A2: { value: "−2", tone: "done" },
-  A4: { value: "→B2", tone: "done" },
-  A6: { value: "⇄C4", tone: "done" },
-  A8: { value: "New", tone: "done" },
-  B0: { value: "✓", tone: "done" },
+  A0: { value: "+3", tone: "success" },
+  A2: { value: "−2", tone: "success" },
+  A4: { value: "→B2", tone: "success" },
+  A6: { value: "⇄C4", tone: "success" },
+  A8: { value: "New", tone: "success" },
+  B0: { value: "✓", tone: "success" },
 };
 
 const MachineMapDemo = () => {
@@ -476,6 +475,7 @@ const MachineMapDemo = () => {
         <MachineMap
           shelves={SHELVES.slice(0, 3)}
           tileFor={(slotCode) => ({
+            productName: (NAMES[slotCode] ?? "Fritos Original").split(",")[0],
             value: "$1.75",
             productCount: SHARED.has(slotCode) ? 2 : 1,
             label: `${slotCode}: ${NAMES[slotCode] ?? "Fritos Original"}, $1.75`,
@@ -496,7 +496,14 @@ const FormPatternDemo = () => {
     <div className="rounded-card border border-dashed border-line-strong">
       <div className="px-6 pt-6">
         <PageHeader
-          eyebrow="Products / Edit product"
+          eyebrow={
+            <>
+              <a href="#form-pattern" className={eyebrowLinkClass}>
+                Products
+              </a>{" "}
+              / Edit product
+            </>
+          }
           title={draft.name || "Untitled product"}
           badge={<Badge tone={draft.isActive ? "success" : "neutral"}>{draft.isActive ? "Active" : "Inactive"}</Badge>}
           meta="Soda · In 2 machines · Last restocked Nov 5"

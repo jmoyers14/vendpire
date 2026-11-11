@@ -59,7 +59,7 @@ one-off hex.
 | `disabled` / `on-disabled` | gray-100 / gray-600 | `bg-disabled text-on-disabled` (neutral, never faded teal) |
 | `success` / `success-soft` | green-700 / green-50 | good, stocked, profit |
 | `warning` / `warning-soft` | amber-800 / amber-50 | low, expiring, attention |
-| `danger` / `danger-soft` / `danger-fill` | red-700 / red-50 / red-600 | empty, errors, loss; `danger-fill` for a solid destructive button |
+| `danger` / `danger-soft` / `danger-fill` | red-700 / red-50 / red-600 | empty, errors, loss; `danger-fill` is reserved for a solid destructive fill (unused today) |
 
 `heading` and `body` were renamed to `ink` and `ink-soft` so the names `text-heading`
 and `text-body` belong to the type scale below; Tailwind resolves a shared name to the
@@ -146,43 +146,44 @@ transparent 3px border, so the label doesn't shift when it becomes current.
 Current tabs: **Dashboard, Locations, Machines, Products, Packs, Purchases,
 Settings**.
 
-### Buttons — `<Button>` / `buttonClass()`
+### Buttons — `<Button>` / `buttonClass()` / `<IconButton>`
 
-Base: `inline-flex items-center justify-center rounded-full font-bold transition-transform
-active:scale-[.96] motion-reduce:transition-none disabled:opacity-50
-disabled:pointer-events-none`
+Every button is a pill (`rounded-full`), text buttons included — it's the shape their
+focus ring takes. **One `primary` per view**; everything else is `secondary` or `text`.
 
-| Variant | Add |
-|---|---|
-| `primary` | `bg-primary-600 text-white hover:bg-primary-700 active:bg-primary-800` |
-| `secondary` | `bg-gray-200 text-gray-800 hover:bg-gray-300` |
-| `danger` | `bg-red-50 text-red-700 hover:bg-red-100` |
+| Variant | Look | Use |
+|---|---|---|
+| `primary` | `bg-action text-on-action`, hover `action-hover` | The view's one main action |
+| `secondary` | `border-line-strong bg-card text-link`, hover border `action` | Other actions, Previous, Discard/Cancel |
+| `text` | `text-link`, underline on hover | Low-weight actions inside content ("Use it", "Mark the rest unchanged") |
+| `danger` | `border-danger-indicator bg-danger-soft text-danger` | Confirming a destructive action, never a page's main action |
 
-Sizes: `md` (`px-5 py-3`, the documented default) and `sm` (`px-3.5 py-1.5 text-sm`) for
-dense contexts like table-row actions. `full` makes it `w-full` — use that for a page's
-main action (e.g. "Start fill visit").
+Sizes: `md` (`h-11`, the default), `lg` (`h-12`, beside a 48px input: "Look up", "Add") and
+`sm` (`h-9`) for dense contexts like table-row actions. `isFullWidth` makes it `w-full`.
+Disabled is a neutral `bg-disabled text-on-disabled` fill, never a faded teal.
 
 Use `<Button>` for `<button>` elements and `buttonClass({ ... })` for router `<Link>`s and
-anchors, so both wear identical styling.
+anchors, so both wear identical styling. `<IconButton label tone>` is the round icon-only
+button (`neutral` or `danger` hover); `label` becomes its accessible name and tooltip.
+
+### Status tones — `StatusTone`
+
+One vocabulary for status across components: `success`, `warning`, `danger`, named after
+the color tokens. Components that need more add `neutral` (and `pending` on MachineMap
+tiles, `action` on badges). `stockTone(remaining, capacity)` picks the status from the
+shared thresholds: danger at 0, warning at 30% or below, otherwise success.
+`countMeterFor({ found, par })` turns a count into a MachineMap tile's meter and tone.
 
 ### Status pill — `<StatusPill tone>`
 
-Base: `inline-flex rounded-full px-2.5 py-0.5 text-xs font-bold tabular-nums whitespace-nowrap`
-
-| Tone | Add |
-|---|---|
-| `ok` | `bg-green-100 text-green-800` |
-| `warning` | `bg-amber-100 text-amber-800` |
-| `critical` | `bg-red-100 text-red-800` |
-
-`stockTone(remaining, capacity)` picks the tone from the shared thresholds: critical at 0,
-warning at 30% or below, otherwise ok.
+Base: `inline-flex rounded-full px-2.5 py-0.5 text-xs font-bold tabular-nums whitespace-nowrap`.
+Tones `success` / `warning` / `danger` (green, amber, red 100/800). New screens use `<Badge>`.
 
 ### Alert banner — `<Alert tone title>`
 
 Base: `rounded-card border px-3.5 py-3 text-sm grid gap-0.5`, bold title line plus
-optional detail line. Tones: `warning` (amber-50/200/900), `critical` (red-50/200/900),
-`success` (green-50/200/900). `<ErrorNote message>` is the critical variant for
+optional detail line. Tones: `warning` (amber-50/200/900), `danger` (red-50/200/900),
+`success` (green-50/200/900). `<ErrorNote message>` is the danger variant for
 query/mutation failures and renders nothing when `message` is null.
 
 ### KPI card — `<KpiCard label value tone>` inside `<KpiGrid>`
@@ -198,7 +199,9 @@ query/mutation failures and renders nothing when `message` is null.
 
 ### Layout — `<Page>`, `<PageTitle>`, `<PageSubtitle>`, `<Card>`, `<CardTitle>`, `<TableScroll>`, `<EmptyState>`
 
-### Form controls — `inputClass`, `countInputClass`, `labelClass`, `hintClass`, `checkboxClass`
+### Form controls — `inputClass`, `countInputClass`, `labelClass`, `hintClass`, `checkboxClass` (deprecated)
+
+New screens use `<Field>` with `<TextInput>`, `<NumberInput>`, `<Switch>` and friends (see Lagoon components). These class strings stay until every screen migrates.
 
 `checkboxClass` applies `accent-primary-600` so native checkboxes stop rendering in the
 browser's default blue.
@@ -209,7 +212,9 @@ browser's default blue.
 from one shared base, because two font-size utilities on one element leaves the winner up
 to stylesheet order. Use it with `inputMode="numeric"` for count fields.
 
-### Machine face — `<SlotFaceGrid shelves renderCell onSelect selectedCode>`
+### Machine face — `<SlotFaceGrid shelves renderCell onSelect selectedCode>` (deprecated)
+
+Replaced by `<MachineMap>`; stays until the visit, planogram and machine screens migrate.
 
 One strip of cells per shelf, cells spanning equal width, on a `bg-gray-100 rounded-md`
 tray. Every screen that shows a machine layout renders through this — the machine form
@@ -248,13 +253,13 @@ All live in `packages/web/src/ui/`, are exported from `ui.tsx`, and render in ev
 | `FormSection`, `FieldRow`, `SectionDivider` | 260px title + description column beside a card of fields; sections divided by a rule. `FieldRow` puts two fields side by side. |
 | `Field` + `TextInput` / `Select` / `TextArea` | Visible label, optional "optional" marker, hint and error. The control picks up its id and `aria-describedby` from the Field. |
 | `NumberInput`, `MoneyInput` | Mono, tabular, `inputMode` set, password managers kept out. Sizes `sm` (table row), `md` (form), `lg` (count at the machine); optional prefix and suffix. Values stay strings. |
-| `Button`, `IconButton` | `primary` (one per view), `secondary` (outline), `text`, `danger` (confirming a delete). Sizes `md`, `sm`, `lg` (beside a 48px input). Disabled is the neutral gray fill. |
+| `Button`, `IconButton` | See Buttons above. |
 | `Switch` | Title + description + switch over a real checkbox. |
 | `SaveBar` + `useFormDraft` | Sticky footer with saved/unsaved state or a summary; Save is disabled on a clean form. `dismissal="discard"` (edit pages) or `"cancel"` (create pages). Render it after the page container and pass `formId`. |
 | `RowTable` (+ `Header`, `Body`, `Row`, `Footer`, `Empty`) | CSS-grid rows of inputs. `boxed` or `plain`. Inputs need their own `aria-label`. |
 | `FactsPanel`, `Fact`, `FactVerdict` | Tinted key/value list with an optional success/warning verdict row. |
 | `Stepper` | Numbered steps with done/current/upcoming and a progress line; replaces tabs for sequential flows. |
-| `MachineMap`, `MachineMapLegend` | The machine face: one row per shelf, tiles sharing the width, value + meter + ×N marker; selected, empty, target, source and search-dimmed states; optional "go to slot or product" search. Replaces `SlotFaceGrid`. |
+| `MachineMap`, `MachineMapLegend` | The machine face: one row per shelf, tiles sharing the width, value + meter + ×N marker, optional product name (read-only maps); selected, empty, target, source and search-dimmed states; optional "go to slot or product" search. Replaces `SlotFaceGrid`. |
 | `Badge`, `ChipGroup`, `Kbd`, `ProgressBar` | Uppercase status labels, single-choice chips, key hints, the thin progress bar. |
 
 The old class strings in `Field.tsx` (`inputClass`, `labelClass`, …) and `SlotFaceGrid` are deprecated and go away as screens migrate.

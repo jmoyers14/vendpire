@@ -185,9 +185,9 @@ export function DesignSystemScreen() {
 
       <Section title="Status pills">
         <Card className="flex flex-wrap gap-2 p-3">
-          <StatusPill tone="ok">9 / 12</StatusPill>
+          <StatusPill tone="success">9 / 12</StatusPill>
           <StatusPill tone="warning">Fill due</StatusPill>
-          <StatusPill tone="critical">Out of stock</StatusPill>
+          <StatusPill tone="danger">Out of stock</StatusPill>
         </Card>
       </Section>
 
@@ -195,7 +195,7 @@ export function DesignSystemScreen() {
         <Alert tone="warning" title="2 machines due for a fill">
           Breakroom · Bldg B and Lobby · Bldg A were last filled 6 days ago.
         </Alert>
-        <Alert tone="critical" title="Coin mech jam reported">
+        <Alert tone="danger" title="Coin mech jam reported">
           Machine #04 — reported this morning.
         </Alert>
         <Alert tone="success" title="Visit reconciled">

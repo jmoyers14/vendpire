@@ -13,7 +13,8 @@ const VARIANT: Record<ButtonVariant, string> = {
   secondary:
     "border border-line-strong bg-card text-link hover:border-action hover:bg-app",
   text: "text-link hover:underline",
-  danger: "bg-danger-fill text-on-action hover:bg-danger",
+  danger:
+    "border border-danger-indicator bg-danger-soft text-danger hover:border-danger",
 };
 
 // `lg` matches a 48px input it sits beside ("Look up", "Add"). `sm` is for
@@ -26,9 +27,9 @@ const SIZE: Record<ButtonSize, string> = {
 
 // The text variant has no box to size, so it only takes the type size.
 const TEXT_SIZE: Record<ButtonSize, string> = {
-  md: "rounded-md px-1 py-1 text-button",
-  sm: "rounded-md px-1 py-0.5 text-label",
-  lg: "rounded-md px-1 py-1.5 text-button",
+  md: "px-2 py-1 text-button",
+  sm: "px-1.5 py-0.5 text-label",
+  lg: "px-2 py-1.5 text-button",
 };
 
 // Disabled is a neutral fill, not a faded teal: a faded primary still reads
@@ -58,7 +59,8 @@ export const buttonClass = ({
   return [
     BASE,
     VARIANT[variant],
-    isText ? TEXT_SIZE[size] : `rounded-full ${SIZE[size]}`,
+    // Every button is a pill, text buttons included: it's the shape their focus ring takes.
+    `rounded-full ${isText ? TEXT_SIZE[size] : SIZE[size]}`,
     isText ? DISABLED_TEXT : DISABLED_BOX,
     focusRing,
     isFullWidth ? "w-full" : "",

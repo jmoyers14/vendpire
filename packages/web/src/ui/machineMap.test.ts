@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { isSlotMatch, shelfLabel } from "./machineMap.ts";
+import { countMeterFor, isSlotMatch, shelfLabel } from "./machineMap.ts";
 
 describe("shelfLabel", () => {
   test("uses the letters a lettered shelf's codes start with", () => {
@@ -58,5 +58,27 @@ describe("isSlotMatch", () => {
     expect(
       isSlotMatch({ slotCode: "B4", searchText: "Sun Chips", query: "twix", slotCodes }),
     ).toBe(false);
+  });
+});
+
+describe("countMeterFor", () => {
+  test("a well-stocked slot is a green, partly filled meter", () => {
+    expect(countMeterFor({ found: 6, par: 10 })).toEqual({ meter: 0.6, tone: "success" });
+  });
+
+  test("30% of par is low", () => {
+    expect(countMeterFor({ found: 3, par: 10 })).toEqual({ meter: 0.3, tone: "warning" });
+  });
+
+  test("just over 30% is still stocked", () => {
+    expect(countMeterFor({ found: 4, par: 10 }).tone).toBe("success");
+  });
+
+  test("an empty slot is danger with an empty meter", () => {
+    expect(countMeterFor({ found: 0, par: 10 })).toEqual({ meter: 0, tone: "danger" });
+  });
+
+  test("a slot with no par still reads its count, with no meter fill", () => {
+    expect(countMeterFor({ found: 5, par: 0 })).toEqual({ meter: 0, tone: "success" });
   });
 });

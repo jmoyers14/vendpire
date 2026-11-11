@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import type { StatusTone } from "./tone.ts";
 
 /**
  * A tinted key/value list for derived numbers that update as you type: label
@@ -10,12 +11,12 @@ export const FactsPanel = ({ children }: { children: ReactNode }) => (
   </dl>
 );
 
-export type FactTone = "neutral" | "good" | "bad";
+export type FactTone = "neutral" | "success" | "danger";
 
 const VALUE_TONE: Record<FactTone, string> = {
   neutral: "text-ink",
-  good: "font-bold text-success",
-  bad: "font-bold text-danger",
+  success: "font-bold text-success",
+  danger: "font-bold text-danger",
 };
 
 export const Fact = ({
@@ -43,7 +44,7 @@ export const Fact = ({
   </div>
 );
 
-export type VerdictTone = "success" | "warning" | "neutral";
+export type VerdictTone = Exclude<StatusTone, "danger"> | "neutral";
 
 const VERDICT_TONE: Record<VerdictTone, string> = {
   success: "bg-success-soft font-bold text-success",

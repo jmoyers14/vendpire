@@ -1,10 +1,9 @@
 import type { ReactNode } from "react";
+import type { StatusTone } from "./tone.ts";
 
-export type AlertTone = "warning" | "critical" | "success";
-
-const TONE: Record<AlertTone, string> = {
+const TONE: Record<StatusTone, string> = {
   warning: "bg-amber-50 border-amber-200 text-amber-900",
-  critical: "bg-red-50 border-red-200 text-red-900",
+  danger: "bg-red-50 border-red-200 text-red-900",
   success: "bg-green-50 border-green-200 text-green-900",
 };
 
@@ -16,7 +15,7 @@ export const Alert = ({
   className = "",
   children,
 }: {
-  tone: AlertTone;
+  tone: StatusTone;
   title: ReactNode;
   className?: string;
   children?: ReactNode;
@@ -32,4 +31,4 @@ export const Alert = ({
 // Mutation/query failures render as a critical alert. Returns null when there
 // is nothing to report so callers can drop it in unconditionally.
 export const ErrorNote = ({ message }: { message: string | null }) =>
-  message ? <Alert tone="critical" title={message} /> : null;
+  message ? <Alert tone="danger" title={message} /> : null;

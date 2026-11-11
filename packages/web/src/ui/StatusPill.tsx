@@ -1,11 +1,10 @@
 import type { ReactNode } from "react";
+import type { StatusTone } from "./tone.ts";
 
-export type Tone = "ok" | "warning" | "critical";
-
-const TONE: Record<Tone, string> = {
-  ok: "bg-green-100 text-green-800",
+const TONE: Record<StatusTone, string> = {
+  success: "bg-green-100 text-green-800",
   warning: "bg-amber-100 text-amber-800",
-  critical: "bg-red-100 text-red-800",
+  danger: "bg-red-100 text-red-800",
 };
 
 // Status is never the primary color — green/amber/red carry all state meaning.
@@ -14,7 +13,7 @@ export const StatusPill = ({
   className = "",
   children,
 }: {
-  tone: Tone;
+  tone: StatusTone;
   className?: string;
   children: ReactNode;
 }) => (
@@ -24,15 +23,3 @@ export const StatusPill = ({
     {children}
   </span>
 );
-
-// Shared stock thresholds so a slot reads the same everywhere it appears:
-// empty is critical, a third or less is a warning, anything more is fine.
-export const stockTone = (remaining: number, capacity: number): Tone => {
-  if (remaining <= 0) {
-    return "critical";
-  }
-  if (capacity > 0 && remaining / capacity <= 0.3) {
-    return "warning";
-  }
-  return "ok";
-};

@@ -2,16 +2,20 @@ import { type KeyboardEvent, type ReactNode, useMemo, useState } from "react";
 import { focusRing } from "./focus.ts";
 import { isSlotMatch, shelfLabel } from "./machineMap.ts";
 import { controlClass } from "./TextInput.tsx";
+import type { StatusTone } from "./tone.ts";
 
 /**
- * How a tile's value reads. `pending` is "not answered yet"; `low`, `out` and
- * `done` are status and use the status palette.
+ * How a tile's value reads: a status tone, plain `neutral`, or `pending` for
+ * "not answered yet". `warning` fills the meter amber; `danger` turns its
+ * track red.
  */
-export type MachineTileTone = "neutral" | "pending" | "low" | "out" | "done";
+export type MachineTileTone = StatusTone | "neutral" | "pending";
 
 export interface MachineTile {
   /** The middle line: a count, "+3", "→B2", "$1.75", or "—". */
   value: ReactNode;
+  /** A product name above the value, for read-only maps like the planogram. */
+  productName?: string;
   tone?: MachineTileTone;
   /** 0–1 fill along the bottom edge. Leave out to hide the meter. */
   meter?: number;
@@ -32,9 +36,9 @@ export interface MachineTile {
 const VALUE_TONE: Record<MachineTileTone, string> = {
   neutral: "font-bold text-ink",
   pending: "font-medium text-muted-strong",
-  low: "font-bold text-warning",
-  out: "font-bold text-danger",
-  done: "font-bold text-success",
+  success: "font-bold text-success",
+  warning: "font-bold text-warning",
+  danger: "font-bold text-danger",
 };
 
 const tileClass = ({
@@ -59,12 +63,12 @@ const tileClass = ({
     return "border border-line bg-card px-1.5 pt-[5px] pb-2 hover:border-field";
   })();
   const opacity = isDimmed ? "opacity-25" : tile.isSource ? "opacity-45" : "";
-  return `relative flex h-14 min-w-11 flex-1 basis-0 flex-col items-start justify-between overflow-hidden rounded-lg text-left ${chrome} ${opacity}`;
+  return `relative flex min-h-14 min-w-11 flex-1 basis-0 flex-col items-start justify-between overflow-hidden rounded-lg text-left ${chrome} ${opacity}`;
 };
 
 const TileFace = ({ slotCode, tile }: { slotCode: string; tile: MachineTile }) => {
-  const isOut = tile.tone === "out";
-  const fillTone = tile.tone === "low" ? "bg-warning-indicator" : "bg-success-indicator";
+  const isOut = tile.tone === "danger";
+  const fillTone = tile.tone === "warning" ? "bg-warning-indicator" : "bg-success-indicator";
   return (
     <>
       <span className="flex w-full items-center justify-between gap-0.5">
@@ -77,6 +81,11 @@ const TileFace = ({ slotCode, tile }: { slotCode: string; tile: MachineTile }) =
           </span>
         ) : null}
       </span>
+      {tile.productName ? (
+        <span className="max-w-full truncate text-[11px] leading-[14px] text-ink-soft">
+          {tile.productName}
+        </span>
+      ) : null}
       <span
         className={`max-w-full truncate font-mono text-sm leading-[18px] tabular-nums ${VALUE_TONE[tile.tone ?? "neutral"]}`}
       >

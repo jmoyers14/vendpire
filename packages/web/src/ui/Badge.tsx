@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
+import type { StatusTone } from "./tone.ts";
 
-export type BadgeTone = "neutral" | "action" | "success" | "warning" | "danger";
+export type BadgeTone = StatusTone | "neutral" | "action";
 export type BadgeSize = "md" | "sm";
 
 const TONE: Record<BadgeTone, string> = {
