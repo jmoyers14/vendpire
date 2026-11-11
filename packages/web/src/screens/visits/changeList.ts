@@ -1,14 +1,18 @@
-import type { LayoutChange, LayoutSlot, RemovalReason } from "@vendpire/domain";
+import {
+  isMoveChange,
+  type LayoutChange,
+  type LayoutSlot,
+  type MoveChange,
+  type RemovalReason,
+  type SetPriceChange,
+} from "@vendpire/domain";
 import { formatCents } from "../../utils/money.ts";
 import type { VisitSubmissionDraft } from "./visitSubmission.ts";
-
-type MoveChange = Extract<LayoutChange, { kind: "move" }>;
-type SetPriceChange = Extract<LayoutChange, { kind: "set-price" }>;
 
 /** The review's list of what changed, in plain words. Pure. */
 
 const isOpposite = (first: MoveChange, other: LayoutChange): other is MoveChange =>
-  other.kind === "move" &&
+  isMoveChange(other) &&
   other.fromSlotCode === first.toSlotCode &&
   other.toSlotCode === first.fromSlotCode;
 
@@ -62,7 +66,7 @@ export const describeChanges = ({
 
   // A move's line already gives the price it lands at.
   const isMoveDestination = (slotCode: string): boolean =>
-    layoutChanges.some((change) => change.kind === "move" && change.toSlotCode === slotCode);
+    layoutChanges.some((change) => isMoveChange(change) && change.toSlotCode === slotCode);
 
   const describePrice = ({ slotCode, priceCents }: SetPriceChange): string | null => {
     const before = priceBefore(slotCode);

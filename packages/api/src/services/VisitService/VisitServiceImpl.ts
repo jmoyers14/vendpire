@@ -1,6 +1,7 @@
 import { inject, injectable } from "tsyringe";
 import {
   calendarDateToday,
+  isMoveChange,
   layoutChangeLineMismatch,
   observationsForVisit,
   slotProductKey,
@@ -71,7 +72,7 @@ const normalizeSlotCode = (slotCode: string): string =>
   slotCode.trim().toUpperCase();
 
 const withNormalizedSlotCodes = (change: LayoutChange): LayoutChange =>
-  change.kind === "move"
+  isMoveChange(change)
     ? {
         ...change,
         fromSlotCode: normalizeSlotCode(change.fromSlotCode),
