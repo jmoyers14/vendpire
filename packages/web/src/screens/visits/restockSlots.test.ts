@@ -14,8 +14,11 @@ import {
   nextRestockSlotCode,
   nowLevelAfterRestock,
   nowLevelFor,
+  previousRestockSlotCode,
   productIdsAfterRestock,
   restockProgressFor,
+  stayingRowsIn,
+  unloadableProductIdsFor,
 } from "./restockSlots.ts";
 import { buildVisitRows, type VisitRow } from "./visitRows.ts";
 
@@ -269,5 +272,70 @@ describe("nextRestockSlotCode", () => {
     const restock = buildRestock({ shelves: SHELVES, rows });
 
     expect(nextAfter({ rows, restock }, "A3", ["A3", "A1", "A2"])).toBe("A1");
+  });
+});
+
+describe("stayingRowsIn", () => {
+  it("is the counted products with no answer or an Add", () => {
+    const rows = buildRows({ [slotProductKey({ slotCode: "A2", productId: "lays" })]: "" });
+    const restock = buildRestock({ shelves: SHELVES, rows });
+
+    expect(stayingRowsIn({ rows, restock, slotCode: "A2" }).map((row) => row.productId)).toEqual([
+      "doritos",
+    ]);
+  });
+
+  it("drops a product that moved or was taken out", () => {
+    const rows = buildRows();
+    const restock = restockWithAction(
+      buildRestock({ shelves: SHELVES, rows }),
+      rowFor(rows, "A2", "doritos"),
+      { kind: "pulled", reason: "expired" },
+    );
+
+    expect(stayingRowsIn({ rows, restock, slotCode: "A2" }).map((row) => row.productId)).toEqual([
+      "lays",
+    ]);
+  });
+});
+
+describe("unloadableProductIdsFor", () => {
+  it("is what's in the slot, leaving it, or arriving in it", () => {
+    const rows = buildRows();
+    const pulled = restockWithAction(
+      buildRestock({ shelves: SHELVES, rows }),
+      rowFor(rows, "A1", "coke"),
+      { kind: "pulled", reason: "destocked" },
+    );
+    const restock = restockWithNewStock(pulled, {
+      slotCode: "A1",
+      productId: "lays",
+      tracksExpiration: false,
+    });
+
+    expect([...unloadableProductIdsFor({ rows, restock, slotCode: "A1" })].sort()).toEqual([
+      "coke",
+      "lays",
+    ]);
+  });
+});
+
+describe("previousRestockSlotCode", () => {
+  it("skips back over slots with nothing to answer", () => {
+    const rows = buildRows();
+    const restock = buildRestock({ shelves: SHELVES, rows });
+
+    expect(
+      previousRestockSlotCode({ rows, restock, slotCodes: ["A1", "A3", "A2"], beforeSlotCode: "A2" }),
+    ).toBe("A1");
+  });
+
+  it("is null at the first slot, or for a slot not in the list", () => {
+    const rows = buildRows();
+    const restock = buildRestock({ shelves: SHELVES, rows });
+    const slotCodes = SHELVES.flat();
+
+    expect(previousRestockSlotCode({ rows, restock, slotCodes, beforeSlotCode: "A1" })).toBeNull();
+    expect(previousRestockSlotCode({ rows, restock, slotCodes, beforeSlotCode: "Z9" })).toBeNull();
   });
 });
