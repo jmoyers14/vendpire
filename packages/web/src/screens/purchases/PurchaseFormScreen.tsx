@@ -1,49 +1,58 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
+import type { ApiCandidate, ApiProduct } from "../../apiTypes.ts";
+import {
+  Button,
+  ErrorNote,
+  eyebrowLinkClass,
+  Field,
+  FormSection,
+  MoneyInput,
+  Page,
+  PageHeader,
+  pageLinkClass,
+  RowTable,
+  RowTableBody,
+  RowTableEmpty,
+  RowTableFooter,
+  RowTableHeader,
+  SaveBar,
+  TextArea,
+  TextInput,
+  useFormDraft,
+} from "../../ui.tsx";
+import { dateInputFor, formatShortDate, middayInstantFor } from "../../utils/dates.ts";
+import { centsToInput, formatCents } from "../../utils/money.ts";
+import { plural } from "../../utils/text.ts";
+import { queryClient, trpc, trpcClient } from "../../trpc.ts";
 import {
   BarcodeNotFoundPanel,
   type CreatedForPurchase,
   isCreatedUnit,
 } from "./BarcodeNotFoundPanel.tsx";
-import { PurchaseLineRow } from "./PurchaseLineRow.tsx";
-import { ReceiptReconciliation } from "./ReceiptReconciliation.tsx";
-import { ScanOrSearchInput } from "./ScanOrSearchInput.tsx";
-import type { ApiCandidate, ApiPack, ApiProduct } from "../../apiTypes.ts";
+import { buildCatalogItems, type CatalogItem, isUnitItem } from "./catalogSearch.ts";
 import { previewPackSplit } from "./packSplit.ts";
 import {
+  type PackOption,
+  PURCHASE_ROW_COLUMNS,
+  type ProductOption,
+  PurchaseLineRow,
+} from "./PurchaseLineRow.tsx";
+import { ReceiptCheckLine } from "./ReceiptCheckLine.tsx";
+import {
+  buildPurchaseLines,
+  differenceLabelFor,
   isPackRow,
+  isRowComplete,
   newPackRow,
+  receiptCheckFor,
   newUnitRow,
   type Row,
+  rowsSummaryFor,
   toUnitRow,
 } from "./rows.ts";
-import {
-  type CatalogItem,
-  buildCatalogItems,
-  isUnitItem,
-} from "./catalogSearch.ts";
-import {
-  Button,
-  ErrorNote,
-  inputClass,
-  Page,
-  PageTitle,
-} from "../../ui.tsx";
-import { centsToInput, formatCents, parseDollarsToCents } from "../../utils/money.ts";
-import { queryClient, trpc, trpcClient } from "../../trpc.ts";
-
-/**
- * One line of the purchase being entered. A row is either a pack (N packs for
- * one total, expanded server-side) or loose units of a single product —
- * whichever the scanned barcode turned out to be.
- */
-/**
- * What a <select> needs of each record — the lists also hold entries created
- * mid-entry, which have no server round trip behind them yet.
- */
-type ProductOption = Pick<ApiProduct, "id" | "name">;
-type PackOption = Pick<ApiPack, "id" | "name" | "contents">;
+import { ScanOrSearchInput } from "./ScanOrSearchInput.tsx";
 
 /**
  * A scanned code with nothing behind it yet. Held until the setup panel either
@@ -57,20 +66,16 @@ interface PendingCode {
   likelyCase: boolean;
 }
 
-/** Length of the `YYYY-MM-DD` prefix an <input type="date"> expects. */
-const ISO_DATE_LENGTH = 10;
+interface PurchaseDraft {
+  date: string;
+  vendor: string;
+  notes: string;
+  receiptTotal: string;
+  rows: Row[];
+}
 
 /** Most runs are a Costco trip. Only a starting point — the field is editable. */
 const DEFAULT_VENDOR = "Costco";
-
-/**
- * Midday rather than midnight: the date input gives a bare calendar day, and
- * anchoring it at noon keeps the stored instant on that same day across every
- * US timezone instead of slipping a day either side of UTC.
- */
-const MIDDAY_SUFFIX = "T12:00:00";
-
-const toDateInput = (iso: string): string => iso.slice(0, ISO_DATE_LENGTH);
 
 const toProductOption = (product: ApiProduct): ProductOption => ({
   id: product.id,
@@ -80,7 +85,10 @@ const toProductOption = (product: ApiProduct): ProductOption => ({
 /** Create + edit form: `purchaseId` present means edit. */
 export function PurchaseFormScreen({ purchaseId }: { purchaseId?: string }) {
   const navigate = useNavigate();
+  const isEditing = Boolean(purchaseId);
   const [error, setError] = useState<string | null>(null);
+  const errorRef = useRef<HTMLDivElement>(null);
+  const [scanError, setScanError] = useState<string | null>(null);
   /**
    * Minted once when the form opens, not at submit time. A lazy initializer is
    * what makes it survive re-renders, so double-clicking Save sends the SAME
@@ -88,16 +96,20 @@ export function PurchaseFormScreen({ purchaseId }: { purchaseId?: string }) {
    * second one.
    */
   const [clientRequestId] = useState(() => crypto.randomUUID());
-  const [date, setDate] = useState(toDateInput(new Date().toISOString()));
-  const [vendor, setVendor] = useState(DEFAULT_VENDOR);
-  const [notes, setNotes] = useState("");
-  const [receiptTotal, setReceiptTotal] = useState("");
-  const [rows, setRows] = useState<Row[]>([]);
+  const { draft, set, load, discard, isDirty } = useFormDraft<PurchaseDraft>({
+    date: dateInputFor(new Date()),
+    vendor: DEFAULT_VENDOR,
+    notes: "",
+    receiptTotal: "",
+    rows: [],
+  });
+  // Loaded once: a refetch on window focus must not wipe lines being entered.
+  const [hasLoaded, setHasLoaded] = useState(false);
 
-  const [resolving, setResolving] = useState(false);
+  const [isResolving, setIsResolving] = useState(false);
   const [pendingCode, setPendingCode] = useState<PendingCode | null>(null);
-  // Records created mid-entry, so their <option> exists before the list query
-  // refetches.
+  // Records created mid-entry, so their rows can name them before the list
+  // query refetches.
   const [extraProducts, setExtraProducts] = useState<ProductOption[]>([]);
   const [extraPacks, setExtraPacks] = useState<PackOption[]>([]);
 
@@ -105,7 +117,7 @@ export function PurchaseFormScreen({ purchaseId }: { purchaseId?: string }) {
   const packs = useQuery(trpc.packs.list.queryOptions());
   const existing = useQuery({
     ...trpc.purchases.get.queryOptions({ id: purchaseId ?? "" }),
-    enabled: Boolean(purchaseId),
+    enabled: isEditing,
   });
 
   const loadedProducts = products.data ?? [];
@@ -118,59 +130,64 @@ export function PurchaseFormScreen({ purchaseId }: { purchaseId?: string }) {
   const unlistedPacks = extraPacks.filter(
     (extra) => !loadedPacks.some((pack) => pack.id === extra.id),
   );
-
-  const listedProductOptions = loadedProducts.map(toProductOption);
-  const productOptions = [...listedProductOptions, ...unlistedProducts];
+  const productOptions = [...loadedProducts.map(toProductOption), ...unlistedProducts];
   const packOptions: PackOption[] = [...loadedPacks, ...unlistedPacks];
 
   // Stored purchases hold expanded per-product lines — pack lines were already
   // expanded away at save time, so editing shows the unit lines (the facts).
   useEffect(() => {
     const purchase = existing.data;
-    if (!purchase) {
+    if (!purchase || hasLoaded) {
       return;
     }
-    setDate(toDateInput(purchase.purchasedAt));
-    setVendor(purchase.vendor);
-    setNotes(purchase.notes ?? "");
-    setReceiptTotal(
-      purchase.receiptTotalCents !== null
-        ? centsToInput(purchase.receiptTotalCents)
-        : "",
-    );
-    setRows(purchase.lines.map(toUnitRow));
-  }, [existing.data]);
+    setHasLoaded(true);
+    load({
+      date: dateInputFor(purchase.purchasedAt),
+      vendor: purchase.vendor,
+      notes: purchase.notes ?? "",
+      receiptTotal:
+        purchase.receiptTotalCents !== null ? centsToInput(purchase.receiptTotalCents) : "",
+      rows: purchase.lines.map(toUnitRow),
+    });
+  }, [existing.data, hasLoaded, load]);
 
-  const onSaved = () => {
+  useEffect(() => {
+    if (error) {
+      errorRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+  }, [error]);
+
+  const handleSaved = () => {
     queryClient.invalidateQueries({ queryKey: trpc.purchases.list.pathKey() });
     navigate({ to: "/purchases" });
   };
-  const create = useMutation(
-    trpc.purchases.create.mutationOptions({
-      onSuccess: onSaved,
-      onError: (e) => setError(e.message),
-    }),
-  );
-  const update = useMutation(
-    trpc.purchases.update.mutationOptions({
-      onSuccess: onSaved,
-      onError: (e) => setError(e.message),
-    }),
-  );
+  const saveCallbacks = {
+    onSuccess: handleSaved,
+    onError: (mutationError: { message: string }) => setError(mutationError.message),
+  };
+  const create = useMutation(trpc.purchases.create.mutationOptions(saveCallbacks));
+  const update = useMutation(trpc.purchases.update.mutationOptions(saveCallbacks));
 
   // Searchable catalog, built from the live lists. A record created mid-entry
   // is added as a row immediately, so it needn't be searchable before refetch.
   const catalogItems = buildCatalogItems(loadedProducts, loadedPacks);
 
-  const addRow = (row: Row) => setRows((current) => [...current, row]);
+  // Functional, so a row added after an await lands on the latest rows.
+  const addRow = (row: Row) => set((current) => ({ rows: [...current.rows, row] }));
+  const changeRow = (index: number, patch: Partial<Row>) =>
+    set((current) => ({
+      rows: current.rows.map((row, i) => (i === index ? ({ ...row, ...patch } as Row) : row)),
+    }));
+  const removeRow = (index: number) =>
+    set((current) => ({ rows: current.rows.filter((_, i) => i !== index) }));
 
   /**
    * Resolve a scanned code into a row, or open the not-found panel. Returns
    * false to leave the text in the box so a mistyped digit can be fixed.
    */
   const resolveBarcode = async (raw: string): Promise<boolean> => {
-    setError(null);
-    setResolving(true);
+    setScanError(null);
+    setIsResolving(true);
     try {
       const result = await trpcClient.barcodes.resolve.query({ code: raw });
       if (result.status === "product") {
@@ -182,7 +199,7 @@ export function PurchaseFormScreen({ purchaseId }: { purchaseId?: string }) {
         return true;
       }
       if (result.status === "invalid") {
-        setError(`"${raw}" isn't a valid barcode — check the digits`);
+        setScanError(`"${raw}" isn't a valid barcode. Check the digits.`);
         return false;
       }
       setPendingCode({
@@ -191,30 +208,23 @@ export function PurchaseFormScreen({ purchaseId }: { purchaseId?: string }) {
         likelyCase: result.likelyCase,
       });
       return true;
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Lookup failed");
+    } catch (lookupError) {
+      setScanError(lookupError instanceof Error ? lookupError.message : "Lookup failed");
       return false;
     } finally {
-      setResolving(false);
+      setIsResolving(false);
     }
   };
 
   /** A result picked by name — the same row a scan of it would have added. */
   const addFromCatalog = (item: CatalogItem) => {
-    setError(null);
-    if (isUnitItem(item)) {
-      addRow(newUnitRow(item.id));
-      return;
-    }
-    addRow(newPackRow(item.id));
+    setScanError(null);
+    addRow(isUnitItem(item) ? newUnitRow(item.id) : newPackRow(item.id));
   };
 
-  const onSetupReady = (created: CreatedForPurchase) => {
+  const handleSetupReady = (created: CreatedForPurchase) => {
     if (isCreatedUnit(created)) {
-      setExtraProducts((current) => [
-        ...current,
-        { id: created.id, name: created.label },
-      ]);
+      setExtraProducts((current) => [...current, { id: created.id, name: created.label }]);
       addRow(newUnitRow(created.id));
     } else {
       setExtraPacks((current) => [
@@ -226,209 +236,266 @@ export function PurchaseFormScreen({ purchaseId }: { purchaseId?: string }) {
     setPendingCode(null);
   };
 
-  const enteredCents = rows.reduce(
-    (sum, row) => sum + (parseDollarsToCents(row.totalCost) ?? 0),
-    0,
-  );
-  const receiptTotalCents = parseDollarsToCents(receiptTotal);
-  const variance =
-    receiptTotalCents !== null && receiptTotal.trim()
-      ? enteredCents - receiptTotalCents
-      : null;
+  const { rows } = draft;
+  const summary = rowsSummaryFor(rows);
+  const receiptCheck = receiptCheckFor({
+    itemsCents: summary.totalCents,
+    receiptTotal: draft.receiptTotal,
+  });
+  const isVendorMissing = draft.vendor.trim() === "";
+  const canSave = rows.length > 0 && summary.incompleteCount === 0 && !isVendorMissing;
 
-  const setRow = (index: number, patch: Partial<Row>) =>
-    setRows(
-      rows.map((row, i) => (i === index ? ({ ...row, ...patch } as Row) : row)),
-    );
-
-  const submit = (e: React.FormEvent) => {
-    e.preventDefault();
+  // Save's disabled state should prevent these; they stay as the last word.
+  const handleSave = () => {
     setError(null);
-    if (!vendor.trim()) {
+    if (isVendorMissing) {
       setError("Vendor is required");
       return;
     }
-
-    const lines = [];
-    const packLines = [];
-    for (const [index, row] of rows.entries()) {
-      const totalCostCents = parseDollarsToCents(row.totalCost);
-      if (totalCostCents === null) {
-        setError(`Line ${index + 1}: cost must be a dollar amount`);
-        return;
-      }
-      if (isPackRow(row)) {
-        const qty = Number.parseInt(row.qty, 10);
-        if (!row.packId || Number.isNaN(qty) || qty < 1) {
-          setError(`Line ${index + 1}: pick a pack and how many`);
-          return;
-        }
-        packLines.push({ packId: row.packId, qty, totalCostCents });
-      } else {
-        const units = Number.parseInt(row.units, 10);
-        if (!row.productId || Number.isNaN(units) || units < 1) {
-          setError(`Line ${index + 1}: pick a product and how many units`);
-          return;
-        }
-        lines.push({
-          productId: row.productId,
-          units,
-          totalCostCents,
-          packId: row.packId,
-        });
-      }
-    }
-    if (lines.length === 0 && packLines.length === 0) {
-      setError("Scan a barcode or add an item to get started");
+    const built = buildPurchaseLines(rows);
+    if (built.status === "invalid") {
+      setError(built.message);
       return;
     }
+    const { lines, packLines } = built;
 
     const data = {
-      purchasedAt: new Date(`${date}${MIDDAY_SUFFIX}`).toISOString(),
-      vendor: vendor.trim(),
+      purchasedAt: middayInstantFor(draft.date),
+      vendor: draft.vendor.trim(),
       lines,
       packLines,
-      receiptTotalCents: receiptTotal.trim() ? receiptTotalCents : null,
-      notes: notes.trim() || null,
+      receiptTotalCents: receiptCheck.status === "none" ? null : receiptCheck.receiptCents,
+      notes: draft.notes.trim() || null,
     };
     if (purchaseId) {
       // No key on an edit — it would strand the one the purchase was created
       // under. The router's input omits the field entirely.
       update.mutate({ id: purchaseId, ...data });
-    } else {
-      create.mutate({ ...data, clientRequestId });
+      return;
     }
+    create.mutate({ ...data, clientRequestId });
   };
 
+  const itemsText = plural(summary.rowCount, { one: "item", many: "items" });
+  const savedPurchase = existing.data;
+  // An edit is titled by the record itself: where and when.
+  let title = "Log purchase";
+  if (isEditing) {
+    title = savedPurchase
+      ? `${savedPurchase.vendor} · ${formatShortDate(savedPurchase.purchasedAt)}`
+      : "…";
+  }
+  let saveSummary: ReactNode = isEditing ? undefined : "Nothing added yet";
+  if (rows.length > 0) {
+    // The running total against the receipt, so you can watch it close in while scanning.
+    saveSummary = (
+      <>
+        {itemsText} ·{" "}
+        <strong className="font-mono font-medium text-ink tabular-nums">
+          {formatCents(summary.totalCents)}
+        </strong>
+        {receiptCheck.status === "none" ? null : (
+          <>
+            {" "}
+            of{" "}
+            <span className="font-mono tabular-nums">{formatCents(receiptCheck.receiptCents)}</span>
+            {" · "}
+            {receiptCheck.status === "matches" ? (
+              <span className="font-bold text-success">✓ matches</span>
+            ) : (
+              <span className="font-bold text-warning">{differenceLabelFor(receiptCheck)}</span>
+            )}
+          </>
+        )}
+      </>
+    );
+  }
+
   return (
-    <Page max="2xl" className="space-y-4">
-      <div className="flex items-center justify-between">
-        <PageTitle>{purchaseId ? "Edit Purchase" : "Log Purchase"}</PageTitle>
-        <Link
-          to="/purchases"
-          className="text-sm text-gray-600 hover:text-gray-800"
-        >
-          ← Back
-        </Link>
-      </div>
-
-      <ErrorNote message={error} />
-
-      {/* Entry sits outside the form so Enter adds a line rather than
-          submitting the whole purchase. */}
-      <div className="space-y-3 rounded-card border border-line bg-gray-50 p-3">
-        <ScanOrSearchInput
-          items={catalogItems}
-          busy={resolving}
-          onSubmitBarcode={resolveBarcode}
-          onPick={addFromCatalog}
+    <>
+      <Page max="form" className="grid gap-6">
+        <PageHeader
+          eyebrow={
+            <>
+              <Link to="/purchases" className={eyebrowLinkClass}>
+                Purchases
+              </Link>{" "}
+              / {isEditing ? "Edit purchase" : "New"}
+            </>
+          }
+          title={title}
+          meta={
+            isEditing
+              ? undefined
+              : "Record what you bought so restock costs and margins stay accurate."
+          }
+          aside={
+            <Link to="/purchases" className={pageLinkClass}>
+              ← Back to purchases
+            </Link>
+          }
         />
 
-        {pendingCode ? (
-          <BarcodeNotFoundPanel
-            gtin14={pendingCode.gtin14}
-            candidate={pendingCode.candidate}
-            likelyCase={pendingCode.likelyCase}
-            products={loadedProducts}
-            packs={loadedPacks}
-            onReady={onSetupReady}
-            onCancel={() => setPendingCode(null)}
-          />
+        <div>
+          <FormSection
+            title="Receipt"
+            layout="stacked"
+            description="Where and when you bought it, and its total to check the items against."
+          >
+            <div className="grid gap-5 sm:grid-cols-3">
+              <Field label="Date">
+                <TextInput
+                  type="date"
+                  value={draft.date}
+                  onChange={(event) => set({ date: event.target.value })}
+                />
+              </Field>
+              <Field label="Vendor" error={isVendorMissing ? "Enter where you bought it" : undefined}>
+                <TextInput
+                  value={draft.vendor}
+                  onChange={(event) => set({ vendor: event.target.value })}
+                />
+              </Field>
+              <Field label="Receipt total" isOptional>
+                <MoneyInput
+                  placeholder="128.47"
+                  value={draft.receiptTotal}
+                  onChange={(event) => set({ receiptTotal: event.target.value })}
+                />
+              </Field>
+            </div>
+          </FormSection>
+
+          <FormSection
+            title="Items"
+            layout="stacked"
+            description="Scan or search each product. Use a pack when you bought a case and want the per-unit cost worked out."
+          >
+            <div className="grid gap-3">
+              <ScanOrSearchInput
+                items={catalogItems}
+                isBusy={isResolving}
+                error={scanError}
+                onSubmitBarcode={resolveBarcode}
+                onPick={addFromCatalog}
+              />
+              {pendingCode ? (
+                <BarcodeNotFoundPanel
+                  gtin14={pendingCode.gtin14}
+                  candidate={pendingCode.candidate}
+                  likelyCase={pendingCode.likelyCase}
+                  products={loadedProducts}
+                  packs={loadedPacks}
+                  onReady={handleSetupReady}
+                  onCancel={() => setPendingCode(null)}
+                />
+              ) : null}
+              <div className="flex flex-wrap gap-5">
+                <Button variant="text" onClick={() => addRow(newUnitRow(""))}>
+                  + Item without a barcode
+                </Button>
+                <Button variant="text" onClick={() => addRow(newPackRow(""))}>
+                  + Pack without a barcode
+                </Button>
+              </div>
+            </div>
+
+            <RowTable columns={PURCHASE_ROW_COLUMNS} minWidth="640px">
+              <RowTableHeader>
+                <span>Product</span>
+                <span>Qty</span>
+                <span className="text-right">Total paid</span>
+                <span className="text-right">Per unit</span>
+                <span />
+              </RowTableHeader>
+              {rows.length === 0 ? (
+                <RowTableEmpty>No items yet. Scan or search above to add the first one.</RowTableEmpty>
+              ) : (
+                <RowTableBody>
+                  {rows.map((row, index) => (
+                    // Rows are positional and reorder by removal, so the index is the
+                    // only stable key available.
+                    <PurchaseLineRow
+                      key={index}
+                      row={row}
+                      products={productOptions}
+                      packs={packOptions}
+                      split={
+                        isPackRow(row)
+                          ? previewPackSplit(
+                              packOptions.find((pack) => pack.id === row.packId),
+                              row.qty,
+                              row.totalCost,
+                            )
+                          : null
+                      }
+                      // The newest row is the one being filled in; don't nag it.
+                      isShowingMissing={index < rows.length - 1 && !isRowComplete(row)}
+                      onChange={(patch) => changeRow(index, patch)}
+                      onRemove={() => removeRow(index)}
+                    />
+                  ))}
+                </RowTableBody>
+              )}
+              {rows.length === 0 ? null : (
+                <RowTableFooter>
+                  <span>
+                    {itemsText}
+                    {summary.incompleteCount > 0
+                      ? ` · ${summary.incompleteCount} missing a product, qty or total`
+                      : ""}
+                  </span>
+                  <span />
+                  <span className="text-right font-mono tabular-nums">
+                    {formatCents(summary.totalCents)}
+                  </span>
+                  <span />
+                  <span />
+                </RowTableFooter>
+              )}
+            </RowTable>
+            <ReceiptCheckLine check={receiptCheck} />
+          </FormSection>
+
+          <FormSection
+            title="Notes"
+            layout="stacked"
+            description="Anything worth remembering about this trip."
+          >
+            <Field label="Notes" isOptional>
+              <TextArea
+                rows={3}
+                placeholder="e.g. Coke was on sale, stocked up for two weeks"
+                value={draft.notes}
+                onChange={(event) => set({ notes: event.target.value })}
+              />
+            </Field>
+          </FormSection>
+        </div>
+
+        {/* Beside the save bar, since that's where Save was pressed. */}
+        {error ? (
+          <div ref={errorRef} className="scroll-mb-28">
+            <ErrorNote message={error} />
+          </div>
         ) : null}
-
-        <div className="flex gap-4 text-sm">
-          <button
-            type="button"
-            onClick={() =>
-              addRow(newUnitRow(""))
-            }
-            className="text-primary-600 hover:text-primary-500"
-          >
-            + Add item without a barcode
-          </button>
-          <button
-            type="button"
-            onClick={() =>
-              addRow(newPackRow(""))
-            }
-            className="text-primary-600 hover:text-primary-500"
-          >
-            + Add pack without a barcode
-          </button>
-        </div>
-      </div>
-
-      <form onSubmit={submit} className="space-y-4">
-        <div className="grid grid-cols-2 gap-2">
-          <input
-            type="date"
-            className={inputClass}
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-          />
-          <input
-            className={inputClass}
-            placeholder="Vendor *"
-            value={vendor}
-            onChange={(e) => setVendor(e.target.value)}
-          />
-        </div>
-
-        <fieldset className="space-y-2">
-          <legend className="text-sm font-medium text-gray-700">
-            Items on this receipt
-          </legend>
-          {rows.length === 0 ? (
-            <p className="rounded border border-dashed border-gray-300 p-4 text-center text-sm text-gray-500">
-              Nothing yet — scan a barcode above to start.
-            </p>
-          ) : null}
-          {rows.map((row, index) => (
-            // Rows are positional and reorder by removal, so the index is the
-            // only stable key available.
-            <PurchaseLineRow
-              key={index}
-              row={row}
-              products={productOptions}
-              packs={packOptions}
-              split={
-                isPackRow(row)
-                  ? previewPackSplit(
-                      packOptions.find((pack) => pack.id === row.packId),
-                      row.qty,
-                      row.totalCost,
-                    )
-                  : null
-              }
-              onChange={(patch) => setRow(index, patch)}
-              onRemove={() => setRows(rows.filter((_, i) => i !== index))}
-            />
-          ))}
-        </fieldset>
-
-        <ReceiptReconciliation
-          receiptTotal={receiptTotal}
-          onReceiptTotalChange={setReceiptTotal}
-          enteredCents={enteredCents}
-          variance={variance}
-        />
-
-        <textarea
-          className={inputClass}
-          placeholder="Notes"
-          rows={2}
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-        />
-
-        <Button
-          size="sm"
-          type="submit"
-          disabled={create.isPending || update.isPending}
-        >
-          {purchaseId ? "Save Changes" : "Save Purchase"}
-        </Button>
-      </form>
-    </Page>
+      </Page>
+      <SaveBar
+        isDirty={isDirty}
+        summary={saveSummary}
+        saveLabel={isEditing ? "Save changes" : "Save purchase"}
+        dismissal={isEditing ? "discard" : "cancel"}
+        onDismiss={() => {
+          if (isEditing) {
+            discard();
+            return;
+          }
+          navigate({ to: "/purchases" });
+        }}
+        onSave={handleSave}
+        isSaving={create.isPending || update.isPending}
+        isSaveDisabled={!canSave}
+      />
+    </>
   );
 }

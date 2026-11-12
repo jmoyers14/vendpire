@@ -3,18 +3,25 @@ import type { ReactNode } from "react";
 /**
  * A titled group of fields: title and one-line description on the left, the
  * fields in a card on the right. Consecutive sections are divided by a rule.
- * Below `lg` the two columns stack.
+ * Below `lg` the two columns stack; `layout="stacked"` keeps them stacked at
+ * every width, for a form whose tables need the full row.
  */
 export const FormSection = ({
   title,
   description,
+  layout = "split",
   children,
 }: {
   title: ReactNode;
   description?: ReactNode;
+  layout?: "split" | "stacked";
   children: ReactNode;
 }) => (
-  <section className="grid gap-4 border-t border-line py-8 first:border-t-0 lg:grid-cols-[260px_minmax(0,1fr)] lg:gap-10">
+  <section
+    className={`grid gap-4 border-t border-line py-8 first:border-t-0 ${
+      layout === "split" ? "lg:grid-cols-[260px_minmax(0,1fr)] lg:gap-10" : ""
+    }`}
+  >
     <div>
       <h2 className="font-display text-heading text-ink">{title}</h2>
       {description ? (
