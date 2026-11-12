@@ -1,6 +1,7 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
+import { queryClient, trpc } from "../../trpc.ts";
 import {
   buttonClass,
   EmptyState,
@@ -11,16 +12,14 @@ import {
   TableScroll,
 } from "../../ui.tsx";
 import { matchesSearch } from "../../utils/textMatch.ts";
-import { queryClient, trpc } from "../../trpc.ts";
+import { useProductName } from "../products/useProductName.ts";
 
 export function PacksScreen() {
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const packs = useQuery(trpc.packs.list.queryOptions());
-  const products = useQuery(trpc.products.list.queryOptions());
 
-  const productName = (id: string): string =>
-    products.data?.find((product) => product.id === id)?.name ?? "…";
+  const productName = useProductName();
 
   const all = packs.data ?? [];
   // Content names are in the haystack too, so searching a product finds the

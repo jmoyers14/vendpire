@@ -29,6 +29,7 @@ import {
 } from "../../ui.tsx";
 import { formatShortDateTime } from "../../utils/dates.ts";
 import { centsToInput, parseDollarsToCents } from "../../utils/money.ts";
+import { useProductName } from "../products/useProductName.ts";
 import { EditorCard, EditorFooter, SlotEditorHeader } from "../visits/SlotEditor.tsx";
 import { MachineMetaLine, useLocationName } from "./machineMeta.tsx";
 import { ProductCombobox, type ProductOption } from "./ProductCombobox.tsx";
@@ -107,8 +108,7 @@ export function MachinePlanogramsScreen({ machineId }: { machineId: string }) {
     setEditorRows(null);
   };
 
-  const productName = (id: string): string =>
-    products.data?.find((product) => product.id === id)?.name ?? id;
+  const productName = useProductName();
 
   const machinesLink = (
     <Link to="/machines" className={eyebrowLinkClass}>

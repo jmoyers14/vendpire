@@ -1,30 +1,4 @@
 import { createContext, type ReactNode, useContext, useId } from "react";
-import { focusRing } from "./focus.ts";
-
-// Form controls are not buttons, so they keep a soft rectangle rather than a
-// pill — a fully rounded text input reads as a search box.
-const fieldBase = `w-full rounded-xl border border-line bg-card px-3 py-2 text-ink-soft placeholder:text-gray-400 ${focusRing} focus-visible:border-primary-500`;
-
-/** @deprecated Use `<Field>` with `<TextInput>`; kept until every screen migrates. */
-export const inputClass = `${fieldBase} text-sm`;
-
-/**
- * The variant for fields you fill in standing at a machine: 16px text, because
- * iOS Safari zooms the whole page when a focused input's text is smaller, and
- * tabular digits so counts line up down a column.
- *
- * @deprecated Use `<NumberInput>`; kept until every screen migrates.
- */
-export const countInputClass = `${fieldBase} text-base tabular-nums`;
-
-/** @deprecated Use `<Field label>`. */
-export const labelClass = "text-sm font-bold text-gray-800";
-
-/** @deprecated Use `<Field hint>`. */
-export const hintClass = "text-xs text-muted";
-
-/** @deprecated Use `<Switch>`. */
-export const checkboxClass = `size-4 accent-primary-600 ${focusRing}`;
 
 interface FieldControl {
   id: string;

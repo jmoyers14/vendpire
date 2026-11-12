@@ -13,18 +13,6 @@ export const Card = ({
   </div>
 );
 
-export const CardTitle = ({
-  className = "",
-  children,
-}: {
-  className?: string;
-  children: ReactNode;
-}) => (
-  <h2 className={`font-display text-lg font-extrabold text-ink ${className}`}>
-    {children}
-  </h2>
-);
-
 export type KpiTone = "neutral" | "profit" | "loss";
 
 /** Text colour for a figure: green profit, red loss. */

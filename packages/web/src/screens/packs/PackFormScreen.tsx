@@ -1,9 +1,9 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Button, ErrorNote, inputClass, Page, PageTitle } from "../../ui.tsx";
 import type { ApiPackContent } from "../../apiTypes.ts";
 import { queryClient, trpc } from "../../trpc.ts";
+import { Button, ErrorNote, Page, PageTitle, Select, TextInput } from "../../ui.tsx";
 
 /**
  * One editable contents line. Units is a string because it backs a text input;
@@ -121,14 +121,12 @@ export function PackFormScreen({ packId }: { packId?: string }) {
       <ErrorNote message={error} />
 
       <form onSubmit={submit} className="space-y-4">
-        <input
-          className={inputClass}
+        <TextInput
           placeholder="Name * (e.g. Kirkland Coke 35pk, Frito-Lay 30ct variety)"
           value={name}
           onChange={(e) => setName(e.target.value)}
         />
-        <input
-          className={inputClass}
+        <TextInput
           placeholder="Case barcodes (comma-separated, optional)"
           value={barcodesText}
           onChange={(e) => setBarcodesText(e.target.value)}
@@ -140,8 +138,7 @@ export function PackFormScreen({ packId }: { packId?: string }) {
           </legend>
           {contents.map((row, index) => (
             <div key={index} className="grid grid-cols-[1fr_6rem_2rem] gap-2">
-              <select
-                className={inputClass}
+              <Select
                 value={row.productId}
                 onChange={(e) => setContent(index, { productId: e.target.value })}
               >
@@ -151,9 +148,8 @@ export function PackFormScreen({ packId }: { packId?: string }) {
                     {product.name}
                   </option>
                 ))}
-              </select>
-              <input
-                className={inputClass}
+              </Select>
+              <TextInput
                 placeholder="Units"
                 value={row.units}
                 onChange={(e) => setContent(index, { units: e.target.value })}

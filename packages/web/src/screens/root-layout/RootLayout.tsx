@@ -7,10 +7,10 @@ import {
 } from "@clerk/react";
 import { Link, Outlet } from "@tanstack/react-router";
 import { useEffect } from "react";
-import { focusRing, Page, PageTitle } from "../../ui.tsx";
-import { VersionFooter } from "./VersionFooter.tsx";
 import { queryClient } from "../../trpc.ts";
+import { focusRing, Page, PageHeader } from "../../ui.tsx";
 import { LandingScreen } from "../landing/LandingScreen.tsx";
+import { VersionFooter } from "./VersionFooter.tsx";
 
 // `exact` keeps the Dashboard tab from matching every nested route under "/".
 const TABS: { to: string; label: string; exact?: boolean }[] = [
@@ -49,8 +49,8 @@ const Header = () => (
             appearance={{
               elements: {
                 organizationSwitcherTrigger:
-                  "text-gray-700 hover:bg-gray-200 rounded-full",
-                organizationPreviewMainIdentifier: "text-gray-800 font-bold",
+                  "text-ink-soft hover:bg-divider rounded-full",
+                organizationPreviewMainIdentifier: "text-ink font-bold",
               },
             }}
           />
@@ -71,7 +71,7 @@ const Header = () => (
             inactiveProps={{
               // Transparent (not absent) so the label doesn't shift when the
               // tab becomes current.
-              className: "border-transparent text-tab hover:text-gray-800",
+              className: "border-transparent text-tab hover:text-ink",
             }}
           >
             {tab.label}
@@ -99,13 +99,10 @@ const SignedInArea = () => {
   if (!organization) {
     return (
       <Page max="xl" className="grid gap-4">
-        <div className="grid gap-1">
-          <PageTitle>Create your business</PageTitle>
-          <p className="text-ink-soft">
-            Set up your vending business to continue. You can invite your
-            partner afterward.
-          </p>
-        </div>
+        <PageHeader
+          title="Create your business"
+          meta="Set up your vending business to continue. You can invite your partner afterward."
+        />
         <CreateOrganization afterCreateOrganizationUrl="/" />
       </Page>
     );
