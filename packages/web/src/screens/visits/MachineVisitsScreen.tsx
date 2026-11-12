@@ -384,18 +384,16 @@ function VisitRow({ visit, group, shelves, productName, isExpanded, onToggle }: 
             <p className="text-body text-ink-soft italic">“{visit.notes}”</p>
           ) : null}
 
-          <div className="max-w-[640px]">
-            <MachineMap
-              shelves={shelves}
-              tileFor={(slotCode) =>
-                countedTileFor({
-                  slotCode,
-                  lines: visit.lines.filter((line) => line.slotCode === slotCode),
-                  productName,
-                })
-              }
-            />
-          </div>
+          <MachineMap
+            shelves={shelves}
+            tileFor={(slotCode) =>
+              countedTileFor({
+                slotCode,
+                lines: visit.lines.filter((line) => line.slotCode === slotCode),
+                productName,
+              })
+            }
+          />
 
           {group && intervalCount > 0 ? (
             <IntervalTable group={group} productName={productName} />

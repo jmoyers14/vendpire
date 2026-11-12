@@ -85,7 +85,7 @@ const TileFace = ({ slotCode, tile }: { slotCode: string; tile: MachineTile }) =
         ) : null}
       </span>
       {tile.productName ? (
-        <span className="max-w-full truncate text-[11px] leading-[14px] text-ink-soft">
+        <span className="line-clamp-2 max-w-full text-xs break-words text-ink-soft">
           {tile.productName}
         </span>
       ) : null}
