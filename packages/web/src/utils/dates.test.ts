@@ -1,5 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { dateInputFor, formatShortDate, middayInstantFor } from "./dates.ts";
+import {
+  dateInputFor,
+  formatShortDate,
+  formatShortDateTime,
+  middayInstantFor,
+} from "./dates.ts";
 
 // Built from local-time parts so the assertions hold in any time zone.
 const localNoon = (year: number, monthIndex: number, day: number) =>
@@ -14,6 +19,22 @@ describe("formatShortDate", () => {
 
   test("a date in another year keeps it", () => {
     expect(formatShortDate(localNoon(2025, 11, 30), { now })).toBe("Dec 30, 2025");
+  });
+});
+
+describe("formatShortDateTime", () => {
+  const now = new Date(2026, 10, 11, 9);
+
+  test("adds the time without seconds", () => {
+    expect(formatShortDateTime(new Date(2026, 9, 29, 20, 28, 41).toISOString(), { now })).toBe(
+      "Oct 29, 8:28 PM",
+    );
+  });
+
+  test("keeps the year for another year", () => {
+    expect(formatShortDateTime(new Date(2025, 11, 30, 9, 5).toISOString(), { now })).toBe(
+      "Dec 30, 2025, 9:05 AM",
+    );
   });
 });
 

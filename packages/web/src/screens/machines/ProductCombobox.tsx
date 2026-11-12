@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
-import { inputClass } from "../../ui.tsx";
 import type { ApiProduct } from "../../apiTypes.ts";
+import { TextInput } from "../../ui.tsx";
 import { rankByName } from "../../utils/textMatch.ts";
 
 /** What the combobox reads of a product, derived so a rename breaks here. */
@@ -20,7 +20,7 @@ interface ProductComboboxProps {
 
 /**
  * Type-to-search product picker. An empty box lists every active product A–Z,
- * so it still works as a plain dropdown.
+ * so it still works as a plain dropdown. Put it inside a `<Field>` for its label.
  */
 export function ProductCombobox({
   products,
@@ -52,10 +52,8 @@ export function ProductCombobox({
 
   return (
     <div className="relative">
-      <input
-        className={inputClass}
+      <TextInput
         role="combobox"
-        aria-label="Product"
         aria-expanded={isOpen}
         aria-autocomplete="list"
         autoComplete="off"
@@ -101,10 +99,10 @@ export function ProductCombobox({
       {isOpen ? (
         <ul
           role="listbox"
-          className="absolute z-10 mt-1 max-h-72 w-full overflow-auto rounded-xl border border-line bg-card shadow-card"
+          className="absolute z-10 mt-1 max-h-72 w-full overflow-auto rounded-control border border-line bg-card shadow-card"
         >
           {results.length === 0 ? (
-            <li className="px-3 py-2 text-sm text-muted">
+            <li className="px-3.5 py-2.5 text-body text-muted-strong">
               No product matches “{searchTerm}”.
             </li>
           ) : (
@@ -117,8 +115,8 @@ export function ProductCombobox({
                 onMouseDown={(e) => e.preventDefault()}
                 onMouseEnter={() => setHighlightedIndex(index)}
                 onClick={() => pick(product)}
-                className={`cursor-pointer truncate px-3 py-2 text-sm text-ink-soft ${
-                  index === highlightedIndex ? "bg-gray-100" : ""
+                className={`cursor-pointer truncate px-3.5 py-2.5 text-body text-ink ${
+                  index === highlightedIndex ? "bg-action-soft" : ""
                 } ${product.id === productId ? "font-bold" : ""}`}
               >
                 {product.name}

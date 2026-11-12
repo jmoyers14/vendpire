@@ -6,11 +6,12 @@ import type {
   VisitAnomaly,
 } from "@vendpire/domain";
 import {
+  buildProductSales,
   buildUnknownNotes,
   buildVisitPnlGroups,
   describeAnomaly,
-  buildProductSales,
   isActionableAnomaly,
+  removalOutcomeFor,
 } from "./pnlRows.ts";
 
 const MARCH_1 = "2026-03-01T09:00:00.000Z";
@@ -161,7 +162,7 @@ describe("buildUnknownNotes", () => {
         { kind: "unknown-cost", productId: "doritos" },
       ],
     });
-    expect(notes[0]).toContain("Profit unavailable: 2 product(s)");
+    expect(notes[0]).toContain("Profit unavailable: 2 products have");
   });
 
   /**
@@ -322,7 +323,7 @@ describe("buildProductSales", () => {
    * intervals is not a product that sells badly. Those rows are excluded from
    * the sums and surfaced as a count instead of being summed as zero.
    */
-  it("excludes unknown-sold intervals and counts them instead", () => {
+  it("excludes unknown-sold intervals and counts the missed ones instead", () => {
     const sales = buildProductSales({
       intervals: [
         sold({ sold: { status: "known", units: 6 } }, 1050, 400),
@@ -334,8 +335,30 @@ describe("buildProductSales", () => {
     expect(sales[0]).toMatchObject({
       soldUnits: 6,
       revenueCents: 1050,
-      unknownIntervalCount: 2,
+      unknownIntervalCount: 1,
     });
+  });
+
+  // A product's first count has no earlier one to diff, and no sales went
+  // unmeasured before it, so it isn't flagged as uncounted.
+  it("doesn't count a product's first count as uncounted", () => {
+    const sales = buildProductSales({
+      intervals: [
+        sold({ sold: { status: "known", units: 6 } }, 1050, 400),
+        sold({ sold: { status: "unknown", reason: "first-visit" } }, 0, null),
+        sold({ slotCode: "B2", sold: { status: "unknown", reason: "first-visit" } }, 0, null),
+      ],
+      removals: [],
+    });
+    expect(sales[0]?.unknownIntervalCount).toBe(0);
+  });
+
+  it("still flags a product change as uncounted", () => {
+    const sales = buildProductSales({
+      intervals: [sold({ sold: { status: "unknown", reason: "product-changed" } }, 0, null)],
+      removals: [],
+    });
+    expect(sales[0]?.unknownIntervalCount).toBe(1);
   });
 
   // An unknown-sold row carries cogsCents: null for that reason alone. Letting
@@ -377,5 +400,25 @@ describe("buildProductSales", () => {
 
   it("is empty when there are no intervals", () => {
     expect(buildProductSales({ intervals: [], removals: [] })).toEqual([]);
+  });
+});
+
+describe("removalOutcomeFor", () => {
+  it("prices a write-off, or says the cost is unknown", () => {
+    expect(removalOutcomeFor({ removal: removal(), disposition: "written-off", costCents: 140 })).toBe(
+      "written off at $1.40",
+    );
+    expect(removalOutcomeFor({ removal: removal(), disposition: "written-off", costCents: null })).toBe(
+      "written off, cost unknown",
+    );
+  });
+
+  it("names a transfer and a missing reason", () => {
+    expect(removalOutcomeFor({ removal: removal(), disposition: "returned-to-stock" })).toBe(
+      "back to stock, cost follows the units",
+    );
+    expect(removalOutcomeFor({ removal: removal(), disposition: null })).toBe(
+      "neither a loss nor a transfer until a reason is set",
+    );
   });
 });

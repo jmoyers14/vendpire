@@ -3,6 +3,8 @@ import {
   Badge,
   Button,
   ChipGroup,
+  countMeterFor,
+  eyebrowLinkClass,
   Fact,
   FactsPanel,
   FactVerdict,
@@ -13,12 +15,12 @@ import {
   Kbd,
   MachineMap,
   MachineMapLegend,
-  countMeterFor,
   type MachineTile,
   MoneyInput,
   NumberInput,
   PageHeader,
   ProgressBar,
+  pageLinkClass,
   RowTable,
   RowTableBody,
   RowTableEmpty,
@@ -33,8 +35,6 @@ import {
   Switch,
   TextArea,
   TextInput,
-  pageLinkClass,
-  eyebrowLinkClass,
   useFormDraft,
 } from "../../ui.tsx";
 
@@ -437,7 +437,7 @@ const MachineMapDemo = () => {
           tileFor={countTile}
           selectedCode={selected}
           onSelect={setSelected}
-          search={{ label: "Go to slot or product", placeholder: "Go to slot or product, e.g. D5 or Twix" }}
+          search={{ label: "Go to slot or product", placeholder: "e.g. D5 or Twix" }}
         />
         <MachineMapLegend
           items={[

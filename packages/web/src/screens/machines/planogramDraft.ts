@@ -3,8 +3,15 @@
  * switch, a reload, or walking away mid-setup.
  */
 
+import {
+  levelAfter,
+  type SlotRuleViolation,
+  slotProductKey,
+  slotRuleViolation,
+  type VisitLine,
+} from "@vendpire/domain";
 import { useState } from "react";
-import { levelAfter, slotProductKey, type VisitLine } from "@vendpire/domain";
+import { parseDollarsToCents } from "../../utils/money.ts";
 
 /** One slot of the in-progress version, as the editor's text fields hold it. */
 export interface DraftSlot {
@@ -147,6 +154,75 @@ export const withEntryRemoved = (
     slotCode,
     remaining.length > 0 ? remaining : [emptySlot(slotCode)],
   );
+};
+
+/** One slot of a version as the API takes it. */
+export interface PlanogramSlotInput {
+  slotCode: string;
+  productId: string;
+  par: number;
+  priceCents: number;
+}
+
+/** Why a draft can't be saved yet. */
+export type PlanogramProblem =
+  | { kind: "invalid-par"; slotCode: string }
+  | { kind: "invalid-price"; slotCode: string }
+  | { kind: "no-slots" }
+  | SlotRuleViolation;
+
+/**
+ * The draft as the API takes it, or the first thing wrong with it. Blank
+ * entries are slots left unassigned, so they're dropped.
+ */
+export const buildPlanogramSlots = ({
+  rows,
+  slotCodes,
+}: {
+  rows: DraftSlot[];
+  slotCodes: string[];
+}): { slots: PlanogramSlotInput[] } | { problem: PlanogramProblem } => {
+  const slots: PlanogramSlotInput[] = [];
+  for (const row of rows) {
+    if (!row.productId) {
+      continue;
+    }
+    const par = Number.parseInt(row.par, 10);
+    const priceCents = parseDollarsToCents(row.price);
+    if (Number.isNaN(par) || par < 1) {
+      return { problem: { kind: "invalid-par", slotCode: row.slotCode } };
+    }
+    if (priceCents === null) {
+      return { problem: { kind: "invalid-price", slotCode: row.slotCode } };
+    }
+    slots.push({ slotCode: row.slotCode, productId: row.productId, par, priceCents });
+  }
+  if (slots.length === 0) {
+    return { problem: { kind: "no-slots" } };
+  }
+  const violation = slotRuleViolation(slots, new Set(slotCodes));
+  return violation ? { problem: violation } : { slots };
+};
+
+/** A problem in words, naming the slot. */
+export const problemMessageFor = (
+  problem: PlanogramProblem,
+  productName: (productId: string) => string,
+): string => {
+  switch (problem.kind) {
+    case "invalid-par":
+      return `Slot ${problem.slotCode}: par must be a positive number`;
+    case "invalid-price":
+      return `Slot ${problem.slotCode}: price must be a dollar amount`;
+    case "no-slots":
+      return "Assign at least one slot";
+    case "unknown-slot":
+      return `This machine has no slot ${problem.slotCode}`;
+    case "duplicate-product":
+      return `Slot ${problem.slotCode}: ${productName(problem.productId)} is listed twice`;
+    case "mixed-price":
+      return `Slot ${problem.slotCode} has more than one price`;
+  }
 };
 
 /**

@@ -1,4 +1,4 @@
-import { type KeyboardEvent, type ReactNode, useMemo, useState } from "react";
+import { type KeyboardEvent, type ReactNode, useId, useMemo, useState } from "react";
 import { focusRing } from "./focus.ts";
 import { isSlotMatch, shelfLabel } from "./machineMap.ts";
 import { controlClass } from "./TextInput.tsx";
@@ -11,9 +11,22 @@ import type { StatusTone } from "./tone.ts";
  */
 export type MachineTileTone = StatusTone | "neutral" | "pending";
 
+/** One product in a stacked tile: its name over its own value. */
+export interface MachineTileProduct {
+  name: string;
+  value: ReactNode;
+  /** Gone from the slot (swapped or pulled out): struck through and drawn faint. */
+  hasLeftSlot?: boolean;
+}
+
 export interface MachineTile {
   /** The middle line: a count, "+3", "→B2", "$1.75", or "—". */
   value: ReactNode;
+  /**
+   * Every product in the slot, stacked front to back, each over its own value.
+   * Replaces `productName` and `value` on the face, for read-only maps.
+   */
+  products?: MachineTileProduct[];
   /** A product name above the value, for read-only maps like the planogram. */
   productName?: string;
   tone?: MachineTileTone;
@@ -84,16 +97,40 @@ const TileFace = ({ slotCode, tile }: { slotCode: string; tile: MachineTile }) =
           </span>
         ) : null}
       </span>
-      {tile.productName ? (
-        <span className="max-w-full truncate text-[11px] leading-[14px] text-ink-soft">
-          {tile.productName}
+      {tile.products ? (
+        <span className="mt-1 grid w-full flex-1 content-start gap-1.5">
+          {tile.products.map((product) => (
+            <span
+              key={product.name}
+              className={`grid ${product.hasLeftSlot ? "opacity-60" : ""}`}
+            >
+              <span
+                className={`line-clamp-2 max-w-full text-xs break-words ${product.hasLeftSlot ? "text-muted-strong line-through" : "text-ink-soft"}`}
+              >
+                {product.name}
+              </span>
+              <span
+                className={`max-w-full truncate font-mono text-sm leading-[18px] tabular-nums ${product.hasLeftSlot ? "font-medium text-muted-strong" : VALUE_TONE[tile.tone ?? "neutral"]}`}
+              >
+                {product.value}
+              </span>
+            </span>
+          ))}
         </span>
-      ) : null}
-      <span
-        className={`max-w-full truncate font-mono text-sm leading-[18px] tabular-nums ${VALUE_TONE[tile.tone ?? "neutral"]}`}
-      >
-        {tile.value}
-      </span>
+      ) : (
+        <>
+          {tile.productName ? (
+            <span className="line-clamp-2 max-w-full text-xs break-words text-ink-soft">
+              {tile.productName}
+            </span>
+          ) : null}
+          <span
+            className={`max-w-full truncate font-mono text-sm leading-[18px] tabular-nums ${VALUE_TONE[tile.tone ?? "neutral"]}`}
+          >
+            {tile.value}
+          </span>
+        </>
+      )}
       {tile.meter === undefined ? null : (
         <span
           aria-hidden
@@ -128,9 +165,11 @@ export const MachineMap = ({
   tileFor: (slotCode: string) => MachineTile;
   selectedCode?: string | null;
   onSelect?: (slotCode: string) => void;
+  /** `label` shows above the box; `placeholder` is an example query. */
   search?: { label: string; placeholder: string };
 }) => {
   const [query, setQuery] = useState("");
+  const searchId = useId();
   const slotCodes = useMemo(
     () => new Set(shelves.flat().map((code) => code.toUpperCase())),
     [shelves],
@@ -166,9 +205,14 @@ export const MachineMap = ({
   return (
     <div className="grid gap-3">
       {search ? (
+        <label htmlFor={searchId} className="text-label text-ink">
+          {search.label}
+        </label>
+      ) : null}
+      {search ? (
         <input
+          id={searchId}
           type="search"
-          aria-label={search.label}
           placeholder={search.placeholder}
           value={query}
           onChange={(event) => setQuery(event.target.value)}

@@ -27,7 +27,8 @@ export const CardTitle = ({
 
 export type KpiTone = "neutral" | "profit" | "loss";
 
-const KPI_TONE: Record<KpiTone, string> = {
+/** Text colour for a figure: green profit, red loss. */
+export const KPI_TONE_TEXT: Record<KpiTone, string> = {
   neutral: "text-ink",
   profit: "text-profit",
   loss: "text-loss",
@@ -43,18 +44,12 @@ export const KpiCard = ({
   value: ReactNode;
   tone?: KpiTone;
 }) => (
-  <Card className="grid gap-0.5 p-3">
-    <span className="text-xs uppercase tracking-wider text-gray-600">
-      {label}
-    </span>
-    <span
-      className={`font-display text-2xl font-extrabold tabular-nums ${KPI_TONE[tone]}`}
-    >
-      {value}
-    </span>
+  <Card className="grid content-start gap-1 border border-line p-5">
+    <span className="text-overline text-muted-strong uppercase">{label}</span>
+    <span className={`font-display text-stat tabular-nums ${KPI_TONE_TEXT[tone]}`}>{value}</span>
   </Card>
 );
 
 export const KpiGrid = ({ children }: { children: ReactNode }) => (
-  <div className="grid grid-cols-2 gap-2.5">{children}</div>
+  <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">{children}</div>
 );

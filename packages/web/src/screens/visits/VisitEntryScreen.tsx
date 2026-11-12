@@ -3,6 +3,8 @@ import { Link } from "@tanstack/react-router";
 import { type LayoutSlot, type SlotProduct, slotProductKey } from "@vendpire/domain";
 import { type KeyboardEvent, useEffect, useState } from "react";
 import type { ApiPlanogram, ApiProduct } from "../../apiTypes.ts";
+import { queryClient, trpc } from "../../trpc.ts";
+import { shelfLabel } from "../../ui/machineMap.ts";
 import {
   Alert,
   Button,
@@ -16,12 +18,12 @@ import {
   type Step,
   Stepper,
 } from "../../ui.tsx";
-import { shelfLabel } from "../../ui/machineMap.ts";
 import { formatShortDate } from "../../utils/dates.ts";
 import { plural } from "../../utils/text.ts";
-import { queryClient, trpc } from "../../trpc.ts";
+import { MachineMetaLine, useLocationName } from "../machines/machineMeta.tsx";
 import { CountSlotEditor } from "./CountSlotEditor.tsx";
 import { localDateTimeToIso, toLocalDateTimeInput } from "./countedAt.ts";
+import { type RestockPanel, RestockSlotEditor, type SlotPick } from "./RestockSlotEditor.tsx";
 import {
   buildRestock,
   type Restock,
@@ -29,7 +31,6 @@ import {
   restockWithRestUnchanged,
   restockWithSwap,
 } from "./restock.ts";
-import { type RestockPanel, RestockSlotEditor, type SlotPick } from "./RestockSlotEditor.tsx";
 import {
   attentionSlotCodeFor,
   hasRestockQuestions,
@@ -37,9 +38,9 @@ import {
   previousRestockSlotCode,
   restockProgressFor,
 } from "./restockSlots.ts";
-import { slotActivityFor, visitActivityFor, visitTotalsFor } from "./visitActivity.ts";
 import { VisitMapPane } from "./VisitMapPane.tsx";
 import { VisitReview } from "./VisitReview.tsx";
+import { slotActivityFor, visitActivityFor, visitTotalsFor } from "./visitActivity.ts";
 import {
   buildVisitRows,
   isCounted,
@@ -98,11 +99,7 @@ function VisitDraftForm({
   const planogram = useQuery(trpc.planograms.getCurrent.queryOptions({ machineId }));
   const products = useQuery(trpc.products.list.queryOptions());
   const previousVisits = useQuery(trpc.visits.list.queryOptions({ machineId, limit: 1 }));
-  // Machine names aren't unique enough on their own; the location says which one this is.
-  const location = useQuery({
-    ...trpc.locations.get.queryOptions({ id: machine.data?.locationId ?? "" }),
-    enabled: Boolean(machine.data),
-  });
+  const locationName = useLocationName(machine.data);
 
   // Built ONCE. These queries refetch on window focus, and rebuilding would
   // wipe counts already typed in — the one thing this screen must never do.
@@ -134,13 +131,7 @@ function VisitDraftForm({
   const shelves = machine.data?.slots ?? [];
   const lastVisitAt = previousVisits.data?.[0]?.countedAt;
   const details = lastVisitAt ? `Last visit ${formatShortDate(lastVisitAt)}` : "First visit";
-  const meta = location.data ? (
-    <>
-      <span className="font-bold text-ink">{location.data.name}</span> · {details}
-    </>
-  ) : (
-    details
-  );
+  const meta = <MachineMetaLine locationName={locationName} details={details} />;
 
   const header = (
     <PageHeader
