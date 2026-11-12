@@ -1,3 +1,4 @@
+import { useId } from "react";
 import { Button, Field, MachineMap, type MachineTile, TextArea } from "../../ui.tsx";
 import { plural } from "../../utils/text.ts";
 import { SlotGridEditor } from "./SlotGridEditor.tsx";
@@ -12,16 +13,25 @@ const layoutTileFor = (slotCode: string): MachineTile => ({ value: "", label: sl
  */
 export function SlotsField({
   value,
+  error,
   onChange,
 }: {
   value: SlotsValue;
+  /** A problem with the layout as a whole, e.g. no slots at all. */
+  error?: string;
   onChange: (value: SlotsValue) => void;
 }) {
+  const errorId = useId();
   const shelves = slotsValueToShelves(value);
   const sizeLabel = `${plural(shelves.flat().length, { one: "slot", many: "slots" })} on ${plural(shelves.length, { one: "shelf", many: "shelves" })}`;
 
   return (
-    <div className="grid gap-5">
+    <div
+      role="group"
+      aria-label="Layout"
+      aria-describedby={error ? errorId : undefined}
+      className="grid gap-5"
+    >
       {value.mode === "grid" ? (
         <SlotGridEditor rows={value.rows} onChange={(rows) => onChange({ ...value, rows })} />
       ) : (
@@ -59,6 +69,11 @@ export function SlotsField({
           </Button>
         </div>
       </div>
+      {error ? (
+        <p id={errorId} className="text-body-sm font-bold text-danger">
+          {error}
+        </p>
+      ) : null}
     </div>
   );
 }

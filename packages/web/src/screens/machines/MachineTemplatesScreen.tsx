@@ -1,117 +1,101 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { useState } from "react";
+import type { ApiMachineTemplate } from "../../apiTypes.ts";
+import { trpc } from "../../trpc.ts";
 import {
   buttonClass,
-  EmptyState,
   ErrorNote,
+  eyebrowLinkClass,
+  focusRing,
   Page,
-  PageTitle,
-  TableScroll,
+  PageHeader,
+  RowTable,
+  RowTableBody,
+  RowTableCellLabel,
+  RowTableEmpty,
+  RowTableHeader,
+  RowTableRow,
 } from "../../ui.tsx";
-import { queryClient, trpc } from "../../trpc.ts";
+import { MACHINE_KIND_LABELS } from "./machineKind.ts";
+import { makeModelFor } from "./templateForm.ts";
 
+/** Template · Type · Slots. */
+const TEMPLATE_COLUMNS = "minmax(0,1fr) 96px 72px";
+
+/** Saved machine layouts to start a new machine from. */
 export function MachineTemplatesScreen() {
-  const [error, setError] = useState<string | null>(null);
-  const templates = useQuery(trpc.machineTemplates.list.queryOptions());
-
-  const remove = useMutation(
-    trpc.machineTemplates.remove.mutationOptions({
-      onSuccess: () => {
-        queryClient.invalidateQueries({
-          queryKey: trpc.machineTemplates.list.queryKey(),
-        });
-        setError(null);
-      },
-      onError: (e) => setError(e.message),
-    }),
-  );
+  const templatesQuery = useQuery(trpc.machineTemplates.list.queryOptions());
+  const templates = templatesQuery.data ?? [];
 
   return (
-    <Page max="4xl" className="space-y-4">
-      <div className="flex items-center justify-between">
-        <PageTitle>Machine Templates</PageTitle>
-        <div className="flex items-center gap-3">
-          <Link
-            to="/machines"
-            className="text-sm text-gray-600 hover:text-gray-800"
-          >
-            ← Machines
+    <Page max="wide" className="grid gap-6">
+      <PageHeader
+        eyebrow={
+          <Link to="/machines" className={eyebrowLinkClass}>
+            Machines
           </Link>
-          <Link
-            to="/machines/templates/new"
-            className={buttonClass({ size: "sm" })}
-          >
-            Add Template
+        }
+        title="Templates"
+        meta="A machine layout you can reuse. Machines copy it when you create them, so editing a template never changes a machine already on your route."
+        aside={
+          <Link to="/machines/templates/new" className={buttonClass()}>
+            Add template
           </Link>
-        </div>
-      </div>
+        }
+      />
 
-      <p className="text-sm text-gray-600">
-        A saved machine face you can reuse. Machines copy the layout when you
-        create them, so editing a template never changes a machine already out
-        on the route.
-      </p>
+      <ErrorNote message={templatesQuery.error?.message ?? null} />
 
-      <ErrorNote message={error} />
-
-      {templates.isLoading ? (
-        <p className="text-gray-400">Loading…</p>
-      ) : templates.data && templates.data.length > 0 ? (
-        <TableScroll>
-          <table className="w-full min-w-[36rem] border-collapse text-sm">
-            <thead>
-              <tr className="border-b border-gray-200 bg-gray-50 text-left text-gray-600">
-                <th className="px-4 py-2 font-medium">Name</th>
-                <th className="px-4 py-2 font-medium">Kind</th>
-                <th className="px-4 py-2 font-medium">Make / Model</th>
-                <th className="px-4 py-2 font-medium">Slots</th>
-                <th className="px-4 py-2" />
-              </tr>
-            </thead>
-            <tbody>
-              {templates.data.map((template) => (
-                <tr key={template.id} className="border-b border-gray-100">
-                  <td className="px-4 py-2 font-medium text-gray-800">
-                    {template.name}
-                  </td>
-                  <td className="px-4 py-2 capitalize text-gray-600">
-                    {template.kind}
-                  </td>
-                  <td className="px-4 py-2 text-gray-600">
-                    {[template.make, template.model].filter(Boolean).join(" ") ||
-                      "—"}
-                  </td>
-                  <td className="px-4 py-2 text-gray-600">
-                    {template.slots.flat().length}
-                  </td>
-                  <td className="space-x-3 px-4 py-2 text-right">
-                    <Link
-                      to="/machines/templates/$templateId/edit"
-                      params={{ templateId: template.id }}
-                      className="text-primary-600 hover:text-primary-500"
-                    >
-                      Edit
-                    </Link>
-                    <button
-                      type="button"
-                      onClick={() => remove.mutate({ id: template.id })}
-                      className="text-gray-400 hover:text-red-600"
-                    >
-                      Delete
-                    </button>
-                  </td>
-                </tr>
+      {templatesQuery.isLoading ? (
+        <p className="text-body text-muted-strong">Loading…</p>
+      ) : null}
+      {templatesQuery.isSuccess ? (
+        <RowTable columns={TEMPLATE_COLUMNS} className="rounded-panel bg-card shadow-card">
+          <RowTableHeader>
+            <span>Template</span>
+            <span>Type</span>
+            <span className="text-right">Slots</span>
+          </RowTableHeader>
+          {templates.length > 0 ? (
+            <RowTableBody>
+              {templates.map((template) => (
+                <TemplateRow key={template.id} template={template} />
               ))}
-            </tbody>
-          </table>
-        </TableScroll>
-      ) : (
-        <EmptyState>
-          No templates yet. Build one here, or save a layout from the machine
-          form as you go.
-        </EmptyState>
-      )}
+            </RowTableBody>
+          ) : (
+            <RowTableEmpty>
+              No templates yet. Add one here, or save a layout from a machine's edit page.
+            </RowTableEmpty>
+          )}
+        </RowTable>
+      ) : null}
     </Page>
+  );
+}
+
+/** One template. The name links to its edit page. */
+function TemplateRow({ template }: { template: ApiMachineTemplate }) {
+  const makeModel = makeModelFor(template);
+  return (
+    <RowTableRow>
+      <div className="grid min-w-0 gap-0.5">
+        <Link
+          to="/machines/templates/$templateId/edit"
+          params={{ templateId: template.id }}
+          className={`justify-self-start rounded-sm text-label text-ink hover:text-link hover:underline ${focusRing}`}
+        >
+          {template.name}
+        </Link>
+        {makeModel ? <p className="text-body-sm text-muted-strong">{makeModel}</p> : null}
+      </div>
+      <p className="text-body-sm text-ink">
+        <RowTableCellLabel>Type</RowTableCellLabel>
+        {MACHINE_KIND_LABELS[template.kind]}
+      </p>
+      <p className="text-right font-mono text-mono text-ink tabular-nums">
+        <RowTableCellLabel>Slots</RowTableCellLabel>
+        {template.slots.flat().length}
+      </p>
+    </RowTableRow>
   );
 }
