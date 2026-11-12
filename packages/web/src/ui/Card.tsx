@@ -35,7 +35,7 @@ export const KPI_TONE_TEXT: Record<KpiTone, string> = {
 };
 
 /** Green for a profit, red for a loss, plain while it's unknown. */
-export const kpiToneFor = (cents: number | null): KpiTone => {
+export const profitToneFor = (cents: number | null): KpiTone => {
   if (cents === null) {
     return "neutral";
   }

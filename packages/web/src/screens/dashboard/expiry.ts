@@ -1,10 +1,13 @@
 import { formatShortDate, middayInstantFor } from "../../utils/dates.ts";
 
-/**
- * "Expired Nov 2", "Today", "Tomorrow", or "Nov 20 · in 3 days". `bestBy` is a
- * calendar day (YYYY-MM-DD), read on the local calendar so it doesn't slip a day.
- */
-export const bestByLabelFor = ({
+export interface BestBy {
+  /** "Expired Nov 2", "Nov 12 · today", "Nov 13 · tomorrow" or "Nov 20 · in 8 days". */
+  label: string;
+  isExpired: boolean;
+}
+
+/** `bestBy` is a calendar day (YYYY-MM-DD), read on the local calendar so it doesn't slip a day. */
+export const bestByFor = ({
   bestBy,
   daysUntil,
   now,
@@ -12,16 +15,16 @@ export const bestByLabelFor = ({
   bestBy: string;
   daysUntil: number;
   now?: Date;
-}): string => {
+}): BestBy => {
   const day = formatShortDate(middayInstantFor(bestBy), { now });
   if (daysUntil < 0) {
-    return `Expired ${day}`;
+    return { label: `Expired ${day}`, isExpired: true };
   }
   if (daysUntil === 0) {
-    return `${day} · today`;
+    return { label: `${day} · today`, isExpired: false };
   }
   if (daysUntil === 1) {
-    return `${day} · tomorrow`;
+    return { label: `${day} · tomorrow`, isExpired: false };
   }
-  return `${day} · in ${daysUntil} days`;
+  return { label: `${day} · in ${daysUntil} days`, isExpired: false };
 };

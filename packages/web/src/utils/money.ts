@@ -28,6 +28,15 @@ export const formatSignedCents = (cents: number): string => {
   return `${cents > 0 ? "+" : "\u2212"}${formatCents(Math.abs(cents))}`;
 };
 
+/** Stands in for a figure that can't be worked out yet. Never a zero, which would read as real. */
+export const UNKNOWN_AMOUNT = "—";
+
+export const formatCentsOrUnknown = (cents: number | null): string =>
+  cents === null ? UNKNOWN_AMOUNT : formatCents(cents);
+
+export const formatSignedCentsOrUnknown = (cents: number | null): string =>
+  cents === null ? UNKNOWN_AMOUNT : formatSignedCents(cents);
+
 /**
  * Render integer cents as the bare dollars string a text input holds ("1.75").
  * Unlike formatCents there's no symbol or grouping — those would not survive a

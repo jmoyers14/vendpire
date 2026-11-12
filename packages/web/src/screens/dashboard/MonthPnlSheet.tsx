@@ -1,17 +1,13 @@
+import type { UseQueryResult } from "@tanstack/react-query";
 import type { ApiPnlSheet } from "../../apiTypes.ts";
-import { Card } from "../../ui.tsx";
-import { formatCents, formatSignedCents } from "../../utils/money.ts";
+import { Card, ErrorNote } from "../../ui.tsx";
+import { formatCentsOrUnknown, formatSignedCents } from "../../utils/money.ts";
 import { type Month, monthLabel } from "./month.ts";
 import { buildSheetRows, type SheetRow, type TotalScope } from "./sheetRows.ts";
 
-const UNKNOWN = "—";
-
-const formatMoney = (cents: number | null): string =>
-  cents === null ? UNKNOWN : formatCents(cents);
-
 /** Positives unsigned: a column of "+" reads as noise in a spreadsheet. */
 const formatProfit = (cents: number | null): string =>
-  cents !== null && cents < 0 ? formatSignedCents(cents) : formatMoney(cents);
+  cents !== null && cents < 0 ? formatSignedCents(cents) : formatCentsOrUnknown(cents);
 
 // Deliberately a spreadsheet, gridlines and all: it's read row by row, like the books.
 const cell = "border border-line px-3 py-1.5";
@@ -48,8 +44,8 @@ const figuresOf = (row: SheetRow) => {
     case "total":
       return {
         units: row.units,
-        sales: formatMoney(row.revenueCents),
-        cogs: formatMoney(row.cogsCents),
+        sales: formatCentsOrUnknown(row.revenueCents),
+        cogs: formatCentsOrUnknown(row.cogsCents),
         profit: formatProfit(row.grossProfitCents),
       };
     case "pulled":
@@ -100,22 +96,23 @@ const SheetTableRow = ({ row }: { row: SheetRow }) => {
 export function MonthPnlSheet({
   month,
   sheet,
-  isLoading,
 }: {
   month: Month;
-  /** Undefined while loading, or when the load failed (the page shows why). */
-  sheet: ApiPnlSheet | undefined;
-  isLoading: boolean;
+  /** Loaded by the page, which shows the month's totals from the same query. */
+  sheet: UseQueryResult<ApiPnlSheet, { message: string }>;
 }) {
-  const rows = sheet ? buildSheetRows(sheet) : [];
-  const totals = sheet?.totals;
+  const rows = sheet.data ? buildSheetRows(sheet.data) : [];
+  const totals = sheet.data?.totals;
 
   return (
     <Card className="grid gap-4 border border-line p-5">
       <h2 className="font-display text-heading text-ink">Sales &amp; gross profit</h2>
 
-      {isLoading ? <p className="text-body text-muted-strong">Loading…</p> : null}
-      {sheet && rows.length === 0 ? (
+      {sheet.isLoading ? <p className="text-body text-muted-strong">Loading…</p> : null}
+      <ErrorNote
+        message={sheet.error ? `Couldn't load ${monthLabel(month)}: ${sheet.error.message}` : null}
+      />
+      {sheet.data && rows.length === 0 ? (
         <p className="text-body text-ink-soft">No sales counted in {monthLabel(month)}.</p>
       ) : null}
       {rows.length > 0 ? (
@@ -146,7 +143,7 @@ export function MonthPnlSheet({
       ) : null}
       {totals && totals.unknownRemovalReasonRows > 0 ? (
         <p className="text-body-sm text-muted-strong">
-          Some pulled items have no reason recorded, so the profit after them can&apos;t be totaled.
+          Some pulled items have no reason recorded, so the loss after them can&apos;t be totaled.
         </p>
       ) : null}
     </Card>

@@ -12,13 +12,11 @@ import {
   eyebrowLinkClass,
   focusRing,
   KPI_TONE_TEXT,
-  KpiCard,
-  KpiGrid,
-  kpiToneFor,
   MachineMap,
   Page,
   PageHeader,
   pageLinkClass,
+  profitToneFor,
   RowTable,
   RowTableBody,
   RowTableCellLabel,
@@ -26,9 +24,15 @@ import {
   RowTableRow,
 } from "../../ui.tsx";
 import { formatShortDate, formatShortDateTime } from "../../utils/dates.ts";
-import { formatCents, formatSignedCents } from "../../utils/money.ts";
+import {
+  formatCents,
+  formatCentsOrUnknown,
+  formatSignedCentsOrUnknown,
+  UNKNOWN_AMOUNT,
+} from "../../utils/money.ts";
 import { plural } from "../../utils/text.ts";
 import { MachineMetaLine, useLocationName } from "../machines/machineMeta.tsx";
+import { ProfitKpiGrid } from "./ProfitKpiGrid.tsx";
 import {
   buildProductSales,
   buildUnknownNotes,
@@ -40,14 +44,8 @@ import {
 } from "./pnlRows.ts";
 import { countedTileFor } from "./visitFace.ts";
 
-/** A figure the engine reports as unknown is never a number and never a bare
- *  dash on its own — the notes below the KPIs say why. */
-const UNKNOWN = "—";
 
-const money = (cents: number | null): string => (cents === null ? UNKNOWN : formatCents(cents));
 
-const signedMoney = (cents: number | null): string =>
-  cents === null ? UNKNOWN : formatSignedCents(cents);
 
 /** Enough to see a pattern, few enough to read without scrolling. */
 const TOP_SELLER_COUNT = 5;
@@ -157,25 +155,7 @@ export function MachineVisitsScreen({ machineId }: { machineId: string }) {
 
       {totals ? (
         <section aria-label="Totals" className="grid gap-4">
-          <KpiGrid>
-            <KpiCard label="Revenue" value={formatCents(totals.revenueCents)} />
-            <KpiCard label="COGS" value={money(totals.cogsCents)} />
-            <KpiCard
-              label="Gross profit"
-              value={signedMoney(totals.grossProfitCents)}
-              tone={kpiToneFor(totals.grossProfitCents)}
-            />
-            {/* "After write-offs", not "Net profit": there are no operating
-                expenses in v1 — no fuel, labour or depreciation — so this is
-                net of the goods you lost, not net of running the route.
-                "Write-off" is the domain's word; "waste" was a synonym that
-                sent a reader looking for a third concept. */}
-            <KpiCard
-              label="After write-offs"
-              value={signedMoney(totals.netProfitCents)}
-              tone={kpiToneFor(totals.netProfitCents)}
-            />
-          </KpiGrid>
+          <ProfitKpiGrid totals={totals} revenueLabel="Revenue" />
 
           {totals.writeOffUnits > 0 || totals.returnedToStockUnits > 0 ? (
             <div className="grid gap-1 text-body-sm text-ink-soft">
@@ -183,7 +163,7 @@ export function MachineVisitsScreen({ machineId }: { machineId: string }) {
                 <p>
                   Written off: {plural(totals.writeOffUnits, { one: "unit", many: "units" })} at{" "}
                   <span className="font-mono text-loss tabular-nums">
-                    {money(totals.writeOffCents)}
+                    {formatCentsOrUnknown(totals.writeOffCents)}
                   </span>
                 </p>
               ) : null}
@@ -256,10 +236,10 @@ export function MachineVisitsScreen({ machineId }: { machineId: string }) {
                         {formatCents(sales.revenueCents)}
                       </span>
                       <span
-                        className={`${numberCell} font-bold ${KPI_TONE_TEXT[kpiToneFor(sales.profitCents)]}`}
+                        className={`${numberCell} font-bold ${KPI_TONE_TEXT[profitToneFor(sales.profitCents)]}`}
                       >
                         <RowTableCellLabel>Profit</RowTableCellLabel>
-                        {signedMoney(sales.profitCents)}
+                        {formatSignedCentsOrUnknown(sales.profitCents)}
                       </span>
                     </RowTableRow>
                   ))}
@@ -364,13 +344,13 @@ function VisitRow({ visit, group, shelves, productName, isExpanded, onToggle }: 
         </span>
         <span className={`${numberCell} text-ink max-sm:hidden`}>
           <RowTableCellLabel>Revenue</RowTableCellLabel>
-          {group ? formatCents(group.totals.revenueCents) : UNKNOWN}
+          {group ? formatCents(group.totals.revenueCents) : UNKNOWN_AMOUNT}
         </span>
         <span
-          className={`${numberCell} font-bold ${KPI_TONE_TEXT[kpiToneFor(group?.totals.netProfitCents ?? null)]}`}
+          className={`${numberCell} font-bold ${KPI_TONE_TEXT[profitToneFor(group?.totals.netProfitCents ?? null)]}`}
         >
           <RowTableCellLabel>After write-offs</RowTableCellLabel>
-          {signedMoney(group?.totals.netProfitCents ?? null)}
+          {formatSignedCentsOrUnknown(group?.totals.netProfitCents ?? null)}
         </span>
         <span aria-hidden className="text-center text-muted-strong">
           {isExpanded ? "▴" : "▾"}
@@ -481,11 +461,11 @@ function IntervalTable({
               </span>
               <span className={`${numberCell} text-ink-soft`}>
                 <RowTableCellLabel>COGS</RowTableCellLabel>
-                {money(row.cogsCents)}
+                {formatCentsOrUnknown(row.cogsCents)}
               </span>
-              <span className={`${numberCell} font-bold ${KPI_TONE_TEXT[kpiToneFor(profit)]}`}>
+              <span className={`${numberCell} font-bold ${KPI_TONE_TEXT[profitToneFor(profit)]}`}>
                 <RowTableCellLabel>Profit</RowTableCellLabel>
-                {signedMoney(profit)}
+                {formatSignedCentsOrUnknown(profit)}
               </span>
             </RowTableRow>
           );

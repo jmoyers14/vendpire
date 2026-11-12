@@ -10,7 +10,7 @@ import {
   RowTableRow,
 } from "../../ui.tsx";
 import { plural } from "../../utils/text.ts";
-import { bestByLabelFor } from "./expiry.ts";
+import { bestByFor } from "./expiry.ts";
 
 /** Product · Units · Best by. */
 const EXPIRY_COLUMNS = "minmax(0,1fr) 56px 168px";
@@ -23,7 +23,13 @@ const EXPIRY_COLUMNS = "minmax(0,1fr) 56px 168px";
 export function ExpiringSoonCard() {
   const report = useQuery(trpc.visits.expiringSoon.queryOptions({}));
   const data = report.data;
-  const actionable = data ? [...data.expired, ...data.expiringSoon] : [];
+  // The server lists undated slots under missingDates, so these all have a date;
+  // this only narrows the type.
+  const actionable = (data ? [...data.expired, ...data.expiringSoon] : []).flatMap((slot) =>
+    slot.bestBy === null || slot.daysUntil === null
+      ? []
+      : [{ ...slot, expiry: bestByFor({ bestBy: slot.bestBy, daysUntil: slot.daysUntil }) }],
+  );
 
   return (
     <Card className="grid gap-4 border border-line p-5">
@@ -52,12 +58,9 @@ export function ExpiringSoonCard() {
             <span className="text-right">Best by</span>
           </RowTableHeader>
           <RowTableBody>
-            {actionable.map((slot) => {
-              const isExpired = slot.daysUntil !== null && slot.daysUntil < 0;
-              return (
+            {actionable.map((slot) => (
                 <RowTableRow
                   key={`${slot.machineId} ${slot.slotCode} ${slot.productId}`}
-                  // On a phone the product gets the full width, with units and date under it.
                   className="max-sm:grid-cols-[minmax(0,1fr)_auto] max-sm:gap-y-1"
                 >
                   <span className="grid min-w-0 gap-0.5 max-sm:col-span-2">
@@ -74,16 +77,13 @@ export function ExpiringSoonCard() {
                     {slot.units}
                   </span>
                   <span
-                    className={`text-right text-body-sm font-bold ${isExpired ? "text-danger" : "text-warning"}`}
+                    className={`text-right text-body-sm font-bold ${slot.expiry.isExpired ? "text-danger" : "text-warning"}`}
                   >
                     <RowTableCellLabel>Best by</RowTableCellLabel>
-                    {slot.bestBy === null || slot.daysUntil === null
-                      ? "Unknown"
-                      : bestByLabelFor({ bestBy: slot.bestBy, daysUntil: slot.daysUntil })}
+                    {slot.expiry.label}
                   </span>
                 </RowTableRow>
-              );
-            })}
+            ))}
           </RowTableBody>
         </RowTable>
       ) : null}
