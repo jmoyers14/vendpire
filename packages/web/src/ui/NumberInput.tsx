@@ -81,6 +81,12 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(
 );
 NumberInput.displayName = "NumberInput";
 
+/** Decimal entry without a currency: a percent, a rate. */
+export const DecimalInput = forwardRef<HTMLInputElement, NumberInputProps>((props, ref) => (
+  <AffixedInput ref={ref} inputMode="decimal" {...props} />
+));
+DecimalInput.displayName = "DecimalInput";
+
 /** Dollar entry. The value stays a string; parse it with utils/money. */
 export const MoneyInput = forwardRef<HTMLInputElement, NumberInputProps>(
   ({ prefix = "$", ...props }, ref) => (

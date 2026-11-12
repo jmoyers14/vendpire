@@ -11,6 +11,7 @@ import {
   PageHeader,
   RowTable,
   RowTableBody,
+  RowTableCellLabel,
   RowTableEmpty,
   RowTableHeader,
   RowTableRow,
@@ -181,11 +182,6 @@ function ProductRow({
   );
 }
 
-/** The header is visual only, so each cell names itself for screen readers. */
-const CellLabel = ({ children }: { children: string }) => (
-  <span className="sr-only">{children}: </span>
-);
-
 /** What one unit cost on the latest purchase, and where and when. */
 function LastPaidCell({
   pricing,
@@ -200,7 +196,7 @@ function LastPaidCell({
     return (
       <div className="text-right">
         <p className="font-mono text-mono tabular-nums text-muted">
-          <CellLabel>Last paid</CellLabel>—
+          <RowTableCellLabel>Last paid</RowTableCellLabel>—
         </p>
         {/* Saying "not bought yet" before the costs arrive would be wrong for most rows. */}
         {isLoading ? null : <p className="text-body-sm text-muted-strong">Not bought yet</p>}
@@ -210,7 +206,7 @@ function LastPaidCell({
   return (
     <div className="text-right">
       <p className="font-mono text-mono tabular-nums text-ink">
-        <CellLabel>Last paid</CellLabel>
+        <RowTableCellLabel>Last paid</RowTableCellLabel>
         {formatCents(unitCostCents)}
       </p>
       <p className="text-body-sm text-muted-strong">
@@ -232,7 +228,7 @@ function PriceCell({
   return (
     <div className="text-right">
       <p className="font-mono text-mono tabular-nums text-ink">
-        <CellLabel>Default price</CellLabel>
+        <RowTableCellLabel>Default price</RowTableCellLabel>
         {formatCents(priceCents)}
       </p>
       {marginFraction !== null ? (

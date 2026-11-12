@@ -252,11 +252,12 @@ All live in `packages/web/src/ui/`, are exported from `ui.tsx`, and render in ev
 | `PageHeader` | Eyebrow breadcrumb, H1 (the record's name on edit/detail pages), badge + meta row, a right-hand link that names its destination. Use `eyebrowLinkClass` / `pageLinkClass` on the links. |
 | `FormSection`, `FieldRow`, `SectionDivider` | 260px title + description column beside a card of fields; sections divided by a rule. `layout="stacked"` puts the title above a full-width card, for forms whose tables need the room (Log Purchase). `FieldRow` puts two fields side by side. |
 | `Field` + `TextInput` / `Select` / `TextArea` | Visible label, optional "optional" marker, hint and error. The control picks up its id and `aria-describedby` from the Field. |
-| `NumberInput`, `MoneyInput` | Mono, tabular, `inputMode` set, password managers kept out. Sizes `sm` (table row), `md` (form), `lg` (count at the machine); optional prefix and suffix. Values stay strings. |
+| `NumberInput`, `DecimalInput`, `MoneyInput` | Whole numbers, decimals without a currency (a percent), dollars. Mono, tabular, `inputMode` set, password managers kept out. Sizes `sm` (table row), `md` (form), `lg` (count at the machine); optional prefix and suffix. Values stay strings. |
 | `Button`, `IconButton` | See Buttons above. |
 | `Switch` | Title + description + switch over a real checkbox. |
 | `SaveBar` + `useFormDraft` | Sticky footer with saved/unsaved state or a summary; Save is disabled on a clean form. `dismissal="discard"` (edit pages) or `"cancel"` (create pages). Render it after the page container and pass `formId`. |
-| `RowTable` (+ `Header`, `Body`, `Row`, `Footer`, `Empty`) | CSS-grid rows of inputs. `boxed` or `plain`. Inputs need their own `aria-label`. |
+| `DeleteSection` | The last section of an edit page: "Delete {recordKind}…", then a confirm step that focuses "Keep it". Shows the server's refusal inline. |
+| `RowTable` (+ `Header`, `Body`, `Row`, `Footer`, `Empty`, `CellLabel`) | CSS-grid rows. `boxed` or `plain`. Inputs need their own `aria-label`; read-only cells name themselves with `RowTableCellLabel`. |
 | `FactsPanel`, `Fact`, `FactVerdict` | Tinted key/value list with an optional success/warning verdict row. |
 | `Stepper` | Numbered steps with done/current/upcoming and a progress line; replaces tabs for sequential flows. |
 | `MachineMap`, `MachineMapLegend` | The machine face: one row per shelf, tiles sharing the width, value + meter + ×N marker, optional product name (read-only maps); selected, empty, target, source and search-dimmed states; optional "go to slot or product" search. Replaces `SlotFaceGrid`. |
