@@ -7,7 +7,7 @@ export { Badge } from "./ui/Badge.tsx";
 export type { ButtonSize, ButtonVariant } from "./ui/Button.tsx";
 export { Button, buttonClass, IconButton } from "./ui/Button.tsx";
 export type { KpiTone } from "./ui/Card.tsx";
-export { Card, CardTitle, KPI_TONE_TEXT, KpiCard, KpiGrid } from "./ui/Card.tsx";
+export { Card, CardTitle, KPI_TONE_TEXT, KpiCard, KpiGrid, kpiToneFor } from "./ui/Card.tsx";
 export type { ChipOption } from "./ui/ChipGroup.tsx";
 export { ChipGroup } from "./ui/ChipGroup.tsx";
 export { DeleteSection } from "./ui/DeleteSection.tsx";

@@ -14,7 +14,7 @@ import {
   KPI_TONE_TEXT,
   KpiCard,
   KpiGrid,
-  type KpiTone,
+  kpiToneFor,
   MachineMap,
   Page,
   PageHeader,
@@ -48,14 +48,6 @@ const money = (cents: number | null): string => (cents === null ? UNKNOWN : form
 
 const signedMoney = (cents: number | null): string =>
   cents === null ? UNKNOWN : formatSignedCents(cents);
-
-/** Green for a profit, red for a loss, plain while it's unknown. */
-const profitToneFor = (cents: number | null): KpiTone => {
-  if (cents === null) {
-    return "neutral";
-  }
-  return cents < 0 ? "loss" : "profit";
-};
 
 /** Enough to see a pattern, few enough to read without scrolling. */
 const TOP_SELLER_COUNT = 5;
@@ -171,7 +163,7 @@ export function MachineVisitsScreen({ machineId }: { machineId: string }) {
             <KpiCard
               label="Gross profit"
               value={signedMoney(totals.grossProfitCents)}
-              tone={profitToneFor(totals.grossProfitCents)}
+              tone={kpiToneFor(totals.grossProfitCents)}
             />
             {/* "After write-offs", not "Net profit": there are no operating
                 expenses in v1 — no fuel, labour or depreciation — so this is
@@ -181,7 +173,7 @@ export function MachineVisitsScreen({ machineId }: { machineId: string }) {
             <KpiCard
               label="After write-offs"
               value={signedMoney(totals.netProfitCents)}
-              tone={profitToneFor(totals.netProfitCents)}
+              tone={kpiToneFor(totals.netProfitCents)}
             />
           </KpiGrid>
 
@@ -264,7 +256,7 @@ export function MachineVisitsScreen({ machineId }: { machineId: string }) {
                         {formatCents(sales.revenueCents)}
                       </span>
                       <span
-                        className={`${numberCell} font-bold ${KPI_TONE_TEXT[profitToneFor(sales.profitCents)]}`}
+                        className={`${numberCell} font-bold ${KPI_TONE_TEXT[kpiToneFor(sales.profitCents)]}`}
                       >
                         <RowTableCellLabel>Profit</RowTableCellLabel>
                         {signedMoney(sales.profitCents)}
@@ -375,7 +367,7 @@ function VisitRow({ visit, group, shelves, productName, isExpanded, onToggle }: 
           {group ? formatCents(group.totals.revenueCents) : UNKNOWN}
         </span>
         <span
-          className={`${numberCell} font-bold ${KPI_TONE_TEXT[profitToneFor(group?.totals.netProfitCents ?? null)]}`}
+          className={`${numberCell} font-bold ${KPI_TONE_TEXT[kpiToneFor(group?.totals.netProfitCents ?? null)]}`}
         >
           <RowTableCellLabel>After write-offs</RowTableCellLabel>
           {signedMoney(group?.totals.netProfitCents ?? null)}
@@ -491,7 +483,7 @@ function IntervalTable({
                 <RowTableCellLabel>COGS</RowTableCellLabel>
                 {money(row.cogsCents)}
               </span>
-              <span className={`${numberCell} font-bold ${KPI_TONE_TEXT[profitToneFor(profit)]}`}>
+              <span className={`${numberCell} font-bold ${KPI_TONE_TEXT[kpiToneFor(profit)]}`}>
                 <RowTableCellLabel>Profit</RowTableCellLabel>
                 {signedMoney(profit)}
               </span>
