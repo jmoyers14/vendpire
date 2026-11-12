@@ -323,7 +323,7 @@ describe("buildProductSales", () => {
    * intervals is not a product that sells badly. Those rows are excluded from
    * the sums and surfaced as a count instead of being summed as zero.
    */
-  it("excludes unknown-sold intervals and counts them instead", () => {
+  it("excludes unknown-sold intervals and counts the missed ones instead", () => {
     const sales = buildProductSales({
       intervals: [
         sold({ sold: { status: "known", units: 6 } }, 1050, 400),
@@ -335,8 +335,30 @@ describe("buildProductSales", () => {
     expect(sales[0]).toMatchObject({
       soldUnits: 6,
       revenueCents: 1050,
-      unknownIntervalCount: 2,
+      unknownIntervalCount: 1,
     });
+  });
+
+  // A product's first count has no earlier one to diff, and no sales went
+  // unmeasured before it, so it isn't flagged as uncounted.
+  it("doesn't count a product's first count as uncounted", () => {
+    const sales = buildProductSales({
+      intervals: [
+        sold({ sold: { status: "known", units: 6 } }, 1050, 400),
+        sold({ sold: { status: "unknown", reason: "first-visit" } }, 0, null),
+        sold({ slotCode: "B2", sold: { status: "unknown", reason: "first-visit" } }, 0, null),
+      ],
+      removals: [],
+    });
+    expect(sales[0]?.unknownIntervalCount).toBe(0);
+  });
+
+  it("still flags a product change as uncounted", () => {
+    const sales = buildProductSales({
+      intervals: [sold({ sold: { status: "unknown", reason: "product-changed" } }, 0, null)],
+      removals: [],
+    });
+    expect(sales[0]?.unknownIntervalCount).toBe(1);
   });
 
   // An unknown-sold row carries cogsCents: null for that reason alone. Letting

@@ -218,7 +218,7 @@ export interface ProductSales {
    * above and counted here, because a product that ranks low on three
    * uncounted intervals is not a product that sells badly — and silently
    * summing those as zero is how "best seller" becomes "best-measured
-   * seller".
+   * seller". A product's first count isn't one: nothing sold before it.
    */
   readonly unknownIntervalCount: number;
 }
@@ -253,7 +253,9 @@ export const buildProductSales = (rows: PnlRows): ProductSales[] => {
     };
 
     if (row.interval.sold.status === "unknown") {
-      running.unknownIntervalCount += 1;
+      if (row.interval.sold.reason !== "first-visit") {
+        running.unknownIntervalCount += 1;
+      }
       byProduct.set(productId, running);
       continue;
     }
