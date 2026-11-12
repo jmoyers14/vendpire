@@ -1,396 +1,468 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
-import { SlotsField } from "./SlotsField.tsx";
+import { type FormEvent, useEffect, useState } from "react";
+import { queryClient, trpc } from "../../trpc.ts";
+import { plural } from "../../utils/text.ts";
 import {
   Alert,
-  Button,
-  checkboxClass,
+  Badge,
+  DeleteSection,
   ErrorNote,
-  inputClass,
+  eyebrowLinkClass,
+  Field,
+  FieldRow,
+  FormSection,
+  focusRing,
   Page,
-  PageTitle,
+  PageHeader,
+  pageLinkClass,
+  SaveBar,
+  SectionDivider,
+  Select,
+  Switch,
+  TextInput,
+  useFormDraft,
 } from "../../ui.tsx";
 import {
-  emptySlotsValue,
-  shelvesToSlotsValue,
-  type SlotsValue,
-  slotsValueToShelves,
-} from "./slotGrid.ts";
-import { queryClient, trpc } from "../../trpc.ts";
+  buildMachineInput,
+  buildTemplateInput,
+  DEPENDENT_ERROR_KEYS,
+  draftFor,
+  EMPTY_MACHINE_DRAFT,
+  fieldErrorsFor,
+  MACHINE_KIND_LABELS,
+  type MachineDraft,
+  type MachineFieldErrors,
+  type MachineKind,
+  orphanedSlotCodesFor,
+  READER_PROVIDER_LABELS,
+  type ReaderProvider,
+  templateNamed,
+  templatePrefillFor,
+} from "./machineForm.ts";
+import { SlotsField } from "./SlotsField.tsx";
+import { slotsValueToShelves } from "./slotGrid.ts";
 
-interface FormState {
-  locationId: string;
-  name: string;
-  kind: "snack" | "drink" | "combo";
-  make: string;
-  model: string;
-  serial: string;
-  tagCode: string;
-  /** Layout lineage. Carried through edits so saving doesn't erase it. */
-  templateId: string | null;
-  slots: SlotsValue;
-  saveAsTemplate: boolean;
-  newTemplateName: string;
-  readerProvider: "" | "nayax" | "cantaloupe";
-  readerDeviceId: string;
-  active: boolean;
-}
-
-const EMPTY: FormState = {
-  locationId: "",
-  name: "",
-  kind: "snack",
-  make: "",
-  model: "",
-  serial: "",
-  tagCode: "",
-  templateId: null,
-  slots: emptySlotsValue(),
-  saveAsTemplate: false,
-  newTemplateName: "",
-  readerProvider: "",
-  readerDeviceId: "",
-  active: true,
-};
+const FORM_ID = "machine-form";
 
 /** Create + edit form: `machineId` present means edit. */
 export function MachineFormScreen({ machineId }: { machineId?: string }) {
   const navigate = useNavigate();
-  const [error, setError] = useState<string | null>(null);
-  const [form, setForm] = useState<FormState>(EMPTY);
-  const locations = useQuery(trpc.locations.list.queryOptions());
-  const templates = useQuery(trpc.machineTemplates.list.queryOptions());
+  const isEditing = Boolean(machineId);
+  const { draft, set, load, discard, isDirty } = useFormDraft<MachineDraft>(EMPTY_MACHINE_DRAFT);
+  const [errors, setErrors] = useState<MachineFieldErrors>({});
+  const [formError, setFormError] = useState<string | null>(null);
+  // Loaded once: a refetch on window focus must not wipe edits in progress.
+  const [hasLoaded, setHasLoaded] = useState(false);
+  // Bumped when a template replaces the layout, so the grid controls reopen to fit it.
+  const [layoutVersion, setLayoutVersion] = useState(0);
 
-  const existing = useQuery({
+  const locationsQuery = useQuery(trpc.locations.list.queryOptions());
+  const templatesQuery = useQuery(trpc.machineTemplates.list.queryOptions());
+  const machineQuery = useQuery({
     ...trpc.machines.get.queryOptions({ id: machineId ?? "" }),
-    enabled: Boolean(machineId),
+    enabled: isEditing,
   });
-
-  // Which slots the machine's live planogram is currently using. Applying a
-  // template can drop some of them, which the warning below calls out.
-  const currentPlanogram = useQuery({
+  // Which slots the live planogram fills. A new layout can drop some of them,
+  // which the warning in Layout calls out.
+  const currentPlanogramQuery = useQuery({
     ...trpc.planograms.getCurrent.queryOptions({ machineId: machineId ?? "" }),
-    enabled: Boolean(machineId),
+    enabled: isEditing,
   });
 
   useEffect(() => {
-    const machine = existing.data;
-    if (!machine) {
+    const machine = machineQuery.data;
+    if (!machine || hasLoaded) {
       return;
     }
-    setForm({
-      ...EMPTY,
-      locationId: machine.locationId,
-      name: machine.name,
-      kind: machine.kind,
-      make: machine.make ?? "",
-      model: machine.model ?? "",
-      serial: machine.serial ?? "",
-      tagCode: machine.tagCode ?? "",
-      templateId: machine.templateId,
-      slots: shelvesToSlotsValue(machine.slots),
-      readerProvider: machine.cardReader?.provider ?? "",
-      readerDeviceId: machine.cardReader?.deviceId ?? "",
-      active: machine.active,
-    });
-  }, [existing.data]);
+    setHasLoaded(true);
+    load(draftFor(machine));
+  }, [machineQuery.data, hasLoaded, load]);
 
-  const onSaved = () => {
+  const handleSaved = () => {
     queryClient.invalidateQueries({ queryKey: trpc.machines.list.queryKey() });
+    if (machineId) {
+      queryClient.invalidateQueries({ queryKey: trpc.machines.get.queryKey({ id: machineId }) });
+    }
     navigate({ to: "/machines" });
   };
-  const create = useMutation(
-    trpc.machines.create.mutationOptions({
-      onSuccess: onSaved,
-      onError: (e) => setError(e.message),
-    }),
-  );
-  const update = useMutation(
-    trpc.machines.update.mutationOptions({
-      onSuccess: onSaved,
-      onError: (e) => setError(e.message),
-    }),
-  );
-  const createTemplate = useMutation(
-    trpc.machineTemplates.create.mutationOptions(),
-  );
+  const saveCallbacks = {
+    onSuccess: handleSaved,
+    onError: (error: { message: string }) => setFormError(error.message),
+  };
+  const create = useMutation(trpc.machines.create.mutationOptions(saveCallbacks));
+  const update = useMutation(trpc.machines.update.mutationOptions(saveCallbacks));
+  const createTemplate = useMutation(trpc.machineTemplates.create.mutationOptions());
 
-  const set = (patch: Partial<FormState>) => setForm({ ...form, ...patch });
-
-  // Prefill from a template on pick — never in an effect, which would clobber
-  // edits in progress. Make/model fill only when blank; kind always applies,
-  // since the select has no empty state to test for.
-  const applyTemplate = (templateId: string) => {
-    const template = templates.data?.find((row) => row.id === templateId);
-    if (!template) {
-      set({ templateId: null });
-      return;
-    }
-    set({
-      templateId: template.id,
-      kind: template.kind,
-      make: form.make.trim() ? form.make : (template.make ?? ""),
-      model: form.model.trim() ? form.model : (template.model ?? ""),
-      slots: shelvesToSlotsValue(template.slots),
+  // An edit clears that field's error, and any error that depended on it.
+  const editDraft = (patch: Partial<MachineDraft>) => {
+    set(patch);
+    const patchedKeys = Object.keys(patch) as (keyof MachineDraft)[];
+    setErrors((current) => {
+      const next = { ...current };
+      for (const key of patchedKeys) {
+        delete next[key as keyof MachineFieldErrors];
+        const dependentKey = DEPENDENT_ERROR_KEYS[key];
+        if (dependentKey) {
+          delete next[dependentKey];
+        }
+      }
+      return next;
     });
   };
 
-  const shelves = slotsValueToShelves(form.slots);
-
-  // Slot codes the live planogram fills that this layout no longer has. The
-  // save still goes through — slots have always been editable by hand — but
-  // those assignments stop showing on the face.
-  const orphanedSlots = (() => {
-    const slots = currentPlanogram.data?.slots;
-    if (!slots) {
-      return [];
-    }
-    const codes = new Set(shelves.flat());
-    return slots
-      .map((slot) => slot.slotCode)
-      .filter((code) => !codes.has(code));
-  })();
-
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    if (!form.locationId) {
-      setError("Pick a location");
+  // Prefill on pick, never in an effect, which would clobber edits in progress.
+  const applyTemplate = (templateId: string) => {
+    const template = templatesQuery.data?.find((row) => row.id === templateId);
+    if (!template) {
+      editDraft({ templateId: null });
       return;
     }
-    if (!form.name.trim()) {
-      setError("Name is required");
-      return;
-    }
-    if (form.readerProvider && !form.readerDeviceId.trim()) {
-      setError("Card reader needs a device ID");
-      return;
-    }
-
-    // Saved first so the machine can carry the new template's id. A name clash
-    // stops here rather than leaving a machine pointing at nothing; on retry
-    // the existing template of that name is reused.
-    let templateId = form.templateId;
-    if (form.saveAsTemplate) {
-      const name = form.newTemplateName.trim();
-      if (!name) {
-        setError("Name the template you're saving");
-        return;
-      }
-      const reusable = templates.data?.find(
-        (row) => row.name.toLowerCase() === name.toLowerCase(),
-      );
-      if (reusable) {
-        templateId = reusable.id;
-      } else {
-        try {
-          const saved = await createTemplate.mutateAsync({
-            name,
-            kind: form.kind,
-            make: form.make.trim() || null,
-            model: form.model.trim() || null,
-            slots: shelves,
-          });
-          templateId = saved.id;
-          queryClient.invalidateQueries({
-            queryKey: trpc.machineTemplates.list.queryKey(),
-          });
-        } catch (templateError) {
-          setError(
-            `Couldn't save the template: ${(templateError as Error).message}`,
-          );
-          return;
-        }
-      }
-    }
-
-    const data = {
-      locationId: form.locationId,
-      name: form.name.trim(),
-      kind: form.kind,
-      make: form.make.trim() || null,
-      model: form.model.trim() || null,
-      serial: form.serial.trim() || null,
-      tagCode: form.tagCode.trim() || null,
-      templateId,
-      slots: shelves,
-      cardReader: form.readerProvider
-        ? { provider: form.readerProvider, deviceId: form.readerDeviceId.trim() }
-        : null,
-      active: form.active,
-    };
-    if (machineId) {
-      update.mutate({ id: machineId, ...data });
-    } else {
-      create.mutate(data);
-    }
+    editDraft(templatePrefillFor({ draft, template }));
+    setLayoutVersion((version) => version + 1);
   };
 
+  // Saved before the machine so it can carry the template's id; a same-named
+  // template is reused, so a retry after a failed save doesn't clash.
+  const saveTemplateIfRequested = async (): Promise<string | null> => {
+    if (!draft.shouldSaveAsTemplate) {
+      return draft.templateId;
+    }
+    const reusable = templateNamed({
+      name: draft.newTemplateName,
+      templates: templatesQuery.data ?? [],
+    });
+    if (reusable) {
+      return reusable.id;
+    }
+    const savedTemplate = await createTemplate.mutateAsync(buildTemplateInput(draft));
+    queryClient.invalidateQueries({ queryKey: trpc.machineTemplates.list.queryKey() });
+    return savedTemplate.id;
+  };
+
+  const handleSubmit = async (event: FormEvent) => {
+    event.preventDefault();
+    setFormError(null);
+    const fieldErrors = fieldErrorsFor(draft);
+    setErrors(fieldErrors);
+    if (Object.keys(fieldErrors).length > 0) {
+      return;
+    }
+    let templateId: string | null;
+    try {
+      templateId = await saveTemplateIfRequested();
+    } catch (templateError) {
+      setFormError(`Couldn't save the template: ${(templateError as Error).message}`);
+      return;
+    }
+    const input = buildMachineInput({ draft, templateId });
+    if (machineId) {
+      update.mutate({ id: machineId, ...input });
+      return;
+    }
+    create.mutate(input);
+  };
+
+  const handleDismiss = () => {
+    if (!isEditing) {
+      navigate({ to: "/machines" });
+      return;
+    }
+    discard();
+    setErrors({});
+    setFormError(null);
+  };
+
+  const savedMachine = machineQuery.data;
+  const savedLocationName = locationsQuery.data?.find(
+    (location) => location.id === savedMachine?.locationId,
+  )?.name;
+  const orphanedSlotCodes = orphanedSlotCodesFor({
+    shelves: slotsValueToShelves(draft.slots),
+    plannedSlotCodes: (currentPlanogramQuery.data?.slots ?? []).map((slot) => slot.slotCode),
+  });
+  const templates = templatesQuery.data ?? [];
+  const hasNoLocations = locationsQuery.isSuccess && locationsQuery.data.length === 0;
+
   return (
-    <Page max="xl" className="space-y-4">
-      <div className="flex items-center justify-between">
-        <PageTitle>
-          {machineId ? "Edit Machine" : "New Machine"}
-        </PageTitle>
-        <Link to="/machines" className="text-sm text-gray-600 hover:text-gray-800">
-          ← Back
-        </Link>
-      </div>
-
-      <ErrorNote message={error} />
-
-      <form onSubmit={submit} className="space-y-4">
-        <select
-          className={inputClass}
-          value={form.locationId}
-          onChange={(e) => set({ locationId: e.target.value })}
-        >
-          <option value="">Location *</option>
-          {locations.data?.map((location) => (
-            <option key={location.id} value={location.id}>
-              {location.name}
-            </option>
-          ))}
-        </select>
-        <input
-          className={inputClass}
-          placeholder="Name * (e.g. Break room snack)"
-          value={form.name}
-          onChange={(e) => set({ name: e.target.value })}
-        />
-        <select
-          className={inputClass}
-          value={form.kind}
-          onChange={(e) => set({ kind: e.target.value as FormState["kind"] })}
-        >
-          <option value="snack">Snack</option>
-          <option value="drink">Drink</option>
-          <option value="combo">Combo</option>
-        </select>
-        <div className="grid grid-cols-3 gap-2">
-          <input
-            className={inputClass}
-            placeholder="Make"
-            value={form.make}
-            onChange={(e) => set({ make: e.target.value })}
-          />
-          <input
-            className={inputClass}
-            placeholder="Model"
-            value={form.model}
-            onChange={(e) => set({ model: e.target.value })}
-          />
-          <input
-            className={inputClass}
-            placeholder="Serial"
-            value={form.serial}
-            onChange={(e) => set({ serial: e.target.value })}
-          />
-        </div>
-        <input
-          className={inputClass}
-          placeholder="QR tag code (e.g. VP-001)"
-          value={form.tagCode}
-          onChange={(e) => set({ tagCode: e.target.value })}
-        />
-
-        {templates.data && templates.data.length > 0 ? (
-          <div className="space-y-1">
-            <select
-              className={inputClass}
-              value={form.templateId ?? ""}
-              onChange={(e) => applyTemplate(e.target.value)}
-            >
-              <option value="">Start from a template…</option>
-              {templates.data.map((template) => (
-                <option key={template.id} value={template.id}>
-                  {template.name} ({template.slots.flat().length} slots)
-                </option>
-              ))}
-            </select>
-            <p className="text-xs text-gray-500">
-              Fills in the layout below. The machine keeps its own copy — later
-              template edits won't touch it.
-            </p>
-          </div>
-        ) : null}
-
-        <SlotsField value={form.slots} onChange={(slots) => set({ slots })} />
-
-        {orphanedSlots.length > 0 ? (
-          <Alert
-            tone="warning"
-            title={`This layout drops ${orphanedSlots.length} slot(s) the current planogram fills`}
-          >
-            <p>
-              <span className="font-mono">{orphanedSlots.join(", ")}</span> would
-              no longer exist on the machine. Saving is fine — those assignments
-              just stop showing. Create a new planogram version to clean them up.
-            </p>
-          </Alert>
-        ) : null}
-
-        <div className="space-y-2">
-          <label className="flex items-center gap-2 text-sm text-gray-700">
-            <input
-              type="checkbox"
-              className={checkboxClass}
-              checked={form.saveAsTemplate}
-              onChange={(e) => set({ saveAsTemplate: e.target.checked })}
-            />
-            Save this layout as a template
-          </label>
-          {form.saveAsTemplate ? (
-            <input
-              className={inputClass}
-              placeholder="Template name (e.g. AMS 39 — 6 shelves)"
-              value={form.newTemplateName}
-              onChange={(e) => set({ newTemplateName: e.target.value })}
-            />
-          ) : null}
-        </div>
-
-        <div className="grid grid-cols-2 gap-2">
-          <select
-            className={inputClass}
-            value={form.readerProvider}
-            onChange={(e) =>
-              set({ readerProvider: e.target.value as FormState["readerProvider"] })
-            }
-          >
-            <option value="">No card reader</option>
-            <option value="cantaloupe">Cantaloupe</option>
-            <option value="nayax">Nayax</option>
-          </select>
-          {form.readerProvider ? (
-            <input
-              className={inputClass}
-              placeholder="Reader device ID"
-              value={form.readerDeviceId}
-              onChange={(e) => set({ readerDeviceId: e.target.value })}
-            />
-          ) : null}
-        </div>
-        <label className="flex items-center gap-2 text-sm text-gray-700">
-          <input
-            type="checkbox"
-            className={checkboxClass}
-            checked={form.active}
-            onChange={(e) => set({ active: e.target.checked })}
-          />
-          Active
-        </label>
-        <Button
-          size="sm"
-          type="submit"
-          disabled={
-            create.isPending || update.isPending || createTemplate.isPending
+    <>
+      <Page max="form" className="grid gap-8">
+        <PageHeader
+          eyebrow={
+            <>
+              <Link to="/machines" className={eyebrowLinkClass}>
+                Machines
+              </Link>{" "}
+              / {isEditing ? "Edit machine" : "New machine"}
+            </>
           }
-        >
-          {machineId ? "Save Changes" : "Create Machine"}
-        </Button>
-      </form>
-    </Page>
+          title={isEditing ? (savedMachine?.name ?? "…") : "New machine"}
+          badge={
+            isEditing && savedMachine ? (
+              <Badge tone={savedMachine.active ? "success" : "neutral"}>
+                {savedMachine.active ? "Active" : "Inactive"}
+              </Badge>
+            ) : undefined
+          }
+          meta={savedLocationName}
+          aside={
+            <Link to="/machines" className={pageLinkClass}>
+              ← Back to machines
+            </Link>
+          }
+        />
+
+        <ErrorNote
+          message={machineQuery.error ? `Couldn't load this machine: ${machineQuery.error.message}` : null}
+        />
+        <ErrorNote message={formError} />
+
+        <form id={FORM_ID} onSubmit={handleSubmit} noValidate>
+          <FormSection title="Placement" description="Where the machine stands and what it sells.">
+            <Field label="Name" error={errors.name} hint="e.g. Break room snack">
+              <TextInput
+                value={draft.name}
+                onChange={(event) => editDraft({ name: event.target.value })}
+              />
+            </Field>
+            <FieldRow>
+              <Field
+                label="Location"
+                error={errors.locationId}
+                hint={
+                  hasNoLocations ? (
+                    <>
+                      No locations yet.{" "}
+                      <Link
+                        to="/locations/new"
+                        className={`rounded-sm text-link hover:underline ${focusRing}`}
+                      >
+                        Add one
+                      </Link>{" "}
+                      first.
+                    </>
+                  ) : undefined
+                }
+              >
+                <Select
+                  value={draft.locationId}
+                  onChange={(event) => editDraft({ locationId: event.target.value })}
+                >
+                  <option value="">Pick a location</option>
+                  {locationsQuery.data?.map((location) => (
+                    <option key={location.id} value={location.id}>
+                      {location.name}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Field label="Type">
+                <Select
+                  value={draft.kind}
+                  onChange={(event) => editDraft({ kind: event.target.value as MachineKind })}
+                >
+                  {Object.entries(MACHINE_KIND_LABELS).map(([kind, label]) => (
+                    <option key={kind} value={kind}>
+                      {label}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+            </FieldRow>
+            <SectionDivider />
+            <Switch
+              title="Active"
+              description="Turn this off when a machine leaves your route. Its visits and sales stay in your history."
+              isChecked={draft.isActive}
+              onChange={(isActive) => editDraft({ isActive })}
+            />
+          </FormSection>
+
+          <FormSection title="Hardware" description="What's printed on the machine and its reader.">
+            <div className="grid gap-5 sm:grid-cols-3">
+              <Field label="Make" isOptional>
+                <TextInput
+                  value={draft.make}
+                  onChange={(event) => editDraft({ make: event.target.value })}
+                />
+              </Field>
+              <Field label="Model" isOptional>
+                <TextInput
+                  value={draft.model}
+                  onChange={(event) => editDraft({ model: event.target.value })}
+                />
+              </Field>
+              <Field label="Serial" isOptional>
+                <TextInput
+                  className="font-mono"
+                  value={draft.serial}
+                  onChange={(event) => editDraft({ serial: event.target.value })}
+                />
+              </Field>
+            </div>
+            <Field label="QR tag" isOptional hint="The code on the sticker, e.g. VP-001.">
+              <TextInput
+                className="font-mono"
+                value={draft.tagCode}
+                onChange={(event) => editDraft({ tagCode: event.target.value })}
+              />
+            </Field>
+            <SectionDivider />
+            <CardReaderFields draft={draft} errors={errors} onChange={editDraft} />
+          </FormSection>
+
+          <FormSection
+            title="Layout"
+            description="The slots as you see them standing in front of the machine."
+          >
+            {templates.length > 0 ? (
+              <Field
+                label="Start from a template"
+                isOptional
+                hint="Fills in the layout below. The machine keeps its own copy, so later template edits won't touch it."
+              >
+                <Select
+                  value={draft.templateId ?? ""}
+                  onChange={(event) => applyTemplate(event.target.value)}
+                >
+                  <option value="">None</option>
+                  {templates.map((template) => (
+                    <option key={template.id} value={template.id}>
+                      {template.name} ({template.slots.flat().length} slots)
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+            ) : null}
+            <SlotsField
+              // Remounts when a saved layout or a template arrives, so the grid
+              // controls open to fit it (e.g. shelf by shelf for a narrower shelf).
+              key={`${hasLoaded}-${layoutVersion}`}
+              value={draft.slots}
+              onChange={(slots) => editDraft({ slots })}
+            />
+            {orphanedSlotCodes.length > 0 ? (
+              <Alert
+                tone="warning"
+                title={`This layout drops ${plural(orphanedSlotCodes.length, { one: "slot", many: "slots" })} the current planogram fills`}
+              >
+                <p>
+                  <span className="font-mono">{orphanedSlotCodes.join(", ")}</span> would no
+                  longer exist on the machine. Saving is fine; those assignments just stop showing.
+                  Create a new planogram version to clean them up.
+                </p>
+              </Alert>
+            ) : null}
+            <SectionDivider />
+            <Switch
+              title="Save this layout as a template"
+              description="Reuse it the next time you add a machine like this one."
+              isChecked={draft.shouldSaveAsTemplate}
+              onChange={(shouldSaveAsTemplate) => editDraft({ shouldSaveAsTemplate })}
+            />
+            {draft.shouldSaveAsTemplate ? (
+              <Field
+                label="Template name"
+                error={errors.newTemplateName}
+                hint="e.g. AMS 39, 6 shelves"
+              >
+                <TextInput
+                  value={draft.newTemplateName}
+                  onChange={(event) => editDraft({ newTemplateName: event.target.value })}
+                />
+              </Field>
+            ) : null}
+          </FormSection>
+        </form>
+
+        {machineId && savedMachine ? (
+          <DeleteMachineSection machineId={machineId} machineName={savedMachine.name} />
+        ) : null}
+      </Page>
+      <SaveBar
+        isDirty={isDirty}
+        // "All changes saved" would be untrue for a machine that doesn't exist yet.
+        summary={!isEditing && !isDirty ? "Nothing entered yet" : undefined}
+        saveLabel={isEditing ? "Save changes" : "Create machine"}
+        dismissal={isEditing ? "discard" : "cancel"}
+        onDismiss={handleDismiss}
+        formId={FORM_ID}
+        isSaving={create.isPending || update.isPending || createTemplate.isPending}
+      />
+    </>
+  );
+}
+
+/** The reader's provider, then its device ID once there is one. */
+function CardReaderFields({
+  draft,
+  errors,
+  onChange,
+}: {
+  draft: MachineDraft;
+  errors: MachineFieldErrors;
+  onChange: (patch: Partial<MachineDraft>) => void;
+}) {
+  const providerField = (
+    <Field label="Card reader">
+      <Select
+        value={draft.readerProvider}
+        onChange={(event) =>
+          onChange({ readerProvider: event.target.value as ReaderProvider | "" })
+        }
+      >
+        <option value="">None</option>
+        {Object.entries(READER_PROVIDER_LABELS).map(([provider, label]) => (
+          <option key={provider} value={provider}>
+            {label}
+          </option>
+        ))}
+      </Select>
+    </Field>
+  );
+  if (!draft.readerProvider) {
+    return providerField;
+  }
+  return (
+    <FieldRow>
+      {providerField}
+      <Field label="Device ID" error={errors.readerDeviceId}>
+        <TextInput
+          className="font-mono"
+          value={draft.readerDeviceId}
+          onChange={(event) => onChange({ readerDeviceId: event.target.value })}
+        />
+      </Field>
+    </FieldRow>
+  );
+}
+
+/** The server refuses a machine with planogram history and says to make it inactive instead. */
+function DeleteMachineSection({
+  machineId,
+  machineName,
+}: {
+  machineId: string;
+  machineName: string;
+}) {
+  const navigate = useNavigate();
+  const remove = useMutation(
+    trpc.machines.remove.mutationOptions({
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: trpc.machines.list.queryKey() });
+        navigate({ to: "/machines" });
+      },
+    }),
+  );
+  return (
+    <DeleteSection
+      recordKind="machine"
+      recordName={machineName}
+      description="For a machine added by mistake. One with a planogram stays; make it inactive instead."
+      isDeleting={remove.isPending}
+      error={remove.error?.message ?? null}
+      onDelete={() => remove.mutate({ id: machineId })}
+      onDismiss={() => remove.reset()}
+    />
   );
 }

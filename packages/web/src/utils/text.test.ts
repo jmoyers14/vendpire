@@ -1,5 +1,16 @@
 import { describe, expect, test } from "bun:test";
-import { plural } from "./text.ts";
+import { nullIfBlank, plural } from "./text.ts";
+
+describe("nullIfBlank", () => {
+  test("trims text", () => {
+    expect(nullIfBlank("  AMS ")).toBe("AMS");
+  });
+
+  test("blank or whitespace becomes null", () => {
+    expect(nullIfBlank("")).toBeNull();
+    expect(nullIfBlank("   ")).toBeNull();
+  });
+});
 
 describe("plural", () => {
   test("one takes the singular", () => {
