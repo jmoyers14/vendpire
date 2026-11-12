@@ -6,10 +6,10 @@ import type {
   VisitAnomaly,
 } from "@vendpire/domain";
 import {
+  buildProductSales,
   buildUnknownNotes,
   buildVisitPnlGroups,
   describeAnomaly,
-  buildProductSales,
   isActionableAnomaly,
 } from "./pnlRows.ts";
 
@@ -161,7 +161,7 @@ describe("buildUnknownNotes", () => {
         { kind: "unknown-cost", productId: "doritos" },
       ],
     });
-    expect(notes[0]).toContain("Profit unavailable: 2 product(s)");
+    expect(notes[0]).toContain("Profit unavailable: 2 products have");
   });
 
   /**

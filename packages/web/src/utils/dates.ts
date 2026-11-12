@@ -22,6 +22,17 @@ export const formatShortDate = (
   return (isThisYear ? MONTH_DAY : MONTH_DAY_YEAR).format(date);
 };
 
+const TIME = new Intl.DateTimeFormat("en-US", {
+  hour: "numeric",
+  minute: "2-digit",
+});
+
+/** "Oct 29, 8:28 PM": `formatShortDate` plus the time, without seconds. */
+export const formatShortDateTime = (
+  instant: string,
+  { now = new Date() }: { now?: Date } = {},
+): string => `${formatShortDate(instant, { now })}, ${TIME.format(new Date(instant))}`;
+
 const pad2 = (value: number): string => String(value).padStart(2, "0");
 
 /**

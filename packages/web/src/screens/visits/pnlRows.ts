@@ -5,6 +5,7 @@ import {
   type PnlTotals,
   type VisitAnomaly,
 } from "@vendpire/domain";
+import { plural } from "../../utils/text.ts";
 
 /**
  * Regroups a machine's P&L for display — by the visit that CLOSED each
@@ -140,13 +141,13 @@ export const buildUnknownNotes = ({
     notes.push(
       products.size === 0
         ? "Profit unavailable: some sold units have no purchase history."
-        : `Profit unavailable: ${products.size} product(s) have no purchase history. Log the purchase and this fills in by itself.`,
+        : `Profit unavailable: ${plural(products.size, { one: "product has", many: "products have" })} no purchase history. Log the purchase and this fills in by itself.`,
     );
   }
 
   if (totals.unknownRemovalReasonRows > 0) {
     notes.push(
-      `${totals.unknownRemovalReasonRows} removal(s) have no reason recorded, so the write-off total is unavailable: loss and transfer can't be told apart.`,
+      `${plural(totals.unknownRemovalReasonRows, { one: "removal has", many: "removals have" })} no reason recorded, so the write-off total is unavailable: loss and transfer can't be told apart.`,
     );
   }
 
@@ -169,7 +170,7 @@ export const describeAnomaly = (anomaly: VisitAnomaly): string => {
     case "no-baseline":
       return `${anomaly.slotCode}: no earlier visit to compare against, so this interval has no sold figure.`;
     case "product-changed":
-      return `${anomaly.slotCode}: the product changed without the outgoing one being counted out, so ${anomaly.unaccountedUnits} unit(s) are unaccounted for. Record a line with removed = remaining next time and this computes normally.`;
+      return `${anomaly.slotCode}: the product changed without the outgoing one being counted out, so ${plural(anomaly.unaccountedUnits, { one: "unit is", many: "units are" })} unaccounted for. Record a line with removed = remaining next time and this computes normally.`;
     case "slot-not-counted":
       return `${anomaly.slotCode}: absent from the later visit, so no sale was booked. A missing line is not zero.`;
     case "over-par":
@@ -177,7 +178,7 @@ export const describeAnomaly = (anomaly: VisitAnomaly): string => {
     case "over-removed":
       return `${anomaly.slotCode}: ${anomaly.removed} removed but only ${anomaly.remaining} were found.`;
     case "unknown-removal-reason":
-      return `${anomaly.slotCode}: ${anomaly.units} unit(s) removed with no reason, so they count as neither a loss nor a transfer.`;
+      return `${anomaly.slotCode}: ${plural(anomaly.units, { one: "unit", many: "units" })} removed with no reason, so they count as neither a loss nor a transfer.`;
     case "unknown-cost":
       return "A sold product has no purchase history, so its cost is unknown rather than zero.";
   }
