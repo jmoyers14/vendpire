@@ -28,6 +28,7 @@ import {
 import { formatShortDate, formatShortDateTime } from "../../utils/dates.ts";
 import { formatCents, formatSignedCents } from "../../utils/money.ts";
 import { plural } from "../../utils/text.ts";
+import { MachineMetaLine, useLocationName } from "../machines/machineMeta.tsx";
 import {
   buildProductSales,
   buildUnknownNotes,
@@ -84,6 +85,7 @@ export function MachineVisitsScreen({ machineId }: { machineId: string }) {
   const products = useQuery(trpc.products.list.queryOptions());
   const visits = useQuery(trpc.visits.list.queryOptions({ machineId }));
   const pnl = useQuery(trpc.pnl.byMachine.queryOptions({ machineId }));
+  const locationName = useLocationName(machine.data);
 
   const grouping = useMemo(() => {
     if (!visits.data || !pnl.data) {
@@ -139,9 +141,14 @@ export function MachineVisitsScreen({ machineId }: { machineId: string }) {
         }
         title={machine.data?.name ?? "…"}
         meta={
-          visits.data && latestVisit
-            ? `${plural(visits.data.length, { one: "visit", many: "visits" })} · last ${formatShortDate(latestVisit.countedAt)}`
-            : undefined
+          <MachineMetaLine
+            locationName={locationName}
+            details={
+              visits.data && latestVisit
+                ? `${plural(visits.data.length, { one: "visit", many: "visits" })} · last ${formatShortDate(latestVisit.countedAt)}`
+                : undefined
+            }
+          />
         }
         aside={
           <Link

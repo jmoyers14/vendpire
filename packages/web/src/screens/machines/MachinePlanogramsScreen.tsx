@@ -30,6 +30,7 @@ import {
 import { formatShortDateTime } from "../../utils/dates.ts";
 import { centsToInput, parseDollarsToCents } from "../../utils/money.ts";
 import { EditorCard, EditorFooter, SlotEditorHeader } from "../visits/SlotEditor.tsx";
+import { MachineMetaLine, useLocationName } from "./machineMeta.tsx";
 import { ProductCombobox, type ProductOption } from "./ProductCombobox.tsx";
 import {
   buildEditorSlots,
@@ -68,6 +69,7 @@ export function MachinePlanogramsScreen({ machineId }: { machineId: string }) {
   const products = useQuery(trpc.products.list.queryOptions());
   const versions = useQuery(trpc.planograms.listByMachine.queryOptions({ machineId }));
   const previousVisits = useQuery(trpc.visits.list.queryOptions({ machineId, limit: 1 }));
+  const locationName = useLocationName(machine.data);
   const current = versions.data?.[0] ?? null;
   const isLoaded = machine.data !== undefined && versions.data !== undefined;
   const machineName = machine.data?.name ?? "…";
@@ -118,7 +120,7 @@ export function MachinePlanogramsScreen({ machineId }: { machineId: string }) {
     return (
       <PlanogramEditor
         machineId={machineId}
-        header={{ machinesLink, machineName, isNewVersion: Boolean(current) }}
+        header={{ machinesLink, machineName, locationName, isNewVersion: Boolean(current) }}
         shelves={shelves}
         initialRows={editorRows}
         products={products.data ?? []}
@@ -145,9 +147,14 @@ export function MachinePlanogramsScreen({ machineId }: { machineId: string }) {
         eyebrow={<>{machinesLink} / Planogram</>}
         title={machineName}
         meta={
-          current
-            ? `Current since ${formatShortDateTime(current.effectiveFrom)} · ${assignedSummaryFor({ assignedSlots: current.slots, slotCount: slotCodes.length })}`
-            : undefined
+          <MachineMetaLine
+            locationName={locationName}
+            details={
+              current
+                ? `Current since ${formatShortDateTime(current.effectiveFrom)} · ${assignedSummaryFor({ assignedSlots: current.slots, slotCount: slotCodes.length })}`
+                : undefined
+            }
+          />
         }
         aside={
           <Button onClick={startEditing} disabled={!machine.data}>
@@ -299,7 +306,12 @@ function PlanogramEditor({
   onClose,
 }: {
   machineId: string;
-  header: { machinesLink: ReactNode; machineName: string; isNewVersion: boolean };
+  header: {
+    machinesLink: ReactNode;
+    machineName: string;
+    locationName: string | undefined;
+    isNewVersion: boolean;
+  };
   shelves: string[][];
   initialRows: DraftSlot[];
   products: ProductOption[];
@@ -383,7 +395,12 @@ function PlanogramEditor({
             </>
           }
           title={header.machineName}
-          meta="Your changes stay on this device as a draft until you save the new version."
+          meta={
+            <MachineMetaLine
+              locationName={header.locationName}
+              details="Your changes stay on this device as a draft until you save the new version."
+            />
+          }
           aside={
             <Button variant="text" onClick={() => onClose({ keepDraft: true })}>
               Close and keep draft
