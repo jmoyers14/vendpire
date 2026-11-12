@@ -1,191 +1,247 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
+import type { ApiProduct, ApiProductPricing } from "../../apiTypes.ts";
 import {
+  Badge,
   buttonClass,
-  EmptyState,
   ErrorNote,
+  focusRing,
   Page,
-  PageTitle,
+  PageHeader,
+  RowTable,
+  RowTableBody,
+  RowTableEmpty,
+  RowTableHeader,
+  RowTableRow,
   SearchInput,
-  TableScroll,
 } from "../../ui.tsx";
-import type { ApiProductPricing } from "../../apiTypes.ts";
+import { formatShortDate } from "../../utils/dates.ts";
 import { formatCents, formatPercent } from "../../utils/money.ts";
 import { matchesSearch } from "../../utils/textMatch.ts";
-import { queryClient, trpc } from "../../trpc.ts";
-import { buildPricingDisplay } from "./pricing.ts";
+import { trpc } from "../../trpc.ts";
+import { buildPricingDisplay, type PricingDisplay } from "./pricing.ts";
 
+/** Photo · Product · Last paid · Default price · Suggest. */
+const PRODUCT_COLUMNS = "40px minmax(0,1fr) 150px 130px 120px";
+
+/**
+ * The catalog, read for one job: what a unit costs you against what you charge,
+ * so you can set a machine price.
+ */
 export function ProductsScreen() {
-  const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
-  const products = useQuery(trpc.products.list.queryOptions());
-  const pricing = useQuery(trpc.products.pricing.queryOptions());
+  const productsQuery = useQuery(trpc.products.list.queryOptions());
+  const pricingQuery = useQuery(trpc.products.pricing.queryOptions());
 
-  const all = products.data ?? [];
-  // Name, category and UPC — the three things on screen, so what you type
-  // matches what you can see. The list stays in the server's name order;
-  // filtering never reorders it.
-  const rows = all.filter((product) =>
-    matchesSearch(
-      `${product.name} ${product.category} ${product.upc ?? ""}`,
-      query,
-    ),
+  const catalog = productsQuery.data ?? [];
+  // Name, category and UPC: what you'd type to find a product. The list stays
+  // in the server's name order; filtering never reorders it.
+  const matches = catalog.filter((product) =>
+    matchesSearch(`${product.name} ${product.category} ${product.upc ?? ""}`, query),
   );
-
   const pricingByProduct = new Map(
-    (pricing.data ?? []).map((row) => [row.productId, row]),
+    (pricingQuery.data ?? []).map((pricing) => [pricing.productId, pricing]),
   );
-
-  const remove = useMutation(
-    trpc.products.remove.mutationOptions({
-      onSuccess: () => {
-        queryClient.invalidateQueries({
-          queryKey: trpc.products.list.queryKey(),
-        });
-        setError(null);
-      },
-      onError: (e) => setError(e.message),
-    }),
-  );
+  const emptyMessage =
+    catalog.length > 0
+      ? `No products match “${query}”.`
+      : "No products yet. Add one to start cataloging what you sell.";
 
   return (
-    <Page max="4xl" className="space-y-4">
-      <div className="flex items-center justify-between">
-        <PageTitle>
-          Products
-        </PageTitle>
-        <Link
-          to="/products/new"
-          className={buttonClass({ size: "sm" })}
-        >
-          Add Product
-        </Link>
-      </div>
+    <Page max="wide" className="grid gap-6">
+      <PageHeader
+        title="Products"
+        meta={
+          productsQuery.isLoading
+            ? undefined
+            : "What each unit costs you, against the price you charge."
+        }
+        aside={
+          <Link to="/products/new" className={buttonClass()}>
+            Add product
+          </Link>
+        }
+      />
 
-      <ErrorNote message={error} />
+      <ErrorNote message={productsQuery.error?.message ?? null} />
+      <ErrorNote
+        message={pricingQuery.error ? `Couldn't load costs: ${pricingQuery.error.message}` : null}
+      />
 
-      {all.length > 0 ? (
-        <div className="w-full sm:max-w-xs">
+      {catalog.length > 0 ? (
+        <div className="w-full sm:max-w-sm">
           <SearchInput
             value={query}
             onChange={setQuery}
-            placeholder="Search products"
+            placeholder="Search by name, category or UPC"
           />
         </div>
       ) : null}
 
-      {products.isLoading ? (
-        <p className="text-gray-400">Loading…</p>
-      ) : rows.length > 0 ? (
-        <TableScroll>
-          <table className="w-full min-w-[52rem] border-collapse text-sm">
-            <thead>
-              <tr className="border-b border-gray-200 bg-gray-50 text-left text-gray-600">
-                <th className="w-12 px-4 py-2" />
-                <th className="px-4 py-2 font-medium">Name</th>
-                <th className="px-4 py-2 font-medium">Category</th>
-                <th className="px-4 py-2 font-medium">Cost</th>
-                <th className="px-4 py-2 font-medium">Price</th>
-                <th className="px-4 py-2 font-medium">Margin</th>
-                <th className="px-4 py-2 font-medium">Suggest</th>
-                <th className="px-4 py-2 font-medium">UPC</th>
-                <th className="px-4 py-2" />
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((product) => (
-                <tr key={product.id} className="border-b border-gray-100">
-                  <td className="px-2 py-1">
-                    {product.imageUrl ? (
-                      <img
-                        src={product.imageUrl}
-                        alt=""
-                        className="h-9 w-9 rounded object-contain"
-                      />
-                    ) : (
-                      <div className="h-9 w-9 rounded bg-gray-100" />
-                    )}
-                  </td>
-                  <td className="px-4 py-2 font-medium text-gray-800">
-                    {product.name}
-                  </td>
-                  <td className="px-4 py-2 text-gray-600">{product.category}</td>
-                  <PricingCells
-                    pricing={pricingByProduct.get(product.id)}
-                    priceCents={product.defaultPriceCents}
-                  />
-                  <td className="px-4 py-2 font-mono text-gray-600">
-                    {product.upc ?? "—"}
-                  </td>
-                  <td className="space-x-3 px-4 py-2 text-right">
-                    <Link
-                      to="/products/$productId/edit"
-                      params={{ productId: product.id }}
-                      className="text-primary-600 hover:text-primary-500"
-                    >
-                      Edit
-                    </Link>
-                    <button
-                      type="button"
-                      onClick={() => remove.mutate({ id: product.id })}
-                      className="text-gray-400 hover:text-red-600"
-                    >
-                      Delete
-                    </button>
-                  </td>
-                </tr>
+      {productsQuery.isLoading ? (
+        <p className="text-body text-muted-strong">Loading…</p>
+      ) : null}
+      {productsQuery.isSuccess ? (
+        <RowTable
+          columns={PRODUCT_COLUMNS}
+          minWidth="640px"
+          // The boxed table draws the border; this adds the card's fill and shadow behind it.
+          className="rounded-panel bg-card shadow-card"
+        >
+          <RowTableHeader>
+            <span />
+            <span>Product</span>
+            <span className="text-right">Last paid</span>
+            <span className="text-right">Default price</span>
+            <span>Suggest</span>
+          </RowTableHeader>
+          {matches.length > 0 ? (
+            <RowTableBody>
+              {matches.map((product) => (
+                <ProductRow
+                  key={product.id}
+                  product={product}
+                  pricing={pricingByProduct.get(product.id)}
+                  isPricingLoading={pricingQuery.isLoading}
+                />
               ))}
-            </tbody>
-          </table>
-        </TableScroll>
-      ) : all.length > 0 ? (
-        <EmptyState>No products match “{query}”.</EmptyState>
-      ) : (
-        <EmptyState>
-          No products yet. Click{" "}
-          <span className="font-medium">Add Product</span> to catalog what you
-          sell.
-        </EmptyState>
-      )}
+            </RowTableBody>
+          ) : (
+            <RowTableEmpty>{emptyMessage}</RowTableEmpty>
+          )}
+        </RowTable>
+      ) : null}
     </Page>
   );
 }
 
 /**
- * The Cost, Price, Margin and Suggest cells, in that order — the four `<th>`s
- * in this screen's thead are their counterpart. A product with no purchase
- * history shows dashes; there is nothing to say about it.
+ * One product. The name links to its edit page. Margin and the suggestion are
+ * worked out from the last price paid.
  */
-function PricingCells({
+function ProductRow({
+  product,
   pricing,
-  priceCents,
+  isPricingLoading,
 }: {
+  product: ApiProduct;
   pricing: ApiProductPricing | undefined;
-  priceCents: number;
+  isPricingLoading: boolean;
 }) {
-  const display = pricing ? buildPricingDisplay(pricing, priceCents) : null;
-  const margin = display?.marginFraction ?? null;
-  const suggestion = display?.suggestedPriceCents ?? null;
-  const cell = "px-4 py-2 text-gray-600";
+  const pricingDisplay = pricing ? buildPricingDisplay(pricing, product.defaultPriceCents) : null;
+  // A $0 price is never "under target" by the markup rule, but it needs a price most of all.
+  const shouldSuggest =
+    pricingDisplay !== null &&
+    pricingDisplay.suggestedPriceCents !== null &&
+    (pricingDisplay.isUnderTarget || product.defaultPriceCents === 0);
 
   return (
-    <>
-      <td className={cell}>
-        {display ? formatCents(display.unitCostCents) : "—"}
-      </td>
-      <td className={cell}>{formatCents(priceCents)}</td>
-      <td className={cell}>{margin !== null ? formatPercent(margin) : "—"}</td>
-      <td className={cell}>
-        {suggestion !== null ? (
-          <span className={display?.isUnderTarget ? "text-amber-700" : undefined}>
-            {formatCents(suggestion)}
-            {display?.isUnderTarget ? " ⚠" : null}
-          </span>
-        ) : (
-          "—"
-        )}
-      </td>
-    </>
+    <RowTableRow>
+      {product.imageUrl ? (
+        <img src={product.imageUrl} alt="" className="size-10 rounded-control object-contain" />
+      ) : (
+        <span aria-hidden className="size-10 rounded-control bg-divider" />
+      )}
+      <div className="min-w-0">
+        <Link
+          to="/products/$productId/edit"
+          params={{ productId: product.id }}
+          className={`rounded-sm text-label text-ink hover:text-link hover:underline ${focusRing}`}
+        >
+          {product.name}
+        </Link>
+        <p className="flex flex-wrap items-center gap-2 text-body-sm text-muted-strong">
+          {product.category}
+          {product.active ? null : (
+            <Badge size="sm" tone="neutral">
+              Inactive
+            </Badge>
+          )}
+        </p>
+      </div>
+      <LastPaidCell
+        pricing={pricing}
+        unitCostCents={pricingDisplay?.unitCostCents ?? null}
+        isLoading={isPricingLoading}
+      />
+      <PriceCell priceCents={product.defaultPriceCents} pricingDisplay={pricingDisplay} />
+      <div>
+        {shouldSuggest && pricingDisplay?.suggestedPriceCents ? (
+          <Badge size="sm" tone="warning">
+            <span className="sr-only">Suggested price: </span>
+            Try&nbsp;
+            <span className="font-mono tabular-nums">
+              {formatCents(pricingDisplay.suggestedPriceCents)}
+            </span>
+          </Badge>
+        ) : null}
+      </div>
+    </RowTableRow>
+  );
+}
+
+/** The header is visual only, so each cell names itself for screen readers. */
+const CellLabel = ({ children }: { children: string }) => (
+  <span className="sr-only">{children}: </span>
+);
+
+/** What one unit cost on the latest purchase, and where and when. */
+function LastPaidCell({
+  pricing,
+  unitCostCents,
+  isLoading,
+}: {
+  pricing: ApiProductPricing | undefined;
+  unitCostCents: number | null;
+  isLoading: boolean;
+}) {
+  if (!pricing || unitCostCents === null) {
+    return (
+      <div className="text-right">
+        <p className="font-mono text-mono tabular-nums text-muted">
+          <CellLabel>Last paid</CellLabel>—
+        </p>
+        {/* Saying "not bought yet" before the costs arrive would be wrong for most rows. */}
+        {isLoading ? null : <p className="text-body-sm text-muted-strong">Not bought yet</p>}
+      </div>
+    );
+  }
+  return (
+    <div className="text-right">
+      <p className="font-mono text-mono tabular-nums text-ink">
+        <CellLabel>Last paid</CellLabel>
+        {formatCents(unitCostCents)}
+      </p>
+      <p className="text-body-sm text-muted-strong">
+        {pricing.vendor} · {formatShortDate(pricing.purchasedAt)}
+      </p>
+    </div>
+  );
+}
+
+/** The default price, and the margin it makes over the last price paid. */
+function PriceCell({
+  priceCents,
+  pricingDisplay,
+}: {
+  priceCents: number;
+  pricingDisplay: PricingDisplay | null;
+}) {
+  const marginFraction = pricingDisplay?.marginFraction ?? null;
+  return (
+    <div className="text-right">
+      <p className="font-mono text-mono tabular-nums text-ink">
+        <CellLabel>Default price</CellLabel>
+        {formatCents(priceCents)}
+      </p>
+      {marginFraction !== null ? (
+        <p
+          className={`text-body-sm font-bold ${pricingDisplay?.isUnderTarget ? "text-warning" : "text-profit"}`}
+        >
+          <span className="font-mono tabular-nums">{formatPercent(marginFraction)}</span> margin
+        </p>
+      ) : null}
+    </div>
   );
 }

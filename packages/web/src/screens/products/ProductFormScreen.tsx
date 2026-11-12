@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { type FormEvent, useEffect, useId, useState } from "react";
+import { type FormEvent, useEffect, useId, useRef, useState } from "react";
 import type { ApiProductPricing } from "../../apiTypes.ts";
 import {
   Badge,
@@ -304,6 +304,10 @@ export function ProductFormScreen({ productId }: { productId?: string }) {
             />
           </FormSection>
         </form>
+
+        {productId && existing.data ? (
+          <DeleteProductSection productId={productId} productName={existing.data.name} />
+        ) : null}
       </Page>
       <SaveBar
         isDirty={isDirty}
@@ -323,6 +327,81 @@ export function ProductFormScreen({ productId }: { productId?: string }) {
         isSaving={create.isPending || update.isPending}
       />
     </>
+  );
+}
+
+/**
+ * Deleting asks twice: the button sits on the same page as Save. The server
+ * refuses a product still in a pack or a machine, and says why.
+ */
+function DeleteProductSection({
+  productId,
+  productName,
+}: {
+  productId: string;
+  productName: string;
+}) {
+  const navigate = useNavigate();
+  const [isConfirming, setIsConfirming] = useState(false);
+  const controlsRef = useRef<HTMLDivElement>(null);
+  const hasToggledRef = useRef(false);
+  // The button pressed is swapped out, so focus moves to the last new one: "Keep it"
+  // when asking, so a second Enter can't delete.
+  useEffect(() => {
+    if (!hasToggledRef.current) {
+      return;
+    }
+    const buttons = controlsRef.current?.querySelectorAll("button");
+    buttons?.[buttons.length - 1]?.focus();
+  }, [isConfirming]);
+  const toggleConfirming = (next: boolean) => {
+    hasToggledRef.current = true;
+    setIsConfirming(next);
+  };
+  const remove = useMutation(
+    trpc.products.remove.mutationOptions({
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: trpc.products.list.queryKey() });
+        navigate({ to: "/products" });
+      },
+    }),
+  );
+
+  return (
+    <FormSection title="Delete" description="Remove this product from your catalog.">
+      {isConfirming ? (
+        <div className="grid gap-4">
+          <p className="text-body text-ink">
+            Delete <strong>{productName}</strong>? This can't be undone.
+          </p>
+          <div ref={controlsRef} className="flex flex-wrap gap-2">
+            <Button
+              variant="danger"
+              onClick={() => remove.mutate({ id: productId })}
+              disabled={remove.isPending}
+            >
+              {remove.isPending ? "Deleting…" : "Delete product"}
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                toggleConfirming(false);
+                remove.reset();
+              }}
+            >
+              Keep it
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div ref={controlsRef}>
+          <Button variant="danger" onClick={() => toggleConfirming(true)}>
+            Delete product…
+          </Button>
+        </div>
+      )}
+      <ErrorNote message={remove.error?.message ?? null} />
+    </FormSection>
   );
 }
 
