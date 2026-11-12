@@ -482,7 +482,7 @@ export function PurchaseFormScreen({ purchaseId }: { purchaseId?: string }) {
         ) : null}
 
         {purchaseId && savedPurchase ? (
-          <DeletePurchaseSection purchaseId={purchaseId} purchaseName={title} />
+          <DeletePurchaseSection purchaseId={purchaseId} purchaseTitle={title} />
         ) : null}
       </Page>
       <SaveBar
@@ -505,13 +505,14 @@ export function PurchaseFormScreen({ purchaseId }: { purchaseId?: string }) {
   );
 }
 
-/** Every visit's cost of goods since is worked out again without it. */
+/** Deleting a purchase changes the cost of goods behind every visit since. */
 function DeletePurchaseSection({
   purchaseId,
-  purchaseName,
+  purchaseTitle,
 }: {
   purchaseId: string;
-  purchaseName: string;
+  /** "Costco · Nov 3". */
+  purchaseTitle: string;
 }) {
   const navigate = useNavigate();
   const remove = useMutation(
@@ -526,7 +527,7 @@ function DeletePurchaseSection({
   return (
     <DeleteSection
       recordKind="purchase"
-      recordName={purchaseName}
+      recordName={purchaseTitle}
       description="Its items come out of your costs, so profit on every visit since is worked out again without them."
       isDeleting={remove.isPending}
       error={remove.error?.message ?? null}

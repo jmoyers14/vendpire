@@ -1,13 +1,13 @@
 import { describe, expect, test } from "bun:test";
-import { isReceiptMismatch, linesTotalFor, spentCentsFor } from "./purchaseTotals.ts";
+import { isReceiptMismatch, linesTotalCentsFor, spentCentsFor } from "./purchaseTotals.ts";
 
 const purchase = (lineCents: number[], receiptTotalCents: number | null = null) => ({
   lines: lineCents.map((totalCostCents) => ({ totalCostCents })),
   receiptTotalCents,
 });
 
-test("linesTotalFor adds the lines", () => {
-  expect(linesTotalFor(purchase([1299, 501]))).toBe(1800);
+test("linesTotalCentsFor adds the lines", () => {
+  expect(linesTotalCentsFor(purchase([1299, 501]))).toBe(1800);
 });
 
 describe("isReceiptMismatch", () => {

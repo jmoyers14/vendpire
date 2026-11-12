@@ -33,7 +33,7 @@ import {
   presetRange,
   startOfLocalDayIso,
 } from "./dateRange.ts";
-import { isReceiptMismatch, linesTotalFor, spentCentsFor } from "./purchaseTotals.ts";
+import { isReceiptMismatch, linesTotalCentsFor, spentCentsFor } from "./purchaseTotals.ts";
 
 const PRESETS: ChipOption<PresetId>[] = [
   { value: "month", label: "This month" },
@@ -96,7 +96,13 @@ export function PurchasesScreen() {
       />
 
       <Card className="grid gap-4 border border-line p-5">
-        <ChipGroup label="Date range" options={PRESETS} value={preset} onChange={setPreset} />
+        <ChipGroup
+          label="Date range"
+          isLabelVisible
+          options={PRESETS}
+          value={preset}
+          onChange={setPreset}
+        />
         {preset === "custom" ? (
           <div className="flex flex-wrap items-end gap-4">
             <Field label="From" className="w-44">
@@ -185,7 +191,7 @@ function SpendSummary({
   purchases: readonly ApiPurchase[];
   hasMore: boolean;
 }) {
-  const count = plural(purchases.length, { one: "purchase", many: "purchases" });
+  const countLabel = plural(purchases.length, { one: "purchase", many: "purchases" });
   return (
     <section aria-label="Spent" className="grid gap-1">
       <p className="text-overline text-muted-strong uppercase">Spent</p>
@@ -194,16 +200,16 @@ function SpendSummary({
       </p>
       <p className="text-body-sm text-muted-strong">
         {hasMore
-          ? `Across the first ${count} only. Load more below to include the rest.`
-          : `Across ${count}.`}
+          ? `Across the first ${countLabel} only. Load more below to include the rest.`
+          : `Across ${countLabel}.`}
       </p>
     </section>
   );
 }
 
-/** One purchase. The vendor links to its edit page, where it can also be deleted. */
+/** The vendor links to the edit page, which is also where a purchase is deleted. */
 function PurchaseRow({ purchase }: { purchase: ApiPurchase }) {
-  const linesTotal = linesTotalFor(purchase);
+  const linesTotalCents = linesTotalCentsFor(purchase);
   return (
     // On a phone: vendor and total on top, date and item count under them.
     <RowTableRow className="max-sm:grid-cols-[minmax(0,1fr)_auto] max-sm:gap-y-1">
@@ -223,9 +229,9 @@ function PurchaseRow({ purchase }: { purchase: ApiPurchase }) {
         {plural(purchase.lines.length, { one: "item", many: "items" })}
       </span>
       <span className="flex items-center justify-end gap-2 max-sm:order-2">
-        {purchase.receiptTotalCents !== null && isReceiptMismatch(purchase) ? (
+        {isReceiptMismatch(purchase) ? (
           <span
-            title={`The items add up to ${formatCents(linesTotal)}, but the receipt says ${formatCents(purchase.receiptTotalCents)}`}
+            title={`The items add up to ${formatCents(linesTotalCents)}, but the receipt says ${formatCents(purchase.receiptTotalCents)}`}
           >
             <Badge tone="warning" size="sm">
               ≠ receipt
@@ -237,7 +243,7 @@ function PurchaseRow({ purchase }: { purchase: ApiPurchase }) {
         ) : null}
         <span className="font-mono text-mono text-ink tabular-nums">
           <RowTableCellLabel>Total</RowTableCellLabel>
-          {formatCents(linesTotal)}
+          {formatCents(linesTotalCents)}
         </span>
       </span>
     </RowTableRow>
