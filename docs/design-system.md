@@ -250,7 +250,7 @@ All live in `packages/web/src/ui/`, are exported from `ui.tsx`, and render in ev
 | Component | Use |
 |---|---|
 | `PageHeader` | Eyebrow breadcrumb, H1 (the record's name on edit/detail pages), badge + meta row, a right-hand link that names its destination. Use `eyebrowLinkClass` / `pageLinkClass` on the links. |
-| `FormSection`, `FieldRow`, `SectionDivider` | 260px title + description column beside a card of fields; sections divided by a rule. `FieldRow` puts two fields side by side. |
+| `FormSection`, `FieldRow`, `SectionDivider` | 260px title + description column beside a card of fields; sections divided by a rule. `layout="stacked"` puts the title above a full-width card, for forms whose tables need the room (Log Purchase). `FieldRow` puts two fields side by side. |
 | `Field` + `TextInput` / `Select` / `TextArea` | Visible label, optional "optional" marker, hint and error. The control picks up its id and `aria-describedby` from the Field. |
 | `NumberInput`, `MoneyInput` | Mono, tabular, `inputMode` set, password managers kept out. Sizes `sm` (table row), `md` (form), `lg` (count at the machine); optional prefix and suffix. Values stay strings. |
 | `Button`, `IconButton` | See Buttons above. |

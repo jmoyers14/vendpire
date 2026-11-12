@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { formatShortDate } from "./dates.ts";
+import { dateInputFor, formatShortDate, middayInstantFor } from "./dates.ts";
 
 // Built from local-time parts so the assertions hold in any time zone.
 const localNoon = (year: number, monthIndex: number, day: number) =>
@@ -14,5 +14,22 @@ describe("formatShortDate", () => {
 
   test("a date in another year keeps it", () => {
     expect(formatShortDate(localNoon(2025, 11, 30), { now })).toBe("Dec 30, 2025");
+  });
+});
+
+describe("dateInputFor", () => {
+  test("is the local calendar day, even late in the evening", () => {
+    expect(dateInputFor(new Date(2026, 10, 11, 23, 30))).toBe("2026-11-11");
+    expect(dateInputFor(new Date(2026, 0, 5, 0, 15))).toBe("2026-01-05");
+  });
+
+  test("reads a stored instant back as the day that was picked", () => {
+    expect(dateInputFor(middayInstantFor("2026-11-11"))).toBe("2026-11-11");
+  });
+});
+
+describe("middayInstantFor", () => {
+  test("stores the picked day at local noon, as UTC", () => {
+    expect(middayInstantFor("2026-11-11")).toBe(new Date(2026, 10, 11, 12).toISOString());
   });
 });

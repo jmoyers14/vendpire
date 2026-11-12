@@ -10,8 +10,13 @@ export const useFormDraft = <T extends object>(initial: T) => {
   const [saved, setSaved] = useState(initial);
   const [draft, setDraft] = useState(initial);
 
+  // A function patch reads the latest draft, for updates that land after an await.
   const set = useCallback(
-    (patch: Partial<T>) => setDraft((current) => ({ ...current, ...patch })),
+    (patch: Partial<T> | ((current: T) => Partial<T>)) =>
+      setDraft((current) => ({
+        ...current,
+        ...(typeof patch === "function" ? patch(current) : patch),
+      })),
     [],
   );
   const load = useCallback((next: T) => {

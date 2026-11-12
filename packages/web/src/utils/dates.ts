@@ -21,3 +21,22 @@ export const formatShortDate = (
   const isThisYear = date.getFullYear() === now.getFullYear();
   return (isThisYear ? MONTH_DAY : MONTH_DAY_YEAR).format(date);
 };
+
+const pad2 = (value: number): string => String(value).padStart(2, "0");
+
+/**
+ * The `YYYY-MM-DD` an <input type="date"> shows for an instant, on the
+ * browser's calendar. Not `toISOString().slice(0, 10)`: that's the UTC day,
+ * which is already tomorrow on a US evening.
+ */
+export const dateInputFor = (instant: Date | string): string => {
+  const date = new Date(instant);
+  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
+};
+
+/**
+ * The instant to store for a picked calendar day: local noon, so the day
+ * survives the trip through UTC in any zone within 12 hours of it.
+ */
+export const middayInstantFor = (dateInput: string): string =>
+  new Date(`${dateInput}T12:00:00`).toISOString();
