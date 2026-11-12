@@ -1,40 +1,52 @@
-import { useInfiniteQuery, useMutation } from "@tanstack/react-query";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
+import type { ApiPurchase } from "../../apiTypes.ts";
+import { trpc } from "../../trpc.ts";
 import {
+  Badge,
   Button,
   buttonClass,
-  EmptyState,
+  Card,
+  ChipGroup,
+  type ChipOption,
   ErrorNote,
-  inputClass,
-  labelClass,
+  Field,
+  focusRing,
   LoadMore,
   Page,
-  PageTitle,
-  TableScroll,
+  PageHeader,
+  RowTable,
+  RowTableBody,
+  RowTableCellLabel,
+  RowTableEmpty,
+  RowTableHeader,
+  RowTableRow,
+  TextInput,
 } from "../../ui.tsx";
+import { formatShortDate } from "../../utils/dates.ts";
 import { formatCents } from "../../utils/money.ts";
-import { queryClient, trpc } from "../../trpc.ts";
+import { plural } from "../../utils/text.ts";
 import {
   endOfLocalDayIso,
   type PresetId,
   presetRange,
   startOfLocalDayIso,
 } from "./dateRange.ts";
+import { isReceiptMismatch, linesTotalCentsFor, spentCentsFor } from "./purchaseTotals.ts";
 
-const lineTotal = (lines: { totalCostCents: number }[]): number =>
-  lines.reduce((sum, line) => sum + line.totalCostCents, 0);
-
-const PRESETS: { id: PresetId; label: string }[] = [
-  { id: "month", label: "This month" },
-  { id: "90d", label: "Last 90 days" },
-  { id: "year", label: "This year" },
-  { id: "all", label: "All time" },
-  { id: "custom", label: "Custom…" },
+const PRESETS: ChipOption<PresetId>[] = [
+  { value: "month", label: "This month" },
+  { value: "90d", label: "Last 90 days" },
+  { value: "year", label: "This year" },
+  { value: "all", label: "All time" },
+  { value: "custom", label: "Custom" },
 ];
 
+/** Date · Vendor · Items · Total. */
+const PURCHASE_COLUMNS = "112px minmax(0,1fr) 88px 168px";
+
 export function PurchasesScreen() {
-  const [error, setError] = useState<string | null>(null);
   // Defaults to the whole history: a filter that hides rows by default is a
   // filter you forget is on.
   const [preset, setPreset] = useState<PresetId>("all");
@@ -69,178 +81,171 @@ export function PurchasesScreen() {
   // before keying — so a new filter is a new infinite query that starts at
   // page one. No manual reset, and no stale pages from the previous filter.
   const rows = purchases.data?.pages.flatMap((page) => page.items) ?? [];
-
-  const remove = useMutation(
-    trpc.purchases.remove.mutationOptions({
-      onSuccess: () => {
-        // pathKey(), not queryKey(): the list is stored under an INFINITE key
-        // now, and queryKey() would no longer match it — silently, with no
-        // type error.
-        queryClient.invalidateQueries({
-          queryKey: trpc.purchases.list.pathKey(),
-        });
-        setError(null);
-      },
-      onError: (e) => setError(e.message),
-    }),
-  );
-
-  const filtered = range.from !== null || range.to !== null;
-  // Keyed off the preset rather than the resolved range, so picking Custom
-  // before typing a date can't hide the control you'd use to get back.
-  const showFilters = rows.length > 0 || preset !== "all";
+  const isFiltered = range.from !== null || range.to !== null;
 
   return (
-    <Page max="4xl" className="space-y-4">
-      <div className="flex items-center justify-between">
-        <PageTitle>
-          Purchases
-        </PageTitle>
-        <Link
-          to="/purchases/new"
-          className={buttonClass({ size: "sm" })}
-        >
-          Log Purchase
-        </Link>
-      </div>
+    <Page max="wide" className="grid gap-6">
+      <PageHeader
+        title="Purchases"
+        meta="Every stock-buying run. What you paid sets the cost of goods behind each machine's profit."
+        aside={
+          <Link to="/purchases/new" className={buttonClass()}>
+            Log purchase
+          </Link>
+        }
+      />
 
-      <ErrorNote message={error} />
-
-      {showFilters ? (
-        <div className="space-y-3">
-          <div className="flex flex-wrap gap-2">
-            {PRESETS.map(({ id, label }) => (
-              <button
-                key={id}
-                type="button"
-                onClick={() => setPreset(id)}
-                aria-pressed={preset === id}
-                className={buttonClass({
-                  size: "sm",
-                  // Outline for the inactive siblings: they're equally valid
-                  // choices, so only the current one carries a fill.
-                  variant: preset === id ? "primary" : "secondary",
-                })}
+      <Card className="grid gap-4 border border-line p-5">
+        <ChipGroup
+          label="Date range"
+          isLabelVisible
+          options={PRESETS}
+          value={preset}
+          onChange={setPreset}
+        />
+        {preset === "custom" ? (
+          <div className="flex flex-wrap items-end gap-4">
+            <Field label="From" className="w-44">
+              <TextInput
+                type="date"
+                value={customFrom}
+                max={customTo || undefined}
+                onChange={(event) => setCustomFrom(event.target.value)}
+              />
+            </Field>
+            <Field label="To" className="w-44">
+              <TextInput
+                type="date"
+                value={customTo}
+                min={customFrom || undefined}
+                onChange={(event) => setCustomTo(event.target.value)}
+              />
+            </Field>
+            {customFrom || customTo ? (
+              <Button
+                variant="text"
+                className="mb-1"
+                onClick={() => {
+                  setCustomFrom("");
+                  setCustomTo("");
+                }}
               >
-                {label}
-              </button>
-            ))}
+                Clear dates
+              </Button>
+            ) : null}
           </div>
+        ) : null}
+      </Card>
 
-          {preset === "custom" ? (
-            <div className="flex flex-wrap items-end gap-3">
-              <label className="flex w-40 flex-col gap-1">
-                <span className={labelClass}>From</span>
-                <input
-                  type="date"
-                  className={inputClass}
-                  value={customFrom}
-                  max={customTo || undefined}
-                  onChange={(event) => setCustomFrom(event.target.value)}
-                />
-              </label>
-              <label className="flex w-40 flex-col gap-1">
-                <span className={labelClass}>To</span>
-                <input
-                  type="date"
-                  className={inputClass}
-                  value={customTo}
-                  min={customFrom || undefined}
-                  onChange={(event) => setCustomTo(event.target.value)}
-                />
-              </label>
-              {customFrom || customTo ? (
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => {
-                    setCustomFrom("");
-                    setCustomTo("");
-                  }}
-                >
-                  Clear
-                </Button>
-              ) : null}
-            </div>
-          ) : null}
-        </div>
-      ) : null}
+      <ErrorNote message={purchases.error?.message ?? null} />
 
-      {purchases.isLoading ? (
-        <p className="text-gray-400">Loading…</p>
-      ) : rows.length > 0 ? (
+      {purchases.isLoading ? <p className="text-body text-muted-strong">Loading…</p> : null}
+
+      {purchases.isSuccess ? (
         <>
-          <TableScroll>
-            <table className="w-full min-w-[36rem] border-collapse text-sm">
-              <thead>
-                <tr className="border-b border-gray-200 bg-gray-50 text-left text-gray-600">
-                  <th className="px-4 py-2 font-medium">Date</th>
-                  <th className="px-4 py-2 font-medium">Vendor</th>
-                  <th className="px-4 py-2 font-medium">Items</th>
-                  <th className="px-4 py-2 font-medium">Total</th>
-                  <th className="px-4 py-2" />
-                </tr>
-              </thead>
-              <tbody>
+          {rows.length > 0 ? (
+            <SpendSummary purchases={rows} hasMore={purchases.hasNextPage} />
+          ) : null}
+
+          <RowTable columns={PURCHASE_COLUMNS} className="rounded-panel bg-card shadow-card">
+            <RowTableHeader className="max-sm:hidden">
+              <span>Date</span>
+              <span>Vendor</span>
+              <span className="text-right">Items</span>
+              <span className="text-right">Total</span>
+            </RowTableHeader>
+            {rows.length > 0 ? (
+              <RowTableBody>
                 {rows.map((purchase) => (
-                  <tr key={purchase.id} className="border-b border-gray-100">
-                    <td className="px-4 py-2 text-gray-800">
-                      {new Date(purchase.purchasedAt).toLocaleDateString()}
-                    </td>
-                    <td className="px-4 py-2 font-medium text-gray-800">
-                      {purchase.vendor}
-                    </td>
-                    <td className="px-4 py-2 text-gray-600">
-                      {purchase.lines.length} line(s)
-                    </td>
-                    <td className="px-4 py-2 text-gray-600">
-                      {formatCents(lineTotal(purchase.lines))}
-                      {purchase.receiptTotalCents !== null &&
-                      purchase.receiptTotalCents !== lineTotal(purchase.lines) ? (
-                        <span
-                          className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-800"
-                          title={`Receipt says ${formatCents(purchase.receiptTotalCents)}`}
-                        >
-                          ≠ receipt
-                        </span>
-                      ) : null}
-                    </td>
-                    <td className="space-x-3 px-4 py-2 text-right">
-                      <Link
-                        to="/purchases/$purchaseId/edit"
-                        params={{ purchaseId: purchase.id }}
-                        className="text-primary-600 hover:text-primary-500"
-                      >
-                        Edit
-                      </Link>
-                      <button
-                        type="button"
-                        onClick={() => remove.mutate({ id: purchase.id })}
-                        className="text-gray-400 hover:text-red-600"
-                      >
-                        Delete
-                      </button>
-                    </td>
-                  </tr>
+                  <PurchaseRow key={purchase.id} purchase={purchase} />
                 ))}
-              </tbody>
-            </table>
-          </TableScroll>
+              </RowTableBody>
+            ) : (
+              <RowTableEmpty>
+                {isFiltered
+                  ? "No purchases in that date range."
+                  : "No purchases yet. Log one after your next Costco run."}
+              </RowTableEmpty>
+            )}
+          </RowTable>
+
           <LoadMore
             hasMore={purchases.hasNextPage}
             loading={purchases.isFetchingNextPage}
             onClick={() => void purchases.fetchNextPage()}
           />
         </>
-      ) : filtered ? (
-        <EmptyState>No purchases in that date range.</EmptyState>
-      ) : (
-        <EmptyState>
-          No purchases yet. Click{" "}
-          <span className="font-medium">Log Purchase</span> after your next
-          Costco run.
-        </EmptyState>
-      )}
+      ) : null}
     </Page>
+  );
+}
+
+/**
+ * What the listed purchases add up to. The list arrives a page at a time, so
+ * while more pages remain the figure covers only the ones loaded, and says so.
+ */
+function SpendSummary({
+  purchases,
+  hasMore,
+}: {
+  purchases: readonly ApiPurchase[];
+  hasMore: boolean;
+}) {
+  const countLabel = plural(purchases.length, { one: "purchase", many: "purchases" });
+  return (
+    <section aria-label="Spent" className="grid gap-1">
+      <p className="text-overline text-muted-strong uppercase">Spent</p>
+      <p className="font-display text-stat text-ink tabular-nums">
+        {formatCents(spentCentsFor(purchases))}
+      </p>
+      <p className="text-body-sm text-muted-strong">
+        {hasMore
+          ? `Across the first ${countLabel} only. Load more below to include the rest.`
+          : `Across ${countLabel}.`}
+      </p>
+    </section>
+  );
+}
+
+/** The vendor links to the edit page, which is also where a purchase is deleted. */
+function PurchaseRow({ purchase }: { purchase: ApiPurchase }) {
+  const linesTotalCents = linesTotalCentsFor(purchase);
+  return (
+    // On a phone: vendor and total on top, date and item count under them.
+    <RowTableRow className="max-sm:grid-cols-[minmax(0,1fr)_auto] max-sm:gap-y-1">
+      <span className="text-body-sm text-ink max-sm:order-3 max-sm:text-muted-strong">
+        <RowTableCellLabel>Date</RowTableCellLabel>
+        {formatShortDate(purchase.purchasedAt)}
+      </span>
+      <Link
+        to="/purchases/$purchaseId/edit"
+        params={{ purchaseId: purchase.id }}
+        className={`min-w-0 justify-self-start truncate rounded-sm text-label text-ink hover:text-link hover:underline max-sm:order-1 ${focusRing}`}
+      >
+        {purchase.vendor}
+      </Link>
+      <span className="text-right text-body-sm text-ink-soft tabular-nums max-sm:order-4 max-sm:text-muted-strong">
+        <RowTableCellLabel>Items</RowTableCellLabel>
+        {plural(purchase.lines.length, { one: "item", many: "items" })}
+      </span>
+      <span className="flex items-center justify-end gap-2 max-sm:order-2">
+        {isReceiptMismatch(purchase) ? (
+          <span
+            title={`The items add up to ${formatCents(linesTotalCents)}, but the receipt says ${formatCents(purchase.receiptTotalCents)}`}
+          >
+            <Badge tone="warning" size="sm">
+              ≠ receipt
+            </Badge>
+            <span className="sr-only">
+              : the receipt says {formatCents(purchase.receiptTotalCents)}
+            </span>
+          </span>
+        ) : null}
+        <span className="font-mono text-mono text-ink tabular-nums">
+          <RowTableCellLabel>Total</RowTableCellLabel>
+          {formatCents(linesTotalCents)}
+        </span>
+      </span>
+    </RowTableRow>
   );
 }
