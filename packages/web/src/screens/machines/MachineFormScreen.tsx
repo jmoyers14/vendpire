@@ -2,7 +2,6 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { type FormEvent, useEffect, useState } from "react";
 import { queryClient, trpc } from "../../trpc.ts";
-import { plural } from "../../utils/text.ts";
 import {
   Alert,
   Badge,
@@ -23,25 +22,25 @@ import {
   TextInput,
   useFormDraft,
 } from "../../ui.tsx";
+import { plural } from "../../utils/text.ts";
 import {
   buildMachineInput,
-  buildTemplateInput,
   DEPENDENT_ERROR_KEYS,
   draftFor,
   EMPTY_MACHINE_DRAFT,
   fieldErrorsFor,
-  MACHINE_KIND_LABELS,
   type MachineDraft,
   type MachineFieldErrors,
-  type MachineKind,
   orphanedSlotCodesFor,
   READER_PROVIDER_LABELS,
   type ReaderProvider,
   templateNamed,
   templatePrefillFor,
 } from "./machineForm.ts";
+import { MACHINE_KIND_LABELS, type MachineKind } from "./machineKind.ts";
 import { SlotsField } from "./SlotsField.tsx";
 import { slotsValueToShelves } from "./slotGrid.ts";
+import { buildTemplateInput } from "./templateForm.ts";
 
 const FORM_ID = "machine-form";
 
@@ -135,7 +134,9 @@ export function MachineFormScreen({ machineId }: { machineId?: string }) {
     if (reusable) {
       return reusable.id;
     }
-    const savedTemplate = await createTemplate.mutateAsync(buildTemplateInput(draft));
+    const savedTemplate = await createTemplate.mutateAsync(
+      buildTemplateInput({ ...draft, name: draft.newTemplateName }),
+    );
     queryClient.invalidateQueries({ queryKey: trpc.machineTemplates.list.queryKey() });
     return savedTemplate.id;
   };

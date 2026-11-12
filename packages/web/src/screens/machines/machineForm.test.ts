@@ -2,7 +2,6 @@ import { describe, expect, test } from "bun:test";
 import type { ApiMachineTemplate } from "../../apiTypes.ts";
 import {
   buildMachineInput,
-  buildTemplateInput,
   EMPTY_MACHINE_DRAFT,
   fieldErrorsFor,
   type MachineDraft,
@@ -121,21 +120,6 @@ describe("templateNamed", () => {
 
   test("finds nothing for a different name", () => {
     expect(templateNamed({ name: "AMS 40", templates: [template()] })).toBeUndefined();
-  });
-});
-
-test("buildTemplateInput saves the draft's layout under the new name", () => {
-  expect(
-    buildTemplateInput(draft({ newTemplateName: " Snack 6×8 ", model: "" })),
-  ).toEqual({
-    name: "Snack 6×8",
-    kind: "snack",
-    make: null,
-    model: null,
-    slots: [
-      ["A1", "A2", "A3"],
-      ["B1", "B2", "B3"],
-    ],
   });
 });
 

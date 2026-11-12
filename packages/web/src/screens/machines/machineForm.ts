@@ -1,5 +1,6 @@
 import type { ApiMachine, ApiMachineTemplate } from "../../apiTypes.ts";
 import { nullIfBlank, plural } from "../../utils/text.ts";
+import { MACHINE_KIND_LABELS, type MachineKind } from "./machineKind.ts";
 import {
   emptySlotsValue,
   type SlotsValue,
@@ -12,14 +13,7 @@ import {
  * the rules are tested without a browser.
  */
 
-export type MachineKind = ApiMachine["kind"];
 export type ReaderProvider = NonNullable<ApiMachine["cardReader"]>["provider"];
-
-export const MACHINE_KIND_LABELS: Record<MachineKind, string> = {
-  snack: "Snack",
-  drink: "Drink",
-  combo: "Combo",
-};
 
 export const READER_PROVIDER_LABELS: Record<ReaderProvider, string> = {
   cantaloupe: "Cantaloupe",
@@ -121,15 +115,6 @@ export const fieldErrorsFor = (draft: MachineDraft): MachineFieldErrors => ({
   ...(draft.shouldSaveAsTemplate && !draft.newTemplateName.trim()
     ? { newTemplateName: "Name the template you're saving" }
     : {}),
-});
-
-/** The draft's layout as a new template. */
-export const buildTemplateInput = (draft: MachineDraft) => ({
-  name: draft.newTemplateName.trim(),
-  kind: draft.kind,
-  make: nullIfBlank(draft.make),
-  model: nullIfBlank(draft.model),
-  slots: slotsValueToShelves(draft.slots),
 });
 
 /**
