@@ -2,8 +2,10 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import type { ApiCandidate, ApiProduct } from "../../apiTypes.ts";
+import { queryClient, trpc, trpcClient } from "../../trpc.ts";
 import {
   Button,
+  DeleteSection,
   ErrorNote,
   eyebrowLinkClass,
   Field,
@@ -25,20 +27,19 @@ import {
 import { dateInputFor, formatShortDate, middayInstantFor } from "../../utils/dates.ts";
 import { centsToInput, formatCents } from "../../utils/money.ts";
 import { plural } from "../../utils/text.ts";
-import { queryClient, trpc, trpcClient } from "../../trpc.ts";
 import {
   BarcodeNotFoundPanel,
   type CreatedForPurchase,
   isCreatedUnit,
 } from "./BarcodeNotFoundPanel.tsx";
 import { buildCatalogItems, type CatalogItem, isUnitItem } from "./catalogSearch.ts";
-import { previewPackSplit } from "./packSplit.ts";
 import {
   type PackOption,
-  PURCHASE_ROW_COLUMNS,
   type ProductOption,
+  PURCHASE_ROW_COLUMNS,
   PurchaseLineRow,
 } from "./PurchaseLineRow.tsx";
+import { previewPackSplit } from "./packSplit.ts";
 import { ReceiptCheckLine } from "./ReceiptCheckLine.tsx";
 import {
   buildPurchaseLines,
@@ -46,9 +47,9 @@ import {
   isPackRow,
   isRowComplete,
   newPackRow,
-  receiptCheckFor,
   newUnitRow,
   type Row,
+  receiptCheckFor,
   rowsSummaryFor,
   toUnitRow,
 } from "./rows.ts";
@@ -479,6 +480,10 @@ export function PurchaseFormScreen({ purchaseId }: { purchaseId?: string }) {
             <ErrorNote message={error} />
           </div>
         ) : null}
+
+        {purchaseId && savedPurchase ? (
+          <DeletePurchaseSection purchaseId={purchaseId} purchaseName={title} />
+        ) : null}
       </Page>
       <SaveBar
         isDirty={isDirty}
@@ -497,5 +502,36 @@ export function PurchaseFormScreen({ purchaseId }: { purchaseId?: string }) {
         isSaveDisabled={!canSave}
       />
     </>
+  );
+}
+
+/** Every visit's cost of goods since is worked out again without it. */
+function DeletePurchaseSection({
+  purchaseId,
+  purchaseName,
+}: {
+  purchaseId: string;
+  purchaseName: string;
+}) {
+  const navigate = useNavigate();
+  const remove = useMutation(
+    trpc.purchases.remove.mutationOptions({
+      onSuccess: () => {
+        // pathKey(), not queryKey(): the list is stored under an INFINITE key.
+        queryClient.invalidateQueries({ queryKey: trpc.purchases.list.pathKey() });
+        navigate({ to: "/purchases" });
+      },
+    }),
+  );
+  return (
+    <DeleteSection
+      recordKind="purchase"
+      recordName={purchaseName}
+      description="Its items come out of your costs, so profit on every visit since is worked out again without them."
+      isDeleting={remove.isPending}
+      error={remove.error?.message ?? null}
+      onDelete={() => remove.mutate({ id: purchaseId })}
+      onDismiss={() => remove.reset()}
+    />
   );
 }
