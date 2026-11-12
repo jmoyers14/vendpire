@@ -21,6 +21,7 @@ export {
   labelClass,
 } from "./ui/Field.tsx";
 export { focusRing, insetFocusRing } from "./ui/focus.ts";
+export { DeleteSection } from "./ui/DeleteSection.tsx";
 export { FieldRow, FormSection, SectionDivider } from "./ui/FormSection.tsx";
 export { InfoHint } from "./ui/InfoHint.tsx";
 export { Kbd } from "./ui/Kbd.tsx";
@@ -33,7 +34,7 @@ export type {
 export { MachineMap, MachineMapLegend } from "./ui/MachineMap.tsx";
 export { countMeterFor } from "./ui/machineMap.ts";
 export type { NumberInputSize } from "./ui/NumberInput.tsx";
-export { MoneyInput, NumberInput } from "./ui/NumberInput.tsx";
+export { DecimalInput, MoneyInput, NumberInput } from "./ui/NumberInput.tsx";
 export {
   EmptyState,
   Page,
@@ -51,6 +52,7 @@ export type { RowTableVariant } from "./ui/RowTable.tsx";
 export {
   RowTable,
   RowTableBody,
+  RowTableCellLabel,
   RowTableEmpty,
   RowTableFooter,
   RowTableHeader,

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { trpcClient } from "../../trpc.ts";
-import { inputClass } from "../../ui.tsx";
+import type { ApiLocation } from "../../apiTypes.ts";
+import { insetFocusRing, TextInput } from "../../ui.tsx";
 
 interface Suggestion {
   placeId: string;
@@ -9,13 +10,7 @@ interface Suggestion {
   secondary?: string;
 }
 
-export interface ResolvedAddressFields {
-  line1: string | null;
-  city: string | null;
-  state: string | null;
-  zip: string | null;
-  geo: { lat: number; lng: number } | null;
-}
+export type ResolvedAddressFields = ApiLocation["address"];
 
 interface AddressAutocompleteProps {
   /** The street-line text (controlled). */
@@ -47,6 +42,7 @@ export function AddressAutocomplete({
   const sessionToken = useRef(crypto.randomUUID());
   // Skip the lookup on the value change we cause by accepting a suggestion.
   const skipNextLookup = useRef(false);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (skipNextLookup.current) {
@@ -54,7 +50,10 @@ export function AddressAutocomplete({
       return;
     }
     const query = value.trim();
-    if (query.length < 3) {
+    // Only while typing here: a saved address loading into the form isn't a search,
+    // and each lookup is a billed Places call.
+    const isTyping = document.activeElement === inputRef.current;
+    if (query.length < 3 || !isTyping) {
       setSuggestions([]);
       setOpen(false);
       return;
@@ -88,6 +87,8 @@ export function AddressAutocomplete({
     skipNextLookup.current = true;
     setOpen(false);
     setSuggestions([]);
+    // The picked button unmounts; keep focus in the field rather than losing it to the page.
+    inputRef.current?.focus();
     try {
       const resolved = await trpcClient.address.resolve.query({
         placeId: suggestion.placeId,
@@ -113,34 +114,44 @@ export function AddressAutocomplete({
   };
 
   return (
-    <div className="relative">
-      <input
-        className={inputClass}
+    <div
+      className="relative"
+      // Closes only when focus leaves the field and its list, so Tab can reach a suggestion.
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget)) {
+          setOpen(false);
+        }
+      }}
+      onKeyDown={(event) => {
+        if (event.key === "Escape" && open) {
+          setOpen(false);
+          inputRef.current?.focus();
+        }
+      }}
+    >
+      <TextInput
+        ref={inputRef}
         placeholder={placeholder}
         value={value}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(event) => onChange(event.target.value)}
         onFocus={() => suggestions.length > 0 && setOpen(true)}
-        // Delay so a suggestion click registers before the list unmounts.
-        onBlur={() => setTimeout(() => setOpen(false), 150)}
         autoComplete="off"
       />
       {open && suggestions.length > 0 && (
-        <ul className="absolute z-10 mt-1 max-h-72 w-full overflow-auto rounded-md border border-gray-200 bg-white shadow-lg">
+        <ul className="absolute z-10 mt-1 max-h-72 w-full divide-y divide-divider overflow-auto rounded-control border border-line bg-card shadow-card">
           {suggestions.map((suggestion) => (
             <li key={suggestion.placeId}>
               <button
                 type="button"
-                onMouseDown={(e) => e.preventDefault()}
+                onMouseDown={(event) => event.preventDefault()}
                 onClick={() => select(suggestion)}
-                className="block w-full px-3 py-2 text-left text-sm hover:bg-gray-100"
+                className={`block w-full px-4 py-2.5 text-left hover:bg-action-soft ${insetFocusRing}`}
               >
-                <span className="text-gray-800">
+                <span className="text-body text-ink">
                   {suggestion.primary ?? suggestion.description}
                 </span>
                 {suggestion.secondary && (
-                  <span className="ml-1 text-gray-400">
-                    {suggestion.secondary}
-                  </span>
+                  <span className="ml-1.5 text-body-sm text-muted-strong">{suggestion.secondary}</span>
                 )}
               </button>
             </li>

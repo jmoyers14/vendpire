@@ -1,10 +1,11 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { type FormEvent, useEffect, useId, useRef, useState } from "react";
+import { type FormEvent, useEffect, useId, useState } from "react";
 import type { ApiProductPricing } from "../../apiTypes.ts";
 import {
   Badge,
   Button,
+  DeleteSection,
   ErrorNote,
   eyebrowLinkClass,
   Fact,
@@ -148,6 +149,16 @@ export function ProductFormScreen({ productId }: { productId?: string }) {
       return;
     }
     create.mutate(result.input);
+  };
+
+  const handleDismiss = () => {
+    if (!isEditing) {
+      navigate({ to: "/products" });
+      return;
+    }
+    discard();
+    setErrors({});
+    setFormError(null);
   };
 
   const pricing = pricingList.data?.find((row) => row.productId === productId);
@@ -315,14 +326,7 @@ export function ProductFormScreen({ productId }: { productId?: string }) {
         summary={!isEditing && !isDirty ? "Nothing entered yet" : undefined}
         saveLabel={isEditing ? "Save changes" : "Create product"}
         dismissal={isEditing ? "discard" : "cancel"}
-        onDismiss={() => {
-          if (isEditing) {
-            discard();
-            setErrors({});
-            return;
-          }
-          navigate({ to: "/products" });
-        }}
+        onDismiss={handleDismiss}
         formId={FORM_ID}
         isSaving={create.isPending || update.isPending}
       />
@@ -330,10 +334,7 @@ export function ProductFormScreen({ productId }: { productId?: string }) {
   );
 }
 
-/**
- * Deleting asks twice: the button sits on the same page as Save. The server
- * refuses a product still in a pack or a machine, and says why.
- */
+/** The server refuses a product still in a pack or a machine, and says why. */
 function DeleteProductSection({
   productId,
   productName,
@@ -342,22 +343,6 @@ function DeleteProductSection({
   productName: string;
 }) {
   const navigate = useNavigate();
-  const [isConfirming, setIsConfirming] = useState(false);
-  const controlsRef = useRef<HTMLDivElement>(null);
-  const hasToggledRef = useRef(false);
-  // The button pressed is swapped out, so focus moves to the last new one: "Keep it"
-  // when asking, so a second Enter can't delete.
-  useEffect(() => {
-    if (!hasToggledRef.current) {
-      return;
-    }
-    const buttons = controlsRef.current?.querySelectorAll("button");
-    buttons?.[buttons.length - 1]?.focus();
-  }, [isConfirming]);
-  const toggleConfirming = (next: boolean) => {
-    hasToggledRef.current = true;
-    setIsConfirming(next);
-  };
   const remove = useMutation(
     trpc.products.remove.mutationOptions({
       onSuccess: () => {
@@ -366,42 +351,16 @@ function DeleteProductSection({
       },
     }),
   );
-
   return (
-    <FormSection title="Delete" description="Remove this product from your catalog.">
-      {isConfirming ? (
-        <div className="grid gap-4">
-          <p className="text-body text-ink">
-            Delete <strong>{productName}</strong>? This can't be undone.
-          </p>
-          <div ref={controlsRef} className="flex flex-wrap gap-2">
-            <Button
-              variant="danger"
-              onClick={() => remove.mutate({ id: productId })}
-              disabled={remove.isPending}
-            >
-              {remove.isPending ? "Deleting…" : "Delete product"}
-            </Button>
-            <Button
-              variant="secondary"
-              onClick={() => {
-                toggleConfirming(false);
-                remove.reset();
-              }}
-            >
-              Keep it
-            </Button>
-          </div>
-        </div>
-      ) : (
-        <div ref={controlsRef}>
-          <Button variant="danger" onClick={() => toggleConfirming(true)}>
-            Delete product…
-          </Button>
-        </div>
-      )}
-      <ErrorNote message={remove.error?.message ?? null} />
-    </FormSection>
+    <DeleteSection
+      recordKind="product"
+      recordName={productName}
+      description="Remove this product from your catalog."
+      isDeleting={remove.isPending}
+      error={remove.error?.message ?? null}
+      onDelete={() => remove.mutate({ id: productId })}
+      onDismiss={() => remove.reset()}
+    />
   );
 }
 

@@ -40,7 +40,9 @@ export const RowTable = ({
   if (!minWidth) {
     return table;
   }
-  return <div className={`min-w-0 overflow-x-auto ${className}`}>{table}</div>;
+  // Relative so visually hidden labels (absolutely positioned) scroll with the table
+  // instead of escaping it and widening the page.
+  return <div className={`relative min-w-0 overflow-x-auto ${className}`}>{table}</div>;
 };
 
 const ROW = "grid grid-cols-(--row-columns) items-center gap-3";
@@ -76,6 +78,11 @@ export const RowTableFooter = ({ children }: { children: ReactNode }) => (
   >
     {children}
   </div>
+);
+
+/** The header is visual only, so each cell in a read-only row names itself for screen readers. */
+export const RowTableCellLabel = ({ children }: { children: string }) => (
+  <span className="sr-only">{children}: </span>
 );
 
 /** Shown in the body when there are no rows yet. */
