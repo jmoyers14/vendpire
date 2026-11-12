@@ -64,18 +64,28 @@ describe("countedTileFor", () => {
     });
   });
 
-  it("shows the product in the slot and the one it replaced", () => {
+  it("stacks every product in the slot, a swapped-out one last and marked out", () => {
     const tile = countedTileFor({
       slotCode: "B2",
-      lines: [line("cheetos", 0, 0), line("doritos", 0, 5)],
+      lines: [line("cheetos", 3, 0, 3), line("doritos", 0, 5)],
       productName,
     });
-    expect(tile).toMatchObject({
-      value: "0 → 5",
-      productName: "DORITOS ← CHEETOS",
-      productCount: 1,
-      tone: "neutral",
+    expect(tile.products).toEqual([
+      { name: "DORITOS", value: "0 → 5", hasLeftSlot: false },
+      { name: "CHEETOS", value: "3 → out", hasLeftSlot: true },
+    ]);
+  });
+
+  it("stacks a shared slot's products with their own counts", () => {
+    const tile = countedTileFor({
+      slotCode: "D1",
+      lines: [line("skittles", 2, 1), line("starburst", 1, 2)],
+      productName,
     });
+    expect(tile.products?.map(({ name, value }) => `${name} ${value}`)).toEqual([
+      "SKITTLES 2 → 3",
+      "STARBURST 1 → 3",
+    ]);
   });
 
   it("is amber when stock was pulled, and says why", () => {

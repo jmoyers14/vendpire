@@ -29,6 +29,7 @@ export { LoadMore } from "./ui/LoadMore.tsx";
 export type {
   LegendIndicator,
   MachineTile,
+  MachineTileProduct,
   MachineTileTone,
 } from "./ui/MachineMap.tsx";
 export { MachineMap, MachineMapLegend } from "./ui/MachineMap.tsx";
