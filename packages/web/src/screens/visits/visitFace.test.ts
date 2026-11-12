@@ -64,13 +64,18 @@ describe("countedTileFor", () => {
     });
   });
 
-  it("shows the product still in the slot, counted then walked away with", () => {
+  it("shows the product in the slot and the one it replaced", () => {
     const tile = countedTileFor({
       slotCode: "B2",
       lines: [line("cheetos", 0, 0), line("doritos", 0, 5)],
       productName,
     });
-    expect(tile).toMatchObject({ value: "0 → 5", productName: "DORITOS", productCount: 1, tone: "neutral" });
+    expect(tile).toMatchObject({
+      value: "0 → 5",
+      productName: "DORITOS ← CHEETOS",
+      productCount: 1,
+      tone: "neutral",
+    });
   });
 
   it("is amber when stock was pulled, and says why", () => {

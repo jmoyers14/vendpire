@@ -11,6 +11,7 @@ import {
   buildVisitPnlGroups,
   describeAnomaly,
   isActionableAnomaly,
+  removalOutcomeFor,
 } from "./pnlRows.ts";
 
 const MARCH_1 = "2026-03-01T09:00:00.000Z";
@@ -377,5 +378,25 @@ describe("buildProductSales", () => {
 
   it("is empty when there are no intervals", () => {
     expect(buildProductSales({ intervals: [], removals: [] })).toEqual([]);
+  });
+});
+
+describe("removalOutcomeFor", () => {
+  it("prices a write-off, or says the cost is unknown", () => {
+    expect(removalOutcomeFor({ removal: removal(), disposition: "written-off", costCents: 140 })).toBe(
+      "written off at $1.40",
+    );
+    expect(removalOutcomeFor({ removal: removal(), disposition: "written-off", costCents: null })).toBe(
+      "written off, cost unknown",
+    );
+  });
+
+  it("names a transfer and a missing reason", () => {
+    expect(removalOutcomeFor({ removal: removal(), disposition: "returned-to-stock" })).toBe(
+      "back to stock, cost follows the units",
+    );
+    expect(removalOutcomeFor({ removal: removal(), disposition: null })).toBe(
+      "neither a loss nor a transfer until a reason is set",
+    );
   });
 });

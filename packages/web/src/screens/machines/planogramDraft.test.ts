@@ -1,13 +1,15 @@
 import { describe, expect, it } from "bun:test";
 import {
   buildEditorSlots,
-  parseDraft,
+  buildPlanogramSlots,
   entriesInSlot,
+  parseDraft,
+  problemMessageFor,
   stockLeftOut,
+  withEntryAdded,
   withEntryMoved,
   withEntryPatched,
   withEntryRemoved,
-  withEntryAdded,
   withSlotPrice,
 } from "./planogramDraft.ts";
 
@@ -138,4 +140,44 @@ describe("stockLeftOut", () => {
       stockLeftOut({ entries: [], previousLines: [line("A1", "ruffles", 0, 0)] }),
     ).toEqual([]);
   });
+});
+
+describe("buildPlanogramSlots", () => {
+  const slotCodes = ["A1", "A2"];
+
+  it("drops unassigned slots and parses the rest", () => {
+    const rows = [slot("A1"), { ...slot("A2"), productId: "" }];
+    expect(buildPlanogramSlots({ rows, slotCodes })).toEqual({
+      slots: [{ slotCode: "A1", productId: "p1", par: 10, priceCents: 150 }],
+    });
+  });
+
+  it("refuses a par below one or a price that isn't dollars", () => {
+    expect(buildPlanogramSlots({ rows: [{ ...slot("A1"), par: "0" }], slotCodes })).toEqual({
+      problem: { kind: "invalid-par", slotCode: "A1" },
+    });
+    expect(buildPlanogramSlots({ rows: [{ ...slot("A1"), price: "abc" }], slotCodes })).toEqual({
+      problem: { kind: "invalid-price", slotCode: "A1" },
+    });
+  });
+
+  it("refuses a draft with nothing assigned", () => {
+    const rows = [{ ...slot("A1"), productId: "" }];
+    expect(buildPlanogramSlots({ rows, slotCodes })).toEqual({ problem: { kind: "no-slots" } });
+  });
+
+  it("applies the machine's slot rules", () => {
+    const rows = [slot("A1"), slot("A1")];
+    expect(buildPlanogramSlots({ rows, slotCodes })).toMatchObject({
+      problem: { kind: "duplicate-product", slotCode: "A1" },
+    });
+  });
+});
+
+it("problemMessageFor names the product in a duplicate", () => {
+  const message = problemMessageFor(
+    { kind: "duplicate-product", slotCode: "A1", productId: "p1" },
+    () => "Doritos",
+  );
+  expect(message).toBe("Slot A1: Doritos is listed twice");
 });

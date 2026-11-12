@@ -11,6 +11,7 @@ import {
   ErrorNote,
   eyebrowLinkClass,
   focusRing,
+  KPI_TONE_TEXT,
   KpiCard,
   KpiGrid,
   type KpiTone,
@@ -33,6 +34,7 @@ import {
   buildVisitPnlGroups,
   describeAnomaly,
   isActionableAnomaly,
+  removalOutcomeFor,
   type VisitPnlGroup,
 } from "./pnlRows.ts";
 import { countedTileFor } from "./visitFace.ts";
@@ -52,12 +54,6 @@ const profitToneFor = (cents: number | null): KpiTone => {
     return "neutral";
   }
   return cents < 0 ? "loss" : "profit";
-};
-
-const PROFIT_TEXT: Record<KpiTone, string> = {
-  neutral: "text-muted-strong",
-  profit: "text-profit",
-  loss: "text-loss",
 };
 
 /** Enough to see a pattern, few enough to read without scrolling. */
@@ -82,7 +78,7 @@ const numberCell = "text-right font-mono text-mono tabular-nums";
  * corrects a visit that predates it, with no backfill.
  */
 export function MachineVisitsScreen({ machineId }: { machineId: string }) {
-  const [expanded, setExpanded] = useState<string | null>(null);
+  const [expandedVisitId, setExpandedVisitId] = useState<string | null>(null);
 
   const machine = useQuery(trpc.machines.get.queryOptions({ id: machineId }));
   const products = useQuery(trpc.products.list.queryOptions());
@@ -261,7 +257,7 @@ export function MachineVisitsScreen({ machineId }: { machineId: string }) {
                         {formatCents(sales.revenueCents)}
                       </span>
                       <span
-                        className={`${numberCell} font-bold ${PROFIT_TEXT[profitToneFor(sales.profitCents)]}`}
+                        className={`${numberCell} font-bold ${KPI_TONE_TEXT[profitToneFor(sales.profitCents)]}`}
                       >
                         <RowTableCellLabel>Profit</RowTableCellLabel>
                         {signedMoney(sales.profitCents)}
@@ -317,8 +313,8 @@ export function MachineVisitsScreen({ machineId }: { machineId: string }) {
                   group={groupOf(visit.id)}
                   shelves={machine.data?.slots ?? []}
                   productName={productName}
-                  isExpanded={expanded === visit.id}
-                  onToggle={() => setExpanded(expanded === visit.id ? null : visit.id)}
+                  isExpanded={expandedVisitId === visit.id}
+                  onToggle={() => setExpandedVisitId(expandedVisitId === visit.id ? null : visit.id)}
                 />
               ))}
             </RowTableBody>
@@ -372,7 +368,7 @@ function VisitRow({ visit, group, shelves, productName, isExpanded, onToggle }: 
           {group ? formatCents(group.totals.revenueCents) : UNKNOWN}
         </span>
         <span
-          className={`${numberCell} font-bold ${PROFIT_TEXT[profitToneFor(group?.totals.netProfitCents ?? null)]}`}
+          className={`${numberCell} font-bold ${KPI_TONE_TEXT[profitToneFor(group?.totals.netProfitCents ?? null)]}`}
         >
           <RowTableCellLabel>After write-offs</RowTableCellLabel>
           {signedMoney(group?.totals.netProfitCents ?? null)}
@@ -419,11 +415,7 @@ function VisitRow({ visit, group, shelves, productName, isExpanded, onToggle }: 
                     <span className="font-mono">{row.removal.slotCode}</span>:{" "}
                     {plural(row.removal.units, { one: "unit", many: "units" })} out,{" "}
                     {row.removal.reason ?? "no reason recorded"}
-                    {row.disposition === "written-off"
-                      ? ` · written off at ${money(row.costCents)}`
-                      : row.disposition === "returned-to-stock"
-                        ? " · back to stock, cost follows the units"
-                        : " · neither a loss nor a transfer until a reason is set"}
+                    {` · ${removalOutcomeFor(row)}`}
                   </li>
                 ))}
               </ul>
@@ -494,7 +486,7 @@ function IntervalTable({
                 <RowTableCellLabel>COGS</RowTableCellLabel>
                 {money(row.cogsCents)}
               </span>
-              <span className={`${numberCell} font-bold ${PROFIT_TEXT[profitToneFor(profit)]}`}>
+              <span className={`${numberCell} font-bold ${KPI_TONE_TEXT[profitToneFor(profit)]}`}>
                 <RowTableCellLabel>Profit</RowTableCellLabel>
                 {signedMoney(profit)}
               </span>

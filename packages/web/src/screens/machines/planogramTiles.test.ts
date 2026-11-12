@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { planogramTileFor, slotPositionLabel } from "./planogramTiles.ts";
+import { assignedSummaryFor, planogramTileFor, slotPositionLabel } from "./planogramTiles.ts";
 
 describe("planogramTileFor", () => {
   test("an empty slot reads as empty", () => {
@@ -13,8 +13,8 @@ describe("planogramTileFor", () => {
     const tile = planogramTileFor({
       slotCode: "B2",
       entries: [
-        { productName: "Doritos", price: "$1.75" },
-        { productName: "Cheetos", price: "$1.75" },
+        { productName: "Doritos", priceCents: 175 },
+        { productName: "Cheetos", priceCents: 175 },
       ],
     });
     expect(tile).toMatchObject({
@@ -29,7 +29,7 @@ describe("planogramTileFor", () => {
   test("a product without a price says so", () => {
     const tile = planogramTileFor({
       slotCode: "C3",
-      entries: [{ productName: "Doritos", price: null }],
+      entries: [{ productName: "Doritos", priceCents: null }],
     });
     expect(tile).toMatchObject({ value: "—", tone: "pending", label: "C3: Doritos · no price" });
   });
@@ -39,4 +39,9 @@ test("slotPositionLabel names positions only in a shared slot", () => {
   expect(slotPositionLabel({ index: 0, count: 1 })).toBe("");
   expect(slotPositionLabel({ index: 0, count: 2 })).toBe("Front");
   expect(slotPositionLabel({ index: 1, count: 2 })).toBe("Behind");
+});
+
+test("assignedSummaryFor counts a shared slot once", () => {
+  const assignedSlots = [{ slotCode: "A1" }, { slotCode: "A1" }, { slotCode: "A2" }];
+  expect(assignedSummaryFor({ assignedSlots, slotCount: 45 })).toBe("2 of 45 slots assigned");
 });

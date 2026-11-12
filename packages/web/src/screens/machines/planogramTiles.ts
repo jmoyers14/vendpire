@@ -1,10 +1,12 @@
 import type { MachineTile } from "../../ui.tsx";
+import { formatCents } from "../../utils/money.ts";
+import { plural } from "../../utils/text.ts";
 
 /** One product in a planogram slot, as a tile shows it. */
 export interface PlanogramTileEntry {
   productName: string;
-  /** "$1.75", or null while the slot has no price yet. */
-  price: string | null;
+  /** Null while the slot has no valid price yet. */
+  priceCents: number | null;
 }
 
 /**
@@ -24,12 +26,13 @@ export const planogramTileFor = ({
     return { value: "—", tone: "pending", isEmpty: true, label: `${slotCode}: empty` };
   }
   const names = entries.map((entry) => entry.productName);
+  const price = front.priceCents === null ? null : formatCents(front.priceCents);
   return {
-    value: front.price ?? "—",
-    tone: front.price ? "neutral" : "pending",
+    value: price ?? "—",
+    tone: price ? "neutral" : "pending",
     productName: front.productName,
     productCount: entries.length,
-    label: `${slotCode}: ${names.join(", ")} · ${front.price ?? "no price"}`,
+    label: `${slotCode}: ${names.join(", ")} · ${price ?? "no price"}`,
     searchText: names.join(" "),
   };
 };
@@ -40,4 +43,16 @@ export const slotPositionLabel = ({ index, count }: { index: number; count: numb
     return "";
   }
   return index === 0 ? "Front" : "Behind";
+};
+
+/** "34 of 45 slots assigned". A shared slot counts once. */
+export const assignedSummaryFor = ({
+  assignedSlots,
+  slotCount,
+}: {
+  assignedSlots: { slotCode: string }[];
+  slotCount: number;
+}): string => {
+  const assignedCount = new Set(assignedSlots.map((slot) => slot.slotCode)).size;
+  return `${assignedCount} of ${plural(slotCount, { one: "slot", many: "slots" })} assigned`;
 };

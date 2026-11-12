@@ -7,9 +7,10 @@ export { Badge } from "./ui/Badge.tsx";
 export type { ButtonSize, ButtonVariant } from "./ui/Button.tsx";
 export { Button, buttonClass, IconButton } from "./ui/Button.tsx";
 export type { KpiTone } from "./ui/Card.tsx";
-export { Card, CardTitle, KpiCard, KpiGrid } from "./ui/Card.tsx";
+export { Card, CardTitle, KPI_TONE_TEXT, KpiCard, KpiGrid } from "./ui/Card.tsx";
 export type { ChipOption } from "./ui/ChipGroup.tsx";
 export { ChipGroup } from "./ui/ChipGroup.tsx";
+export { DeleteSection } from "./ui/DeleteSection.tsx";
 export type { FactTone, VerdictTone } from "./ui/FactsPanel.tsx";
 export { Fact, FactsPanel, FactVerdict } from "./ui/FactsPanel.tsx";
 export {
@@ -20,9 +21,8 @@ export {
   inputClass,
   labelClass,
 } from "./ui/Field.tsx";
-export { focusRing, insetFocusRing } from "./ui/focus.ts";
-export { DeleteSection } from "./ui/DeleteSection.tsx";
 export { FieldRow, FormSection, SectionDivider } from "./ui/FormSection.tsx";
+export { focusRing, insetFocusRing } from "./ui/focus.ts";
 export { InfoHint } from "./ui/InfoHint.tsx";
 export { Kbd } from "./ui/Kbd.tsx";
 export { LoadMore } from "./ui/LoadMore.tsx";
@@ -71,7 +71,7 @@ export { StatusPill } from "./ui/StatusPill.tsx";
 export type { Step, StepStatus } from "./ui/Stepper.tsx";
 export { Stepper } from "./ui/Stepper.tsx";
 export { Switch } from "./ui/Switch.tsx";
+export { Select, TextArea, TextInput } from "./ui/TextInput.tsx";
 export type { StatusTone } from "./ui/tone.ts";
 export { stockTone } from "./ui/tone.ts";
-export { Select, TextArea, TextInput } from "./ui/TextInput.tsx";
 export { useFormDraft } from "./ui/useFormDraft.ts";

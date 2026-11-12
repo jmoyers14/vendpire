@@ -5,6 +5,7 @@ import {
   type PnlTotals,
   type VisitAnomaly,
 } from "@vendpire/domain";
+import { formatCents } from "../../utils/money.ts";
 import { plural } from "../../utils/text.ts";
 
 /**
@@ -284,4 +285,18 @@ export const buildProductSales = (rows: PnlRows): ProductSales[] => {
   // slot it occupies. Units and profit are shown beside it so a reader can
   // disagree.
   return sales.sort((a, b) => b.revenueCents - a.revenueCents);
+};
+
+/** What became of pulled stock, in words: a loss, a transfer, or not yet known. */
+export const removalOutcomeFor = (row: PnlRows["removals"][number]): string => {
+  switch (row.disposition) {
+    case "written-off":
+      return row.costCents === null
+        ? "written off, cost unknown"
+        : `written off at ${formatCents(row.costCents)}`;
+    case "returned-to-stock":
+      return "back to stock, cost follows the units";
+    case null:
+      return "neither a loss nor a transfer until a reason is set";
+  }
 };

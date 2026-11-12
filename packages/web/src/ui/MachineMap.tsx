@@ -1,4 +1,4 @@
-import { type KeyboardEvent, type ReactNode, useMemo, useState } from "react";
+import { type KeyboardEvent, type ReactNode, useId, useMemo, useState } from "react";
 import { focusRing } from "./focus.ts";
 import { isSlotMatch, shelfLabel } from "./machineMap.ts";
 import { controlClass } from "./TextInput.tsx";
@@ -128,9 +128,11 @@ export const MachineMap = ({
   tileFor: (slotCode: string) => MachineTile;
   selectedCode?: string | null;
   onSelect?: (slotCode: string) => void;
+  /** `label` shows above the box; `placeholder` is an example query. */
   search?: { label: string; placeholder: string };
 }) => {
   const [query, setQuery] = useState("");
+  const searchId = useId();
   const slotCodes = useMemo(
     () => new Set(shelves.flat().map((code) => code.toUpperCase())),
     [shelves],
@@ -166,9 +168,14 @@ export const MachineMap = ({
   return (
     <div className="grid gap-3">
       {search ? (
+        <label htmlFor={searchId} className="text-label text-ink">
+          {search.label}
+        </label>
+      ) : null}
+      {search ? (
         <input
+          id={searchId}
           type="search"
-          aria-label={search.label}
           placeholder={search.placeholder}
           value={query}
           onChange={(event) => setQuery(event.target.value)}

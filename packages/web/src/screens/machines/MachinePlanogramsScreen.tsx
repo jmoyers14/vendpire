@@ -1,7 +1,7 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { type SlotRuleViolation, slotRuleViolation } from "@vendpire/domain";
-import { useEffect, useRef, useState } from "react";
+import type { VisitLine } from "@vendpire/domain";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import type { ApiPlanogram } from "../../apiTypes.ts";
 import { queryClient, trpc } from "../../trpc.ts";
 import { shelfLabel } from "../../ui/machineMap.ts";
@@ -28,14 +28,15 @@ import {
   SaveBar,
 } from "../../ui.tsx";
 import { formatShortDateTime } from "../../utils/dates.ts";
-import { centsToInput, formatCents, parseDollarsToCents } from "../../utils/money.ts";
-import { plural } from "../../utils/text.ts";
+import { centsToInput, parseDollarsToCents } from "../../utils/money.ts";
 import { EditorCard, EditorFooter, SlotEditorHeader } from "../visits/SlotEditor.tsx";
 import { ProductCombobox, type ProductOption } from "./ProductCombobox.tsx";
 import {
   buildEditorSlots,
+  buildPlanogramSlots,
   type DraftSlot,
   entriesInSlot,
+  problemMessageFor,
   stockLeftOut,
   usePlanogramDraft,
   withEntryAdded,
@@ -44,12 +45,12 @@ import {
   withEntryRemoved,
   withSlotPrice,
 } from "./planogramDraft.ts";
-import { planogramTileFor, slotPositionLabel } from "./planogramTiles.ts";
+import { assignedSummaryFor, planogramTileFor, slotPositionLabel } from "./planogramTiles.ts";
 
 /** Saved · Slots · View. */
 const VERSION_COLUMNS = "minmax(0,1fr) 56px 64px";
 
-const MAP_SEARCH = { label: "Find a slot or product", placeholder: "Find a slot or product" };
+const MAP_SEARCH = { label: "Find a slot or product", placeholder: "e.g. B4 or Doritos" };
 
 /**
  * A machine's planogram: the current version, its history, and an editor that
@@ -57,13 +58,10 @@ const MAP_SEARCH = { label: "Find a slot or product", placeholder: "Find a slot 
  * tweak is edit-two-rows-and-save). Edits autosave as a local draft.
  */
 export function MachinePlanogramsScreen({ machineId }: { machineId: string }) {
-  const [error, setError] = useState<string | null>(null);
-  // Null while not editing.
-  const [rows, setRows] = useState<DraftSlot[] | null>(null);
-  const [selected, setSelected] = useState<string | null>(null);
+  // The rows the editor opens with; null while not editing.
+  const [editorRows, setEditorRows] = useState<DraftSlot[] | null>(null);
   // Null shows the current version.
   const [viewedVersionId, setViewedVersionId] = useState<string | null>(null);
-  const errorRef = useRef<HTMLDivElement>(null);
   const { draft, save: saveDraft, discard: discardDraft } = usePlanogramDraft(machineId);
 
   const machine = useQuery(trpc.machines.get.queryOptions({ id: machineId }));
@@ -90,8 +88,7 @@ export function MachinePlanogramsScreen({ machineId }: { machineId: string }) {
         par: String(slot.par),
         price: centsToInput(slot.priceCents),
       }));
-    setSelected(slotCodes[0] ?? null);
-    setRows(buildEditorSlots(slotCodes, startingSlots));
+    setEditorRows(buildEditorSlots(slotCodes, startingSlots));
   };
 
   // Coming back to the screen with a draft drops you straight into it.
@@ -101,86 +98,15 @@ export function MachinePlanogramsScreen({ machineId }: { machineId: string }) {
     }
   }, [isLoaded]);
 
-  // Save is pressed at the bottom of the window; bring a refusal into view there.
-  useEffect(() => {
-    if (error) {
-      errorRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-    }
-  }, [error]);
-
-  const updateRows = (next: DraftSlot[]) => {
-    setRows(next);
-    saveDraft(next);
-  };
-
   const closeEditor = ({ keepDraft }: { keepDraft: boolean }) => {
     if (!keepDraft) {
       discardDraft();
     }
-    setRows(null);
-    setError(null);
+    setEditorRows(null);
   };
-
-  const create = useMutation(
-    trpc.planograms.create.mutationOptions({
-      onSuccess: () => {
-        queryClient.invalidateQueries({
-          queryKey: trpc.planograms.listByMachine.queryKey({ machineId }),
-        });
-        setViewedVersionId(null);
-        closeEditor({ keepDraft: false });
-      },
-      onError: (e) => setError(e.message),
-    }),
-  );
 
   const productName = (id: string): string =>
     products.data?.find((product) => product.id === id)?.name ?? id;
-
-  const ruleMessage = (violation: SlotRuleViolation): string => {
-    switch (violation.kind) {
-      case "unknown-slot":
-        return `This machine has no slot ${violation.slotCode}`;
-      case "duplicate-product":
-        return `Slot ${violation.slotCode}: ${productName(violation.productId)} is listed twice`;
-      case "mixed-price":
-        return `Slot ${violation.slotCode} has more than one price`;
-    }
-  };
-
-  const save = () => {
-    if (!rows) {
-      return;
-    }
-    setError(null);
-    const slots = [];
-    for (const row of rows) {
-      if (!row.productId) {
-        continue;
-      }
-      const par = Number.parseInt(row.par, 10);
-      const priceCents = parseDollarsToCents(row.price);
-      if (Number.isNaN(par) || par < 1) {
-        setError(`Slot ${row.slotCode}: par must be a positive number`);
-        return;
-      }
-      if (priceCents === null) {
-        setError(`Slot ${row.slotCode}: price must be a dollar amount`);
-        return;
-      }
-      slots.push({ slotCode: row.slotCode, productId: row.productId, par, priceCents });
-    }
-    if (slots.length === 0) {
-      setError("Assign at least one slot");
-      return;
-    }
-    const violation = slotRuleViolation(slots, new Set(slotCodes));
-    if (violation) {
-      setError(ruleMessage(violation));
-      return;
-    }
-    create.mutate({ machineId, slots });
-  };
 
   const machinesLink = (
     <Link to="/machines" className={eyebrowLinkClass}>
@@ -188,115 +114,29 @@ export function MachinePlanogramsScreen({ machineId }: { machineId: string }) {
     </Link>
   );
 
-  if (rows) {
-    const assignedRows = rows.filter((row) => row.productId);
-    const droppedStock = stockLeftOut({
-      entries: assignedRows,
-      previousLines: previousVisits.data?.[0]?.lines ?? [],
-    });
-    const assignedSummary = `${assignedSlotCount(assignedRows)} of ${plural(slotCodes.length, { one: "slot", many: "slots" })} assigned`;
-    const selectedIndex = selected ? slotCodes.indexOf(selected) : -1;
-    const shelfLabelOf = (slotCode: string): string => {
-      const index = shelves.findIndex((shelf) => shelf.includes(slotCode));
-      return index < 0 ? "" : shelfLabel(shelves[index] ?? [], index);
-    };
-    const draftTileFor = (slotCode: string): MachineTile =>
-      planogramTileFor({
-        slotCode,
-        entries: entriesInSlot(rows, slotCode)
-          .filter((entry) => entry.productId)
-          .map((entry) => {
-            const priceCents = parseDollarsToCents(entry.price);
-            return {
-              productName: productName(entry.productId),
-              price: priceCents === null ? null : formatCents(priceCents),
-            };
-          }),
-      });
-
+  if (editorRows) {
     return (
-      <>
-        <Page max="wide" className="grid gap-6">
-          <PageHeader
-            eyebrow={<>{machinesLink} / Planogram / {current ? "New version" : "Set up"}</>}
-            title={machineName}
-            meta="Your changes stay on this device as a draft until you save the new version."
-            aside={
-              <Button variant="text" onClick={() => closeEditor({ keepDraft: true })}>
-                Close and keep draft
-              </Button>
-            }
-          />
-
-          <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,600px)_minmax(0,1fr)]">
-            <aside aria-label="Machine map" className="grid min-w-0 gap-4 lg:sticky lg:top-6">
-              <Card className="grid gap-4 border border-line p-5">
-                <h2 className="font-display text-heading text-ink">Machine</h2>
-                <MachineMap
-                  shelves={shelves}
-                  tileFor={draftTileFor}
-                  selectedCode={selected}
-                  onSelect={setSelected}
-                  search={MAP_SEARCH}
-                />
-                <p className="text-body-sm text-ink-soft tabular-nums">{assignedSummary}</p>
-              </Card>
-            </aside>
-
-            {selected ? (
-              <SlotEditPanel
-                key={selected}
-                slotCode={selected}
-                shelfLabel={shelfLabelOf(selected)}
-                entries={entriesInSlot(rows, selected)}
-                products={products.data ?? []}
-                productName={productName}
-                onRowsChange={(change) => updateRows(change(rows))}
-                isFirstSlot={selectedIndex <= 0}
-                isLastSlot={selectedIndex === slotCodes.length - 1}
-                onPrevious={() => setSelected(slotCodes[selectedIndex - 1] ?? selected)}
-                onNext={() => setSelected(slotCodes[selectedIndex + 1] ?? selected)}
-              />
-            ) : null}
-          </div>
-
-          {droppedStock.length > 0 ? (
-            <Alert tone="warning" title="Stock the next visit won't ask about">
-              The last visit left these in the machine, and this version no longer lists them, so
-              they'll go uncounted:{" "}
-              {droppedStock
-                .map((left) => `${left.slotCode} ${productName(left.productId)} (${left.units})`)
-                .join(", ")}
-              . Save anyway if you pulled them out.
-            </Alert>
-          ) : null}
-
-          {error ? (
-            <div ref={errorRef} className="scroll-mb-28">
-              <ErrorNote message={error} />
-            </div>
-          ) : null}
-        </Page>
-        <SaveBar
-          width="wide"
-          // An open editor is a draft: there's always something to save or discard.
-          isDirty
-          summary={assignedSummary}
-          saveLabel="Save new version"
-          onDismiss={() => closeEditor({ keepDraft: false })}
-          onSave={save}
-          isSaving={create.isPending}
-        />
-      </>
+      <PlanogramEditor
+        machineId={machineId}
+        header={{ machinesLink, machineName, isNewVersion: Boolean(current) }}
+        shelves={shelves}
+        initialRows={editorRows}
+        products={products.data ?? []}
+        productName={productName}
+        previousLines={previousVisits.data?.[0]?.lines ?? []}
+        onRowsChange={saveDraft}
+        onSaved={() => {
+          setViewedVersionId(null);
+          closeEditor({ keepDraft: false });
+        }}
+        onClose={closeEditor}
+      />
     );
   }
 
   const viewed = versions.data?.find((version) => version.id === viewedVersionId) ?? current;
   const isViewingOlder = Boolean(viewed && current && viewed.id !== current.id);
-  let startLabel = current ? "New version" : "Set up planogram";
-  if (draft) {
-    startLabel = "Resume draft";
-  }
+  const startLabel = draft ? "Resume draft" : current ? "New version" : "Set up planogram";
   const loadError = machine.error ?? versions.error;
 
   return (
@@ -306,7 +146,7 @@ export function MachinePlanogramsScreen({ machineId }: { machineId: string }) {
         title={machineName}
         meta={
           current
-            ? `Current since ${formatShortDateTime(current.effectiveFrom)} · ${assignedSlotCount(current.slots)} of ${plural(slotCodes.length, { one: "slot", many: "slots" })} assigned`
+            ? `Current since ${formatShortDateTime(current.effectiveFrom)} · ${assignedSummaryFor({ assignedSlots: current.slots, slotCount: slotCodes.length })}`
             : undefined
         }
         aside={
@@ -378,7 +218,7 @@ const savedTileFor = ({
       .filter((entry) => entry.slotCode === slotCode)
       .map((entry) => ({
         productName: productName(entry.productId),
-        price: formatCents(entry.priceCents),
+        priceCents: entry.priceCents,
       })),
   });
 
@@ -439,6 +279,180 @@ function VersionsCard({
         </RowTableBody>
       </RowTable>
     </Card>
+  );
+}
+
+/**
+ * The new version being built: the map on the left, the selected slot's card
+ * on the right, and Save in the bar along the bottom.
+ */
+function PlanogramEditor({
+  machineId,
+  header,
+  shelves,
+  initialRows,
+  products,
+  productName,
+  previousLines,
+  onRowsChange,
+  onSaved,
+  onClose,
+}: {
+  machineId: string;
+  header: { machinesLink: ReactNode; machineName: string; isNewVersion: boolean };
+  shelves: string[][];
+  initialRows: DraftSlot[];
+  products: ProductOption[];
+  productName: (id: string) => string;
+  /** What the last visit left in the machine. */
+  previousLines: readonly VisitLine[];
+  /** Every edit, so the draft can be kept. */
+  onRowsChange: (rows: DraftSlot[]) => void;
+  onSaved: () => void;
+  onClose: (options: { keepDraft: boolean }) => void;
+}) {
+  const slotCodes = shelves.flat();
+  const [rows, setRows] = useState(initialRows);
+  const [selectedSlotCode, setSelectedSlotCode] = useState<string | null>(slotCodes[0] ?? null);
+  const [error, setError] = useState<string | null>(null);
+  const errorRef = useRef<HTMLDivElement>(null);
+
+  // Save is pressed at the bottom of the window; bring a refusal into view there.
+  useEffect(() => {
+    if (error) {
+      errorRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+  }, [error]);
+
+  const create = useMutation(
+    trpc.planograms.create.mutationOptions({
+      onSuccess: () => {
+        queryClient.invalidateQueries({
+          queryKey: trpc.planograms.listByMachine.queryKey({ machineId }),
+        });
+        onSaved();
+      },
+      onError: (e) => setError(e.message),
+    }),
+  );
+
+  const updateRows = (next: DraftSlot[]) => {
+    setRows(next);
+    onRowsChange(next);
+  };
+
+  const save = () => {
+    setError(null);
+    const result = buildPlanogramSlots({ rows, slotCodes });
+    if ("problem" in result) {
+      setError(problemMessageFor(result.problem, productName));
+      return;
+    }
+    create.mutate({ machineId, slots: result.slots });
+  };
+
+  const assignedRows = rows.filter((row) => row.productId);
+  const droppedStock = stockLeftOut({ entries: assignedRows, previousLines });
+  const assignedSummary = assignedSummaryFor({
+    assignedSlots: assignedRows,
+    slotCount: slotCodes.length,
+  });
+  const selectedIndex = selectedSlotCode ? slotCodes.indexOf(selectedSlotCode) : -1;
+  const shelfLabelOf = (slotCode: string): string => {
+    const index = shelves.findIndex((shelf) => shelf.includes(slotCode));
+    return index < 0 ? "" : shelfLabel(shelves[index] ?? [], index);
+  };
+  const draftTileFor = (slotCode: string): MachineTile =>
+    planogramTileFor({
+      slotCode,
+      entries: entriesInSlot(rows, slotCode)
+        .filter((entry) => entry.productId)
+        .map((entry) => ({
+          productName: productName(entry.productId),
+          priceCents: parseDollarsToCents(entry.price),
+        })),
+    });
+
+  return (
+    <>
+      <Page max="wide" className="grid gap-6">
+        <PageHeader
+          eyebrow={
+            <>
+              {header.machinesLink} / Planogram / {header.isNewVersion ? "New version" : "Set up"}
+            </>
+          }
+          title={header.machineName}
+          meta="Your changes stay on this device as a draft until you save the new version."
+          aside={
+            <Button variant="text" onClick={() => onClose({ keepDraft: true })}>
+              Close and keep draft
+            </Button>
+          }
+        />
+
+        <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,600px)_minmax(0,1fr)]">
+          <aside aria-label="Machine map" className="grid min-w-0 gap-4 lg:sticky lg:top-6">
+            <Card className="grid gap-4 border border-line p-5">
+              <h2 className="font-display text-heading text-ink">Machine</h2>
+              <MachineMap
+                shelves={shelves}
+                tileFor={draftTileFor}
+                selectedCode={selectedSlotCode}
+                onSelect={setSelectedSlotCode}
+                search={MAP_SEARCH}
+              />
+              <p className="text-body-sm text-ink-soft tabular-nums">{assignedSummary}</p>
+            </Card>
+          </aside>
+
+          {selectedSlotCode ? (
+            <SlotEditPanel
+              key={selectedSlotCode}
+              slotCode={selectedSlotCode}
+              shelfLabel={shelfLabelOf(selectedSlotCode)}
+              entries={entriesInSlot(rows, selectedSlotCode)}
+              products={products}
+              productName={productName}
+              onRowsChange={(change) => updateRows(change(rows))}
+              isFirstSlot={selectedIndex <= 0}
+              isLastSlot={selectedIndex === slotCodes.length - 1}
+              onPrevious={() =>
+                setSelectedSlotCode(slotCodes[selectedIndex - 1] ?? selectedSlotCode)
+              }
+              onNext={() => setSelectedSlotCode(slotCodes[selectedIndex + 1] ?? selectedSlotCode)}
+            />
+          ) : null}
+        </div>
+
+        {droppedStock.length > 0 ? (
+          <Alert tone="warning" title="Stock the next visit won't ask about">
+            The last visit left these in the machine, and this version no longer lists them, so
+            they'll go uncounted:{" "}
+            {droppedStock
+              .map((left) => `${left.slotCode} ${productName(left.productId)} (${left.units})`)
+              .join(", ")}
+            . Save anyway if you pulled them out.
+          </Alert>
+        ) : null}
+
+        {error ? (
+          <div ref={errorRef} className="scroll-mb-28">
+            <ErrorNote message={error} />
+          </div>
+        ) : null}
+      </Page>
+      <SaveBar
+        width="wide"
+        // An open editor is a draft: there's always something to save or discard.
+        isDirty
+        summary={assignedSummary}
+        saveLabel="Save new version"
+        onDismiss={() => onClose({ keepDraft: false })}
+        onSave={save}
+        isSaving={create.isPending}
+      />
+    </>
   );
 }
 

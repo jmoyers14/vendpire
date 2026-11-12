@@ -32,8 +32,8 @@ type CountedLine = FaceLineLike &
 
 /**
  * A slot on a past visit's map: the product left in it, counted → walked away
- * with. Amber when something was pulled. A slot with no lines was not counted,
- * which is no data rather than a zero.
+ * with, and any product it replaced. Amber when something was pulled. A slot
+ * with no lines was not counted, which is no data rather than a zero.
  */
 export const countedTileFor = ({
   slotCode,
@@ -59,10 +59,15 @@ export const countedTileFor = ({
       line.removed > 0 ? `, removed ${line.removed} (${line.removedReason ?? "no reason"})` : "";
     return `${productName(line.productId)}: left ${line.remaining}, added ${line.added}${removal}, walked away with ${levelAfter(line)}`;
   };
+  const outgoing = faceLines.filter(({ hasLeftSlot }) => hasLeftSlot);
+  // A swap shows on the face, not only in the tooltip: "Doritos ← Cheetos".
+  const shownName = [front, ...outgoing.map(({ line }) => line)]
+    .map((line) => productName(line.productId))
+    .join(" ← ");
   return {
     value: `${front.remaining} → ${levelAfter(front)}`,
     tone: lines.some((line) => line.removed > 0) ? "warning" : "neutral",
-    productName: productName(front.productId),
+    productName: shownName,
     productCount: faceLines.filter(({ hasLeftSlot }) => !hasLeftSlot).length,
     label: `${slotCode}: ${lines.map(describe).join("; ")}`,
     searchText: lines.map((line) => productName(line.productId)).join(" "),

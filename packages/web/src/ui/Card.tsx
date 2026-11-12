@@ -27,7 +27,8 @@ export const CardTitle = ({
 
 export type KpiTone = "neutral" | "profit" | "loss";
 
-const KPI_TONE: Record<KpiTone, string> = {
+/** Text colour for a figure: green profit, red loss. */
+export const KPI_TONE_TEXT: Record<KpiTone, string> = {
   neutral: "text-ink",
   profit: "text-profit",
   loss: "text-loss",
@@ -45,7 +46,7 @@ export const KpiCard = ({
 }) => (
   <Card className="grid content-start gap-1 border border-line p-5">
     <span className="text-overline text-muted-strong uppercase">{label}</span>
-    <span className={`font-display text-stat tabular-nums ${KPI_TONE[tone]}`}>{value}</span>
+    <span className={`font-display text-stat tabular-nums ${KPI_TONE_TEXT[tone]}`}>{value}</span>
   </Card>
 );
 
