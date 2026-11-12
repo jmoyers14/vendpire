@@ -45,10 +45,13 @@ const tileClass = ({
   tile,
   isSelected,
   isDimmed,
+  isInteractive,
 }: {
   tile: MachineTile;
   isSelected: boolean;
   isDimmed: boolean;
+  /** A read-only tile gets no hover, so it doesn't look clickable. */
+  isInteractive: boolean;
 }): string => {
   const chrome = (() => {
     if (tile.isTarget) {
@@ -60,7 +63,7 @@ const tileClass = ({
     if (tile.isEmpty) {
       return "border border-dashed border-line-strong bg-app px-1.5 pt-[5px] pb-2";
     }
-    return "border border-line bg-card px-1.5 pt-[5px] pb-2 hover:border-field";
+    return `border border-line bg-card px-1.5 pt-[5px] pb-2 ${isInteractive ? "hover:border-field" : ""}`;
   })();
   const opacity = isDimmed ? "opacity-25" : tile.isSource ? "opacity-45" : "";
   return `relative flex min-h-14 min-w-11 flex-1 basis-0 flex-col items-start justify-between overflow-hidden rounded-lg text-left ${chrome} ${opacity}`;
@@ -190,6 +193,7 @@ export const MachineMap = ({
                 tile,
                 isSelected: slotCode === selectedCode,
                 isDimmed: !isMatch(slotCode, tile),
+                isInteractive: Boolean(onSelect),
               });
               // Duplicate codes are a layout the user authored, not a crash.
               const key = `${slotCode}-${slotIndex}`;

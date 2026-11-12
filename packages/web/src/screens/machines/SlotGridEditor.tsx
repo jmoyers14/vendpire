@@ -1,184 +1,172 @@
-import { useState } from "react";
+import { type FocusEvent, useRef, useState } from "react";
 import {
-  buildRows,
-  MAX_ROWS,
-  rowsToSlotCodes,
-  type SlotGridRow,
-  slotLabel,
-} from "./slotGrid.ts";
-import { inputClass } from "../../ui.tsx";
+  Button,
+  Field,
+  FieldRow,
+  NumberInput,
+  RowTable,
+  RowTableBody,
+  RowTableHeader,
+  RowTableRow,
+} from "../../ui.tsx";
+import { buildRows, MAX_ROWS, type SlotGridRow, slotLabel } from "./slotGrid.ts";
 
-interface SlotGridEditorProps {
-  rows: SlotGridRow[];
-  onChange: (rows: SlotGridRow[]) => void;
-}
+const MAX_SLOTS_PER_SHELF = 20;
+const DEFAULT_SLOTS_PER_SHELF = 8;
+/** Highest first slot number on a shelf. */
+const MAX_FIRST_NUMBER = 99;
+/** Widest gap between slot numbers. */
+const MAX_NUMBER_STEP = 9;
+
+/** Shelf · Slots · First number · Step. */
+const SHELF_COLUMNS = "56px minmax(0,1fr) minmax(0,1fr) minmax(0,1fr)";
 
 const clamp = (value: number, min: number, max: number): number =>
   Math.max(min, Math.min(max, value));
 
+// Typing replaces the number instead of appending to it, since a cleared box snaps to 1.
+const selectOnFocus = (event: FocusEvent<HTMLInputElement>) => event.target.select();
+
 /**
- * Visual editor for the machine's slot grid, drawn like the machine face: one
- * strip of cells per shelf, each cell labeled with its code. Every row spans
- * the same total width, so a shelf with fewer slots shows fewer, WIDER cells —
- * exactly how a drink row looks under the snack rows on a combo machine.
- * The +/− at a row's edge changes that shelf's slot count.
+ * The grid controls above the layout map: shelf count and a default width for
+ * every shelf, then shelf-by-shelf widths and numbering for machines that
+ * don't follow the pattern (a narrower drink shelf, evens-only A0, A2, A4…).
  */
-export function SlotGridEditor({ rows, onChange }: SlotGridEditorProps) {
-  const [defaultColumns, setDefaultColumns] = useState(rows[0]?.columns ?? 8);
-  const [showNumbering, setShowNumbering] = useState(
-    rows.some((row) => row.start !== 1 || row.step !== 1),
+export function SlotGridEditor({
+  rows,
+  onChange,
+}: {
+  rows: SlotGridRow[];
+  onChange: (rows: SlotGridRow[]) => void;
+}) {
+  const [defaultColumns, setDefaultColumns] = useState(rows[0]?.columns ?? DEFAULT_SLOTS_PER_SHELF);
+  const [isShowingShelves, setIsShowingShelves] = useState(
+    rows.some(
+      (row) => row.start !== 1 || row.step !== 1 || row.columns !== rows[0]?.columns,
+    ),
   );
 
+  // Shelves dropped while typing a count ("6" → "1" → "12") come back as they were.
+  const droppedRowsRef = useRef<SlotGridRow[]>([]);
+
   const setRowCount = (count: number) => {
+    const remembered = rows.length >= droppedRowsRef.current.length ? rows : [
+      ...rows,
+      ...droppedRowsRef.current.slice(rows.length),
+    ];
+    droppedRowsRef.current = remembered;
     const next = buildRows(clamp(count, 1, MAX_ROWS), defaultColumns).map(
-      // Keep the widths of rows that already exist; new rows get the default.
-      (row, i) => rows[i] ?? row,
+      (row, index) => remembered[index] ?? row,
     );
     onChange(next);
   };
 
   const setDefault = (columns: number) => {
-    const width = clamp(columns, 1, 20);
+    const width = clamp(columns, 1, MAX_SLOTS_PER_SHELF);
     setDefaultColumns(width);
+    // A new width for every shelf replaces the ones remembered from dropped shelves too.
+    droppedRowsRef.current = [];
     onChange(rows.map((row) => ({ ...row, columns: width })));
   };
 
-  const setRowNumbering = (
+  const setRow = (
     index: number,
-    patch: Partial<Pick<SlotGridRow, "start" | "step">>,
+    patch: Partial<Pick<SlotGridRow, "columns" | "start" | "step">>,
   ) => {
     onChange(
-      rows.map((row, i) =>
-        i === index
+      rows.map((row, rowIndex) =>
+        rowIndex === index
           ? {
               ...row,
-              ...patch,
-              start: clamp(patch.start ?? row.start, 0, 99),
-              step: clamp(patch.step ?? row.step, 1, 9),
+              columns: clamp(patch.columns ?? row.columns, 1, MAX_SLOTS_PER_SHELF),
+              start: clamp(patch.start ?? row.start, 0, MAX_FIRST_NUMBER),
+              step: clamp(patch.step ?? row.step, 1, MAX_NUMBER_STEP),
             }
           : row,
       ),
     );
   };
 
-  const bumpRow = (index: number, delta: number) => {
-    onChange(
-      rows.map((row, i) =>
-        i === index
-          ? { ...row, columns: clamp(row.columns + delta, 1, 20) }
-          : row,
-      ),
-    );
-  };
-
   return (
-    <div className="space-y-3 rounded border border-gray-200 p-3">
-      <div className="flex items-end gap-2">
-        <label className="flex-1 text-sm text-gray-700">
-          Shelves
-          <input
-            type="number"
-            min={1}
-            max={MAX_ROWS}
-            className={inputClass}
+    <div className="grid gap-4">
+      <FieldRow>
+        <Field label="Shelves">
+          <NumberInput
+            size="sm"
             value={rows.length}
-            onChange={(e) => setRowCount(Number(e.target.value) || 1)}
+            onFocus={selectOnFocus}
+            onChange={(event) => setRowCount(Number(event.target.value) || 1)}
           />
-        </label>
-        <label className="flex-1 text-sm text-gray-700">
-          Slots per shelf (default)
-          <input
-            type="number"
-            min={1}
-            max={20}
-            className={inputClass}
+        </Field>
+        <Field label="Slots per shelf" hint="Sets every shelf at once.">
+          <NumberInput
+            size="sm"
             value={defaultColumns}
-            onChange={(e) => setDefault(Number(e.target.value) || 1)}
+            onFocus={selectOnFocus}
+            onChange={(event) => setDefault(Number(event.target.value) || 1)}
           />
-        </label>
-        <button
-          type="button"
-          onClick={() => setShowNumbering(!showNumbering)}
-          className="mb-1 whitespace-nowrap text-xs text-primary-600 hover:text-primary-500"
-          title="Some machines number by motor position — e.g. evens only (A0, A2, A4…). Set each shelf's first number and the gap between numbers."
+        </Field>
+      </FieldRow>
+
+      <div>
+        <Button
+          variant="text"
+          size="sm"
+          aria-expanded={isShowingShelves}
+          onClick={() => setIsShowingShelves(!isShowingShelves)}
         >
-          {showNumbering ? "Hide numbering" : "Numbering…"}
-        </button>
+          {isShowingShelves ? "Hide shelf by shelf" : "Adjust shelf by shelf…"}
+        </Button>
+        <p className="mt-1 text-body-sm text-muted-strong">
+          For a narrower drink shelf, or a machine numbered by motor (A0, A2, A4…: first number
+          0, step 2).
+        </p>
       </div>
 
-      {/* The machine face. */}
-      <div className="space-y-1.5 rounded-md bg-gray-100 p-2">
-        {rows.map((row, index) => (
-          <div key={row.letter} className="flex items-center gap-1.5">
-            <div className="flex flex-1 gap-1">
-              {Array.from({ length: row.columns }, (_, i) => (
-                <div
-                  key={i}
-                  className="flex-1 rounded border border-gray-300 bg-white py-1.5 text-center font-mono text-xs text-gray-700"
-                >
-                  {slotLabel(row, i)}
-                </div>
-              ))}
-            </div>
-            {showNumbering ? (
-              <div className="flex shrink-0 items-center gap-1 text-xs text-gray-500">
-                <label title={`Row ${row.letter}: first slot number`}>
-                  start
-                  <input
-                    type="number"
-                    min={0}
-                    max={99}
-                    className="ml-0.5 w-11 rounded border border-gray-300 px-1 py-0.5"
-                    value={row.start}
-                    onChange={(e) =>
-                      setRowNumbering(index, { start: Number(e.target.value) })
-                    }
-                  />
-                </label>
-                <label title={`Row ${row.letter}: gap between slot numbers`}>
-                  step
-                  <input
-                    type="number"
-                    min={1}
-                    max={9}
-                    className="ml-0.5 w-9 rounded border border-gray-300 px-1 py-0.5"
-                    value={row.step}
-                    onChange={(e) =>
-                      setRowNumbering(index, { step: Number(e.target.value) })
-                    }
-                  />
-                </label>
-              </div>
-            ) : null}
-            <div className="flex shrink-0 gap-0.5">
-              <button
-                type="button"
-                onClick={() => bumpRow(index, -1)}
-                disabled={row.columns <= 1}
-                title={`Remove a slot from row ${row.letter}`}
-                className="h-6 w-6 rounded border border-gray-300 bg-white text-xs text-gray-600 hover:bg-gray-50 disabled:opacity-30"
-              >
-                −
-              </button>
-              <button
-                type="button"
-                onClick={() => bumpRow(index, 1)}
-                disabled={row.columns >= 20}
-                title={`Add a slot to row ${row.letter}`}
-                className="h-6 w-6 rounded border border-gray-300 bg-white text-xs text-gray-600 hover:bg-gray-50 disabled:opacity-30"
-              >
-                +
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <p className="text-xs text-gray-500">
-        {rowsToSlotCodes(rows).length} slots total. Combo machine? − the drink
-        shelf down to 5–6. Even-numbered machine (A0, A2, A4…)? Numbering… →
-        start 0, step 2.
-      </p>
+      {isShowingShelves ? (
+        <RowTable columns={SHELF_COLUMNS} minWidth="360px">
+          <RowTableHeader>
+            <span>Shelf</span>
+            <span>Slots</span>
+            <span>First number</span>
+            <span>Step</span>
+          </RowTableHeader>
+          <RowTableBody>
+            {rows.map((row, index) => (
+              <RowTableRow key={row.letter}>
+                <span className="font-mono text-label text-ink">
+                  {row.letter}
+                  <span className="sr-only">
+                    {" "}
+                    ({slotLabel(row, 0)} to {slotLabel(row, row.columns - 1)})
+                  </span>
+                </span>
+                <NumberInput
+                  size="sm"
+                  aria-label={`Shelf ${row.letter} slots`}
+                  value={row.columns}
+                  onFocus={selectOnFocus}
+                  onChange={(event) => setRow(index, { columns: Number(event.target.value) || 1 })}
+                />
+                <NumberInput
+                  size="sm"
+                  aria-label={`Shelf ${row.letter} first number`}
+                  value={row.start}
+                  onFocus={selectOnFocus}
+                  onChange={(event) => setRow(index, { start: Number(event.target.value) || 0 })}
+                />
+                <NumberInput
+                  size="sm"
+                  aria-label={`Shelf ${row.letter} step`}
+                  value={row.step}
+                  onFocus={selectOnFocus}
+                  onChange={(event) => setRow(index, { step: Number(event.target.value) || 1 })}
+                />
+              </RowTableRow>
+            ))}
+          </RowTableBody>
+        </RowTable>
+      ) : null}
     </div>
   );
 }

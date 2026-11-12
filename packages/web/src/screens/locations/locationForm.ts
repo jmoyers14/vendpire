@@ -5,6 +5,7 @@ import {
   parseDollarsToCents,
   parsePercentToBps,
 } from "../../utils/money.ts";
+import { nullIfBlank } from "../../utils/text.ts";
 import {
   type Commission,
   isFlatCommission,
@@ -93,8 +94,6 @@ export interface LocationInput {
 export type LocationFieldErrors = Partial<
   Record<"name" | "commissionPercent" | "commissionFlat", string>
 >;
-
-const nullIfBlank = (text: string): string | null => text.trim() || null;
 
 const commissionFor = (
   draft: LocationDraft,

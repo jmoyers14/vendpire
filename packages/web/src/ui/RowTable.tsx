@@ -48,9 +48,16 @@ export const RowTable = ({
 const ROW = "grid grid-cols-(--row-columns) items-center gap-3";
 const INSET = "group-data-[variant=boxed]/rows:px-4";
 
-export const RowTableHeader = ({ children }: { children: ReactNode }) => (
+export const RowTableHeader = ({
+  className = "",
+  children,
+}: {
+  /** e.g. "max-sm:hidden" when the rows stack on a phone. */
+  className?: string;
+  children: ReactNode;
+}) => (
   <div
-    className={`${ROW} ${INSET} border-b border-line pb-2 text-overline text-muted-strong uppercase group-data-[variant=boxed]/rows:border-divider group-data-[variant=boxed]/rows:bg-app group-data-[variant=boxed]/rows:pt-2.5 group-data-[variant=boxed]/rows:pb-2.5`}
+    className={`${ROW} ${INSET} ${className} border-b border-line pb-2 text-overline text-muted-strong uppercase group-data-[variant=boxed]/rows:border-divider group-data-[variant=boxed]/rows:bg-app group-data-[variant=boxed]/rows:pt-2.5 group-data-[variant=boxed]/rows:pb-2.5`}
   >
     {children}
   </div>
@@ -81,9 +88,14 @@ export const RowTableFooter = ({ children }: { children: ReactNode }) => (
 );
 
 /** The header is visual only, so each cell in a read-only row names itself for screen readers. */
-export const RowTableCellLabel = ({ children }: { children: string }) => (
-  <span className="sr-only">{children}: </span>
-);
+export const RowTableCellLabel = ({
+  className = "",
+  children,
+}: {
+  /** e.g. "max-sm:not-sr-only" to show it once a stacked row has no header above it. */
+  className?: string;
+  children: string;
+}) => <span className={`sr-only ${className}`}>{children}: </span>;
 
 /** Shown in the body when there are no rows yet. */
 export const RowTableEmpty = ({ children }: { children: ReactNode }) => (
