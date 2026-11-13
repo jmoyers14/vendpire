@@ -419,7 +419,9 @@ export function BarcodeNotFoundPanel({
                   Nothing matches — create it below instead.
                 </li>
               ) : (
-                matches.map((item) => (
+                matches.map((item) => {
+                  const isPack = isPackItem(item);
+                  return (
                   <li key={`${item.kind}-${item.id}`}>
                     <button
                       type="button"
@@ -427,19 +429,20 @@ export function BarcodeNotFoundPanel({
                       onClick={() => void attach(item)}
                       className={`flex w-full items-center gap-3 px-3 py-2 text-left hover:bg-app disabled:opacity-50 ${insetFocusRing}`}
                     >
-                      <Badge tone={isPackItem(item) ? "action" : "neutral"} size="sm">
-                        {isPackItem(item) ? "Case" : "Item"}
+                      <Badge tone={isPack ? "action" : "neutral"} size="sm">
+                        {isPack ? "Case" : "Item"}
                       </Badge>
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-body-sm text-ink">{item.name}</span>
                         <span className="block font-mono text-body-sm text-muted-strong">
                           {item.barcode ?? "no barcode yet"}
-                          {isPackItem(item) ? ` · ${item.units} units` : ""}
+                          {isPack ? ` · ${item.units} units` : ""}
                         </span>
                       </span>
                     </button>
                   </li>
-                ))
+                  );
+                })
               )}
             </ul>
           ) : null}
@@ -557,7 +560,7 @@ export function BarcodeNotFoundPanel({
               <Field
                 label="Sell price $"
                 isOptional
-                hint="Only a starting price. Each slot's price is set on the planogram."
+                hint="This only seeds the price when you add the product to a machine — the real price is set per slot on the planogram."
               >
                 <TextInput
                   inputMode="decimal"
