@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.11.0](https://github.com/jmoyers14/vendpire/compare/v0.10.0...v0.11.0) (2026-11-13)
+
+
+### Features
+
+* **web:** add Lagoon design tokens and shared components ([#52](https://github.com/jmoyers14/vendpire/issues/52)) ([d569448](https://github.com/jmoyers14/vendpire/commit/d56944887c7e86d188bdf43f8ae7fa51c9d40617))
+* **web:** rebuild edit product on the lagoon components ([#54](https://github.com/jmoyers14/vendpire/issues/54)) ([ff84301](https://github.com/jmoyers14/vendpire/commit/ff84301aada2b9c1c65dfa4d5843df9c5e883d11))
+* **web:** rebuild locations on the lagoon components ([#57](https://github.com/jmoyers14/vendpire/issues/57)) ([517ace4](https://github.com/jmoyers14/vendpire/commit/517ace4d43d3d6ab64b224220e5f468040a12a8a))
+* **web:** rebuild log purchase on the lagoon components ([#55](https://github.com/jmoyers14/vendpire/issues/55)) ([e36b5a8](https://github.com/jmoyers14/vendpire/commit/e36b5a86d053d50cc6da8cde02bfaf626a96cd57))
+* **web:** rebuild log visit on the lagoon components ([#53](https://github.com/jmoyers14/vendpire/issues/53)) ([e68f44c](https://github.com/jmoyers14/vendpire/commit/e68f44ce2d6e693cbae3b3b8b665a4bd57705262))
+* **web:** rebuild machine templates on the lagoon components ([#59](https://github.com/jmoyers14/vendpire/issues/59)) ([51fb866](https://github.com/jmoyers14/vendpire/commit/51fb8668252fa0ec3e9eaf730e0e7a40b9940959))
+* **web:** rebuild machines list and edit machine on the lagoon components ([#58](https://github.com/jmoyers14/vendpire/issues/58)) ([d1b9af3](https://github.com/jmoyers14/vendpire/commit/d1b9af3e5a2cbaf905d9c0f12e80a867ef8dcef6))
+* **web:** rebuild planogram and visit history on the lagoon components ([#60](https://github.com/jmoyers14/vendpire/issues/60)) ([f35a140](https://github.com/jmoyers14/vendpire/commit/f35a140accacfebbce5c73b22abde49a2ecae136))
+* **web:** rebuild the dashboard on the lagoon components ([#62](https://github.com/jmoyers14/vendpire/issues/62)) ([9a8194c](https://github.com/jmoyers14/vendpire/commit/9a8194c61691ba6b492089ef7865ccbd761ff996))
+* **web:** rebuild the products list on the lagoon components ([#56](https://github.com/jmoyers14/vendpire/issues/56)) ([b9e6688](https://github.com/jmoyers14/vendpire/commit/b9e6688d1cac85fa4018e5164aede92ae01bdc6c))
+* **web:** rebuild the purchases list on the lagoon components ([#61](https://github.com/jmoyers14/vendpire/issues/61)) ([bf0f3d9](https://github.com/jmoyers14/vendpire/commit/bf0f3d9d3dc7eb6bcd4b39d75b1839ac2c890d3c))
+* **web:** record moves, swaps, pulls and reprices in a Count · Restock · Review visit form ([#50](https://github.com/jmoyers14/vendpire/issues/50)) ([aadc280](https://github.com/jmoyers14/vendpire/commit/aadc280f21429c7de63b62ae3fda1f1c4682fddf))
+
 ## [0.10.0](https://github.com/jmoyers14/vendpire/compare/v0.9.0...v0.10.0) (2026-11-09)
 
 
