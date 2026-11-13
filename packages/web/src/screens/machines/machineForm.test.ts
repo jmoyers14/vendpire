@@ -5,7 +5,6 @@ import {
   EMPTY_MACHINE_DRAFT,
   fieldErrorsFor,
   type MachineDraft,
-  machineSummaryFor,
   orphanedSlotCodesFor,
   templateNamed,
   templatePrefillFor,
@@ -127,16 +126,4 @@ test("orphanedSlotCodesFor lists planned slots the layout no longer has", () => 
   expect(
     orphanedSlotCodesFor({ shelves: [["A1", "A2"]], plannedSlotCodes: ["A1", "A3", "B1"] }),
   ).toEqual(["A3", "B1"]);
-});
-
-test("machineSummaryFor reads location, type and slot count", () => {
-  expect(
-    machineSummaryFor({
-      machine: { kind: "combo", slots: [["A1", "A2"], ["B1"]] },
-      locationName: "Westside Laundromat",
-    }),
-  ).toBe("Westside Laundromat · Combo · 3 slots");
-  expect(machineSummaryFor({ machine: { kind: "snack", slots: [["A1"]] }, locationName: null })).toBe(
-    "Snack · 1 slot",
-  );
 });

@@ -67,6 +67,30 @@ export const RowTableBody = ({ children }: { children: ReactNode }) => (
   <div className="divide-y divide-divider">{children}</div>
 );
 
+/**
+ * A titled run of rows inside a table. Wrap several in one RowTableBody so
+ * the groups get the same rules between them as rows do.
+ */
+export const RowTableGroup = ({
+  title,
+  aside,
+  children,
+}: {
+  title: string;
+  aside?: ReactNode;
+  children: ReactNode;
+}) => (
+  <section aria-label={title}>
+    <div
+      className={`${INSET} flex items-baseline justify-between gap-3 border-b border-divider py-2 group-data-[variant=boxed]/rows:bg-app`}
+    >
+      <h2 className="text-label text-ink">{title}</h2>
+      {aside ? <span className="text-body-sm text-muted-strong tabular-nums">{aside}</span> : null}
+    </div>
+    <RowTableBody>{children}</RowTableBody>
+  </section>
+);
+
 export const RowTableRow = ({
   className = "",
   children,
