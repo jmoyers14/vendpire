@@ -1,43 +1,32 @@
-import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
-import { Button, Card, CardTitle } from "../../ui.tsx";
-import { trpc } from "../../trpc.ts";
-import { formatCents, formatSignedCents } from "../../utils/money.ts";
-import {
-  isSameMonth,
-  monthAfter,
-  monthLabel,
-  monthOf,
-  monthRange,
-  type Month,
-} from "./month.ts";
+import type { UseQueryResult } from "@tanstack/react-query";
+import type { ApiPnlSheet } from "../../apiTypes.ts";
+import { Card, ErrorNote } from "../../ui.tsx";
+import { formatCentsOrUnknown, formatSignedCents } from "../../utils/money.ts";
+import { type Month, monthLabel } from "./month.ts";
 import { buildSheetRows, type SheetRow, type TotalScope } from "./sheetRows.ts";
-
-const UNKNOWN = "—";
-
-const formatMoney = (cents: number | null): string =>
-  cents === null ? UNKNOWN : formatCents(cents);
 
 /** Positives unsigned: a column of "+" reads as noise in a spreadsheet. */
 const formatProfit = (cents: number | null): string =>
-  cents !== null && cents < 0 ? formatSignedCents(cents) : formatMoney(cents);
+  cents !== null && cents < 0 ? formatSignedCents(cents) : formatCentsOrUnknown(cents);
 
-const cell = "border border-line px-3 py-1";
+// Deliberately a spreadsheet, gridlines and all: it's read row by row, like the books.
+const cell = "border border-line px-3 py-1.5";
 const numberCell = `${cell} text-right font-mono tabular-nums`;
 
 const ROW_STYLE: Record<SheetRow["kind"], string> = {
-  location: "bg-gray-200 font-semibold text-ink",
-  machine: "bg-gray-100 font-medium text-ink",
+  location: "bg-line font-bold text-ink",
+  machine: "bg-divider font-bold text-ink",
   item: "bg-card text-ink-soft",
-  pulled: "bg-red-50 text-red-700",
-  total: "bg-gray-50 italic text-ink",
-  net: "bg-gray-50 italic text-ink",
+  pulled: "bg-danger-soft text-danger",
+  // Totals take their colour from SCOPE_STYLE, so the grand total's light text isn't overridden.
+  total: "bg-app italic",
+  net: "bg-app italic",
 };
 
 const SCOPE_STYLE: Record<TotalScope, string> = {
-  machine: "",
-  location: "bg-gray-100 font-semibold not-italic",
-  grand: "bg-gray-800 font-bold not-italic text-white",
+  machine: "text-ink",
+  location: "bg-divider font-bold not-italic text-ink",
+  grand: "bg-ink font-bold not-italic text-card",
 };
 
 const INDENT: Record<SheetRow["kind"], string> = {
@@ -55,8 +44,8 @@ const figuresOf = (row: SheetRow) => {
     case "total":
       return {
         units: row.units,
-        sales: formatMoney(row.revenueCents),
-        cogs: formatMoney(row.cogsCents),
+        sales: formatCentsOrUnknown(row.revenueCents),
+        cogs: formatCentsOrUnknown(row.cogsCents),
         profit: formatProfit(row.grossProfitCents),
       };
     case "pulled":
@@ -104,62 +93,38 @@ const SheetTableRow = ({ row }: { row: SheetRow }) => {
 };
 
 /** One month of sales and gross profit across every machine, spreadsheet-style. */
-export function MonthPnlSheet() {
-  const thisMonth = monthOf(new Date());
-  const [month, setMonth] = useState<Month>(thisMonth);
-  const sheet = useQuery(trpc.pnl.sheet.queryOptions(monthRange(month)));
-
+export function MonthPnlSheet({
+  month,
+  sheet,
+}: {
+  month: Month;
+  /** Loaded by the page, which shows the month's totals from the same query. */
+  sheet: UseQueryResult<ApiPnlSheet, { message: string }>;
+}) {
   const rows = sheet.data ? buildSheetRows(sheet.data) : [];
   const totals = sheet.data?.totals;
 
   return (
-    <Card className="flex flex-col gap-3 p-3">
-      <div className="flex items-center justify-between gap-2">
-        <CardTitle>Sales &amp; gross profit</CardTitle>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="secondary"
-            size="sm"
-            aria-label="Previous month"
-            onClick={() => setMonth(monthAfter(month, -1))}
-          >
-            ◀
-          </Button>
-          <span className="min-w-32 text-center text-sm font-medium text-ink">
-            {monthLabel(month)}
-          </span>
-          <Button
-            variant="secondary"
-            size="sm"
-            aria-label="Next month"
-            disabled={isSameMonth(month, thisMonth)}
-            onClick={() => setMonth(monthAfter(month, 1))}
-          >
-            ▶
-          </Button>
-        </div>
-      </div>
+    <Card className="grid gap-4 border border-line p-5">
+      <h2 className="font-display text-heading text-ink">Sales &amp; gross profit</h2>
 
-      {sheet.isLoading ? (
-        <p className="text-sm text-gray-500">Loading…</p>
-      ) : sheet.isError ? (
-        <p className="text-sm text-red-600">
-          Couldn&apos;t load the month: {sheet.error.message}
-        </p>
-      ) : rows.length === 0 ? (
-        <p className="text-sm text-gray-600">
-          No sales counted in {monthLabel(month)}.
-        </p>
-      ) : (
+      {sheet.isLoading ? <p className="text-body text-muted-strong">Loading…</p> : null}
+      <ErrorNote
+        message={sheet.error ? `Couldn't load ${monthLabel(month)}: ${sheet.error.message}` : null}
+      />
+      {sheet.data && rows.length === 0 ? (
+        <p className="text-body text-ink-soft">No sales counted in {monthLabel(month)}.</p>
+      ) : null}
+      {rows.length > 0 ? (
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[36rem] border-collapse text-sm">
+          <table className="w-full min-w-[36rem] border-collapse text-body-sm">
             <thead>
-              <tr className="bg-gray-50 text-left text-gray-600">
-                <th className={`${cell} font-medium`}>Item</th>
-                <th className={`${cell} text-right font-medium`}>Units</th>
-                <th className={`${cell} text-right font-medium`}>Gross Sales</th>
-                <th className={`${cell} text-right font-medium`}>COGS</th>
-                <th className={`${cell} text-right font-medium`}>Gross Profit</th>
+              <tr className="bg-app text-left text-overline text-muted-strong uppercase">
+                <th className={cell}>Item</th>
+                <th className={`${cell} text-right`}>Units</th>
+                <th className={`${cell} text-right`}>Gross sales</th>
+                <th className={`${cell} text-right`}>COGS</th>
+                <th className={`${cell} text-right`}>Gross profit</th>
               </tr>
             </thead>
             <tbody>
@@ -169,17 +134,16 @@ export function MonthPnlSheet() {
             </tbody>
           </table>
         </div>
-      )}
+      ) : null}
 
       {totals && totals.unknownCostRows > 0 ? (
-        <p className="text-xs text-gray-500">
+        <p className="text-body-sm text-muted-strong">
           — means an item has no purchase recorded, so its cost is unknown.
         </p>
       ) : null}
       {totals && totals.unknownRemovalReasonRows > 0 ? (
-        <p className="text-xs text-gray-500">
-          Some pulled items have no reason recorded, so the loss after them
-          can&apos;t be totaled.
+        <p className="text-body-sm text-muted-strong">
+          Some pulled items have no reason recorded, so the loss after them can&apos;t be totaled.
         </p>
       ) : null}
     </Card>

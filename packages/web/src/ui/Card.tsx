@@ -34,6 +34,14 @@ export const KPI_TONE_TEXT: Record<KpiTone, string> = {
   loss: "text-loss",
 };
 
+/** Green for a profit, red for a loss, plain while it's unknown. */
+export const profitToneFor = (cents: number | null): KpiTone => {
+  if (cents === null) {
+    return "neutral";
+  }
+  return cents < 0 ? "loss" : "profit";
+};
+
 // Label over value. Values are tabular so a row of KPIs lines up on the digits.
 export const KpiCard = ({
   label,

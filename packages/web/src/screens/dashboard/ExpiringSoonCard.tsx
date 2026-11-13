@@ -1,6 +1,19 @@
 import { useQuery } from "@tanstack/react-query";
-import { Card, CardTitle } from "../../ui.tsx";
 import { trpc } from "../../trpc.ts";
+import {
+  Card,
+  ErrorNote,
+  RowTable,
+  RowTableBody,
+  RowTableCellLabel,
+  RowTableHeader,
+  RowTableRow,
+} from "../../ui.tsx";
+import { plural } from "../../utils/text.ts";
+import { bestByFor } from "./expiry.ts";
+
+/** Product · Units · Best by. */
+const EXPIRY_COLUMNS = "minmax(0,1fr) 56px 168px";
 
 /**
  * What to load before the next trip. Reads the latest visit per machine, so it
@@ -9,83 +22,79 @@ import { trpc } from "../../trpc.ts";
  */
 export function ExpiringSoonCard() {
   const report = useQuery(trpc.visits.expiringSoon.queryOptions({}));
-
-  if (report.isLoading) {
-    return (
-      <Card className="p-3">
-        <p className="text-gray-500">Checking what&apos;s expiring...</p>
-      </Card>
-    );
-  }
-  if (report.isError) {
-    return (
-      <Card className="p-3">
-        <p className="text-red-600">
-          Couldn&apos;t load the expiry report: {report.error.message}
-        </p>
-      </Card>
-    );
-  }
-
   const data = report.data;
-  if (!data) {
-    return null;
-  }
-  const actionable = [...data.expired, ...data.expiringSoon];
+  // The server lists undated slots under missingDates, so these all have a date;
+  // this only narrows the type.
+  const actionable = (data ? [...data.expired, ...data.expiringSoon] : []).flatMap((slot) =>
+    slot.bestBy === null || slot.daysUntil === null
+      ? []
+      : [{ ...slot, expiry: bestByFor({ bestBy: slot.bestBy, daysUntil: slot.daysUntil }) }],
+  );
 
   return (
-    <Card className="flex flex-col gap-2 p-3">
-      <div className="flex items-baseline justify-between gap-2">
-        <CardTitle>Expiring soon</CardTitle>
-        <span className="text-xs text-gray-500">
-          next {data.withinDays} days
-        </span>
+    <Card className="grid gap-4 border border-line p-5">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="font-display text-heading text-ink">Expiring soon</h2>
+        {data ? (
+          <span className="text-body-sm text-muted-strong">Next {data.withinDays} days</span>
+        ) : null}
       </div>
 
-      {actionable.length === 0 ? (
-        <p className="text-sm text-gray-600">
-          Nothing expiring in the next {data.withinDays} days.
-        </p>
-      ) : (
-        <ul className="flex flex-col gap-2">
-          {actionable.map((slot) => (
-            <li
-              key={`${slot.machineId} ${slot.slotCode} ${slot.productId}`}
-              className="flex items-baseline justify-between gap-3 text-sm"
-            >
-              <span className="truncate">
-                <span className="font-mono text-xs text-muted">
-                  {slot.slotCode}
-                </span>{" "}
-                <span className="text-ink-soft">{slot.productName}</span>{" "}
-                <span className="text-gray-500">
-                  · {slot.locationName} / {slot.machineName}
-                </span>
-              </span>
-              <span
-                className={
-                  slot.daysUntil !== null && slot.daysUntil < 0
-                    ? "shrink-0 font-medium text-loss"
-                    : "shrink-0 text-amber-700"
-                }
-              >
-                {slot.units} ·{" "}
-                {slot.daysUntil !== null && slot.daysUntil < 0
-                  ? `EXPIRED ${slot.bestBy}`
-                  : `${slot.bestBy} · ${slot.daysUntil}d`}
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
+      {report.isLoading ? (
+        <p className="text-body text-muted-strong">Checking what's expiring…</p>
+      ) : null}
+      <ErrorNote
+        message={report.error ? `Couldn't load the expiry report: ${report.error.message}` : null}
+      />
 
-      {/* Rendered even when both lists above are empty — that combination is
+      {data && actionable.length === 0 ? (
+        <p className="text-body text-ink-soft">Nothing expiring in the next {data.withinDays} days.</p>
+      ) : null}
+      {actionable.length > 0 ? (
+        <RowTable columns={EXPIRY_COLUMNS} variant="plain">
+          <RowTableHeader className="max-sm:hidden">
+            <span>Product</span>
+            <span className="text-right">Units</span>
+            <span className="text-right">Best by</span>
+          </RowTableHeader>
+          <RowTableBody>
+            {actionable.map((slot) => (
+                <RowTableRow
+                  key={`${slot.machineId} ${slot.slotCode} ${slot.productId}`}
+                  className="max-sm:grid-cols-[minmax(0,1fr)_auto] max-sm:gap-y-1"
+                >
+                  <span className="grid min-w-0 gap-0.5 max-sm:col-span-2">
+                    <span className="truncate text-label text-ink">{slot.productName}</span>
+                    <span className="truncate text-body-sm text-muted-strong">
+                      <span className="font-mono">{slot.slotCode}</span> · {slot.locationName} /{" "}
+                      {slot.machineName}
+                    </span>
+                  </span>
+                  <span className="text-right font-mono text-mono text-ink tabular-nums max-sm:text-left">
+                    <RowTableCellLabel className="max-sm:not-sr-only max-sm:font-sans max-sm:text-body-sm max-sm:text-muted-strong">
+                      Units
+                    </RowTableCellLabel>
+                    {slot.units}
+                  </span>
+                  <span
+                    className={`text-right text-body-sm font-bold ${slot.expiry.isExpired ? "text-danger" : "text-warning"}`}
+                  >
+                    <RowTableCellLabel>Best by</RowTableCellLabel>
+                    {slot.expiry.label}
+                  </span>
+                </RowTableRow>
+            ))}
+          </RowTableBody>
+        </RowTable>
+      ) : null}
+
+      {/* Shown even when both lists above are empty — that combination is
           precisely the one that would otherwise read as "all clear". */}
-      {data.missingDates.length > 0 ? (
-        <p className="border-divider border-t pt-2 text-xs text-gray-500">
-          No date on file for {data.missingDates.length} stocked slot
-          {data.missingDates.length === 1 ? "" : "s"} — they aren&apos;t counted
-          above.
+      {data && data.missingDates.length > 0 ? (
+        <p className="border-t border-divider pt-3 text-body-sm text-muted-strong">
+          No date on file for{" "}
+          {plural(data.missingDates.length, { one: "stocked slot", many: "stocked slots" })}, so
+          they aren't counted above.
         </p>
       ) : null}
     </Card>
