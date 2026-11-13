@@ -14,11 +14,13 @@ import {
   RowTableBody,
   RowTableCellLabel,
   RowTableEmpty,
+  RowTableGroup,
   RowTableHeader,
   RowTableRow,
 } from "../../ui.tsx";
 import { formatShortDate } from "../../utils/dates.ts";
-import { machineSummaryFor } from "./machineForm.ts";
+import { plural } from "../../utils/text.ts";
+import { buildLocationGroups, machineSummaryFor } from "./machineList.ts";
 
 /** Machine · Last visit · Actions. */
 const MACHINE_COLUMNS = "minmax(0,1fr) 120px 260px";
@@ -38,6 +40,7 @@ export function MachinesScreen() {
   const lastVisitAtByMachine = new Map(
     (latestVisitsQuery.data ?? []).map((visit) => [visit.machineId, visit.countedAt]),
   );
+  const locationGroups = buildLocationGroups(machines, locationNameById);
   const hasNoLocations = locationsQuery.isSuccess && locationsQuery.data.length === 0;
 
   return (
@@ -86,14 +89,21 @@ export function MachinesScreen() {
           </RowTableHeader>
           {machines.length > 0 ? (
             <RowTableBody>
-              {machines.map((machine) => (
-                <MachineRow
-                  key={machine.id}
-                  machine={machine}
-                  locationName={locationNameById.get(machine.locationId) ?? null}
-                  lastVisitAt={lastVisitAtByMachine.get(machine.id) ?? null}
-                  isLastVisitLoading={latestVisitsQuery.isLoading}
-                />
+              {locationGroups.map((group) => (
+                <RowTableGroup
+                  key={group.locationId}
+                  title={group.locationName ?? "…"}
+                  aside={plural(group.machines.length, { one: "machine", many: "machines" })}
+                >
+                  {group.machines.map((machine) => (
+                    <MachineRow
+                      key={machine.id}
+                      machine={machine}
+                      lastVisitAt={lastVisitAtByMachine.get(machine.id) ?? null}
+                      isLastVisitLoading={latestVisitsQuery.isLoading}
+                    />
+                  ))}
+                </RowTableGroup>
               ))}
             </RowTableBody>
           ) : (
@@ -120,12 +130,10 @@ export function MachinesScreen() {
 /** One machine. The name links to its edit page; Log visit is the main action. */
 function MachineRow({
   machine,
-  locationName,
   lastVisitAt,
   isLastVisitLoading,
 }: {
   machine: ApiMachine;
-  locationName: string | null;
   lastVisitAt: string | null;
   isLastVisitLoading: boolean;
 }) {
@@ -148,7 +156,7 @@ function MachineRow({
           )}
         </div>
         <p className="text-body-sm text-muted-strong">
-          {machineSummaryFor({ machine, locationName })}
+          {machineSummaryFor(machine)}
         </p>
       </div>
       <LastVisitCell lastVisitAt={lastVisitAt} isLoading={isLastVisitLoading} />

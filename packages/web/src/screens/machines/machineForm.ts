@@ -1,6 +1,6 @@
 import type { ApiMachine, ApiMachineTemplate } from "../../apiTypes.ts";
-import { nullIfBlank, plural } from "../../utils/text.ts";
-import { MACHINE_KIND_LABELS, type MachineKind } from "./machineKind.ts";
+import { nullIfBlank } from "../../utils/text.ts";
+import type { MachineKind } from "./machineKind.ts";
 import {
   emptySlotsValue,
   type SlotsValue,
@@ -168,18 +168,4 @@ export const orphanedSlotCodesFor = ({
 }): string[] => {
   const codes = new Set(shelves.flat());
   return plannedSlotCodes.filter((code) => !codes.has(code));
-};
-
-/** "Westside Laundromat · Snack · 48 slots" for a list row. */
-export const machineSummaryFor = ({
-  machine,
-  locationName,
-}: {
-  machine: Pick<ApiMachine, "kind" | "slots">;
-  locationName: string | null;
-}): string => {
-  const slotCount = machine.slots.flat().length;
-  return [locationName, MACHINE_KIND_LABELS[machine.kind], plural(slotCount, { one: "slot", many: "slots" })]
-    .filter(Boolean)
-    .join(" · ");
 };

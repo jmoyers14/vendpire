@@ -49,6 +49,7 @@ export {
   RowTableCellLabel,
   RowTableEmpty,
   RowTableFooter,
+  RowTableGroup,
   RowTableHeader,
   RowTableRow,
 } from "./ui/RowTable.tsx";
