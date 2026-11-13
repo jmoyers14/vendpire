@@ -31,6 +31,7 @@ export const Page = ({
   </div>
 );
 
+/** @deprecated Use `<PageHeader title>`; kept for Packs and Settings until they move over. */
 export const PageTitle = ({
   className = "",
   children,
@@ -45,20 +46,19 @@ export const PageTitle = ({
   </h1>
 );
 
-// Secondary line under a page or card title.
+/** @deprecated Use `<PageHeader meta>`; kept for Settings until it moves over. */
 export const PageSubtitle = ({ children }: { children: ReactNode }) => (
   <p className="text-sm text-gray-600">{children}</p>
 );
 
-// Wrap a wide table so it scrolls horizontally on narrow screens instead of
-// overflowing the viewport. The radius and border live here so corners clip.
+/** @deprecated Use `<RowTable>`; kept for Packs until it moves over. */
 export const TableScroll = ({ children }: { children: ReactNode }) => (
   <div className="overflow-x-auto rounded-card border border-line bg-card shadow-card">
     {children}
   </div>
 );
 
-// Dashed placeholder shown where a list has no rows yet.
+/** @deprecated Use `<RowTableEmpty>`; kept for Packs until it moves over. */
 export const EmptyState = ({ children }: { children: ReactNode }) => (
   <div className="rounded-card border border-dashed border-gray-300 p-8 text-center text-gray-600">
     {children}

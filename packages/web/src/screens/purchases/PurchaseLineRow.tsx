@@ -64,6 +64,8 @@ export function PurchaseLineRow({
   const count = isPack ? row.qty : row.units;
   const perUnitCents = perUnitCentsFor(row, { unitsPerPack });
   const units = unitsIn(row, { unitsPerPack });
+  // Not useProductName: `products` includes ones created during this purchase,
+  // which the catalog doesn't have yet.
   const productName = (productId: string): string =>
     products.find((product) => product.id === productId)?.name ?? "…";
   const label = name || (isPack ? "new pack" : "new item");

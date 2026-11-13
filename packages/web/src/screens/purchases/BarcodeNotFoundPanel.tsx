@@ -1,19 +1,24 @@
-import { useState } from "react";
 import { normalizeGtin } from "@vendpire/domain";
+import { useState } from "react";
+import type { ApiCandidate, ApiPack, ApiProduct } from "../../apiTypes.ts";
 import { queryClient, trpc, trpcClient } from "../../trpc.ts";
 import {
+  Badge,
   Button,
+  ChipGroup,
+  type ChipOption,
   ErrorNote,
-  hintClass,
+  Field,
+  IconButton,
   InfoHint,
-  inputClass,
-  labelClass,
+  insetFocusRing,
+  Select,
+  TextInput,
 } from "../../ui.tsx";
-import type { ApiCandidate, ApiPack, ApiProduct } from "../../apiTypes.ts";
 import { parseDollarsToCents } from "../../utils/money.ts";
 import {
-  type CatalogItem,
   buildCatalogItems,
+  type CatalogItem,
   isPackItem,
   isUnitItem,
   searchCatalogItems,
@@ -56,6 +61,11 @@ interface BarcodeNotFoundPanelProps {
 }
 
 const NEW_PRODUCT = "__new__";
+
+const KIND_OPTIONS: ChipOption<"unit" | "pack">[] = [
+  { value: "unit", label: "A single item" },
+  { value: "pack", label: "A case / pack" },
+];
 
 /**
  * One line of a case's contents. A variety pack has several — each either an
@@ -346,37 +356,31 @@ export function BarcodeNotFoundPanel({
   };
 
   return (
-    <div className="space-y-4 rounded-card border border-amber-200 bg-amber-50 p-4">
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-4 rounded-card border border-warning-indicator bg-warning-soft p-4">
       {/* What happened and which code lead; the outside guess is set aside in
           its own card so it reads as a suggestion, not as a fact about the
           operator's catalog. */}
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h2 className="font-display text-xl font-extrabold text-ink">
-            Barcode not found
-          </h2>
-          <p className="font-mono text-sm text-amber-900">{gtin14}</p>
+          <h2 className="font-display text-heading text-ink">Barcode not found</h2>
+          <p className="font-mono text-mono text-warning">{gtin14}</p>
           {candidate?.name ? null : (
-            <p className="mt-1 text-sm text-amber-900">
+            <p className="mt-1 text-body-sm text-ink-soft">
               Nobody recognises this code. Tell us what it is.
             </p>
           )}
         </div>
         {candidate?.name ? (
-          <div className="flex w-56 shrink-0 items-center gap-2 rounded-xl border border-line bg-card p-2">
+          <div className="flex w-56 shrink-0 items-center gap-2 rounded-panel border border-line bg-card p-2">
             {candidate.imageUrl ? (
-              <img
-                src={candidate.imageUrl}
-                alt=""
-                className="size-10 shrink-0 object-contain"
-              />
+              <img src={candidate.imageUrl} alt="" className="size-10 shrink-0 object-contain" />
             ) : null}
             <span className="min-w-0">
               <span className="flex items-center gap-1">
-                <span className="text-sm font-bold text-ink">Maybe</span>
+                <span className="text-label text-ink">Maybe</span>
                 <InfoHint text="From Open Food Facts — a community product database, not your catalog." />
               </span>
-              <span className="line-clamp-2 text-xs leading-snug text-ink-soft">
+              <span className="line-clamp-2 text-body-sm text-ink-soft">
                 {candidateName(candidate)}
               </span>
             </span>
@@ -399,54 +403,46 @@ export function BarcodeNotFoundPanel({
           </Button>
         </div>
       ) : mode === "attach" ? (
-        <div className="space-y-2">
-          <label className={labelClass} htmlFor="attach-search">
-            Add this code to something you already have
-          </label>
-          <input
-            id="attach-search"
-            className={inputClass}
-            placeholder="Search your products and cases…"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            autoComplete="off"
-          />
+        <div className="grid gap-2">
+          <Field label="Add this code to something you already have">
+            <TextInput
+              placeholder="Search your products and cases…"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              autoComplete="off"
+            />
+          </Field>
           {query.trim() ? (
-            <ul className="max-h-60 divide-y divide-divider overflow-auto rounded-xl border border-line bg-card">
+            <ul className="max-h-60 divide-y divide-divider overflow-auto rounded-panel border border-line bg-card">
               {matches.length === 0 ? (
-                <li className="px-3 py-2 text-sm text-muted">
+                <li className="px-3 py-2 text-body-sm text-muted-strong">
                   Nothing matches — create it below instead.
                 </li>
               ) : (
-                matches.map((item) => (
+                matches.map((item) => {
+                  const isPack = isPackItem(item);
+                  return (
                   <li key={`${item.kind}-${item.id}`}>
                     <button
                       type="button"
                       disabled={saving}
                       onClick={() => void attach(item)}
-                      className="flex w-full items-center gap-3 px-3 py-2 text-left hover:bg-gray-100 disabled:opacity-50"
+                      className={`flex w-full items-center gap-3 px-3 py-2 text-left hover:bg-app disabled:opacity-50 ${insetFocusRing}`}
                     >
-                      <span
-                        className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${
-                          isPackItem(item)
-                            ? "bg-primary-100 text-primary-700"
-                            : "bg-gray-200 text-gray-700"
-                        }`}
-                      >
-                        {isPackItem(item) ? "Case" : "Item"}
-                      </span>
+                      <Badge tone={isPack ? "action" : "neutral"} size="sm">
+                        {isPack ? "Case" : "Item"}
+                      </Badge>
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm text-ink-soft">
-                          {item.name}
-                        </span>
-                        <span className="block font-mono text-xs text-muted">
+                        <span className="block truncate text-body-sm text-ink">{item.name}</span>
+                        <span className="block font-mono text-body-sm text-muted-strong">
                           {item.barcode ?? "no barcode yet"}
-                          {isPackItem(item) ? ` · ${item.units} units` : ""}
+                          {isPack ? ` · ${item.units} units` : ""}
                         </span>
                       </span>
                     </button>
                   </li>
-                ))
+                  );
+                })
               )}
             </ul>
           ) : null}
@@ -457,30 +453,13 @@ export function BarcodeNotFoundPanel({
           </div>
         </div>
       ) : (
-        <div className="space-y-3">
-          <div className="flex gap-2">
-            {(["unit", "pack"] as const).map((option) => (
-              <button
-                key={option}
-                type="button"
-                onClick={() => setKind(option)}
-                className={`rounded-full border px-3.5 py-1.5 text-sm font-bold ${
-                  kind === option
-                    ? "border-primary-500 bg-card text-primary-700"
-                    : "border-line text-gray-600 hover:bg-card"
-                }`}
-              >
-                {option === "unit" ? "A single item" : "A case / pack"}
-              </button>
-            ))}
-          </div>
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-4">
+          <ChipGroup label="What is it?" options={KIND_OPTIONS} value={kind} onChange={setKind} />
 
           {kind === "pack" ? (
-            <div className="space-y-2">
-              <label className={hintClass}>
-                Case name
-                <input
-                  className={inputClass}
+            <div className="grid grid-cols-[minmax(0,1fr)] gap-4">
+              <Field label="Case name">
+                <TextInput
                   placeholder="e.g. Frito-Lay 30ct variety"
                   value={shownPackName}
                   onChange={(e) => {
@@ -488,23 +467,21 @@ export function BarcodeNotFoundPanel({
                     setPackName(e.target.value);
                   }}
                 />
-              </label>
+              </Field>
 
-              <fieldset className="space-y-2">
-                <legend className={hintClass}>
+              <fieldset className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-2">
+                <legend className="mb-2 text-label text-ink">
                   What’s inside one case, in sellable units
                 </legend>
                 {contents.map((row, index) => (
                   // Rows are positional and can be reordered by removal, so the
                   // index is the only stable key available.
-                  <div key={index} className="space-y-1">
-                    <div className="grid grid-cols-[1fr_5rem_2rem] items-center gap-2">
-                      <select
-                        className={inputClass}
+                  <div key={index} className="grid grid-cols-[minmax(0,1fr)] gap-2">
+                    <div className="grid grid-cols-[minmax(0,1fr)_5rem_2.25rem] items-center gap-2">
+                      <Select
+                        aria-label="Product"
                         value={row.productId}
-                        onChange={(e) =>
-                          setContent(index, { productId: e.target.value })
-                        }
+                        onChange={(e) => setContent(index, { productId: e.target.value })}
                       >
                         <option value={NEW_PRODUCT}>➕ New product…</option>
                         {products.map((product) => (
@@ -512,98 +489,86 @@ export function BarcodeNotFoundPanel({
                             {product.name}
                           </option>
                         ))}
-                      </select>
-                      <input
-                        className={inputClass}
+                      </Select>
+                      <TextInput
+                        aria-label="Units"
                         placeholder="Units"
                         value={row.units}
                         onChange={(e) => setContent(index, { units: e.target.value })}
                       />
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setContents(contents.filter((_, i) => i !== index))
-                        }
+                      <IconButton
+                        label="Remove this product"
+                        tone="danger"
+                        onClick={() => setContents(contents.filter((_, i) => i !== index))}
                         disabled={contents.length === 1}
-                        className="text-gray-400 hover:text-red-600 disabled:opacity-30"
-                        title="Remove this product"
                       >
                         ✕
-                      </button>
+                      </IconButton>
                     </div>
                     {row.productId === NEW_PRODUCT ? (
-                      <div className="grid grid-cols-[1fr_8rem_11rem] gap-2 pr-[2.5rem]">
-                        <input
-                          className={inputClass}
+                      <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_8rem_11rem] sm:pr-[2.75rem]">
+                        <TextInput
+                          aria-label="New product name"
                           placeholder="Name, e.g. Doritos Nacho Cheese"
                           value={row.name}
                           onChange={(e) => setContent(index, { name: e.target.value })}
                         />
-                        <input
-                          className={inputClass}
+                        <TextInput
+                          aria-label="Category"
                           placeholder="Category"
                           value={row.category}
-                          onChange={(e) =>
-                            setContent(index, { category: e.target.value })
-                          }
+                          onChange={(e) => setContent(index, { category: e.target.value })}
                         />
-                        <input
-                          className={`${inputClass} font-mono`}
+                        <TextInput
+                          aria-label="Bag barcode"
+                          className="font-mono"
                           placeholder="bag barcode (optional)"
                           value={row.bagCode}
-                          onChange={(e) =>
-                            setContent(index, { bagCode: e.target.value })
-                          }
+                          onChange={(e) => setContent(index, { bagCode: e.target.value })}
                           autoComplete="off"
                         />
                       </div>
                     ) : null}
                   </div>
                 ))}
-                <button
-                  type="button"
+                <Button
+                  variant="text"
+                  size="sm"
+                  className="justify-self-start text-left whitespace-normal!"
                   onClick={() => setContents([...contents, { ...EMPTY_CONTENT }])}
-                  className="text-sm text-primary-600 hover:text-primary-500"
                 >
                   + Add another product (variety packs have several)
-                </button>
+                </Button>
               </fieldset>
             </div>
           ) : (
-            <div className="grid grid-cols-[1fr_8rem_8rem] gap-2">
-              <label className={hintClass}>
-                Name
-                <input
-                  className={inputClass}
+            <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_10rem_10rem]">
+              <Field label="Name">
+                <TextInput
                   placeholder="e.g. Coca-Cola Zero 12 oz can"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                 />
-              </label>
-              <label className={hintClass}>
-                Category
-                <input
-                  className={inputClass}
+              </Field>
+              <Field label="Category">
+                <TextInput
                   placeholder="e.g. drinks"
                   value={category}
                   onChange={(e) => setCategory(e.target.value)}
                 />
-              </label>
-              {/* Not a <label> wrapper: the hint is a button, which can't nest
-                  inside one. */}
-              <div className={hintClass}>
-                <span className="flex items-center gap-1">
-                  <label htmlFor="sell-price">Sell price $</label>
-                  <InfoHint text="Optional. This only seeds the price when you add the product to a machine — the real price is set per slot on the planogram." />
-                </span>
-                <input
-                  id="sell-price"
-                  className={inputClass}
+              </Field>
+              <Field
+                label="Sell price $"
+                isOptional
+                hint="This only seeds the price when you add the product to a machine — the real price is set per slot on the planogram."
+              >
+                <TextInput
+                  inputMode="decimal"
                   placeholder="1.75"
                   value={price}
                   onChange={(e) => setPrice(e.target.value)}
                 />
-              </div>
+              </Field>
             </div>
           )}
 

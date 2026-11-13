@@ -1,5 +1,6 @@
 import { type ReactNode, useState } from "react";
 import {
+  Alert,
   Badge,
   Button,
   ChipGroup,
@@ -12,7 +13,11 @@ import {
   FieldRow,
   FormSection,
   IconButton,
+  InfoHint,
   Kbd,
+  KpiCard,
+  KpiGrid,
+  LoadMore,
   MachineMap,
   MachineMapLegend,
   type MachineTile,
@@ -28,6 +33,7 @@ import {
   RowTableHeader,
   RowTableRow,
   SaveBar,
+  SearchInput,
   SectionDivider,
   Select,
   type Step,
@@ -546,6 +552,43 @@ const FormPatternDemo = () => {
   );
 };
 
+const AlertsDemo = () => (
+  <div className="grid gap-3">
+    <Alert tone="warning" title="This machine has no planogram yet">
+      Set one up so visits know what each slot holds.
+    </Alert>
+    <Alert tone="danger" title="Couldn't load November 2026: network error" />
+    <Alert tone="success" title="Visit saved" />
+  </div>
+);
+
+const KpisDemo = () => (
+  <KpiGrid>
+    <KpiCard label="Gross sales" value="$412.00" />
+    <KpiCard label="COGS" value="—" />
+    <KpiCard label="Gross profit" value="+$171.40" tone="profit" />
+    <KpiCard label="After write-offs" value="−$36.08" tone="loss" />
+  </KpiGrid>
+);
+
+/** The list controls need state to show anything, so they get a live demo. */
+const ListControlsDemo = () => {
+  const [query, setQuery] = useState("");
+  const [pages, setPages] = useState(1);
+  return (
+    <Surface>
+      <div className="w-full sm:max-w-sm">
+        <SearchInput value={query} onChange={setQuery} placeholder="Search by name, category or UPC" />
+      </div>
+      <p className="flex items-center gap-1 text-body-sm text-muted-strong">
+        Filtering on “{query || "—"}” · {pages} page(s) loaded
+        <InfoHint text="Explains a field without a permanent line of helper text under it." />
+      </p>
+      <LoadMore hasMore={pages < 3} loading={false} onClick={() => setPages((count) => count + 1)} />
+    </Surface>
+  );
+};
+
 export const ComponentGallery = () => (
   <div className="grid gap-10">
     <Demo title="Type scale">
@@ -562,6 +605,15 @@ export const ComponentGallery = () => (
     </Demo>
     <Demo title="Switch">
       <SwitchesDemo />
+    </Demo>
+    <Demo title="Alert">
+      <AlertsDemo />
+    </Demo>
+    <Demo title="KPI cards">
+      <KpisDemo />
+    </Demo>
+    <Demo title="SearchInput · InfoHint · LoadMore">
+      <ListControlsDemo />
     </Demo>
     <Demo title="Chips">
       <ChipsDemo />

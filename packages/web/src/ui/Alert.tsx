@@ -2,9 +2,9 @@ import type { ReactNode } from "react";
 import type { StatusTone } from "./tone.ts";
 
 const TONE: Record<StatusTone, string> = {
-  warning: "bg-amber-50 border-amber-200 text-amber-900",
-  danger: "bg-red-50 border-red-200 text-red-900",
-  success: "bg-green-50 border-green-200 text-green-900",
+  warning: "border-warning-indicator bg-warning-soft text-warning",
+  danger: "border-danger-indicator bg-danger-soft text-danger",
+  success: "border-success-indicator bg-success-soft text-success",
 };
 
 // A bold title line with optional detail underneath, and an optional action
@@ -24,11 +24,11 @@ export const Alert = ({
   children?: ReactNode;
 }) => (
   <div
-    className={`flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-card border px-3.5 py-3 text-sm ${TONE[tone]} ${className}`}
+    className={`flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-card border px-3.5 py-3 text-body-sm ${TONE[tone]} ${className}`}
   >
     <div className="grid min-w-0 gap-0.5">
       <p className="font-bold">{title}</p>
-      {children ? <div>{children}</div> : null}
+      {children ? <div className="text-ink-soft">{children}</div> : null}
     </div>
     {action ? <div className="flex flex-none items-center gap-2">{action}</div> : null}
   </div>

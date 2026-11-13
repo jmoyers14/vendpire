@@ -32,6 +32,7 @@ import {
 } from "../../utils/money.ts";
 import { plural } from "../../utils/text.ts";
 import { MachineMetaLine, useLocationName } from "../machines/machineMeta.tsx";
+import { useProductName } from "../products/useProductName.ts";
 import { ProfitKpiGrid } from "./ProfitKpiGrid.tsx";
 import {
   buildProductSales,
@@ -72,7 +73,6 @@ export function MachineVisitsScreen({ machineId }: { machineId: string }) {
   const [expandedVisitId, setExpandedVisitId] = useState<string | null>(null);
 
   const machine = useQuery(trpc.machines.get.queryOptions({ id: machineId }));
-  const products = useQuery(trpc.products.list.queryOptions());
   const visits = useQuery(trpc.visits.list.queryOptions({ machineId }));
   const pnl = useQuery(trpc.pnl.byMachine.queryOptions({ machineId }));
   const locationName = useLocationName(machine.data);
@@ -109,8 +109,7 @@ export function MachineVisitsScreen({ machineId }: { machineId: string }) {
     [pnl.data],
   );
 
-  const productName = (id: string): string =>
-    products.data?.find((product) => product.id === id)?.name ?? id;
+  const productName = useProductName();
 
   const totals = pnl.data?.totals;
   const groupOf = (visitId: string): VisitPnlGroup | undefined =>
