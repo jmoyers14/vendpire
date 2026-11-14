@@ -3,8 +3,8 @@ import type {
   PnlRows,
   PnlTotals,
   VisitAnomaly,
-} from "@vendpire/domain";
-import type { VisitRange } from "@vendpire/platform";
+} from "@zenvend/domain";
+import type { VisitRange } from "@zenvend/platform";
 
 /** One machine's product-level profitability over a window. */
 export interface MachinePnl {

@@ -10,7 +10,7 @@
 # Idempotent: re-running overwrites with the same values.
 set -euo pipefail
 
-REPO="jmoyers14/vendpire"
+REPO="jmoyers14/zenvend"
 API_ENV="packages/api/.env"
 WEB_ENV="packages/web/.env.local"
 

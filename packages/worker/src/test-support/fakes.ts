@@ -22,7 +22,7 @@ import type {
   WebhookEventRepository,
   WebhookSource,
   WebhookVerifier,
-} from "@vendpire/platform";
+} from "@zenvend/platform";
 
 /**
  * Hand-written in-memory fakes for the ports the worker depends on, matching the

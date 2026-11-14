@@ -5,7 +5,7 @@ import {
   type RemovalReason,
   slotProductKey,
   type VisitLine,
-} from "@vendpire/domain";
+} from "@zenvend/domain";
 
 /**
  * The Count step's state: what was in each slot on arrival.

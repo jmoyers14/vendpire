@@ -1,4 +1,4 @@
-# Deploying vendpire
+# Deploying zenvend
 
 Three Cloud Run services on the **personal** Google account, isolated from the
 work account via a dedicated gcloud *configuration* (same pattern as landscape).
@@ -33,7 +33,7 @@ REGION="us-central1"
 
 ## One-time setup (already done)
 
-- gcloud configuration `vendpire` pinned to the personal account + project
+- gcloud configuration `zenvend` pinned to the personal account + project
 - Project `vendpire-128694` created, billing linked
 - APIs enabled: Cloud Run, Artifact Registry, Secret Manager
 - Cloud Tasks + IAM Credentials are enabled by `deploy.sh` itself, along with
@@ -46,7 +46,7 @@ The Mongo secret must come from the environment on the first run (the local
 `.env` points at localhost):
 
 ```sh
-MONGODB_URI="mongodb+srv://<user>:<pass>@<cluster>/vendpire" ./deploy.sh
+MONGODB_URI="mongodb+srv://<user>:<pass>@<cluster>/zenvend" ./deploy.sh
 ```
 
 Later deploys are just `./deploy.sh` — secrets already exist in Secret
@@ -100,7 +100,7 @@ is idempotent — re-run it after changing any role.
 
 No service account key is ever created. GitHub mints a short-lived OIDC token
 that GCP trades for ~1h credentials, and the provider's attribute condition pins
-it to `jmoyers14/vendpire`, so no other repository can use it.
+it to `jmoyers14/zenvend`, so no other repository can use it.
 
 ### GitHub secrets
 
@@ -193,7 +193,7 @@ Seven places. Miss any and it fails silently.
    `CLERK_PUBLISHABLE_KEY`.
 3. `deploy.sh` — `--build-arg VITE_FOO="$FOO"` on the web `docker build`.
 4. `packages/web/src/vite-env.d.ts` — add the field to `ImportMetaEnv`.
-5. `gh secret set VITE_FOO --repo jmoyers14/vendpire`.
+5. `gh secret set VITE_FOO --repo jmoyers14/zenvend`.
 6. `.github/workflows/deploy.yml` — add to the Deploy step's `env:` block.
 7. `packages/web/.env.local` for local dev.
 
@@ -315,7 +315,7 @@ To check the backstop, send the header at a normal route and expect **426**:
 
 ```sh
 curl -i -X POST <api-url>/visits.create \
-  -H 'x-vendpire-client: ios/42' -H 'content-type: application/json' -d '{}'
+  -H 'x-zenvend-client: ios/42' -H 'content-type: application/json' -d '{}'
 ```
 
 A build at or above the floor gets `401` there instead — it cleared the gate

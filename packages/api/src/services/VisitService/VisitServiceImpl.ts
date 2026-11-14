@@ -8,14 +8,14 @@ import {
   slotRuleViolation,
   slotsAfterChanges,
   type LayoutChange,
-} from "@vendpire/domain";
+} from "@zenvend/domain";
 import {
   LOCATION_REPOSITORY_TOKEN,
   MACHINE_REPOSITORY_TOKEN,
   PLANOGRAM_REPOSITORY_TOKEN,
   PRODUCT_REPOSITORY_TOKEN,
   VISIT_REPOSITORY_TOKEN,
-} from "@vendpire/platform";
+} from "@zenvend/platform";
 import type {
   Location,
   LocationRepository,
@@ -30,7 +30,7 @@ import type {
   VisitLine,
   VisitListFilter,
   VisitRepository,
-} from "@vendpire/platform";
+} from "@zenvend/platform";
 import { isDuplicateKey, ServiceError } from "../errors.ts";
 import {
   layoutChangeMessage,

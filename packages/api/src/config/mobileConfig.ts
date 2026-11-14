@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { parseConfig } from "@vendpire/platform/server";
+import { parseConfig } from "@zenvend/platform/server";
 
 /** Policy for which iOS builds the server still supports. */
 export interface MobileConfig {
@@ -16,7 +16,7 @@ export const MOBILE_CONFIG_TOKEN = "MobileConfig";
 const schema = z.object({
   iosMinimumBuild: z.coerce.number().int().min(0).default(0),
   iosRecommendedBuild: z.coerce.number().int().min(0).default(0),
-  iosUpdateUrl: z.url().default("https://apps.apple.com/app/vendpire"),
+  iosUpdateUrl: z.url().default("https://apps.apple.com/app/zenvend"),
 });
 
 export function loadMobileConfig(): MobileConfig {

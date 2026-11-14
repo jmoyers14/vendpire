@@ -1,4 +1,4 @@
-// Vendpire — Debug build settings.
+// Zenvend — Debug build settings.
 //
 // Values live here rather than in Swift so no environment detail is ever
 // hardcoded in a source file. Environment.swift reads them back out of the
@@ -11,7 +11,7 @@ SLASH = /
 // A separate app identity so a dev build installs beside the staging app
 // instead of replacing it — the staging app holds real data.
 BUNDLE_ID_SUFFIX = .debug
-APP_DISPLAY_NAME = Vendpire Dev
+APP_DISPLAY_NAME = Zenvend Dev
 APP_ICON_NAME = AppIconDev
 
 // Clerk publishable key for the dynamic-kit-6657 dev instance.
@@ -26,7 +26,7 @@ CLERK_PUBLISHABLE_KEY = pk_test_ZHluYW1pYy1raXQtNjY1Ny5jbGVyay5hY2NvdW50cy5kZXYk
 // localhost is the phone: override this in Local.xcconfig with the Mac's
 // Bonjour name (e.g. http://My-Mac.local:3211/api/v1).
 // Port 3211 is this worktree's API port — worktrees differ, check before use.
-VENDPIRE_API_BASE_URL = http:$(SLASH)$(SLASH)localhost:3211$(SLASH)api$(SLASH)v1
+ZENVEND_API_BASE_URL = http:$(SLASH)$(SLASH)localhost:3211$(SLASH)api$(SLASH)v1
 
 // Per-machine overrides, gitignored. Last, so its values win.
 #include? "Local.xcconfig"

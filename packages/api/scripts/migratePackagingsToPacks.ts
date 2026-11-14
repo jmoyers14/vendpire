@@ -9,8 +9,8 @@
  */
 import mongoose from "mongoose";
 import { container, PACK_SERVICE_TOKEN } from "../src/services/index.ts";
-import { connectDatabase } from "@vendpire/platform/server";
-import { normalizeGtin } from "@vendpire/domain";
+import { connectDatabase } from "@zenvend/platform/server";
+import { normalizeGtin } from "@zenvend/domain";
 import type { PackService } from "../src/services/PackService/PackService.ts";
 
 const uri = process.env.MONGODB_URI;

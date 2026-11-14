@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { LayoutChange } from "@vendpire/domain";
+import type { LayoutChange } from "@zenvend/domain";
 import { orgProtectedProcedure, router } from "../trpc.ts";
 import { ANALYTICS_EVENTS } from "../analytics/events.ts";
 import {
@@ -36,7 +36,7 @@ export const visitLineInput = z
 
 const slotCodeInput = z.string().min(1).max(8);
 
-// Published in openapi/vendpire.yaml; later changes must be additive.
+// Published in openapi/zenvend.yaml; later changes must be additive.
 const layoutChangeInput = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("move"),

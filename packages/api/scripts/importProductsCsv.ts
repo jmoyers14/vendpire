@@ -14,9 +14,9 @@ import {
   container,
   PRODUCT_SERVICE_TOKEN,
 } from "../src/services/index.ts";
-import { PRODUCT_DATA_CLIENT_TOKEN } from "@vendpire/platform";
-import type { ProductDataClient } from "@vendpire/platform";
-import { connectDatabase } from "@vendpire/platform/server";
+import { PRODUCT_DATA_CLIENT_TOKEN } from "@zenvend/platform";
+import type { ProductDataClient } from "@zenvend/platform";
+import { connectDatabase } from "@zenvend/platform/server";
 import type { ProductService } from "../src/services/ProductService/ProductService.ts";
 
 const uri = process.env.MONGODB_URI;

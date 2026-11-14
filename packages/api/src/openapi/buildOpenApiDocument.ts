@@ -191,9 +191,9 @@ const override: NonNullable<CreateDocumentOptions["override"]> = (ctx) => {
 /** Pure, so the drift test can compare against it. Writing to disk is scripts/generateOpenApi.ts. */
 export function buildOpenApiDocument() {
   const generated = generateOpenApiDocument(appRouter, {
-    title: "Vendpire",
+    title: "Zenvend",
     description:
-      "Sync surface for the Vendpire iOS app. Mirrors procedures the web dashboard calls over tRPC.",
+      "Sync surface for the Zenvend iOS app. Mirrors procedures the web dashboard calls over tRPC.",
     version: "1.0.0",
     baseUrl: "http://localhost:3210/api/v1",
     // Do not "fix" this to 3.0.3 — that target still emits 3.1 syntax, under

@@ -1,4 +1,4 @@
-# Vendpire iOS — architecture
+# Zenvend iOS — architecture
 
 Decisions and, more importantly, the reasoning behind them. The structure is
 easy to re-derive from the code; the *why* is what evaporates.
@@ -17,7 +17,7 @@ The mirror and outbox this layering serves are drawn in
      │                                                      ▲
      │  intents: refresh(), submit(draft), signIn()         │  ALL writes
      ▼                                                      │
-  Services ───────────►  VendpireAPI  ───────────────────────┘
+  Services ───────────►  ZenvendAPI  ───────────────────────┘
 ```
 
 This mirrors the backend — `router → service → repository → model` becomes
@@ -70,7 +70,7 @@ model earning its place rather than being installed on principle.
 
 ## One seam, at the network edge
 
-`VendpireAPI` is a protocol. Services are concrete types taking a `ModelContext`.
+`ZenvendAPI` is a protocol. Services are concrete types taking a `ModelContext`.
 
 Tests run the real service against a stub API and an in-memory container
 (`ModelConfiguration(isStoredInMemoryOnly: true)`), which makes orchestration the
@@ -85,7 +85,7 @@ closely, but a protocol with exactly one implementation is ceremony.
 ## Auth never gates the store
 
 ```
-VendpireApp
+ZenvendApp
  └─ LocalLockGate              ← biometric / passcode: the ONLY gate
      └─ RootView
          ├─ LocationList → MachineList → MachineFace   (never checks auth)
@@ -113,7 +113,7 @@ assumed cheap by the mirror-by-full-refresh model.
 ## Main actor by exception, not by default
 
 Xcode 26 sets `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` on new projects. The
-Vendpire target overrides that to `nonisolated`, because the generated OpenAPI
+Zenvend target overrides that to `nonisolated`, because the generated OpenAPI
 client (`swift-openapi-generator` 1.14.2, which offers no isolation option)
 crosses actor boundaries internally via `@Sendable` closures and will not
 compile under a MainActor default at all. This wasn't chosen on the app's own
@@ -124,7 +124,7 @@ app target go back to a MainActor default without the conflict.
 
 **Why it's safe today:** every stateful or UI-facing type already carries an
 explicit `@MainActor` — `ClerkSession`, `LocalLock`, `ClientSupport`,
-`MirrorWriter`, `MirrorRefresher`, `DevFixtureLoader` — `VendpireApp` and the
+`MirrorWriter`, `MirrorRefresher`, `DevFixtureLoader` — `ZenvendApp` and the
 views inherit main-actor isolation from SwiftUI's `App` and `View`
 conformances, and the app's only `ModelContext` (`container.mainContext`) is
 consumed exclusively inside that annotated path. `ModelContext` is not `Sendable`; the default

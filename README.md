@@ -1,4 +1,4 @@
-# Vendpire
+# Zenvend
 
 Vending machine route tracker: count-and-fill visit logging, inventory,
 and profit reporting for a small vending operation. Two surfaces share one

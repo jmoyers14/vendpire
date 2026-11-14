@@ -40,7 +40,7 @@ export const protectedProcedure = baseProcedure.use(({ ctx, next }) => {
 });
 
 /**
- * Requires an active organization — the business boundary. Vendpire treats the
+ * Requires an active organization — the business boundary. Zenvend treats the
  * Clerk organization as the business, so every business-scoped document keys on
  * this orgId. Narrows orgId to a non-null string so scoped queries can rely on it.
  */

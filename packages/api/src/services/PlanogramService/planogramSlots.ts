@@ -2,7 +2,7 @@ import type {
   LayoutChangeViolation,
   LayoutLineMismatch,
   SlotRuleViolation,
-} from "@vendpire/domain";
+} from "@zenvend/domain";
 
 export const slotRuleMessage = (violation: SlotRuleViolation): string => {
   switch (violation.kind) {

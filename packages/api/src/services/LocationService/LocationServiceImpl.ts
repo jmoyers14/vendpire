@@ -2,13 +2,13 @@ import { inject, injectable } from "tsyringe";
 import {
   LOCATION_REPOSITORY_TOKEN,
   MACHINE_REPOSITORY_TOKEN,
-} from "@vendpire/platform";
+} from "@zenvend/platform";
 import type {
   Location,
   LocationInput,
   LocationRepository,
   MachineRepository,
-} from "@vendpire/platform";
+} from "@zenvend/platform";
 import { ServiceError } from "../errors.ts";
 import type { LocationService } from "./LocationService.ts";
 

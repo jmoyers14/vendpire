@@ -1,4 +1,4 @@
-import { buildPnlTotals, type PnlRows } from "@vendpire/domain";
+import { buildPnlTotals, type PnlRows } from "@zenvend/domain";
 import type {
   PnlSheet,
   PnlSheetItem,

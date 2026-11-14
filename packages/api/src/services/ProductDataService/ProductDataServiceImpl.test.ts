@@ -3,7 +3,7 @@ import type {
   ProductData,
   ProductDataClient,
   ProductSearchResult,
-} from "@vendpire/platform";
+} from "@zenvend/platform";
 import { ProductDataServiceImpl } from "./ProductDataServiceImpl.ts";
 
 class FakeProductDataClient implements ProductDataClient {

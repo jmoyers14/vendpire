@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "bun:test";
 import http from "node:http";
 import type { AddressInfo } from "node:net";
-import type { Logger } from "@vendpire/platform";
+import type { Logger } from "@zenvend/platform";
 import type {
   AgentIdentity,
   AuthService,
@@ -18,8 +18,8 @@ const noopLogger = {
   child: () => noopLogger,
 } as unknown as Logger;
 
-const RESOURCE_URL = "https://api.vendpire.test/mcp";
-const AUTHORIZATION_SERVER_URL = "https://clerk.vendpire.test";
+const RESOURCE_URL = "https://api.zenvend.test/mcp";
+const AUTHORIZATION_SERVER_URL = "https://clerk.zenvend.test";
 
 const agent = (over: Partial<AgentIdentity> = {}): AgentIdentity => ({
   userId: "user_1",
@@ -133,7 +133,7 @@ describe("buildMcpHttpHandler", () => {
 
     expect(response.status).toBe(401);
     expect(response.headers.get("www-authenticate")).toBe(
-      'Bearer resource_metadata="https://api.vendpire.test/.well-known/oauth-protected-resource/mcp"',
+      'Bearer resource_metadata="https://api.zenvend.test/.well-known/oauth-protected-resource/mcp"',
     );
   });
 

@@ -1,17 +1,17 @@
 import { inject, injectable } from "tsyringe";
-import { normalizeGtin } from "@vendpire/domain";
+import { normalizeGtin } from "@zenvend/domain";
 import {
   PACK_REPOSITORY_TOKEN,
   PLANOGRAM_REPOSITORY_TOKEN,
   PRODUCT_REPOSITORY_TOKEN,
-} from "@vendpire/platform";
+} from "@zenvend/platform";
 import type {
   PackRepository,
   PlanogramRepository,
   Product,
   ProductInput,
   ProductRepository,
-} from "@vendpire/platform";
+} from "@zenvend/platform";
 import { ServiceError } from "../errors.ts";
 import type { ProductService } from "./ProductService.ts";
 

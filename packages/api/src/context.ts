@@ -3,7 +3,7 @@ import type {
   AppConfig,
   AuthIdentity,
   Logger,
-} from "@vendpire/platform";
+} from "@zenvend/platform";
 import type { AddressService } from "./services/AddressService/AddressService.ts";
 import type { LocationService } from "./services/LocationService/LocationService.ts";
 import type { MachineService } from "./services/MachineService/MachineService.ts";
@@ -22,7 +22,7 @@ import type { MobileClientSupportService } from "./services/MobileClientSupportS
 /**
  * Authenticated principal for a request — the provider-neutral identity the
  * AuthClient returns after verifying a session token. `orgId`/`orgRole` are
- * populated only when the user has an active organization; vendpire maps the
+ * populated only when the user has an active organization; zenvend maps the
  * Clerk organization onto the business, so orgId is the business boundary.
  */
 export type AuthContext = AuthIdentity;

@@ -17,10 +17,10 @@
     "skipLibCheck": true,
     "esModuleInterop": true,
     "paths": {
-      "@vendpire/api": [
+      "@zenvend/api": [
         "../api/src/router.ts"
       ],
-      "@vendpire/domain": [
+      "@zenvend/domain": [
         "../domain/src/index.ts"
       ]
     }

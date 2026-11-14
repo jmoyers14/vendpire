@@ -6,7 +6,7 @@ import Ajv2020 from "ajv/dist/2020.js";
 import { parse, stringify } from "yaml";
 import { buildOpenApiDocument } from "./buildOpenApiDocument.ts";
 
-const COMMITTED = path.join(import.meta.dir, "../../../../openapi/vendpire.yaml");
+const COMMITTED = path.join(import.meta.dir, "../../../../openapi/zenvend.yaml");
 
 const EXPECTED_PATHS = [
   "/barcode-candidate",

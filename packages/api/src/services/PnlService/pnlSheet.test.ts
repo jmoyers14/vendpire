@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import type { IntervalPnlRow, PnlRows, RemovalPnlRow } from "@vendpire/domain";
+import type { IntervalPnlRow, PnlRows, RemovalPnlRow } from "@zenvend/domain";
 import { buildPnlSheet, type MachinePeriod } from "./pnlSheet.ts";
 
 const sold = (

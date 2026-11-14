@@ -1,7 +1,7 @@
 import { Schema, model } from "mongoose";
 
 /**
- * A local mirror of the Clerk organization, which in vendpire IS the business —
+ * A local mirror of the Clerk organization, which in zenvend IS the business —
  * the tenant every other collection is scoped to. Kept in sync by the
  * `organization.*` webhook handlers.
  *

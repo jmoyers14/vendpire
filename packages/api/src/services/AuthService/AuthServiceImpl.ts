@@ -1,6 +1,6 @@
 import { inject, injectable } from "tsyringe";
-import { AUTH_CLIENT_TOKEN, LOGGER_TOKEN } from "@vendpire/platform";
-import type { AuthClient, AuthIdentity, Logger } from "@vendpire/platform";
+import { AUTH_CLIENT_TOKEN, LOGGER_TOKEN } from "@zenvend/platform";
+import type { AuthClient, AuthIdentity, Logger } from "@zenvend/platform";
 import type { AgentIdentity, AuthService } from "./AuthService.ts";
 
 const BEARER_PREFIX = "Bearer ";

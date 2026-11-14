@@ -1,4 +1,4 @@
-import type { CostBasisLine, ReplacementCostLine } from "@vendpire/domain";
+import type { CostBasisLine, ReplacementCostLine } from "@zenvend/domain";
 import type {
   Location,
   LocationInput,
@@ -29,7 +29,7 @@ import type {
   VisitListFilter,
   VisitRange,
   VisitRepository,
-} from "@vendpire/platform";
+} from "@zenvend/platform";
 
 /**
  * In-memory fakes of the repository ports, for service unit tests. They honor

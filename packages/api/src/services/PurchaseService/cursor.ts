@@ -1,4 +1,4 @@
-import type { PurchaseCursor } from "@vendpire/platform";
+import type { PurchaseCursor } from "@zenvend/platform";
 
 /**
  * The purchases list cursor, opaque on the wire.

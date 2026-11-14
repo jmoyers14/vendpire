@@ -1,4 +1,4 @@
-import type { VisitAnomaly } from "@vendpire/domain";
+import type { VisitAnomaly } from "@zenvend/domain";
 import { z } from "zod";
 import { BUSINESS_PARAM, defineTool } from "./AgentTool.ts";
 import { formatMoney, formatMoneyOrUnknown, pluralize } from "./format.ts";

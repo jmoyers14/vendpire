@@ -1,4 +1,4 @@
-import { slotProductKey } from "@vendpire/domain";
+import { slotProductKey } from "@zenvend/domain";
 import { useMemo, useState } from "react";
 import {
   Button,

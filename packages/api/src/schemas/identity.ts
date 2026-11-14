@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { AuthIdentity } from "@vendpire/platform";
+import type { AuthIdentity } from "@zenvend/platform";
 import type { Assert, Equal } from "./exactly.ts";
 
 /**

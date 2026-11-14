@@ -1,5 +1,5 @@
 {
-  "comment": "Shared test vectors for normalizeGtin / gs1CheckDigit. Read by gtin.test.ts here and by ios/VendpireTests/GtinTests.swift as a bundle resource, so the TS and Swift implementations cannot drift apart the first time someone fixes a UPC-E edge case. Adding a case here is adding it to both suites.",
+  "comment": "Shared test vectors for normalizeGtin / gs1CheckDigit. Read by gtin.test.ts here and by ios/ZenvendTests/GtinTests.swift as a bundle resource, so the TS and Swift implementations cannot drift apart the first time someone fixes a UPC-E edge case. Adding a case here is adding it to both suites.",
   "checkDigits": [
     { "digits": "04900000634", "expected": 6, "note": "Coca-Cola 12oz, UPC-A body" },
     { "digits": "002840004400", "expected": 4, "note": "Cheetos case, EAN-13 body" }

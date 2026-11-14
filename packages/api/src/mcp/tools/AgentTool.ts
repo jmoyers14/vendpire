@@ -48,7 +48,7 @@ export interface AgentTool {
   title: string;
   description: string;
   inputSchema: z.ZodRawShape;
-  /** True when the tool can reach something outside Vendpire's own data. */
+  /** True when the tool can reach something outside Zenvend's own data. */
   readsOutsideWorld: boolean;
   execute(rawInput: unknown, scope: AgentScope): Promise<AgentToolOutput>;
 }

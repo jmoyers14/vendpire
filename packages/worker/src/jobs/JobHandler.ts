@@ -1,4 +1,4 @@
-import type { Job } from "@vendpire/platform";
+import type { Job } from "@zenvend/platform";
 
 /**
  * A unit of background work. One handler per job type.

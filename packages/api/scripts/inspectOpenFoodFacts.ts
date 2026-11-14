@@ -14,13 +14,13 @@
  *   bun scripts/inspectOpenFoodFacts.ts 00049000006346
  *   bun scripts/inspectOpenFoodFacts.ts --full 04026305 0028400087926
  */
-import { normalizeGtin } from "@vendpire/domain";
-import { PRODUCT_DATA_CLIENT_TOKEN } from "@vendpire/platform";
-import type { ProductDataClient } from "@vendpire/platform";
+import { normalizeGtin } from "@zenvend/domain";
+import { PRODUCT_DATA_CLIENT_TOKEN } from "@zenvend/platform";
+import type { ProductDataClient } from "@zenvend/platform";
 import { container } from "../src/services/index.ts";
 
 const BASE_URL = "https://world.openfoodfacts.org/api/v2/product";
-const USER_AGENT = "vendpire-inspect/0.1 (vending route tracker; dev tool)";
+const USER_AGENT = "zenvend-inspect/0.1 (vending route tracker; dev tool)";
 
 const args = process.argv.slice(2);
 const full = args.includes("--full") || args.includes("-f");

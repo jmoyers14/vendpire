@@ -1,4 +1,4 @@
-import { type SlotProduct, slotProductKey } from "@vendpire/domain";
+import { type SlotProduct, slotProductKey } from "@zenvend/domain";
 import { centsToInput } from "../../utils/money.ts";
 import { isCounted, type VisitRow } from "./visitRows.ts";
 

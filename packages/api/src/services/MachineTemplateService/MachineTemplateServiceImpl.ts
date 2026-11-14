@@ -1,11 +1,11 @@
 import { inject, injectable } from "tsyringe";
-import { normalizeSlots } from "@vendpire/domain";
-import { MACHINE_TEMPLATE_REPOSITORY_TOKEN } from "@vendpire/platform";
+import { normalizeSlots } from "@zenvend/domain";
+import { MACHINE_TEMPLATE_REPOSITORY_TOKEN } from "@zenvend/platform";
 import type {
   MachineTemplate,
   MachineTemplateInput,
   MachineTemplateRepository,
-} from "@vendpire/platform";
+} from "@zenvend/platform";
 import { ServiceError } from "../errors.ts";
 import type { MachineTemplateService } from "./MachineTemplateService.ts";
 

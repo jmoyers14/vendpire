@@ -9,9 +9,9 @@ name: deploy
 # instance requires a domain we do not own yet. See the Environments section of
 # docs/plans/2026-10-06-cicd-pipeline.md before adding a production target.
 #
-# Why all three and not just what changed: packages/web imports @vendpire/domain
+# Why all three and not just what changed: packages/web imports @zenvend/domain
 # for its tRPC types, and api + worker share Mongo schemas through
-# @vendpire/platform, so a one-line domain edit fans out to all three. Shipping
+# @zenvend/platform, so a one-line domain edit fans out to all three. Shipping
 # them together keeps one version number meaningful and avoids owning an API
 # compatibility window. See docs/plans/2026-10-06-cicd-pipeline.md.
 #

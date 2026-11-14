@@ -3,8 +3,8 @@ import {
   calendarDateAfter,
   expirationsForVisit,
   type CalendarDate,
-} from "@vendpire/domain";
-import type { Location, Machine, Product, Visit } from "@vendpire/platform";
+} from "@zenvend/domain";
+import type { Location, Machine, Product, Visit } from "@zenvend/platform";
 import type { ExpiringReport, ExpiringSlot } from "./VisitService.ts";
 
 /** `location` and `productById` entries are nullable: a visit snapshots both

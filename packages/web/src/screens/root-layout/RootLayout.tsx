@@ -38,7 +38,7 @@ const Header = () => (
           className={`flex items-center gap-2 font-display font-extrabold text-ink ${focusRing}`}
         >
           <span className="size-[18px] rounded-md bg-primary-500" />
-          Vendpire
+          Zenvend
         </Link>
         <div className="flex items-center gap-3">
           <OrganizationSwitcher

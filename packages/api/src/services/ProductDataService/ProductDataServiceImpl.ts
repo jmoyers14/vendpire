@@ -1,10 +1,10 @@
 import { inject, injectable } from "tsyringe";
-import { PRODUCT_DATA_CLIENT_TOKEN } from "@vendpire/platform";
+import { PRODUCT_DATA_CLIENT_TOKEN } from "@zenvend/platform";
 import type {
   ProductData,
   ProductDataClient,
   ProductSearchResult,
-} from "@vendpire/platform";
+} from "@zenvend/platform";
 import type { ProductDataService } from "./ProductDataService.ts";
 
 // GTINs are 8–14 digits; anything else can't be a barcode, so don't waste a

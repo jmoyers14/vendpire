@@ -1,0 +1,21 @@
+import Foundation
+
+/// The single seam between the app and the network.
+///
+/// Vends `Remote*` rather than the generated OpenAPI types so a stub stays two
+/// lines and the bundled fixture remains usable as test input. The generated
+/// types live behind `ZenvendAPIClient` and nowhere else. See ARCHITECTURE.md.
+protocol ZenvendAPI: Sendable {
+    func fetchIdentity() async throws -> RemoteIdentity
+    func fetchLocations() async throws -> [RemoteLocation]
+    func fetchMachines() async throws -> [RemoteMachine]
+    func fetchProducts() async throws -> [RemoteProduct]
+    func fetchPacks() async throws -> [RemotePack]
+    func fetchCurrentPlanograms() async throws -> [RemotePlanogram]
+    func fetchLatestVisits() async throws -> [RemoteVisit]
+    func fetchBarcodeCandidate(code: String) async throws -> RemoteCandidate?
+    func createProduct(_ draft: RemoteProductDraft) async throws -> RemoteProduct
+    func createPack(_ draft: RemotePackDraft) async throws -> RemotePack
+    func attachProductBarcode(productId: String, code: String) async throws -> RemoteProduct
+    func attachPackBarcode(packId: String, code: String) async throws -> RemotePack
+}

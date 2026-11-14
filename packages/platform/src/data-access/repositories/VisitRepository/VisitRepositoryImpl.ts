@@ -1,6 +1,6 @@
 import { injectable } from "tsyringe";
 import type { Types } from "mongoose";
-import type { RemovalReason } from "@vendpire/domain";
+import type { RemovalReason } from "@zenvend/domain";
 import { VisitModel } from "../../models/Visit.ts";
 import { toId } from "../ids.ts";
 import type {

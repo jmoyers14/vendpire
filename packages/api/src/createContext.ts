@@ -21,8 +21,8 @@ import {
   ANALYTICS_CLIENT_TOKEN,
   APP_CONFIG_TOKEN,
   LOGGER_TOKEN,
-} from "@vendpire/platform";
-import type { AnalyticsClient, AppConfig, Logger } from "@vendpire/platform";
+} from "@zenvend/platform";
+import type { AnalyticsClient, AppConfig, Logger } from "@zenvend/platform";
 import type { AuthService } from "./services/AuthService/AuthService.ts";
 import type { AddressService } from "./services/AddressService/AddressService.ts";
 import type { LocationService } from "./services/LocationService/LocationService.ts";

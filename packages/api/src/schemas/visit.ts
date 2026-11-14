@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { Visit } from "@vendpire/platform";
+import type { Visit } from "@zenvend/platform";
 import type { Assert, Equal } from "./exactly.ts";
 
 /** Mirrors `RemovalReason` (domain/src/visits/removals.ts). All five arms. */

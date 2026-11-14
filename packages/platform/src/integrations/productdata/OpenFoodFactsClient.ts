@@ -9,7 +9,7 @@ const BASE_URL = "https://world.openfoodfacts.org/api/v2/product";
 // Search-a-licious, OFF's full-text search service.
 const SEARCH_URL = "https://search.openfoodfacts.org/search";
 // Open Food Facts asks API users to identify themselves via User-Agent.
-const USER_AGENT = "vendpire/0.1 (vending route tracker; personal use)";
+const USER_AGENT = "zenvend/0.1 (vending route tracker; personal use)";
 
 interface OffSearchResponse {
   hits?: Array<{

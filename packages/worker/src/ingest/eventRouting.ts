@@ -1,4 +1,4 @@
-import { JOB_TYPES, QUEUES } from "@vendpire/platform";
+import { JOB_TYPES, QUEUES } from "@zenvend/platform";
 
 /**
  * Where a verified event goes: which job to run, on which queue.

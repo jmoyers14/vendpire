@@ -1,4 +1,4 @@
-import { allocateProportionally } from "@vendpire/domain";
+import { allocateProportionally } from "@zenvend/domain";
 import { parseDollarsToCents } from "../../utils/money.ts";
 
 /** One product's share of a pack line's cost. */

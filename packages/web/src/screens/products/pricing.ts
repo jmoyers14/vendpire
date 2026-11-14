@@ -4,7 +4,7 @@ import {
   isUnderTargetMarkup,
   marginFractionAtPrice,
   replacementCostCentsForDisplay,
-} from "@vendpire/domain";
+} from "@zenvend/domain";
 import type { ApiProductPricing } from "../../apiTypes.ts";
 
 /**

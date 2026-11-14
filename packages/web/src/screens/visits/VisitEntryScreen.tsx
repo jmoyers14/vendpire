@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { type LayoutSlot, type SlotProduct, slotProductKey } from "@vendpire/domain";
+import { type LayoutSlot, type SlotProduct, slotProductKey } from "@zenvend/domain";
 import { type KeyboardEvent, useEffect, useState } from "react";
 import type { ApiPlanogram, ApiProduct } from "../../apiTypes.ts";
 import { queryClient, trpc } from "../../trpc.ts";

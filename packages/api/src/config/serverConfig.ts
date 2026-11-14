@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { parseConfig } from "@vendpire/platform/server";
+import { parseConfig } from "@zenvend/platform/server";
 
 export interface ServerConfig {
   port: number;

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "bun:test";
-import { makeJob } from "@vendpire/platform/test-support";
+import { makeJob } from "@zenvend/platform/test-support";
 import { JobRunner } from "./runJob.ts";
 import { JobHandlerRegistry } from "./registry.ts";
 import { PoisonJobError } from "./PoisonJobError.ts";

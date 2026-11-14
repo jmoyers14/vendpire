@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { Machine } from "@vendpire/platform";
+import type { Machine } from "@zenvend/platform";
 import type { Assert, Equal } from "./exactly.ts";
 
 export const machineDto = z

@@ -1,4 +1,4 @@
-import { slotProductKey } from "@vendpire/domain";
+import { slotProductKey } from "@zenvend/domain";
 import { useState } from "react";
 import { Alert, Button, ChipGroup, IconButton, MoneyInput } from "../../ui.tsx";
 import { onEnterKey } from "../../utils/keyboard.ts";

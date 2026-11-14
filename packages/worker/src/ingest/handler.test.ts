@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "bun:test";
-import { JOB_TYPES, QUEUES, type VerifiedWebhook } from "@vendpire/platform";
+import { JOB_TYPES, QUEUES, type VerifiedWebhook } from "@zenvend/platform";
 import { IngestService } from "./handler.ts";
 import {
   FakeJobRepository,

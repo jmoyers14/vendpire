@@ -1,6 +1,6 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import type { Logger } from "@vendpire/platform";
+import type { Logger } from "@zenvend/platform";
 import type { McpConfig } from "../config/mcpConfig.ts";
 import type { AuthService } from "../services/AuthService/AuthService.ts";
 import { buildMcpServer } from "./buildMcpServer.ts";
@@ -9,7 +9,7 @@ import type { AgentServices } from "./tools/index.ts";
 const PROTECTED_RESOURCE_METADATA_PATH = "/.well-known/oauth-protected-resource";
 const AUTHORIZATION_SERVER_METADATA_PATH = "/.well-known/oauth-authorization-server";
 
-/** Clerk's built-in OAuth scopes. Vendpire-specific ones come with the read tools. */
+/** Clerk's built-in OAuth scopes. Zenvend-specific ones come with the read tools. */
 const SCOPES_SUPPORTED = ["profile", "email"];
 
 export interface McpHttpHandler {
@@ -25,7 +25,7 @@ const sendJson = (res: ServerResponse, status: number, body: unknown): void => {
 
 /**
  * The MCP endpoint plus the OAuth discovery documents an assistant reads to find
- * out where to sign in (RFC 9728). Vendpire is only the resource server — Clerk
+ * out where to sign in (RFC 9728). Zenvend is only the resource server — Clerk
  * runs the authorization server, consent screen, and client registration.
  */
 export const buildMcpHttpHandler = ({
@@ -54,7 +54,7 @@ export const buildMcpHttpHandler = ({
     authorization_servers: [config.authorizationServerUrl],
     scopes_supported: SCOPES_SUPPORTED,
     bearer_methods_supported: ["header"],
-    resource_name: "Vendpire",
+    resource_name: "Zenvend",
   };
 
   const routes = new Set([

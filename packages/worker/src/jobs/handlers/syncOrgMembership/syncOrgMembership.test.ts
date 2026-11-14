@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "bun:test";
-import { JOB_TYPES } from "@vendpire/platform";
-import { makeJob, makeWebhookEvent } from "@vendpire/platform/test-support";
+import { JOB_TYPES } from "@zenvend/platform";
+import { makeJob, makeWebhookEvent } from "@zenvend/platform/test-support";
 import { SyncOrgMembershipHandler } from "./syncOrgMembership.ts";
 import { PoisonJobError } from "../../PoisonJobError.ts";
 import {

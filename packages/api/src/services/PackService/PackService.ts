@@ -1,4 +1,4 @@
-import type { Pack, PackInput } from "@vendpire/platform";
+import type { Pack, PackInput } from "@zenvend/platform";
 
 export type { Pack, PackInput };
 

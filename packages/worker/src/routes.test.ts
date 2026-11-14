@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import type { TaskAuthenticator } from "@vendpire/platform";
+import type { TaskAuthenticator } from "@zenvend/platform";
 import { createRequestHandler, type RouterDeps } from "./routes.ts";
 import type { IngestService } from "./ingest/handler.ts";
 import type { JobRunner } from "./jobs/runJob.ts";

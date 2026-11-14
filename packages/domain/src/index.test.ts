@@ -6,7 +6,7 @@ import * as domain from "./index.ts";
  * never got re-exported is invisible to the api and web packages — and that
  * failure shows up as a confusing missing import rather than as a test.
  */
-describe("the @vendpire/domain barrel", () => {
+describe("the @zenvend/domain barrel", () => {
   const exported = domain as Record<string, unknown>;
 
   for (const name of [

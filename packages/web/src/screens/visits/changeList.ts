@@ -5,7 +5,7 @@ import {
   type MoveChange,
   type RemovalReason,
   type SetPriceChange,
-} from "@vendpire/domain";
+} from "@zenvend/domain";
 import { formatCents } from "../../utils/money.ts";
 import type { VisitSubmissionDraft } from "./visitSubmission.ts";
 

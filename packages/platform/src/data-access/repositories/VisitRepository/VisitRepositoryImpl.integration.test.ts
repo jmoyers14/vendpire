@@ -5,7 +5,7 @@ import { oidHex } from "../../../test-support/ids.ts";
 import { VisitModel } from "../../models/Visit.ts";
 import { VisitRepositoryImpl } from "./VisitRepositoryImpl.ts";
 import type { VisitInput } from "./VisitRepository.ts";
-import type { RemovalReason } from "@vendpire/domain";
+import type { RemovalReason } from "@zenvend/domain";
 
 /**
  * The claims about visits that only real MongoDB can settle. The pure unit
@@ -17,7 +17,7 @@ import type { RemovalReason } from "@vendpire/domain";
  * Skipped by default so a cold `bun run test` never pays for a mongod
  * download. Run it with `bun run test:integration`.
  */
-const ENABLED = process.env.VENDPIRE_INTEGRATION === "1";
+const ENABLED = process.env.ZENVEND_INTEGRATION === "1";
 
 const ORG = "org_1";
 const MACHINE = oidHex("m_1");

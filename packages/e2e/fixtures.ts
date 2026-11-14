@@ -173,7 +173,7 @@ export const test = base.extend<Record<never, never>, WorkerFixtures & WorkerOpt
           ...process.env,
           ENVIRONMENT: "local",
           PORT: String(port),
-          MONGODB_URI: mongo.getUri("vendpire-e2e"),
+          MONGODB_URI: mongo.getUri("zenvend-e2e"),
           // A placeholder is fine without keys: the api only calls Clerk when
           // a Bearer token arrives, and browser specs (which do) skip keyless.
           //
@@ -193,7 +193,7 @@ export const test = base.extend<Record<never, never>, WorkerFixtures & WorkerOpt
 
       try {
         await waitForHttp(`${apiUrl}/system.version`, 30_000, failureDetail);
-        await use({ apiUrl, mongoUri: mongo.getUri("vendpire-e2e") });
+        await use({ apiUrl, mongoUri: mongo.getUri("zenvend-e2e") });
       } finally {
         stop(api);
         await mongo.stop();

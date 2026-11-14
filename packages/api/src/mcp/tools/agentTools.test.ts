@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import type { PnlTotals, SlotInterval } from "@vendpire/domain";
+import type { PnlTotals, SlotInterval } from "@zenvend/domain";
 import type { AgentIdentity } from "../../services/AuthService/AuthService.ts";
 import type { Visit } from "../../services/VisitService/VisitService.ts";
 import type { MachinePnl } from "../../services/PnlService/PnlService.ts";
@@ -26,7 +26,7 @@ const identity = (
   userId: "user_1",
   clientId: "client_1",
   scopes: ["profile"],
-  audiences: ["https://api.vendpire.test/mcp"],
+  audiences: ["https://api.zenvend.test/mcp"],
   orgId: null,
   memberships,
 });

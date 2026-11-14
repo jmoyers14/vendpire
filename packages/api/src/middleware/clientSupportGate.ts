@@ -11,7 +11,7 @@ export function buildClientSupportGate(
 ): HttpMiddleware {
   return (req, res, next) => {
     const blocked = clientSupport.isUnsupportedRequest({
-      header: req.headers["x-vendpire-client"],
+      header: req.headers["x-zenvend-client"],
       path: req.url ?? "",
     });
 

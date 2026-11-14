@@ -86,7 +86,7 @@ gcloud auth configure-docker "$REGION-docker.pkg.dev" --quiet >/dev/null
 gcloud artifacts repositories describe "$REPO" --location "$REGION" >/dev/null 2>&1 || \
   gcloud artifacts repositories create "$REPO" \
     --repository-format docker --location "$REGION" \
-    --description "vendpire images"
+    --description "zenvend images"
 
 # ── Build stamp ──────────────────────────────────────────────────────────────
 # One version identity for this deploy: human semver from the root package.json,

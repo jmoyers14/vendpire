@@ -6,7 +6,7 @@ import {
   type RemovalReason,
   slotProductKey,
   slotsAfterChanges,
-} from "@vendpire/domain";
+} from "@zenvend/domain";
 import { formatCents, parseDollarsToCents } from "../../utils/money.ts";
 import type { Arrival, ProductAction, PullReason, Restock } from "./restock.ts";
 import {

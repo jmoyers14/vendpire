@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "bun:test";
-import type { ProductData } from "@vendpire/platform";
+import type { ProductData } from "@zenvend/platform";
 import { BarcodeResolverServiceImpl } from "./BarcodeResolverServiceImpl.ts";
 import type { ProductDataService } from "../ProductDataService/ProductDataService.ts";
 import {

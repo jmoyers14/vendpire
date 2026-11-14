@@ -1,4 +1,4 @@
-import type { TaskAuthenticator } from "@vendpire/platform";
+import type { TaskAuthenticator } from "@zenvend/platform";
 import type { IngestService } from "./ingest/handler.ts";
 import type { JobRunner } from "./jobs/runJob.ts";
 

@@ -12,7 +12,7 @@ import {
   type WebhookEventRepository,
   type WebhookSource,
   type WebhookVerifier,
-} from "@vendpire/platform";
+} from "@zenvend/platform";
 import { routeEvent } from "./eventRouting.ts";
 
 /** The only source this endpoint serves. */

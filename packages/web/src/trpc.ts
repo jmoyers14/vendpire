@@ -1,7 +1,7 @@
 import { QueryClient } from "@tanstack/react-query";
 import { createTRPCClient, httpBatchLink } from "@trpc/client";
 import { createTRPCOptionsProxy } from "@trpc/tanstack-react-query";
-import type { AppRouter } from "@vendpire/api";
+import type { AppRouter } from "@zenvend/api";
 
 // Clerk attaches its instance to window once ClerkProvider mounts. The tRPC
 // client lives at module scope (outside React), so we read the session token

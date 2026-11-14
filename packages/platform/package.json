@@ -1,5 +1,5 @@
 {
-  "name": "@vendpire/platform",
+  "name": "@zenvend/platform",
   "version": "1.0.0",
   "type": "module",
   "exports": {
@@ -12,12 +12,12 @@
   "scripts": {
     "test": "bun test",
     "typecheck": "tsc --noEmit",
-    "test:integration": "VENDPIRE_INTEGRATION=1 bun test"
+    "test:integration": "ZENVEND_INTEGRATION=1 bun test"
   },
   "dependencies": {
     "@clerk/backend": "^3.6.1",
     "@google-cloud/tasks": "^6.2.3",
-    "@vendpire/domain": "workspace:*",
+    "@zenvend/domain": "workspace:*",
     "google-auth-library": "^10.9.1",
     "mongoose": "9.7.0",
     "pino": "^10.3.1",

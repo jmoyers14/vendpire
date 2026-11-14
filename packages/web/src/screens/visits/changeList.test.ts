@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import type { LayoutChange, LayoutSlot } from "@vendpire/domain";
+import type { LayoutChange, LayoutSlot } from "@zenvend/domain";
 import { describeChanges } from "./changeList.ts";
 import type { VisitLineDraft } from "./visitRows.ts";
 import type { VisitSubmissionDraft } from "./visitSubmission.ts";

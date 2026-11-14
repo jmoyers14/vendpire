@@ -51,7 +51,7 @@ test.describe("the 426 backstop", () => {
     apiStack,
   }) => {
     const response = await fetch(`${apiStack.apiUrl}/api/v1/visits/latest`, {
-      headers: { "X-Vendpire-Client": "ios/42" },
+      headers: { "X-Zenvend-Client": "ios/42" },
     });
 
     expect(response.status).toBe(426);
@@ -65,7 +65,7 @@ test.describe("the 426 backstop", () => {
   }) => {
     const response = await fetch(
       `${apiStack.apiUrl}/api/v1/client-support?platform=ios&build=42`,
-      { headers: { "X-Vendpire-Client": "ios/42" } },
+      { headers: { "X-Zenvend-Client": "ios/42" } },
     );
 
     expect(response.status).toBe(200);
@@ -75,7 +75,7 @@ test.describe("the 426 backstop", () => {
     apiStack,
   }) => {
     const response = await fetch(`${apiStack.apiUrl}/api/v1/visits/latest`, {
-      headers: { "X-Vendpire-Client": "ios/50" },
+      headers: { "X-Zenvend-Client": "ios/50" },
     });
 
     expect(response.status).toBe(401);

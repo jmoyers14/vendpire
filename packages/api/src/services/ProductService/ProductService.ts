@@ -1,4 +1,4 @@
-import type { Product, ProductInput } from "@vendpire/platform";
+import type { Product, ProductInput } from "@zenvend/platform";
 
 export type { Product, ProductInput };
 
