@@ -9,6 +9,7 @@ import {
   MOBILE_CONFIG_TOKEN,
   loadMobileConfig,
 } from "../config/mobileConfig.ts";
+import { MCP_CONFIG_TOKEN, loadMcpConfig } from "../config/mcpConfig.ts";
 import {
   AUTH_SERVICE_TOKEN,
   ADDRESS_SERVICE_TOKEN,
@@ -62,6 +63,10 @@ container.register(SERVER_CONFIG_TOKEN, {
 
 container.register(MOBILE_CONFIG_TOKEN, {
   useFactory: instanceCachingFactory(() => loadMobileConfig()),
+});
+
+container.register(MCP_CONFIG_TOKEN, {
+  useFactory: instanceCachingFactory(() => loadMcpConfig()),
 });
 
 container.registerSingleton(AUTH_SERVICE_TOKEN, AuthServiceImpl);
