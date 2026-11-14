@@ -21,6 +21,7 @@ const stubAuthService = (): {
         received.push(authHeader);
         return null;
       },
+      authenticateAgent: async () => null,
     },
   };
 };

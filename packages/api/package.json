@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@clerk/backend": "^3.6.1",
+    "@modelcontextprotocol/sdk": "1.32.1",
     "@trpc/server": "11.19.0",
     "@vendpire/domain": "workspace:*",
     "@vendpire/platform": "workspace:*",
