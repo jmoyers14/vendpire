@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.15.0](https://github.com/jmoyers14/zenvend/compare/v0.14.0...v0.15.0) (2026-11-14)
+
+
+### Features
+
+* stand up the zenvend production stack ([#71](https://github.com/jmoyers14/zenvend/issues/71)) ([bd42575](https://github.com/jmoyers14/zenvend/commit/bd425753798b6434c8ac28e20a175455235d94d4))
+
 ## [0.14.0](https://github.com/jmoyers14/vendpire/compare/v0.13.0...v0.14.0) (2026-11-14)
 
 
