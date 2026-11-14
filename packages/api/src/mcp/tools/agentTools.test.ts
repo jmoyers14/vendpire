@@ -1,7 +1,8 @@
 import { describe, expect, it } from "bun:test";
 import type { PnlTotals, SlotInterval } from "@vendpire/domain";
 import type { AgentIdentity } from "../../services/AuthService/AuthService.ts";
-import type { Visit, VisitPnl } from "../../services/VisitService/VisitService.ts";
+import type { Visit } from "../../services/VisitService/VisitService.ts";
+import type { MachinePnl } from "../../services/PnlService/PnlService.ts";
 import { AgentToolError, type AgentServices } from "./AgentTool.ts";
 import { formatMoney, formatMoneyOrUnknown } from "./format.ts";
 import { buildAgentScope } from "./index.ts";
@@ -73,7 +74,7 @@ const totals = (over: Partial<PnlTotals> = {}): PnlTotals => ({
   ...over,
 });
 
-const pnlOf = (over: Partial<VisitPnl> = {}): VisitPnl => ({
+const pnlOf = (over: Partial<MachinePnl> = {}): MachinePnl => ({
   machineId: "machine_1",
   from: null,
   to: null,

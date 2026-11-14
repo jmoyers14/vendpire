@@ -67,7 +67,7 @@ export const machinePnl = defineTool({
   execute: async (input, scope) => {
     const machine = await resolveMachine(scope, input.machine);
     const [pnl, productNames] = await Promise.all([
-      scope.services.visitService.pnl(scope.orgId, machine.id, {
+      scope.services.pnlService.byMachine(scope.orgId, machine.id, {
         from: input.from ?? null,
         to: input.to ?? null,
       }),

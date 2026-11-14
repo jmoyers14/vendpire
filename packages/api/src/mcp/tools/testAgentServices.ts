@@ -9,8 +9,8 @@ import type {
 import type {
   ExpiringReport,
   Visit,
-  VisitPnl,
 } from "../../services/VisitService/VisitService.ts";
+import type { MachinePnl } from "../../services/PnlService/PnlService.ts";
 import type { AgentServices } from "./AgentTool.ts";
 
 /** Anything a tool must never reach. Calling one is a test failure, loudly. */
@@ -25,7 +25,7 @@ export interface AgentWorld {
   visits: Visit[];
   latestVisits: Visit[];
   purchases: Purchase[];
-  pnl: VisitPnl | null;
+  pnl: MachinePnl | null;
   expiring: ExpiringReport | null;
   barcode: BarcodeResolution | null;
 }
@@ -66,6 +66,7 @@ export const buildTestAgentServices = (
       create: unused("productService.create"),
       update: unused("productService.update"),
       remove: unused("productService.remove"),
+      attachBarcode: unused("productService.attachBarcode"),
     },
     purchaseService: {
       list: async (): Promise<PurchaseListPage> => ({
@@ -90,18 +91,21 @@ export const buildTestAgentServices = (
       get: async (_orgId, id) => visits.find((each) => each.id === id) ?? null,
       create: unused("visitService.create"),
       remove: unused("visitService.remove"),
-      pnl: async (): Promise<VisitPnl> => {
-        if (world.pnl === null || world.pnl === undefined) {
-          throw new Error("this test did not stub a P&L");
-        }
-        return world.pnl;
-      },
       expiringSoon: async (): Promise<ExpiringReport> => {
         if (world.expiring === null || world.expiring === undefined) {
           throw new Error("this test did not stub an expiry report");
         }
         return world.expiring;
       },
+    },
+    pnlService: {
+      byMachine: async (): Promise<MachinePnl> => {
+        if (world.pnl === null || world.pnl === undefined) {
+          throw new Error("this test did not stub a P&L");
+        }
+        return world.pnl;
+      },
+      sheet: unused("pnlService.sheet"),
     },
     barcodeResolverService: {
       resolve: async (): Promise<BarcodeResolution> => {

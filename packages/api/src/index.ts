@@ -11,6 +11,7 @@ import {
   MACHINE_SERVICE_TOKEN,
   MOBILE_CLIENT_SUPPORT_SERVICE_TOKEN,
   PRODUCT_SERVICE_TOKEN,
+  PNL_SERVICE_TOKEN,
   PURCHASE_SERVICE_TOKEN,
   VISIT_SERVICE_TOKEN,
 } from "./services/index.ts";
@@ -29,6 +30,7 @@ import type { LocationService } from "./services/LocationService/LocationService
 import type { ProductService } from "./services/ProductService/ProductService.ts";
 import type { PurchaseService } from "./services/PurchaseService/PurchaseService.ts";
 import type { VisitService } from "./services/VisitService/VisitService.ts";
+import type { PnlService } from "./services/PnlService/PnlService.ts";
 import type { BarcodeResolverService } from "./services/BarcodeResolverService/BarcodeResolverService.ts";
 import { ANALYTICS_CLIENT_TOKEN, APP_CONFIG_TOKEN } from "@vendpire/platform";
 import type { AnalyticsClient, AppConfig, Logger } from "@vendpire/platform";
@@ -156,6 +158,7 @@ function resolveAgentServices(): AgentServices {
     productService: container.resolve<ProductService>(PRODUCT_SERVICE_TOKEN),
     purchaseService: container.resolve<PurchaseService>(PURCHASE_SERVICE_TOKEN),
     visitService: container.resolve<VisitService>(VISIT_SERVICE_TOKEN),
+    pnlService: container.resolve<PnlService>(PNL_SERVICE_TOKEN),
     barcodeResolverService: container.resolve<BarcodeResolverService>(
       BARCODE_RESOLVER_SERVICE_TOKEN,
     ),

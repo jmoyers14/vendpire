@@ -4,6 +4,7 @@ import type { LocationService } from "../../services/LocationService/LocationSer
 import type { ProductService } from "../../services/ProductService/ProductService.ts";
 import type { PurchaseService } from "../../services/PurchaseService/PurchaseService.ts";
 import type { VisitService } from "../../services/VisitService/VisitService.ts";
+import type { PnlService } from "../../services/PnlService/PnlService.ts";
 import type { BarcodeResolverService } from "../../services/BarcodeResolverService/BarcodeResolverService.ts";
 
 /**
@@ -17,6 +18,7 @@ export interface AgentServices {
   productService: ProductService;
   purchaseService: PurchaseService;
   visitService: VisitService;
+  pnlService: PnlService;
   barcodeResolverService: BarcodeResolverService;
 }
 
