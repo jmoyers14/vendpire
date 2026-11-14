@@ -9,7 +9,7 @@ import type {
   UpdateRequirement,
 } from "./MobileClientSupportService.ts";
 
-/** `X-Vendpire-Client: ios/42`. Digits only, so a marketing version won't parse. */
+/** `X-Zenvend-Client: ios/42`. Digits only, so a marketing version won't parse. */
 const IOS_CLIENT = /^ios\/(\d+)$/;
 
 /** Procedures that stay reachable to a client the floor has refused. */

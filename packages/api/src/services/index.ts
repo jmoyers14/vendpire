@@ -1,6 +1,6 @@
 import "reflect-metadata"; // MUST be imported before any decorated class is used
 import { container as rootContainer, instanceCachingFactory } from "tsyringe";
-import { registerServerCore } from "@vendpire/platform/server";
+import { registerServerCore } from "@zenvend/platform/server";
 import {
   SERVER_CONFIG_TOKEN,
   loadServerConfig,

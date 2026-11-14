@@ -1,11 +1,11 @@
 import { inject, injectable } from "tsyringe";
-import { normalizeSlots } from "@vendpire/domain";
+import { normalizeSlots } from "@zenvend/domain";
 import {
   LOCATION_REPOSITORY_TOKEN,
   MACHINE_REPOSITORY_TOKEN,
   MACHINE_TEMPLATE_REPOSITORY_TOKEN,
   PLANOGRAM_REPOSITORY_TOKEN,
-} from "@vendpire/platform";
+} from "@zenvend/platform";
 import type {
   LocationRepository,
   Machine,
@@ -13,7 +13,7 @@ import type {
   MachineRepository,
   MachineTemplateRepository,
   PlanogramRepository,
-} from "@vendpire/platform";
+} from "@zenvend/platform";
 import { ServiceError } from "../errors.ts";
 import type { MachineService } from "./MachineService.ts";
 

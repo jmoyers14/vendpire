@@ -1,4 +1,4 @@
-import type { PnlTotals } from "@vendpire/domain";
+import type { PnlTotals } from "@zenvend/domain";
 import type { ApiPnlSheet } from "../../apiTypes.ts";
 
 type SheetMachine = ApiPnlSheet["locations"][number]["machines"][number];

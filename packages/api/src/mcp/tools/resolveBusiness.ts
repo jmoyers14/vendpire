@@ -27,7 +27,7 @@ export const resolveBusiness = (
 
   if (memberships.length === 0) {
     throw new AgentToolError(
-      "This Vendpire account does not belong to any business yet, so there is nothing to read.",
+      "This Zenvend account does not belong to any business yet, so there is nothing to read.",
     );
   }
 

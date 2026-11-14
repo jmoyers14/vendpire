@@ -16,7 +16,7 @@ name: release-please
 # MANIFEST_PULL_REQUEST_TITLE_PATTERN — 'chore: release ${branch}' — which
 # deliberately carries no component or version, since a combined PR spans
 # packages. Job (2) then parses that title for a component, gets undefined,
-# fails to match the configured "vendpire", and creates zero releases. No tag
+# fails to match the configured "zenvend", and creates zero releases. No tag
 # results, and the still-pending PR blocks every later release PR with
 # "There are untagged, merged release PRs outstanding - aborting". That is why
 # earlier releases in the reference repo had to be tagged by hand.

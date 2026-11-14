@@ -1,17 +1,17 @@
 import { inject, injectable } from "tsyringe";
-import { slotRuleViolation } from "@vendpire/domain";
+import { slotRuleViolation } from "@zenvend/domain";
 import {
   MACHINE_REPOSITORY_TOKEN,
   PLANOGRAM_REPOSITORY_TOKEN,
   PRODUCT_REPOSITORY_TOKEN,
-} from "@vendpire/platform";
+} from "@zenvend/platform";
 import type {
   MachineRepository,
   Planogram,
   PlanogramInput,
   PlanogramRepository,
   ProductRepository,
-} from "@vendpire/platform";
+} from "@zenvend/platform";
 import { ServiceError } from "../errors.ts";
 import type { PlanogramService } from "./PlanogramService.ts";
 import { slotRuleMessage } from "./planogramSlots.ts";

@@ -1,10 +1,10 @@
 import "reflect-metadata"; // MUST be imported before any decorated class is used
 import { container as rootContainer, instanceCachingFactory } from "tsyringe";
-import { registerServerCore } from "@vendpire/platform/server";
+import { registerServerCore } from "@zenvend/platform/server";
 // Imported from its own entry — NOT the /server barrel — because it statically
 // pulls the Cloud Tasks + google-auth SDKs. Keeping it off /server is what stops
 // the api (which imports /server) from bundling those and crashing at boot.
-import { registerWebhookCore } from "@vendpire/platform/webhook";
+import { registerWebhookCore } from "@zenvend/platform/webhook";
 import { WORKER_CONFIG_TOKEN, loadWorkerConfig } from "./config/workerConfig.ts";
 
 /**

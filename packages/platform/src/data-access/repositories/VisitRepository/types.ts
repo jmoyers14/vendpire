@@ -1,4 +1,4 @@
-import type { RemovalReason, VisitObservation } from "@vendpire/domain";
+import type { RemovalReason, VisitObservation } from "@zenvend/domain";
 
 /**
  * Visit entity — one servicing of one machine, as plain data. Observations

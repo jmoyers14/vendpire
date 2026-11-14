@@ -9,7 +9,7 @@ import {
   slotProductKey,
   slotRuleViolation,
   type VisitLine,
-} from "@vendpire/domain";
+} from "@zenvend/domain";
 import { useState } from "react";
 import { parseDollarsToCents } from "../../utils/money.ts";
 
@@ -22,7 +22,7 @@ export interface DraftSlot {
 }
 
 const draftKeyFor = (machineId: string): string =>
-  `vendpire.planogramDraft.${machineId}`;
+  `zenvend.planogramDraft.${machineId}`;
 
 const isDraftSlot = (value: unknown): value is DraftSlot => {
   if (typeof value !== "object" || value === null) {

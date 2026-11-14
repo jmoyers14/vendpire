@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "bun:test";
-import type { RemovalReason } from "@vendpire/domain";
+import type { RemovalReason } from "@zenvend/domain";
 import { PnlServiceImpl } from "./PnlServiceImpl.ts";
 import {
   FakeLocationRepository,

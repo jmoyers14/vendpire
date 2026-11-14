@@ -4,8 +4,8 @@ import {
   type PnlRows,
   type UnitCost,
   type VisitAnomaly,
-} from "@vendpire/domain";
-import type { Visit, VisitRange } from "@vendpire/platform";
+} from "@zenvend/domain";
+import type { Visit, VisitRange } from "@zenvend/platform";
 
 /**
  * One machine's priced rows over a window. `visits` is what

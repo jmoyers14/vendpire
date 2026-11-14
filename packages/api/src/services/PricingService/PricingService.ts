@@ -1,4 +1,4 @@
-import type { Cents, ReplacementCost } from "@vendpire/domain";
+import type { Cents, ReplacementCost } from "@zenvend/domain";
 
 /** What one product cost to buy last, and what to charge for it. */
 export interface ProductPricing extends ReplacementCost {

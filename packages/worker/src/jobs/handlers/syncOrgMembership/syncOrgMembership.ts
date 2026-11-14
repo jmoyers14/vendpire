@@ -6,7 +6,7 @@ import {
   type Job,
   type OrganizationMembershipRepository,
   type WebhookEventRepository,
-} from "@vendpire/platform";
+} from "@zenvend/platform";
 import type { JobHandler } from "../../JobHandler.ts";
 import { PoisonJobError } from "../../PoisonJobError.ts";
 import { webhookPayloadSchema } from "../webhookPayload.ts";

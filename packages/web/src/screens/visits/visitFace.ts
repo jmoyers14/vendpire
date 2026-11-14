@@ -1,4 +1,4 @@
-import { levelAfter, type VisitLine } from "@vendpire/domain";
+import { levelAfter, type VisitLine } from "@zenvend/domain";
 import type { MachineTile } from "../../ui.tsx";
 
 type FaceLineLike = Pick<VisitLine, "remaining" | "removed" | "added">;

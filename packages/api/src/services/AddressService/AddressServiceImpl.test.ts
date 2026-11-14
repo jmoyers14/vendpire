@@ -3,7 +3,7 @@ import type {
   AddressSuggestion,
   MapsClient,
   ResolvedAddress,
-} from "@vendpire/platform";
+} from "@zenvend/platform";
 import { AddressServiceImpl } from "./AddressServiceImpl.ts";
 
 class FakeMapsClient implements MapsClient {

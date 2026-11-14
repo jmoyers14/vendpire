@@ -1,6 +1,6 @@
 import { injectable } from "tsyringe";
 import type { Types } from "mongoose";
-import type { CostBasisLine, ReplacementCostLine } from "@vendpire/domain";
+import type { CostBasisLine, ReplacementCostLine } from "@zenvend/domain";
 import { PurchaseModel } from "../../models/Purchase.ts";
 import { toId } from "../ids.ts";
 import type {

@@ -3,7 +3,7 @@ import type {
   PurchaseCursor,
   PurchaseInput,
   PurchaseUpdate,
-} from "@vendpire/platform";
+} from "@zenvend/platform";
 
 export type { Purchase, PurchaseCursor, PurchaseInput, PurchaseUpdate };
 

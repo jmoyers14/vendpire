@@ -1,4 +1,4 @@
-import type { AddressSuggestion, ResolvedAddress } from "@vendpire/platform";
+import type { AddressSuggestion, ResolvedAddress } from "@zenvend/platform";
 
 export type { AddressSuggestion, ResolvedAddress };
 

@@ -1,4 +1,4 @@
-import type { CalendarDate, LayoutChange, VisitAnomaly } from "@vendpire/domain";
+import type { CalendarDate, LayoutChange, VisitAnomaly } from "@zenvend/domain";
 import type {
   Planogram,
   Visit,
@@ -6,7 +6,7 @@ import type {
   VisitLine,
   VisitListFilter,
   VisitRange,
-} from "@vendpire/platform";
+} from "@zenvend/platform";
 
 export type { Visit, VisitInput, VisitLine, VisitListFilter, VisitRange };
 

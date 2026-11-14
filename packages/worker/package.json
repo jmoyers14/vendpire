@@ -1,5 +1,5 @@
 {
-  "name": "@vendpire/worker",
+  "name": "@zenvend/worker",
   "version": "1.0.0",
   "type": "module",
   "scripts": {
@@ -9,8 +9,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@vendpire/domain": "workspace:*",
-    "@vendpire/platform": "workspace:*",
+    "@zenvend/domain": "workspace:*",
+    "@zenvend/platform": "workspace:*",
     "mongoose": "9.7.0",
     "reflect-metadata": "^0.2.1",
     "tsyringe": "^4.8.0",

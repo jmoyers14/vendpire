@@ -1,4 +1,4 @@
-import type { Location, LocationInput } from "@vendpire/platform";
+import type { Location, LocationInput } from "@zenvend/platform";
 
 export type { Location, LocationInput };
 

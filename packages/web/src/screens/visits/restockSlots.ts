@@ -1,4 +1,4 @@
-import { slotProductKey } from "@vendpire/domain";
+import { slotProductKey } from "@zenvend/domain";
 import { arrivalsIn, type Restock } from "./restock.ts";
 import {
   isCounted,

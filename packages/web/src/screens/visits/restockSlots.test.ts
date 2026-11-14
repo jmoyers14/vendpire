@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { slotProductKey } from "@vendpire/domain";
+import { slotProductKey } from "@zenvend/domain";
 import {
   buildRestock,
   type Restock,

@@ -1,5 +1,5 @@
 /**
- * Write one org's reference data to `ios/Vendpire/Fixtures/sample-org.json`,
+ * Write one org's reference data to `ios/Zenvend/Fixtures/sample-org.json`,
  * the fixture the iOS app renders from.
  *
  * Reads through the repositories rather than the collections, so the output is
@@ -19,15 +19,15 @@ import {
   PACK_REPOSITORY_TOKEN,
   PLANOGRAM_REPOSITORY_TOKEN,
   PRODUCT_REPOSITORY_TOKEN,
-} from "@vendpire/platform";
+} from "@zenvend/platform";
 import type {
   LocationRepository,
   MachineRepository,
   PackRepository,
   PlanogramRepository,
   ProductRepository,
-} from "@vendpire/platform";
-import { connectDatabase } from "@vendpire/platform/server";
+} from "@zenvend/platform";
+import { connectDatabase } from "@zenvend/platform/server";
 import mongoose from "mongoose";
 
 const uri = process.env.MONGODB_URI;
@@ -44,7 +44,7 @@ if (!orgId) {
 
 const OUTPUT_PATH = resolve(
   import.meta.dir,
-  "../../../ios/Vendpire/Fixtures/sample-org.json",
+  "../../../ios/Zenvend/Fixtures/sample-org.json",
 );
 
 await connectDatabase(uri);

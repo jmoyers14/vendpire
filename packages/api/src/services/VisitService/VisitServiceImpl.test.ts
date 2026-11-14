@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "bun:test";
 import { VisitServiceImpl } from "./VisitServiceImpl.ts";
-import type { LayoutChange } from "@vendpire/domain";
-import type { VisitLine } from "@vendpire/platform";
+import type { LayoutChange } from "@zenvend/domain";
+import type { VisitLine } from "@zenvend/platform";
 import type { VisitDraft } from "./VisitService.ts";
 import {
   FakeLocationRepository,

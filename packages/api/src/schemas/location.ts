@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { Location } from "@vendpire/platform";
+import type { Location } from "@zenvend/platform";
 import type { Assert, Equal } from "./exactly.ts";
 
 /**

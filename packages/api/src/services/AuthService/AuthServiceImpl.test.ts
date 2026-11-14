@@ -4,10 +4,10 @@ import type {
   Logger,
   OAuthGrant,
   OrganizationMembershipSummary,
-} from "@vendpire/platform";
+} from "@zenvend/platform";
 import { AuthServiceImpl } from "./AuthServiceImpl.ts";
 
-const RESOURCE_URL = "https://api.vendpire.test/mcp";
+const RESOURCE_URL = "https://api.zenvend.test/mcp";
 
 const GRANT: OAuthGrant = {
   userId: "user_1",

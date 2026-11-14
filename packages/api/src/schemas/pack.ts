@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { Pack } from "@vendpire/platform";
+import type { Pack } from "@zenvend/platform";
 import type { Assert, Equal } from "./exactly.ts";
 
 export const packDto = z

@@ -36,7 +36,7 @@ const visitLineSchema = new Schema(
     removed: { type: Number, default: 0 },
     /**
      * Required whenever `removed > 0` — it decides write-off vs. transfer.
-     * Stored as the raw reason; `@vendpire/domain` → `visits/removals.ts` owns
+     * Stored as the raw reason; `@zenvend/domain` → `visits/removals.ts` owns
      * the one reason → disposition mapping, so the model never has a policy.
      */
     removedReason: {

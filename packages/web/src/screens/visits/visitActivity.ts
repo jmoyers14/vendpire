@@ -1,4 +1,4 @@
-import { type RemovalReason, slotProductKey } from "@vendpire/domain";
+import { type RemovalReason, slotProductKey } from "@zenvend/domain";
 import { type Arrival, arrivalsIn, type Restock } from "./restock.ts";
 import { hasRestockQuestions, isSlotAnswered, nowLevelFor } from "./restockSlots.ts";
 import { isCounted, parseCount, rowsInSlot, type VisitRow } from "./visitRows.ts";

@@ -2,7 +2,7 @@ import type {
   AuthIdentity,
   OAuthGrant,
   OrganizationMembershipSummary,
-} from "@vendpire/platform";
+} from "@zenvend/platform";
 
 /**
  * An AI assistant acting for a user. The OAuth grant names no organization, so

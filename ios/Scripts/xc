@@ -4,16 +4,16 @@
 #
 # Pinned to Xcode 26.1 explicitly: this machine also has Xcode 16.4, and
 # `xcode-select` has pointed at it before, which silently breaks CLI builds
-# of an iOS 18 target. Override DEVELOPER_DIR or VENDPIRE_SIM to change either.
+# of an iOS 18 target. Override DEVELOPER_DIR or ZENVEND_SIM to change either.
 set -euo pipefail
 
 readonly IOS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-readonly SCHEME="Vendpire"
+readonly SCHEME="Zenvend"
 readonly DERIVED="$IOS_DIR/build/DerivedData"
 readonly PRODUCTS="$DERIVED/Build/Products/Debug-iphonesimulator"
 
 export DEVELOPER_DIR="${DEVELOPER_DIR:-/Applications/Xcode.app/Contents/Developer}"
-SIM="${VENDPIRE_SIM:-iPhone 17 Pro}"
+SIM="${ZENVEND_SIM:-iPhone 17 Pro}"
 
 # Resolve a simulator name to a UDID, preferring the newest runtime — a name
 # like "iPhone 16" exists on several runtimes and simctl rejects the ambiguity.
@@ -48,7 +48,7 @@ build() {
 
 # Prefer a physically attached device. Ten tests abort the test host in the
 # Simulator, so that path is EXPECTED to exit 65 — that failure is honest;
-# the silent green it replaced was not. VENDPIRE_SIM forces the Simulator
+# the silent green it replaced was not. ZENVEND_SIM forces the Simulator
 # back for build/launch work, not for trusting a test result.
 resolveDevice() {
   xcrun xctrace list devices 2>/dev/null | python3 -c '
@@ -75,7 +75,7 @@ for line in sys.stdin:
 # phase has none worth keeping, so they're skipped rather than deleted.
 runTests() {
   local udid platform
-  if [[ -z "${VENDPIRE_SIM:-}" ]] && udid="$(resolveDevice)" && [[ -n "$udid" ]]; then
+  if [[ -z "${ZENVEND_SIM:-}" ]] && udid="$(resolveDevice)" && [[ -n "$udid" ]]; then
     platform="iOS"
     echo "Testing on attached device $udid" >&2
   else
@@ -86,7 +86,7 @@ runTests() {
   xcodebuild -project "$IOS_DIR/$SCHEME.xcodeproj" -scheme "$SCHEME" \
     -destination "platform=$platform,id=$udid" \
     -derivedDataPath "$DERIVED" \
-    -skip-testing:VendpireUITests \
+    -skip-testing:ZenvendUITests \
     -parallel-testing-enabled NO \
     test "$@"
 }

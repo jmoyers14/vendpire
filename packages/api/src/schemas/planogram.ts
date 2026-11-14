@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { Planogram } from "@vendpire/platform";
+import type { Planogram } from "@zenvend/platform";
 import type { Assert, Equal } from "./exactly.ts";
 
 export const planogramDto = z

@@ -5,7 +5,7 @@ import {
   taskBodySchema,
   type JobRepository,
   type Logger,
-} from "@vendpire/platform";
+} from "@zenvend/platform";
 import { JobHandlerRegistry } from "./registry.ts";
 import { PoisonJobError } from "./PoisonJobError.ts";
 

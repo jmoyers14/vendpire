@@ -1,10 +1,10 @@
 import { inject, injectable } from "tsyringe";
-import { allocateProportionally } from "@vendpire/domain";
+import { allocateProportionally } from "@zenvend/domain";
 import {
   PACK_REPOSITORY_TOKEN,
   PRODUCT_REPOSITORY_TOKEN,
   PURCHASE_REPOSITORY_TOKEN,
-} from "@vendpire/platform";
+} from "@zenvend/platform";
 import type {
   PackRepository,
   ProductRepository,
@@ -14,7 +14,7 @@ import type {
   PurchaseLine,
   PurchaseRepository,
   PurchaseUpdate,
-} from "@vendpire/platform";
+} from "@zenvend/platform";
 import { isDuplicateKey, ServiceError } from "../errors.ts";
 import { decodePurchaseCursor, encodePurchaseCursor } from "./cursor.ts";
 import {

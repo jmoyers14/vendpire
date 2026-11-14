@@ -1,11 +1,11 @@
-# Vendpire iOS
+# Zenvend iOS
 
 Native SwiftUI app for field work. Lives outside the Bun workspace — Biome's
 `files.includes` is JS/TS only, so nothing here is linted by the root tooling.
 
 ## Running it
 
-**Day to day, use Xcode** (`ios/Vendpire.xcodeproj`). Previews, the debugger,
+**Day to day, use Xcode** (`ios/Zenvend.xcodeproj`). Previews, the debugger,
 and the view inspector have no CLI equivalent.
 
 The scripts below exist for the reproducible path — agent loops, and later CI:
@@ -34,7 +34,7 @@ build this project. Override if yours differs:
 
 ```sh
 DEVELOPER_DIR=/path/to/Xcode.app/Contents/Developer bun run ios:build
-VENDPIRE_SIM="iPhone 16" bun run ios:run      # default: iPhone 17 Pro
+ZENVEND_SIM="iPhone 16" bun run ios:run      # default: iPhone 17 Pro
 ```
 
 - Deployment target: **iOS 18.0**
@@ -45,8 +45,8 @@ replaces the app holding real data:
 
 | Scheme | Configuration | App | Bundle ID | API |
 |---|---|---|---|---|
-| `Vendpire` | Debug | Vendpire Dev (DEV icon) | `com.dogbeach.dev.Vendpire.debug` | localhost, or `Local.xcconfig` |
-| `Vendpire Staging` | Release | Vendpire | `com.dogbeach.dev.Vendpire` | staging (Cloud Run) |
+| `Zenvend` | Debug | Zenvend Dev (DEV icon) | `com.dogbeach.dev.Vendpire.debug` | localhost, or `Local.xcconfig` |
+| `Zenvend Staging` | Release | Zenvend | `com.dogbeach.dev.Vendpire` | staging (Cloud Run) |
 
 Run either scheme from Xcode with the phone selected, or use
 `ios:install-staging`. The identity comes from `BUNDLE_ID_SUFFIX`,

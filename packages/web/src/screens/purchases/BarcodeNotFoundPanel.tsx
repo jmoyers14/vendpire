@@ -1,4 +1,4 @@
-import { normalizeGtin } from "@vendpire/domain";
+import { normalizeGtin } from "@zenvend/domain";
 import { useState } from "react";
 import type { ApiCandidate, ApiPack, ApiProduct } from "../../apiTypes.ts";
 import { queryClient, trpc, trpcClient } from "../../trpc.ts";

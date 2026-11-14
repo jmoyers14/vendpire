@@ -1,6 +1,6 @@
 # The API runs from TypeScript SOURCE, not a bundle — Bun transpiles TS itself,
 # and running from source sidesteps bundler asset gaps (landscape hit one with
-# gapic JSON configs). Keep this pattern even though vendpire has no such dep yet.
+# gapic JSON configs). Keep this pattern even though zenvend has no such dep yet.
 FROM oven/bun:1
 WORKDIR /app
 

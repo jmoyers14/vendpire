@@ -28,7 +28,7 @@ ACCOUNT="jmoyers14@gmail.com"
 REGION="us-central1"
 REPO="vendpire"
 
-GITHUB_REPO="jmoyers14/vendpire"
+GITHUB_REPO="jmoyers14/zenvend"
 POOL="github"
 PROVIDER="vendpire-repo"
 DEPLOYER="github-deployer"
@@ -122,7 +122,7 @@ fi
 # This is close to project-admin, scoped to one project. The alternative is
 # splitting bootstrap out of deploy.sh, which would mean two divergent deploy
 # paths that drift — a worse trade for a single-purpose personal project with no
-# key to steal. Revisit if this project ever holds anything but vendpire.
+# key to steal. Revisit if this project ever holds anything but zenvend.
 # A just-created service account is not immediately visible to the IAM policy
 # API, so the first binding after `service-accounts create` can fail with
 # "Service account ... does not exist" even though it plainly does. deploy.sh
@@ -190,7 +190,7 @@ echo "Ensuring Artifact Registry repo exists: $REPO"
 gcloud artifacts repositories describe "$REPO" --location "$REGION" --project "$PROJECT" >/dev/null 2>&1 || \
   gcloud artifacts repositories create "$REPO" \
     --repository-format docker --location "$REGION" --project "$PROJECT" \
-    --description "vendpire images" >/dev/null
+    --description "zenvend images" >/dev/null
 
 POLICY_FILE=$(mktemp)
 trap 'rm -f "$POLICY_FILE"' EXIT

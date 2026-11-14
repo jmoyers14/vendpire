@@ -1,12 +1,12 @@
 import { inject, injectable } from "tsyringe";
-import { buildCostBasis, buildPnlTotals, type UnitCost } from "@vendpire/domain";
+import { buildCostBasis, buildPnlTotals, type UnitCost } from "@zenvend/domain";
 import {
   LOCATION_REPOSITORY_TOKEN,
   MACHINE_REPOSITORY_TOKEN,
   PRODUCT_REPOSITORY_TOKEN,
   PURCHASE_REPOSITORY_TOKEN,
   VISIT_REPOSITORY_TOKEN,
-} from "@vendpire/platform";
+} from "@zenvend/platform";
 import type {
   LocationRepository,
   MachineRepository,
@@ -14,7 +14,7 @@ import type {
   PurchaseRepository,
   VisitRange,
   VisitRepository,
-} from "@vendpire/platform";
+} from "@zenvend/platform";
 import { buildPeriodPnl } from "./periodPnl.ts";
 import { buildPnlSheet, type MachinePeriod } from "./pnlSheet.ts";
 import type { MachinePnl, PnlService, PnlSheet } from "./PnlService.ts";

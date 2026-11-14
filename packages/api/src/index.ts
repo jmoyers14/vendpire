@@ -32,14 +32,14 @@ import type { PurchaseService } from "./services/PurchaseService/PurchaseService
 import type { VisitService } from "./services/VisitService/VisitService.ts";
 import type { PnlService } from "./services/PnlService/PnlService.ts";
 import type { BarcodeResolverService } from "./services/BarcodeResolverService/BarcodeResolverService.ts";
-import { ANALYTICS_CLIENT_TOKEN, APP_CONFIG_TOKEN } from "@vendpire/platform";
-import type { AnalyticsClient, AppConfig, Logger } from "@vendpire/platform";
+import { ANALYTICS_CLIENT_TOKEN, APP_CONFIG_TOKEN } from "@zenvend/platform";
+import type { AnalyticsClient, AppConfig, Logger } from "@zenvend/platform";
 import {
   connectDatabase,
   DATABASE_CONFIG_TOKEN,
   rootLogger,
   type DatabaseConfig,
-} from "@vendpire/platform/server";
+} from "@zenvend/platform/server";
 
 /** The `/api/v1` mount point. Stripped before the REST handler sees the URL. */
 const API_V1_PREFIX = "/api/v1";

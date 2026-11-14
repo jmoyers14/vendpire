@@ -1,4 +1,4 @@
-import type { Planogram, PlanogramInput } from "@vendpire/platform";
+import type { Planogram, PlanogramInput } from "@zenvend/platform";
 
 export type { Planogram, PlanogramInput };
 

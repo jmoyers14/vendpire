@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { JOB_TYPES, QUEUES } from "@vendpire/platform";
+import { JOB_TYPES, QUEUES } from "@zenvend/platform";
 import { routeEvent } from "./eventRouting.ts";
 
 describe("routeEvent", () => {

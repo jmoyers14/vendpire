@@ -4,7 +4,7 @@ import {
   type PnlRows,
   type PnlTotals,
   type VisitAnomaly,
-} from "@vendpire/domain";
+} from "@zenvend/domain";
 import { formatCents } from "../../utils/money.ts";
 import { plural } from "../../utils/text.ts";
 

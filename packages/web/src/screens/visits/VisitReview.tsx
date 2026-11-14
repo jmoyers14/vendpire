@@ -1,4 +1,4 @@
-import type { LayoutSlot, SlotProduct } from "@vendpire/domain";
+import type { LayoutSlot, SlotProduct } from "@zenvend/domain";
 import { useState } from "react";
 import {
   Alert,

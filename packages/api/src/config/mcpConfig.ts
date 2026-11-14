@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { parseConfig } from "@vendpire/platform/server";
+import { parseConfig } from "@zenvend/platform/server";
 
 /** Where AI assistants reach the MCP endpoint and where they sign in. */
 export interface McpConfig {

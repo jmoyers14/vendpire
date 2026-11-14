@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import type { PnlTotals } from "@vendpire/domain";
+import type { PnlTotals } from "@zenvend/domain";
 import type { ApiPnlSheet } from "../../apiTypes.ts";
 import { buildSheetRows } from "./sheetRows.ts";
 

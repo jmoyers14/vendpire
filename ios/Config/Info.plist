@@ -9,8 +9,8 @@
 	<string>$(APP_DISPLAY_NAME)</string>
 	<key>ClerkPublishableKey</key>
 	<string>$(CLERK_PUBLISHABLE_KEY)</string>
-	<key>VendpireAPIBaseURL</key>
-	<string>$(VENDPIRE_API_BASE_URL)</string>
+	<key>ZenvendAPIBaseURL</key>
+	<string>$(ZENVEND_API_BASE_URL)</string>
 	<!-- Lagoon has no dark palette yet. -->
 	<key>UIUserInterfaceStyle</key>
 	<string>Light</string>
@@ -20,7 +20,7 @@
 	     the same Wi-Fi; ATS exempts only loopback by default. Local traffic
 	     only — remote URLs stay HTTPS-enforced. -->
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>Debug builds talk to the Vendpire server on your Mac.</string>
+	<string>Debug builds talk to the Zenvend server on your Mac.</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsLocalNetworking</key>

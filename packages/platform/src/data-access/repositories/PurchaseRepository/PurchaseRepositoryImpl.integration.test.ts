@@ -15,7 +15,7 @@ import { PurchaseRepositoryImpl } from "./PurchaseRepositoryImpl.ts";
  * Skipped by default so a cold `bun run test` never pays for a mongod
  * download. Run it with `bun run test:integration`.
  */
-const ENABLED = process.env.VENDPIRE_INTEGRATION === "1";
+const ENABLED = process.env.ZENVEND_INTEGRATION === "1";
 
 const ORG = "org_1";
 const SHARED = new Date("2026-09-20T12:00:00.000Z");

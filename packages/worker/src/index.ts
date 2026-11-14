@@ -5,19 +5,19 @@ import { JobRunner } from "./jobs/runJob.ts";
 import {
   TASK_AUTHENTICATOR_TOKEN,
   type TaskAuthenticator,
-} from "@vendpire/platform";
+} from "@zenvend/platform";
 import { WORKER_CONFIG_TOKEN, type WorkerConfig } from "./config/workerConfig.ts";
 import {
   connectDatabase,
   DATABASE_CONFIG_TOKEN,
   rootLogger,
   type DatabaseConfig,
-} from "@vendpire/platform/server";
+} from "@zenvend/platform/server";
 
 /**
  * Worker entrypoint: the third Cloud Run service and the app's background
  * job-execution home. It shares the whole backend (repositories, integration
- * adapters, config) with the api through `@vendpire/platform` and adds only
+ * adapters, config) with the api through `@zenvend/platform` and adds only
  * transport — running work off a queue, plus the inbound endpoints that enqueue
  * it.
  *

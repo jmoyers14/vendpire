@@ -14,7 +14,7 @@ import type { ProductInput } from "./ProductRepository.ts";
  * Skipped by default so a cold `bun run test` never pays for a mongod
  * download. Run it with `bun run test:integration`.
  */
-const ENABLED = process.env.VENDPIRE_INTEGRATION === "1";
+const ENABLED = process.env.ZENVEND_INTEGRATION === "1";
 
 const ORG = "org_1";
 

@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import type { VisitLine } from "@vendpire/domain";
+import type { VisitLine } from "@zenvend/domain";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import type { ApiPlanogram } from "../../apiTypes.ts";
 import { queryClient, trpc } from "../../trpc.ts";

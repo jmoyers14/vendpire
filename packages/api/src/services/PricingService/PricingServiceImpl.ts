@@ -1,7 +1,7 @@
 import { inject, injectable } from "tsyringe";
-import { buildReplacementCosts, suggestedPriceCentsFor } from "@vendpire/domain";
-import { PURCHASE_REPOSITORY_TOKEN } from "@vendpire/platform";
-import type { PurchaseRepository } from "@vendpire/platform";
+import { buildReplacementCosts, suggestedPriceCentsFor } from "@zenvend/domain";
+import { PURCHASE_REPOSITORY_TOKEN } from "@zenvend/platform";
+import type { PurchaseRepository } from "@zenvend/platform";
 import type { PricingService, ProductPricing } from "./PricingService.ts";
 
 /** Reads purchases only — the caller joins to products by id. */

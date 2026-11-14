@@ -1,5 +1,5 @@
 import { injectable } from "tsyringe";
-import { JOB_TYPES } from "@vendpire/platform";
+import { JOB_TYPES } from "@zenvend/platform";
 import type { JobHandler } from "./JobHandler.ts";
 import { SyncUserHandler } from "./handlers/syncUser/syncUser.ts";
 import { SyncOrgHandler } from "./handlers/syncOrg/syncOrg.ts";

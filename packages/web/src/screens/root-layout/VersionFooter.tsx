@@ -24,7 +24,7 @@ export function VersionFooter() {
   return (
     <footer className="px-4 py-3 text-center text-body-sm text-muted md:px-6">
       <span title={`web built ${WEB_BUILT_AT}`}>
-        Vendpire v{WEB_VERSION} ({WEB_COMMIT})
+        Zenvend v{WEB_VERSION} ({WEB_COMMIT})
       </span>
       {skew ? (
         <span className="ml-2 text-warning" title="API build differs from web">

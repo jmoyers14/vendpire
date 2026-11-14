@@ -1,5 +1,5 @@
 import type { inferRouterOutputs } from "@trpc/server";
-import type { AppRouter } from "@vendpire/api";
+import type { AppRouter } from "@zenvend/api";
 
 /**
  * The wire layer, named. These are what the API actually returns — derived
@@ -13,7 +13,7 @@ import type { AppRouter } from "@vendpire/api";
  *   Wire    `ApiProduct`   What crosses the network. Derived, below.
  *   View    `CatalogItem`  UI-only shapes, reached through a builder.
  *
- * This file is type-only: `packages/web` depends on `@vendpire/api` for its
+ * This file is type-only: `packages/web` depends on `@zenvend/api` for its
  * router type and nothing else, so none of this reaches the bundle.
  *
  * Scope: one type per endpoint output, and nothing else. A consumer that needs

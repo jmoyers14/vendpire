@@ -1,5 +1,5 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { Logger } from "@vendpire/platform";
+import type { Logger } from "@zenvend/platform";
 import type { AgentIdentity } from "../services/AuthService/AuthService.ts";
 import {
   AGENT_READ_TOOLS,
@@ -50,14 +50,14 @@ export const buildMcpServer = ({
   log: Logger;
   version: string;
 }): McpServer => {
-  const server = new McpServer({ name: "vendpire", version });
+  const server = new McpServer({ name: "zenvend", version });
 
   server.registerTool(
     "whoami",
     {
       title: "Who am I",
       description:
-        "Shows which Vendpire user this assistant is signed in as and which businesses they belong to.",
+        "Shows which Zenvend user this assistant is signed in as and which businesses they belong to.",
       annotations: { readOnlyHint: true, openWorldHint: false },
     },
     () => {
@@ -127,7 +127,7 @@ const toolFailure = (
     content: [
       {
         type: "text",
-        text: `The ${toolName} tool failed inside Vendpire. Nothing was changed. Try again, and report it if it keeps happening.`,
+        text: `The ${toolName} tool failed inside Zenvend. Nothing was changed. Try again, and report it if it keeps happening.`,
       },
     ],
     isError: true,

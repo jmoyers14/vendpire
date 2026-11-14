@@ -21,9 +21,9 @@
  * Run: MONGODB_URI=... ORG_ID=org_... bun scripts/seedSnackCatalog.ts
  */
 import mongoose from "mongoose";
-import { PRODUCT_DATA_CLIENT_TOKEN } from "@vendpire/platform";
-import type { ProductDataClient } from "@vendpire/platform";
-import { connectDatabase } from "@vendpire/platform/server";
+import { PRODUCT_DATA_CLIENT_TOKEN } from "@zenvend/platform";
+import type { ProductDataClient } from "@zenvend/platform";
+import { connectDatabase } from "@zenvend/platform/server";
 import {
   container,
   PACK_SERVICE_TOKEN,

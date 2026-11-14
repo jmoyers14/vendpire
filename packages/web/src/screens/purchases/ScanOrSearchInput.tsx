@@ -1,4 +1,4 @@
-import { normalizeGtin } from "@vendpire/domain";
+import { normalizeGtin } from "@zenvend/domain";
 import { useState } from "react";
 import { Badge, Button, Field, insetFocusRing, TextInput } from "../../ui.tsx";
 import {

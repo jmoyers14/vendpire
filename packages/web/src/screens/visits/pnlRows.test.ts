@@ -4,7 +4,7 @@ import type {
   SlotInterval,
   SlotRemoval,
   VisitAnomaly,
-} from "@vendpire/domain";
+} from "@zenvend/domain";
 import {
   buildProductSales,
   buildUnknownNotes,

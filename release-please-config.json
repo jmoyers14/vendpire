@@ -5,7 +5,7 @@
   "packages": {
     ".": {
       "release-type": "node",
-      "package-name": "vendpire",
+      "package-name": "zenvend",
       "changelog-path": "CHANGELOG.md"
     }
   },

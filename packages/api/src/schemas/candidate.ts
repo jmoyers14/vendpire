@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { ProductData } from "@vendpire/platform";
+import type { ProductData } from "@zenvend/platform";
 import type { Assert, Equal } from "./exactly.ts";
 
 // What an outside database says a barcode might be. Every field can be null —

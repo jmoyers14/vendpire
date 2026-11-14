@@ -1,4 +1,4 @@
-import type { CostBasisLine, ReplacementCostLine } from "@vendpire/domain";
+import type { CostBasisLine, ReplacementCostLine } from "@zenvend/domain";
 import type {
   Purchase,
   PurchaseInput,

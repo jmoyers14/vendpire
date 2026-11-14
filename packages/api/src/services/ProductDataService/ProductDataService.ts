@@ -1,4 +1,4 @@
-import type { ProductData, ProductSearchResult } from "@vendpire/platform";
+import type { ProductData, ProductSearchResult } from "@zenvend/platform";
 
 export type { ProductData, ProductSearchResult };
 

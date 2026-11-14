@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { Product } from "@vendpire/platform";
+import type { Product } from "@zenvend/platform";
 import type { Assert, Equal } from "./exactly.ts";
 
 export const productDto = z

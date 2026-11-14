@@ -1,4 +1,4 @@
-import type { Machine, MachineInput } from "@vendpire/platform";
+import type { Machine, MachineInput } from "@zenvend/platform";
 
 export type { Machine, MachineInput };
 

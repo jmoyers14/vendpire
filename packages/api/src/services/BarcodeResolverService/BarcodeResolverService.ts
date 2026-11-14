@@ -1,4 +1,4 @@
-import type { Pack, Product, ProductData } from "@vendpire/platform";
+import type { Pack, Product, ProductData } from "@zenvend/platform";
 
 /**
  * What a scanned or typed barcode turned out to be. Resolution order is

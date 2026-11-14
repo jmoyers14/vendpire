@@ -1,10 +1,10 @@
 import { inject, injectable } from "tsyringe";
-import { normalizeGtin } from "@vendpire/domain";
+import { normalizeGtin } from "@zenvend/domain";
 import {
   PACK_REPOSITORY_TOKEN,
   PRODUCT_REPOSITORY_TOKEN,
-} from "@vendpire/platform";
-import type { PackRepository, ProductRepository } from "@vendpire/platform";
+} from "@zenvend/platform";
+import type { PackRepository, ProductRepository } from "@zenvend/platform";
 import { PRODUCT_DATA_SERVICE_TOKEN } from "../tokens.ts";
 import type { ProductDataService } from "../ProductDataService/ProductDataService.ts";
 import type {

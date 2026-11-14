@@ -1,10 +1,10 @@
 import { inject, injectable } from "tsyringe";
-import { MAPS_CLIENT_TOKEN } from "@vendpire/platform";
+import { MAPS_CLIENT_TOKEN } from "@zenvend/platform";
 import type {
   AddressSuggestion,
   MapsClient,
   ResolvedAddress,
-} from "@vendpire/platform";
+} from "@zenvend/platform";
 import type { AddressService } from "./AddressService.ts";
 
 // Below this many characters a query is too vague to be worth a provider call

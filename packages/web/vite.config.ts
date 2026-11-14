@@ -3,7 +3,7 @@ import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 
-// Resolve @vendpire/domain to its TypeScript source so the shared calculation
+// Resolve @zenvend/domain to its TypeScript source so the shared calculation
 // engine runs in the browser with no build step (esbuild transpiles it inline).
 // The fs.allow entry lets Vite serve that sibling package from outside web/'s
 // root.
@@ -16,7 +16,7 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: {
-      "@vendpire/domain": domainEntry,
+      "@zenvend/domain": domainEntry,
     },
   },
   server: {

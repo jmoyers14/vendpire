@@ -15,14 +15,14 @@
       },
     },
     "packages/api": {
-      "name": "@vendpire/api",
+      "name": "@zenvend/api",
       "version": "1.0.0",
       "dependencies": {
         "@clerk/backend": "^3.6.1",
         "@modelcontextprotocol/sdk": "1.32.1",
         "@trpc/server": "11.19.0",
-        "@vendpire/domain": "workspace:*",
-        "@vendpire/platform": "workspace:*",
+        "@zenvend/domain": "workspace:*",
+        "@zenvend/platform": "workspace:*",
         "cors": "^2.8.5",
         "mongoose": "9.7.0",
         "posthog-node": "^5.38.0",
@@ -42,7 +42,7 @@
       },
     },
     "packages/domain": {
-      "name": "@vendpire/domain",
+      "name": "@zenvend/domain",
       "version": "1.0.0",
       "devDependencies": {
         "bun-types": "^1.0.0",
@@ -50,7 +50,7 @@
       },
     },
     "packages/e2e": {
-      "name": "@vendpire/e2e",
+      "name": "@zenvend/e2e",
       "version": "1.0.0",
       "devDependencies": {
         "@clerk/testing": "^1.4.0",
@@ -64,12 +64,12 @@
       },
     },
     "packages/platform": {
-      "name": "@vendpire/platform",
+      "name": "@zenvend/platform",
       "version": "1.0.0",
       "dependencies": {
         "@clerk/backend": "^3.6.1",
         "@google-cloud/tasks": "^6.2.3",
-        "@vendpire/domain": "workspace:*",
+        "@zenvend/domain": "workspace:*",
         "google-auth-library": "^10.9.1",
         "mongoose": "9.7.0",
         "pino": "^10.3.1",
@@ -86,7 +86,7 @@
       },
     },
     "packages/web": {
-      "name": "@vendpire/web",
+      "name": "@zenvend/web",
       "version": "1.0.0",
       "dependencies": {
         "@clerk/react": "^6.9.0",
@@ -95,7 +95,7 @@
         "@trpc/client": "^11.8.1",
         "@trpc/server": "^11.8.1",
         "@trpc/tanstack-react-query": "^11.8.1",
-        "@vendpire/domain": "workspace:*",
+        "@zenvend/domain": "workspace:*",
         "posthog-js": "^1.387.0",
         "react": "^18.2.0",
         "react-dom": "^18.2.0",
@@ -111,11 +111,11 @@
       },
     },
     "packages/worker": {
-      "name": "@vendpire/worker",
+      "name": "@zenvend/worker",
       "version": "1.0.0",
       "dependencies": {
-        "@vendpire/domain": "workspace:*",
-        "@vendpire/platform": "workspace:*",
+        "@zenvend/domain": "workspace:*",
+        "@zenvend/platform": "workspace:*",
         "mongoose": "9.7.0",
         "reflect-metadata": "^0.2.1",
         "tsyringe": "^4.8.0",
@@ -427,19 +427,19 @@
 
     "@types/whatwg-url": ["@types/whatwg-url@13.0.0", "", { "dependencies": { "@types/webidl-conversions": "*" } }, "sha512-N8WXpbE6Wgri7KUSvrmQcqrMllKZ9uxkYWMt+mCSGwNc0Hsw9VQTW7ApqI4XNrx6/SaM2QQJCzMPDEXE058s+Q=="],
 
-    "@vendpire/api": ["@vendpire/api@workspace:packages/api"],
-
-    "@vendpire/domain": ["@vendpire/domain@workspace:packages/domain"],
-
-    "@vendpire/e2e": ["@vendpire/e2e@workspace:packages/e2e"],
-
-    "@vendpire/platform": ["@vendpire/platform@workspace:packages/platform"],
-
-    "@vendpire/web": ["@vendpire/web@workspace:packages/web"],
-
-    "@vendpire/worker": ["@vendpire/worker@workspace:packages/worker"],
-
     "@vitejs/plugin-react": ["@vitejs/plugin-react@4.7.0", "", { "dependencies": { "@babel/core": "^7.28.0", "@babel/plugin-transform-react-jsx-self": "^7.27.1", "@babel/plugin-transform-react-jsx-source": "^7.27.1", "@rolldown/pluginutils": "1.0.0-beta.27", "@types/babel__core": "^7.20.5", "react-refresh": "^0.17.0" }, "peerDependencies": { "vite": "^4.2.0 || ^5.0.0 || ^6.0.0 || ^7.0.0" } }, "sha512-gUu9hwfWvvEDBBmgtAowQCojwZmJ5mcLn3aufeCsitijs3+f2NsrPtlAWIR6OPiqljl96GVCUbLe0HyqIpVaoA=="],
+
+    "@zenvend/api": ["@zenvend/api@workspace:packages/api"],
+
+    "@zenvend/domain": ["@zenvend/domain@workspace:packages/domain"],
+
+    "@zenvend/e2e": ["@zenvend/e2e@workspace:packages/e2e"],
+
+    "@zenvend/platform": ["@zenvend/platform@workspace:packages/platform"],
+
+    "@zenvend/web": ["@zenvend/web@workspace:packages/web"],
+
+    "@zenvend/worker": ["@zenvend/worker@workspace:packages/worker"],
 
     "accepts": ["accepts@2.0.0", "", { "dependencies": { "mime-types": "^3.0.0", "negotiator": "^1.0.0" } }, "sha512-5cvg6CtKwfgdmVqY1WIiXKc3Q1bkRqGLi+2W/6ao+6Y7gu/RCwRuAhGEzh5B4KlszSuTLgZYuqFqo5bImjNKng=="],
 

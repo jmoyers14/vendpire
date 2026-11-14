@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import type { AnalyticsEvent } from "@vendpire/platform";
+import type { AnalyticsEvent } from "@zenvend/platform";
 import { systemRouter } from "./system.ts";
 import type { Context } from "../context.ts";
 import type { MobileConfig } from "../config/mobileConfig.ts";
@@ -8,7 +8,7 @@ import { MobileClientSupportServiceImpl } from "../services/MobileClientSupportS
 const INERT: MobileConfig = {
   iosMinimumBuild: 0,
   iosRecommendedBuild: 0,
-  iosUpdateUrl: "https://apps.apple.com/app/vendpire",
+  iosUpdateUrl: "https://apps.apple.com/app/zenvend",
 };
 
 /** A context carrying only what `clientSupport` touches. */
