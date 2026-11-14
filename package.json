@@ -19,10 +19,11 @@
     "lint": "bunx @biomejs/biome@2.5.1 lint .",
     "lint:fix": "bunx @biomejs/biome@2.5.1 lint --write --unsafe .",
     "test:e2e": "bun run --cwd packages/e2e test",
+    "db:pull-prod": "cd packages/api && bun scripts/copyBusinessData.ts --source-secret zenvend-mongodb-uri --target-local --apply --replace",
     "ios:build": "ios/Scripts/xc build",
     "ios:test": "ios/Scripts/xc test",
     "ios:run": "ios/Scripts/xc run",
-    "ios:install-staging": "ios/Scripts/xc install-staging",
+    "ios:install-production": "ios/Scripts/xc install-production",
     "ios:screenshot": "ios/Scripts/xc screenshot"
   },
   "devDependencies": {

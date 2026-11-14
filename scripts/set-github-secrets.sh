@@ -14,19 +14,13 @@ REPO="jmoyers14/zenvend"
 API_ENV="packages/api/.env"
 WEB_ENV="packages/web/.env.local"
 
-# Deploy secrets are scoped to a GitHub ENVIRONMENT, not the repository.
-#
-# Repository secrets are inherited as defaults by every environment, so a
-# production environment added later would silently fall back to these staging
-# values — shipping prod built against the DEV Clerk instance, with no error
-# anywhere. Scoped per environment, a missing production override arrives as ""
-# instead, and deploy.sh refuses to run without a Clerk publishable key. Loud
-# beats silent. Adding production later is `DEPLOY_ENV=production ./this`, with
-# the SAME secret names and different values.
+# Deploy secrets are scoped to a GitHub ENVIRONMENT, not the repository:
+# repository secrets are inherited by every environment, so a missing override
+# would silently ship the e2e (dev) values instead of failing.
 #
 # The e2e secrets stay repository-level on purpose: ci.yml's e2e job declares no
 # `environment:`, and a job without one cannot read environment secrets at all.
-DEPLOY_ENV="${DEPLOY_ENV:-staging}"
+DEPLOY_ENV="${DEPLOY_ENV:-production}"
 
 if ! gh auth status >/dev/null 2>&1; then
   echo "ERROR: gh is not authenticated. Run: gh auth login" >&2
@@ -80,8 +74,11 @@ promptVisible() {
 echo "Setting Actions secrets on $REPO"
 echo ""
 
+# Local .env files hold the DEV instance's keys: right for e2e, wrong for a
+# deploy. The deploy key has to be handed in explicitly.
 CLERK_PK="$(readEnv "$WEB_ENV" VITE_CLERK_PUBLISHABLE_KEY)"
 CLERK_SK="$(readEnv "$API_ENV" CLERK_SECRET_KEY)"
+DEPLOY_CLERK_PK="${DEPLOY_CLERK_PUBLISHABLE_KEY:-}"
 
 # Idempotent, and lets a brand-new environment work without a dashboard visit.
 gh api -X PUT "repos/$REPO/environments/$DEPLOY_ENV" >/dev/null 2>&1 || true
@@ -89,7 +86,7 @@ gh api -X PUT "repos/$REPO/environments/$DEPLOY_ENV" >/dev/null 2>&1 || true
 echo "deploy.yml  (environment: $DEPLOY_ENV)"
 # The only load-bearing deploy secret: deploy.sh hard-fails without it, because
 # the web bundle bakes it in at build time.
-setDeploySecret VITE_CLERK_PUBLISHABLE_KEY "$CLERK_PK" "not in $WEB_ENV"
+setDeploySecret VITE_CLERK_PUBLISHABLE_KEY "$DEPLOY_CLERK_PK" "set DEPLOY_CLERK_PUBLISHABLE_KEY=pk_live_..."
 
 # Optional analytics. Configured nowhere as of 2026-10-18 — absent from both
 # .env files, absent from the deployed api's env, and no phc_ key in the live

@@ -14,7 +14,7 @@ The scripts below exist for the reproducible path — agent loops, and later CI:
 bun run ios:build        # compile for the simulator
 bun run ios:test         # unit tests only (UI tests are skipped)
 bun run ios:run          # build, boot the simulator, install, launch
-bun run ios:install-staging  # Release build onto the plugged-in phone
+bun run ios:install-production  # Release build onto the plugged-in phone
 bun run ios:screenshot   # capture the booted simulator to ios/build/screenshot.png
 ```
 
@@ -45,9 +45,9 @@ replaces the app holding real data:
 
 | Scheme | Configuration | App | Bundle ID | API |
 |---|---|---|---|---|
-| `Zenvend` | Debug | Zenvend Dev (DEV icon) | `com.dogbeach.dev.Vendpire.debug` | localhost, or `Local.xcconfig` |
-| `Zenvend Staging` | Release | Zenvend | `com.dogbeach.dev.Vendpire` | staging (Cloud Run) |
+| `Zenvend` | Debug | Zenvend Dev (DEV icon) | `com.dogbeach.dev.Zenvend.debug` | localhost, or `Local.xcconfig` |
+| `Zenvend Production` | Release | Zenvend | `com.dogbeach.dev.Zenvend` | production (`api.zenvend.app`) |
 
 Run either scheme from Xcode with the phone selected, or use
-`ios:install-staging`. The identity comes from `BUNDLE_ID_SUFFIX`,
+`ios:install-production`. The identity comes from `BUNDLE_ID_SUFFIX`,
 `APP_DISPLAY_NAME`, and `APP_ICON_NAME` in `Config/*.xcconfig`.

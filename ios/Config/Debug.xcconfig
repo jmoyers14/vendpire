@@ -8,8 +8,8 @@
 // truncated ("https://host" becomes "https:"). $(SLASH) is the usual escape.
 SLASH = /
 
-// A separate app identity so a dev build installs beside the staging app
-// instead of replacing it — the staging app holds real data.
+// A separate app identity so a dev build installs beside the production app
+// instead of replacing it — the production app holds real data.
 BUNDLE_ID_SUFFIX = .debug
 APP_DISPLAY_NAME = Zenvend Dev
 APP_ICON_NAME = AppIconDev
