@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.14.0](https://github.com/jmoyers14/vendpire/compare/v0.13.0...v0.14.0) (2026-11-14)
+
+
+### Miscellaneous
+
+* release the Zenvend rename ([#69](https://github.com/jmoyers14/vendpire/issues/69)) ([5c02c86](https://github.com/jmoyers14/vendpire/commit/5c02c8643b36916a449d87f7d7b46cd2a2e8b556))
+
 ## [0.13.0](https://github.com/jmoyers14/vendpire/compare/v0.12.0...v0.13.0) (2026-11-14)
 
 
