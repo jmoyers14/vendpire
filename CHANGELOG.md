@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.12.0](https://github.com/jmoyers14/vendpire/compare/v0.11.0...v0.12.0) (2026-11-13)
+
+
+### Features
+
+* **web:** group the machine list by location ([#64](https://github.com/jmoyers14/vendpire/issues/64)) ([c9b6c2a](https://github.com/jmoyers14/vendpire/commit/c9b6c2a2f035aade630220c2fb7decf488e1776e))
+
 ## [0.11.0](https://github.com/jmoyers14/vendpire/compare/v0.10.0...v0.11.0) (2026-11-13)
 
 
