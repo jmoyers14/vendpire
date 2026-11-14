@@ -3,24 +3,15 @@
 Three Cloud Run services on the **personal** Google account, isolated from the
 work account via a dedicated gcloud *configuration* (same pattern as landscape).
 
-> **This stack is staging, not production.** It runs on `*.run.app` against a
-> Clerk **development** instance (`dynamic-kit-6657.clerk.accounts.dev`), because
-> a Clerk production instance requires a domain we do not own yet. `deploy.sh`
-> pins `DEPLOY_ENVIRONMENT="staging"` accordingly, so `/system.version`, the app
-> footer, logs, and PostHog events all say `staging`.
->
-> Nothing in the codebase branches on staging vs production — every check is
-> `=== "local"` — so this is a labeling choice, not a behavioral one. The ordered
-> steps for adding a real production environment are in the Environments section
-> of `docs/plans/2026-10-06-cicd-pipeline.md`. Step one is buying a domain; it
-> gates everything else.
->
-> `ios/Config/Release.xcconfig` ships the same dev publishable key, and says so
-> in a comment. It has to change at the same time.
+> **This is production:** `zenvend.app` (web) and `api.zenvend.app` (api),
+> against the Clerk production instance (`clerk.zenvend.app`). The `vendpire-*`
+> services are the pre-cutover stack on the Clerk dev instance, kept only as a
+> rollback until they are deleted; see
+> `docs/plans/2026-11-13-zenvend-rename-and-cutover.md`.
 
-- `vendpire-api` — Bun tRPC server (port 8080)
-- `vendpire-web` — React build served by nginx (port 8080)
-- `vendpire-worker` — Clerk webhook ingestion + background jobs (port 8080)
+- `zenvend-api` — Bun tRPC server (port 8080), mapped to `api.zenvend.app`
+- `zenvend-web` — React build served by nginx (port 8080), mapped to `zenvend.app`
+- `zenvend-worker` — Clerk webhook ingestion + background jobs (port 8080)
 
 Pinned at the top of `deploy.sh`:
 
@@ -33,7 +24,7 @@ REGION="us-central1"
 
 ## One-time setup (already done)
 
-- gcloud configuration `zenvend` pinned to the personal account + project
+- gcloud configuration `vendpire` pinned to the personal account + project
 - Project `vendpire-128694` created, billing linked
 - APIs enabled: Cloud Run, Artifact Registry, Secret Manager
 - Cloud Tasks + IAM Credentials are enabled by `deploy.sh` itself, along with
@@ -42,20 +33,21 @@ REGION="us-central1"
 
 ## First deploy
 
-The Mongo secret must come from the environment on the first run (the local
-`.env` points at localhost):
+Create the four `zenvend-*` secrets first (see Secrets below). `deploy.sh`
+creates a missing one only from the environment, never from a local `.env`,
+which holds dev values. The publishable key is passed explicitly for the same
+reason:
 
 ```sh
-MONGODB_URI="mongodb+srv://<user>:<pass>@<cluster>/zenvend" ./deploy.sh
+VITE_CLERK_PUBLISHABLE_KEY=pk_live_... ./deploy.sh
 ```
-
-Later deploys are just `./deploy.sh` — secrets already exist in Secret
-Manager, and the Clerk publishable key is read from `packages/web/.env.local`.
 
 ## After the first deploy
 
-1. Add the web URL to Clerk (Dashboard → your app → allowed origins /
-   "Frontend API allowed origins") so sign-in works from production.
+1. Map the domains: `zenvend.app` → `zenvend-web`, `api.zenvend.app` →
+   `zenvend-api` (Cloud Run domain mappings), and add the DNS records they ask
+   for. The api's CORS origin and the web bundle's api URL are the domains, so
+   nothing works on `*.run.app`.
 2. Sanity-check `<api-url>/system.version` and the version footer in the app —
    a commit mismatch means a half-landed deploy.
 3. **Point Clerk at the worker.** Dashboard → Webhooks → add an endpoint at
@@ -63,10 +55,10 @@ Manager, and the Clerk publishable key is read from `packages/web/.env.local`.
    `user.created`, `user.updated`, `organization.created`,
    `organization.updated`, `organizationMembership.created`,
    `organizationMembership.updated`, `organizationMembership.deleted`.
-   Copy the `whsec_…` signing secret into `packages/worker/.env` **before** the
-   first deploy, or hand it in as `CLERK_WEBHOOK_SIGNING_SECRET=… ./deploy.sh`.
+   Put the `whsec_…` signing secret in `zenvend-clerk-webhook-signing-secret`,
+   then redeploy the worker so a new instance reads it.
    Use "Send test event" and confirm a 2xx in Clerk's delivery log.
-4. Confirm the chain end to end: `gcloud run services logs read vendpire-worker`
+4. Confirm the chain end to end: `gcloud run services logs read zenvend-worker`
    should show the ingest line, then the Cloud Tasks callback on `/tasks/…`,
    then `job succeeded`. `curl -X POST <worker-url>/tasks/syncUser -d "{}"`
    must answer **403** — that proves the OIDC guard is closed.
@@ -114,26 +106,22 @@ GitHub secret is worse than an absent one: the workflow injects `""`, and
 consuming code sees a present-but-blank variable. That is precisely what broke
 the e2e job — `fixtures.ts` used `??`, which does not treat `""` as missing.
 
-**Scoping matters for the future production split.** Deploy secrets go to the
-GitHub *environment* `staging`, not the repository; e2e secrets stay
-repository-level.
+**Deploy secrets are scoped to the GitHub environment `production`**, not the
+repository; e2e secrets stay repository-level. Repository secrets are inherited
+by every environment, so a missing deploy override would silently ship the e2e
+(dev) values. Scoped, it arrives as `""` and `deploy.sh` refuses to start.
 
-That is not cosmetic. Repository secrets are inherited as defaults by every
-environment, so a `production` environment added later would silently fall back
-to the staging values and ship production built against the **dev** Clerk
-instance, with no error anywhere. Scoped per environment, a missing production
-override arrives as `""` and `deploy.sh` refuses to start. Adding production is
-then `DEPLOY_ENV=production ./scripts/set-github-secrets.sh` — same secret
-names, different values, which is the whole point of not suffixing names.
+The deploy publishable key never comes from `.env.local` (the dev key): pass it
+as `DEPLOY_CLERK_PUBLISHABLE_KEY=pk_live_... ./scripts/set-github-secrets.sh`.
 
 The e2e secrets stay repository-level because `ci.yml`'s e2e job declares no
 `environment:`, and a job without one cannot read environment secrets at all.
 
 | Secret | Used by | Scope | Sensitive? |
 |---|---|---|---|
-| `VITE_CLERK_PUBLISHABLE_KEY` | deploy | env `staging` | No — `pk_` is public |
-| `POSTHOG_API_KEY`, `POSTHOG_HOST` | deploy | env `staging` | No — write-only ingestion |
-| `VITE_POSTHOG_KEY`, `VITE_POSTHOG_HOST` | deploy | env `staging` | No |
+| `VITE_CLERK_PUBLISHABLE_KEY` | deploy | env `production` | No — `pk_` is public |
+| `POSTHOG_API_KEY`, `POSTHOG_HOST` | deploy | env `production` | No — write-only ingestion |
+| `VITE_POSTHOG_KEY`, `VITE_POSTHOG_HOST` | deploy | env `production` | No |
 | `CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY` | e2e — Clerk **dev** instance | repository | Yes, dev only |
 | `E2E_CLERK_USER_EMAIL`, `E2E_CLERK_USER_PASSWORD` | e2e test user | repository | Yes, dev only |
 
@@ -166,7 +154,7 @@ an existing tag without a new release, use the `deploy` workflow's
 ## Adding a new configuration value
 
 Which path depends on **when the value is needed**, not on how sensitive it is.
-`vendpire-web` is static files served by nginx — there is no server process to
+`zenvend-web` is static files served by nginx — there is no server process to
 read an env var — so anything the browser needs must be compiled into the bundle
 at build time, and therefore can never be secret.
 
@@ -226,14 +214,14 @@ Cloud Run retains revisions, so rolling back is traffic-shifting — no rebuild,
 no new image:
 
 ```sh
-gcloud run revisions list --service vendpire-api --region us-central1
-gcloud run services update-traffic vendpire-api \
+gcloud run revisions list --service zenvend-api --region us-central1
+gcloud run services update-traffic zenvend-api \
   --to-revisions=<prior-revision>=100 --region us-central1
 ```
 
 **Roll back all three services together.** They ship as one version, so a
 partial rollback recreates exactly the skew the single-version design exists to
-avoid. Repeat for `vendpire-web` and `vendpire-worker`.
+avoid. Repeat for `zenvend-web` and `zenvend-worker`.
 
 This works even after the Artifact Registry cleanup policy has pruned an old
 image: revisions are retained independently of image tags.
@@ -245,16 +233,21 @@ you rolled back to. A mismatch between services means the rollback is half-done.
 
 | Secret Manager name | Contents |
 |---|---|
-| `clerk-secret-key` | Clerk `sk_test_...` — **dev instance**, see the staging note above |
-| `mongodb-uri` | Atlas connection string (from `MONGODB_URI` env on first run) |
-| `google-maps-api-key` | Places key (optional — address autocomplete) |
-| `clerk-webhook-signing-secret` | Clerk `whsec_...` for the **dev** instance's endpoint |
+| `zenvend-clerk-secret-key` | Clerk `sk_live_...` (production instance) |
+| `zenvend-mongodb-uri` | Atlas connection string, database `zenvend` |
+| `zenvend-google-maps-api-key` | Places key (optional — address autocomplete) |
+| `zenvend-clerk-webhook-signing-secret` | Clerk `whsec_...` for the production instance's endpoint |
+
+The unprefixed names (`clerk-secret-key`, `mongodb-uri`, …) belong to the old
+`vendpire-*` stack. Never reuse them: an instance resolves `:latest` when it
+starts, so writing a production value there would leak into the old stack at its
+next cold start.
 
 To rotate one: `gcloud secrets versions add <name> --data-file=-`, then
 redeploy.
 
 **When the value is actually read:** not at deploy time. `--set-secrets` only
-records a *reference* (`CLERK_SECRET_KEY=clerk-secret-key:latest`) on the
+records a *reference* (`CLERK_SECRET_KEY=zenvend-clerk-secret-key:latest`) on the
 revision. Cloud Run resolves it at **instance startup**, via the runtime service
 account — if retrieval fails the instance does not start. The deploy pipeline
 never handles these values; `github-deployer` wires up the pointer and grants

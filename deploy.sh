@@ -15,28 +15,29 @@ PROJECT="vendpire-128694"          # personal GCP project ID
 ACCOUNT="jmoyers14@gmail.com" # personal Google account email
 REGION="us-central1"
 
-# What this stack IS. Not "production": it runs on *.run.app with a Clerk
-# DEVELOPMENT instance, because a Clerk production instance requires a domain we
-# do not own yet. Calling it production put dev-instance keys behind the word
-# "production" and mislabeled every PostHog event and log line.
-#
-# Nothing branches on staging vs production — every check in the codebase is
-# `=== "local"` — so this is labeling only. When a real production stack exists
-# it gets its own services and its own value here.
-DEPLOY_ENVIRONMENT="staging"
+# Production: zenvend.app, against the Clerk production instance. Nothing
+# branches on the value (every check is `=== "local"`); it labels logs, the
+# footer and /system.version.
+DEPLOY_ENVIRONMENT="production"
+
+# Public origins, mapped onto the web and api services (Cloud Run domain
+# mappings). The api's CORS origin and the web bundle's api URL are these, not
+# the *.run.app URLs, which the Clerk production instance won't serve.
+WEB_ORIGIN="https://zenvend.app"
+API_ORIGIN="https://api.zenvend.app"
 
 REPO="vendpire"               # Artifact Registry repository name
 REGISTRY="$REGION-docker.pkg.dev/$PROJECT/$REPO"
-API_SERVICE="vendpire-api"
-WEB_SERVICE="vendpire-web"
-WORKER_SERVICE="vendpire-worker"
+API_SERVICE="zenvend-api"
+WEB_SERVICE="zenvend-web"
+WORKER_SERVICE="zenvend-worker"
 API_IMAGE="$REGISTRY/api:latest"
 WEB_IMAGE="$REGISTRY/web:latest"
 WORKER_IMAGE="$REGISTRY/worker:latest"
-CLERK_SECRET_NAME="clerk-secret-key" # Secret Manager secret holding the Clerk sk_ key
-MONGO_SECRET_NAME="mongodb-uri"      # Secret Manager secret holding the Atlas connection string
-MAPS_SECRET_NAME="google-maps-api-key" # Secret Manager secret holding the Places key (optional)
-CLERK_WEBHOOK_SECRET_NAME="clerk-webhook-signing-secret" # the whsec_ key that verifies inbound webhooks
+CLERK_SECRET_NAME="zenvend-clerk-secret-key" # Secret Manager secret holding the Clerk sk_ key
+MONGO_SECRET_NAME="zenvend-mongodb-uri"      # Secret Manager secret holding the Atlas connection string
+MAPS_SECRET_NAME="zenvend-google-maps-api-key" # Secret Manager secret holding the Places key (optional)
+CLERK_WEBHOOK_SECRET_NAME="zenvend-clerk-webhook-signing-secret" # the whsec_ key that verifies inbound webhooks
 
 # Cloud Tasks: one queue per job kind. These names MUST match
 # packages/platform/src/jobs/jobTypes.ts — a queue missing here means the worker
@@ -148,23 +149,18 @@ fi
 # injected at runtime. Create each on first run, then grant the Cloud Run
 # runtime service account read access. All idempotent.
 #
-# NOTE: MONGODB_URI in packages/api/.env points at LOCAL Mongo — the production
-# Atlas URI must come from the environment on first run:
-#   MONGODB_URI="mongodb+srv://..." ./deploy.sh
 gcloud services enable secretmanager.googleapis.com --project "$PROJECT" --quiet >/dev/null
 PROJECT_NUMBER=$(gcloud projects describe "$PROJECT" --format "value(projectNumber)")
 RUNTIME_SA="${PROJECT_NUMBER}-compute@developer.gserviceaccount.com"
 
 ensure_secret() {
-  # $3 is the .env to fall back to, defaulting to the api's. The worker owns its
-  # own secrets (the webhook signing key), so it passes packages/worker/.env.
-  local secret_name="$1" env_var="$2" env_file="${3:-packages/api/.env}"
+  # A missing secret is created from the environment only. Local .env files hold
+  # dev values (sk_test_, local Mongo), so falling back to them would quietly
+  # give production a dev key.
+  local secret_name="$1" env_var="$2"
   if ! gcloud secrets describe "$secret_name" --project "$PROJECT" >/dev/null 2>&1; then
     echo "Creating Secret Manager secret: $secret_name"
     local value="${!env_var:-}"
-    if [ -z "$value" ] && [ "$env_var" != "MONGODB_URI" ]; then
-      value=$(grep -E "^$env_var=" "$env_file" 2>/dev/null | head -1 | cut -d= -f2- || true)
-    fi
     if [ -z "$value" ]; then
       echo "ERROR: secret '$secret_name' missing and $env_var not provided in env." >&2
       exit 1
@@ -184,11 +180,9 @@ ensure_secret "$MONGO_SECRET_NAME" MONGODB_URI
 API_SECRETS="CLERK_SECRET_KEY=$CLERK_SECRET_NAME:latest,MONGODB_URI=$MONGO_SECRET_NAME:latest"
 
 # Google Maps key is optional: wire it only if the secret already exists or
-# GOOGLE_MAPS_API_KEY is available (env or packages/api/.env). Deploys keep
-# working before the address feature is configured.
+# GOOGLE_MAPS_API_KEY is in the environment. Deploys keep working without it.
 if gcloud secrets describe "$MAPS_SECRET_NAME" --project "$PROJECT" >/dev/null 2>&1 \
-  || [ -n "${GOOGLE_MAPS_API_KEY:-}" ] \
-  || grep -qE '^GOOGLE_MAPS_API_KEY=' packages/api/.env 2>/dev/null; then
+  || [ -n "${GOOGLE_MAPS_API_KEY:-}" ]; then
   ensure_secret "$MAPS_SECRET_NAME" GOOGLE_MAPS_API_KEY
   API_SECRETS="$API_SECRETS,GOOGLE_MAPS_API_KEY=$MAPS_SECRET_NAME:latest"
   echo "Google Maps key wired into the API (address autocomplete)."
@@ -197,13 +191,7 @@ else
 fi
 
 # ── API ──────────────────────────────────────────────────────────────────────
-# The web URL is stable across deploys, so look it up now and hand it to the API
-# from its first revision — no placeholder, no transient wrong-origin window.
-# Falls back to a placeholder only on a true first deploy (no web service yet).
-EXISTING_WEB_URL=$(gcloud run services describe "$WEB_SERVICE" \
-  --project "$PROJECT" --region "$REGION" --format "value(status.url)" 2>/dev/null || true)
-API_WEB_URL="${EXISTING_WEB_URL:-https://placeholder.example.com}"
-echo "API will trust web origin: $API_WEB_URL"
+echo "API will trust web origin: $WEB_ORIGIN"
 
 echo "Building API image..."
 docker build --platform linux/amd64 \
@@ -223,7 +211,7 @@ gcloud run deploy "$API_SERVICE" \
   --project "$PROJECT" \
   --region "$REGION" \
   --allow-unauthenticated \
-  --set-env-vars "ENVIRONMENT=$DEPLOY_ENVIRONMENT,WEB_URL=$API_WEB_URL$API_ENV_EXTRA" \
+  --set-env-vars "ENVIRONMENT=$DEPLOY_ENVIRONMENT,WEB_URL=$WEB_ORIGIN$API_ENV_EXTRA" \
   --set-secrets "$API_SECRETS"
 
 API_URL=$(gcloud run services describe "$API_SERVICE" \
@@ -233,7 +221,7 @@ echo "API deployed at: $API_URL"
 # ── Web ──────────────────────────────────────────────────────────────────────
 echo "Building web image..."
 docker build --platform linux/amd64 \
-  --build-arg VITE_API_URL="$API_URL" \
+  --build-arg VITE_API_URL="$API_ORIGIN" \
   --build-arg VITE_CLERK_PUBLISHABLE_KEY="$CLERK_PUBLISHABLE_KEY" \
   --build-arg VITE_APP_VERSION="$APP_VERSION" \
   --build-arg VITE_GIT_SHA="$GIT_SHA" \
@@ -256,17 +244,6 @@ gcloud run deploy "$WEB_SERVICE" \
 WEB_URL=$(gcloud run services describe "$WEB_SERVICE" \
   --project "$PROJECT" --region "$REGION" --format "value(status.url)")
 echo "Web deployed at: $WEB_URL"
-
-# ── Correct the API's trusted web origin on a true first deploy ──────────────
-if [ "$API_WEB_URL" != "$WEB_URL" ]; then
-  echo "Updating API WEB_URL to $WEB_URL..."
-  # --update-env-vars merges; --set-env-vars would REPLACE the whole env
-  # block and wipe ENVIRONMENT/POSTHOG (bit us on the first deploy).
-  gcloud run services update "$API_SERVICE" \
-    --project "$PROJECT" \
-    --region "$REGION" \
-    --update-env-vars WEB_URL="$WEB_URL" >/dev/null
-fi
 
 # ── Worker ───────────────────────────────────────────────────────────────────
 # The third Cloud Run service and the background job-execution entrypoint: it
@@ -352,8 +329,7 @@ for attempt in 1 2 3 4 5; do
 done
 
 # Clerk webhook signing secret (whsec_) — verifies inbound webhook signatures.
-# Sourced from packages/worker/.env on first creation, since the worker owns it.
-ensure_secret "$CLERK_WEBHOOK_SECRET_NAME" CLERK_WEBHOOK_SIGNING_SECRET packages/worker/.env
+ensure_secret "$CLERK_WEBHOOK_SECRET_NAME" CLERK_WEBHOOK_SIGNING_SECRET
 
 echo "Building worker image..."
 docker build --platform linux/amd64 \
@@ -410,11 +386,9 @@ fi
 
 echo ""
 echo "Deploy complete: v$APP_VERSION ($GIT_SHA)"
-echo "  API:    $API_URL"
-echo "  Web:    $WEB_URL"
+echo "  API:    $API_ORIGIN  ($API_URL)"
+echo "  Web:    $WEB_ORIGIN  ($WEB_URL)"
 echo "  Worker: $WORKER_URL"
-echo ""
-echo "Reminder: add $WEB_URL to Clerk's allowed origins if you haven't."
 echo ""
 echo "Clerk webhook endpoint (configure in the Clerk dashboard -> Webhooks):"
 echo "  $WORKER_URL/ingest/clerk"
