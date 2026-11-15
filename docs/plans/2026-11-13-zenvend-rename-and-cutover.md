@@ -10,6 +10,11 @@ Two changes, done together because they touch the same things:
 Supersedes `2026-11-13-production-cutover.md` and "Adding production later" in
 `2026-10-06-cicd-pipeline.md`.
 
+> **Status, 2026-11-15:** cut over. Phases 0–5 and 7 are done; the open boxes
+> below are what's left. Next: confirm the first real visit lands in `zenvend`
+> (Phase 5 step 7), then Phase 6. The old stack retires around 2026-11-29.
+
+
 ## The shape: build beside, then switch
 
 Nothing gets changed in place. The new stack (`zenvend-*` services, a `zenvend`
@@ -74,20 +79,20 @@ the GCP project ID `vendpire-128694` (can't change), the Artifact Registry repo
 
 DNS is the slow part, so this goes first and runs in the background.
 
-- [ ] Buy `zenvend.app`.
-- [ ] Create the Clerk production instance, named Zenvend, from the dev instance's settings. Check by hand:
-  - [ ] Organizations on
-  - [ ] Email + password sign-in, matching dev
-  - [ ] **Device Trust off** (Configure → Protections). It defaults on and dead-ends iOS sign-in with `needsClientTrust`.
-  - [ ] Native API on, with the iOS app registered under the **new** bundle ID
-  - [ ] Allowed origin `https://zenvend.app`
-- [ ] Add Clerk's DNS records (`clerk.`, `accounts.`, email DKIM) and wait for all of them to verify.
+- [x] Buy `zenvend.app`.
+- [x] Create the Clerk production instance, named Zenvend, from the dev instance's settings. Check by hand:
+  - [x] Organizations on
+  - [x] Email + password sign-in, matching dev
+  - [x] **Device Trust off** (Configure → Protections). It defaults on and dead-ends iOS sign-in with `needsClientTrust`.
+  - [x] Native API on, with the iOS app registered under the **new** bundle ID
+  - [x] Allowed origin `https://zenvend.app`
+- [x] Add Clerk's DNS records (`clerk.`, `accounts.`, email DKIM) and wait for all of them to verify.
 - [ ] Rename the Clerk dev instance's display name and the GCP project display name.
 
 ## Phase 1 — Worktree cleanup
 
-- [ ] Merge or abandon as many of the 33 worktrees as you can. Every surviving branch has to be rebased over the rename.
-- [ ] No release PR open (merge or close it). See the release-please risk above.
+- [x] Merge or abandon as many of the 33 worktrees as you can. Every surviving branch has to be rebased over the rename.
+- [x] No release PR open (merge or close it). See the release-please risk above.
 
 ## Phase 2 — Rename PR (ships to the old stack; no downtime)
 
@@ -97,57 +102,57 @@ safe: a missing client header passes the version gate
 (`MobileClientSupportServiceImpl.isUnsupportedRequest`), so the installed
 Vendpire app keeps working against the renamed API.
 
-- [ ] Branch. `git mv` the iOS folders and files: `ios/Vendpire` → `ios/Zenvend`, the `.xcodeproj`, `VendpireTests`, `VendpireUITests`, the schemes, `VendpireApp.swift`, the `VendpireAPI*` files.
-- [ ] Run the three case-preserving seds (`Vendpire`/`vendpire`/`VENDPIRE`) across the repo, skipping `CHANGELOG.md`, `bun.lock` and `docs/` history.
-- [ ] Put back by hand what has to keep the old name for now:
-  - [ ] `deploy.sh`: service names, secret names, `REPO`, `CONFIG`, `PROJECT` (Phase 3 changes the services and secrets)
-  - [ ] `scripts/setup-ci-auth.sh`: `CONFIG`, `PROJECT`, `REPO`
-  - [ ] `ios/Config/*.xcconfig`: bundle ID and the API URL (Phase 3)
-  - [ ] the database name in any URI
-- [ ] `bun install`, regenerate the OpenAPI client, `bun run test`, `bun run typecheck`, e2e.
-- [ ] Build iOS for a device (not the Simulator) and smoke test against local.
-- [ ] Merge. Ship it through the normal release. Check the live app still works, from the **old** iOS app as well.
-- [ ] Same sitting: rename the GitHub repo, `git remote set-url origin …`, re-run `scripts/setup-ci-auth.sh` with `GITHUB_REPO="jmoyers14/zenvend"`, and check a no-op CI run goes green.
-- [ ] Rebase surviving branches (re-running the seds clears most conflicts).
+- [x] Branch. `git mv` the iOS folders and files: `ios/Vendpire` → `ios/Zenvend`, the `.xcodeproj`, `VendpireTests`, `VendpireUITests`, the schemes, `VendpireApp.swift`, the `VendpireAPI*` files.
+- [x] Run the three case-preserving seds (`Vendpire`/`vendpire`/`VENDPIRE`) across the repo, skipping `CHANGELOG.md`, `bun.lock` and `docs/` history.
+- [x] Put back by hand what has to keep the old name for now:
+  - [x] `deploy.sh`: service names, secret names, `REPO`, `CONFIG`, `PROJECT` (Phase 3 changes the services and secrets)
+  - [x] `scripts/setup-ci-auth.sh`: `CONFIG`, `PROJECT`, `REPO`
+  - [x] `ios/Config/*.xcconfig`: bundle ID and the API URL (Phase 3)
+  - [x] the database name in any URI
+- [x] `bun install`, regenerate the OpenAPI client, `bun run test`, `bun run typecheck`, e2e.
+- [x] Build iOS for a device (not the Simulator) and smoke test against local.
+- [x] Merge. Ship it through the normal release. Check the live app still works, from the **old** iOS app as well.
+- [x] Same sitting: rename the GitHub repo, `git remote set-url origin …`, re-run `scripts/setup-ci-auth.sh` with `GITHUB_REPO="jmoyers14/zenvend"`, and check a no-op CI run goes green.
+- [x] Rebase surviving branches (re-running the seds clears most conflicts).
 
 ## Phase 3 — Stand up the new stack (no downtime)
 
-- [ ] **Cutover PR:**
-  - [ ] `deploy.sh`: `zenvend-*` services, `zenvend-*` secret names, `DEPLOY_ENVIRONMENT="production"`, `WEB_URL=https://zenvend.app`, `VITE_API_URL=https://api.zenvend.app`. Today both URLs are read from `*.run.app`, which would fail CORS from the domain.
-  - [ ] `ios/Config/Release.xcconfig`: bundle ID `com.dogbeach.dev.Zenvend`, the `pk_live_` key, `ZENVEND_API_BASE_URL=https://api.zenvend.app/api/v1`.
-  - [ ] `deploy.yml`: GitHub environment `production`.
-  - [ ] `DEPLOY.md`: drop the "this stack is staging" callout; new names, webhook and origin steps.
-  - [ ] The copy script and `db:pull-prod` (below).
-- [ ] Secrets, new names only: `zenvend-clerk-secret-key` (`sk_live_`), `zenvend-mongodb-uri` (same cluster, database `zenvend`), `zenvend-google-maps-api-key`, and `zenvend-clerk-webhook-signing-secret` (from the next step).
-- [ ] GitHub environment `production` with `VITE_CLERK_PUBLISHABLE_KEY=pk_live_…` (`DEPLOY_ENV=production ./scripts/set-github-secrets.sh`).
-- [ ] Merge, then release. **From here on, CI deploys only to the new stack. The old stack stays on its last version, so keep Phases 3–5 to a few days.**
-- [ ] Cloud Run domain mappings: `zenvend.app` → `zenvend-web`, `api.zenvend.app` → `zenvend-api`. Add the records and wait for the certificates.
-- [ ] Clerk production → Webhooks: `https://<zenvend-worker-url>/ingest/clerk`, the seven events in `DEPLOY.md`.
+- [x] **Cutover PR:**
+  - [x] `deploy.sh`: `zenvend-*` services, `zenvend-*` secret names, `DEPLOY_ENVIRONMENT="production"`, `WEB_URL=https://zenvend.app`, `VITE_API_URL=https://api.zenvend.app`. Today both URLs are read from `*.run.app`, which would fail CORS from the domain.
+  - [x] `ios/Config/Release.xcconfig`: bundle ID `com.dogbeach.dev.Zenvend`, the `pk_live_` key, `ZENVEND_API_BASE_URL=https://api.zenvend.app/api/v1`.
+  - [x] `deploy.yml`: GitHub environment `production`.
+  - [x] `DEPLOY.md`: drop the "this stack is staging" callout; new names, webhook and origin steps.
+  - [x] The copy script and `db:pull-prod` (below).
+- [x] Secrets, new names only: `zenvend-clerk-secret-key` (`sk_live_`), `zenvend-mongodb-uri` (same cluster, database `zenvend`), `zenvend-google-maps-api-key`, and `zenvend-clerk-webhook-signing-secret` (from the next step).
+- [x] GitHub environment `production` with `VITE_CLERK_PUBLISHABLE_KEY=pk_live_…` (`DEPLOY_ENV=production ./scripts/set-github-secrets.sh`).
+- [x] Merge, then release. **From here on, CI deploys only to the new stack. The old stack stays on its last version, so keep Phases 3–5 to a few days.**
+- [x] Cloud Run domain mappings: `zenvend.app` → `zenvend-web`, `api.zenvend.app` → `zenvend-api`. Add the records and wait for the certificates.
+- [x] Clerk production → Webhooks: `https://<zenvend-worker-url>/ingest/clerk`, the seven events in `DEPLOY.md`.
 - [ ] Maps key: add `https://zenvend.app/*` if it's referrer-restricted.
-- [ ] Sign up on `https://zenvend.app` (you, then your wife). Create the business, invite her, have her accept. The database is empty, and that's expected.
-- [ ] Confirm the webhooks filled `users` (2), `organizations` (1) and `organizationmemberships` (2) in `zenvend`. This also proves the worker chain.
-- [ ] Install the Zenvend iOS app on both phones (it sits next to Vendpire) and sign in.
+- [x] Sign up on `https://zenvend.app` (you, then your wife). Create the business, invite her, have her accept. The database is empty, and that's expected.
+- [x] Confirm the webhooks filled `users` (2), `organizations` (1) and `organizationmemberships` (2) in `zenvend`. This also proves the worker chain.
+- [ ] Install the Zenvend iOS app on both phones (it sits next to Vendpire) and sign in. _Only Jeremy's phone so far; the wife's install waits until she's ready._
 
 ## Phase 4 — Rehearse the copy (no downtime)
 
-- [ ] Run the copy script dry, then for real, against the live data. The old database is only read.
-- [ ] Walk the new app: machines, latest visits, purchases, dashboard numbers. Compare with the old app side by side.
-- [ ] Fix anything, then re-run. The copy replaces the target, so rehearsals are free.
+- [x] Run the copy script dry, then for real, against the live data. The old database is only read.
+- [x] Walk the new app: machines, latest visits, purchases, dashboard numbers. Compare with the old app side by side.
+- [x] Fix anything, then re-run. The copy replaces the target, so rehearsals are free. _Done 2026-11-15. Source org `org_3L26aFTj0PugW4fkBsAYxTo0KJL` (GetsnackingSD); `GetsnackingSD_Test` intentionally left behind._
 
 ## Phase 5 — Freeze and switch (~20–30 min)
 
-1. [ ] Both phones: open the **old** app, send everything in the outbox, confirm it's empty.
-2. [ ] Freeze: no visits or purchases from now until step 6.
-3. [ ] Back up the `vendpire` database to EJSON, kept off the cluster.
-4. [ ] Run the copy script (`--allow-remote-target --apply --replace`).
-5. [ ] Run its verify mode: counts and latest `updatedAt` per collection match old vs. new. Spot-check in the new app.
-6. [ ] Switch: bookmark `zenvend.app`, use the Zenvend app. Unfreeze.
+1. [x] Both phones: open the **old** app, send everything in the outbox, confirm it's empty.
+2. [x] Freeze: no visits or purchases from now until step 6.
+3. [x] Back up the `vendpire` database to EJSON, kept off the cluster. _Backup: `~/Backups/vendpire-db-20261115-075324/`._
+4. [x] Run the copy script (`--allow-remote-target --apply --replace`).
+5. [x] Run its verify mode: counts and latest `updatedAt` per collection match old vs. new. Spot-check in the new app.
+6. [x] Switch: bookmark `zenvend.app`, use the Zenvend app. Unfreeze.
 7. [ ] Record one real purchase or visit end to end in the new stack.
 
 ## Phase 6 — Verify, then retire (over two weeks)
 
-- [ ] `https://api.zenvend.app/system.version` says `production`, and the commit matches the footer.
-- [ ] The web bundle carries `pk_live_`.
+- [x] `https://api.zenvend.app/system.version` says `production`, and the commit matches the footer.
+- [x] The web bundle carries `pk_live_`.
 - [ ] `bun run db:pull-prod` once, and sign in locally to the copy. Proves the debugging path before you need it.
 - [ ] `curl -X POST <zenvend-worker-url>/tasks/syncUser -d "{}"` → 403.
 - [ ] Optional, MCP: set `MCP_RESOURCE_URL=https://api.zenvend.app/mcp` and `CLERK_FRONTEND_API_URL=https://clerk.zenvend.app` on `zenvend-api`, register that exact URL under Clerk production → Agents → MCP servers, and turn on DCR (OAuth applications → Settings). `/mcp` stays unmounted until both env vars are set.
@@ -157,9 +162,9 @@ Vendpire app keeps working against the renamed API.
 
 Any time after Phase 2 merges.
 
-- [ ] `mv ~/Code/vendpire ~/Code/zenvend`, then `git worktree repair` from the new location.
-- [ ] Update `.env` files, shell config and `ios/Config/Local.xcconfig` for the renamed env vars.
-- [ ] Copy the Claude memory folder (`~/.claude-personal/projects/-Users-jeremymoyers-Code-vendpire/`) to the name for the new path.
+- [x] `mv ~/Code/vendpire ~/Code/zenvend`, then `git worktree repair` from the new location.
+- [x] Update `.env` files, shell config and `ios/Config/Local.xcconfig` for the renamed env vars.
+- [x] Copy the Claude memory folder (`~/.claude-personal/projects/-Users-jeremymoyers-Code-vendpire/`) to the name for the new path.
 - [ ] Optional: rename the local database. It's seed data, so it doesn't matter.
 
 ## The copy script
