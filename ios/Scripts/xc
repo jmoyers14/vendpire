@@ -53,7 +53,10 @@ build() {
 resolveDevice() {
   xcrun xctrace list devices 2>/dev/null | python3 -c '
 import re, sys
+# Reads every line rather than breaking at the first match: closing the pipe
+# early SIGPIPEs xctrace, and pipefail turns that into exit 141.
 section = False
+found = None
 for line in sys.stdin:
     if line.startswith("== Devices =="):
         section = True
@@ -65,9 +68,10 @@ for line in sys.stdin:
     # "Jeremy'"'"'s iPhone (26.7.1) (00008130-…)" — the version group is what
     # separates a real device from the "My Mac" entry, which has no version.
     match = re.match(r"^.* \(\d+(?:\.\d+)+\) \(([0-9A-Fa-f-]+)\)\s*$", line)
-    if match:
-        print(match.group(1))
-        break
+    if match and found is None:
+        found = match.group(1)
+if found:
+    print(found)
 '
 }
 
