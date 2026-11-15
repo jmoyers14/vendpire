@@ -26,6 +26,11 @@ DEPLOY_ENVIRONMENT="production"
 WEB_ORIGIN="https://zenvend.app"
 API_ORIGIN="https://api.zenvend.app"
 
+# MCP for AI assistants. The resource URL must match the server registered under
+# Clerk production → Agents → MCP servers exactly, or every token is rejected.
+MCP_RESOURCE_URL="$API_ORIGIN/mcp"
+CLERK_FRONTEND_API_URL="https://clerk.zenvend.app"
+
 REPO="vendpire"               # Artifact Registry repository name
 REGISTRY="$REGION-docker.pkg.dev/$PROJECT/$REPO"
 API_SERVICE="zenvend-api"
@@ -211,7 +216,7 @@ gcloud run deploy "$API_SERVICE" \
   --project "$PROJECT" \
   --region "$REGION" \
   --allow-unauthenticated \
-  --set-env-vars "ENVIRONMENT=$DEPLOY_ENVIRONMENT,WEB_URL=$WEB_ORIGIN$API_ENV_EXTRA" \
+  --set-env-vars "ENVIRONMENT=$DEPLOY_ENVIRONMENT,WEB_URL=$WEB_ORIGIN,MCP_RESOURCE_URL=$MCP_RESOURCE_URL,CLERK_FRONTEND_API_URL=$CLERK_FRONTEND_API_URL$API_ENV_EXTRA" \
   --set-secrets "$API_SECRETS"
 
 API_URL=$(gcloud run services describe "$API_SERVICE" \
