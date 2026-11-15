@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.16.0](https://github.com/jmoyers14/zenvend/compare/v0.15.0...v0.16.0) (2026-11-15)
+
+
+### Features
+
+* **deploy:** turn on the MCP endpoint in production ([#75](https://github.com/jmoyers14/zenvend/issues/75)) ([f401a57](https://github.com/jmoyers14/zenvend/commit/f401a573cf8a21b563342ac30540ab6039438e65))
+
+
+### Bug Fixes
+
+* **ios:** stop install-production dying with exit 141 ([#73](https://github.com/jmoyers14/zenvend/issues/73)) ([fb19a47](https://github.com/jmoyers14/zenvend/commit/fb19a47edbc22ba3c78ef349c7d726e7651995fb))
+
 ## [0.15.0](https://github.com/jmoyers14/zenvend/compare/v0.14.0...v0.15.0) (2026-11-14)
 
 
