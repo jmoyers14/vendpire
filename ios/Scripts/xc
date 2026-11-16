@@ -126,6 +126,51 @@ installProduction() {
     "$DERIVED/Build/Products/Release-iphoneos/$SCHEME.app"
 }
 
+# Archive the Release app and upload it to App Store Connect for TestFlight.
+# Runner-agnostic on purpose: a CI job only has to provide a signing identity
+# and these three variables, then call this. The key is an App Store Connect
+# API key (.p8) with the App Manager role.
+uploadToTestFlight() {
+  : "${ASC_KEY_ID:?Set ASC_KEY_ID to the App Store Connect API key id}"
+  : "${ASC_ISSUER_ID:?Set ASC_ISSUER_ID to the App Store Connect issuer id}"
+  local keyPath="${ASC_KEY_PATH:-$HOME/.appstoreconnect/private_keys/AuthKey_$ASC_KEY_ID.p8}"
+  if [[ ! -f "$keyPath" ]]; then
+    echo "No API key at $keyPath. Set ASC_KEY_PATH." >&2
+    exit 1
+  fi
+
+  local version
+  version="$(plutil -extract version raw "$IOS_DIR/../package.json")"
+  # A UTC timestamp increases on every runner without shared state. Split in two
+  # because a single 12-digit integer overflows the 32-bit range Apple compares in.
+  local buildNumber
+  buildNumber="$(date -u +%Y%m%d.%H%M)"
+  local archive="$IOS_DIR/build/$SCHEME.xcarchive"
+  local auth=(
+    -allowProvisioningUpdates
+    -authenticationKeyPath "$keyPath"
+    -authenticationKeyID "$ASC_KEY_ID"
+    -authenticationKeyIssuerID "$ASC_ISSUER_ID"
+  )
+
+  echo "Uploading $version ($buildNumber)" >&2
+  rm -rf "$archive"
+  xcodebuild -project "$IOS_DIR/$SCHEME.xcodeproj" -scheme "$SCHEME Production" \
+    -configuration Release \
+    -destination "generic/platform=iOS" \
+    -derivedDataPath "$DERIVED" \
+    -archivePath "$archive" \
+    "${auth[@]}" \
+    MARKETING_VERSION="$version" \
+    CURRENT_PROJECT_VERSION="$buildNumber" \
+    archive "$@"
+  xcodebuild -exportArchive \
+    -archivePath "$archive" \
+    -exportOptionsPlist "$IOS_DIR/Config/ExportOptions.plist" \
+    -exportPath "$IOS_DIR/build/export" \
+    "${auth[@]}"
+}
+
 screenshot() {
   local udid; udid="$(resolveSim)"
   local out="${1:-$IOS_DIR/build/screenshot.png}"
@@ -138,6 +183,7 @@ case "${1:-}" in
   test)       shift; runTests "$@" ;;
   run)        shift; launch "$@" ;;
   install-production) shift; installProduction "$@" ;;
+  testflight) shift; uploadToTestFlight "$@" ;;
   screenshot) shift; screenshot "$@" ;;
-  *) echo "usage: Scripts/xc {build|test|run|install-production|screenshot [path]}" >&2; exit 64 ;;
+  *) echo "usage: Scripts/xc {build|test|run|install-production|testflight|screenshot [path]}" >&2; exit 64 ;;
 esac

@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Read by `xc testflight`. `upload` sends the build straight to App Store
+	     Connect instead of writing an .ipa to disk. -->
+	<key>method</key>
+	<string>app-store-connect</string>
+	<key>destination</key>
+	<string>upload</string>
+	<!-- Manual so every runner signs the same way: install the Apple
+	     Distribution cert and this profile, and nothing needs Apple's cloud
+	     signing (which an App Manager API key isn't allowed to use). -->
+	<key>signingStyle</key>
+	<string>manual</string>
+	<key>signingCertificate</key>
+	<string>Apple Distribution</string>
+	<key>provisioningProfiles</key>
+	<dict>
+		<key>com.dogbeach.zenvend</key>
+		<string>Zenvend Production</string>
+	</dict>
+	<key>teamID</key>
+	<string>DTM57W4DZJ</string>
+	<!-- The script sets the version and build number; Xcode must not rewrite them. -->
+	<key>manageAppVersionAndBuildNumber</key>
+	<false/>
+	<key>uploadSymbols</key>
+	<true/>
+</dict>
+</plist>
