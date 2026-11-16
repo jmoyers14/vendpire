@@ -14,6 +14,10 @@
 	<!-- Lagoon has no dark palette yet. -->
 	<key>UIUserInterfaceStyle</key>
 	<string>Light</string>
+	<!-- HTTPS only, which is exempt. Declaring it here stops every TestFlight
+	     build from waiting on the export-compliance question. -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>NSCameraUsageDescription</key>
 	<string>The camera reads barcodes while you log a purchase.</string>
 	<!-- Debug field-testing talks cleartext HTTP to the Mac's .local name on
