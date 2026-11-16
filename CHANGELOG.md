@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.17.0](https://github.com/jmoyers14/zenvend/compare/v0.16.0...v0.17.0) (2026-11-16)
+
+
+### Features
+
+* **ios:** upload Release builds to TestFlight ([#77](https://github.com/jmoyers14/zenvend/issues/77)) ([92a1df9](https://github.com/jmoyers14/zenvend/commit/92a1df94f2ef11c566f8b29b78964cbb7a74dfdf))
+
+
+### Bug Fixes
+
+* **ci:** make the testflight workflow parse ([#79](https://github.com/jmoyers14/zenvend/issues/79)) ([865fc5a](https://github.com/jmoyers14/zenvend/commit/865fc5a42a8d5e4bf2fc18890f68f5b339bacc5b))
+* **ios:** skip plugin trust prompts when archiving for TestFlight ([#80](https://github.com/jmoyers14/zenvend/issues/80)) ([6b63be8](https://github.com/jmoyers14/zenvend/commit/6b63be8a9249ce46d000941ba4bf5455acbcc423))
+
 ## [0.16.0](https://github.com/jmoyers14/zenvend/compare/v0.15.0...v0.16.0) (2026-11-15)
 
 
