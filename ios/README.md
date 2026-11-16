@@ -76,3 +76,6 @@ profile named **Zenvend Production** for `com.dogbeach.zenvend` installed. The
 profile expires 2027-11-15.
 
 Releases are manual — not every web release needs an iOS build.
+
+From GitHub: Actions → **testflight** → Run workflow. It reads the cert, profile,
+and API key from the `production` environment's secrets and runs the same script.
