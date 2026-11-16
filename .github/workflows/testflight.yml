@@ -25,8 +25,6 @@ jobs:
     # Secrets live on the environment, so no other workflow can read them.
     environment: production
     timeout-minutes: 45
-    env:
-      KEYCHAIN_PATH: ${{ runner.temp }}/signing.keychain-db
     steps:
       - uses: actions/checkout@v4
 
@@ -46,13 +44,13 @@ jobs:
         run: |
           keychainPassword="$(uuidgen)"
           echo "$P12_BASE64" | base64 --decode > "$RUNNER_TEMP/dist.p12"
-          security create-keychain -p "$keychainPassword" "$KEYCHAIN_PATH"
-          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
-          security unlock-keychain -p "$keychainPassword" "$KEYCHAIN_PATH"
-          security import "$RUNNER_TEMP/dist.p12" -P "$P12_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          security create-keychain -p "$keychainPassword" "$RUNNER_TEMP/signing.keychain-db"
+          security set-keychain-settings -lut 21600 "$RUNNER_TEMP/signing.keychain-db"
+          security unlock-keychain -p "$keychainPassword" "$RUNNER_TEMP/signing.keychain-db"
+          security import "$RUNNER_TEMP/dist.p12" -P "$P12_PASSWORD" -A -t cert -f pkcs12 -k "$RUNNER_TEMP/signing.keychain-db"
           # Without this, codesign stops at a keychain access prompt nobody can click.
-          security set-key-partition-list -S apple-tool:,apple: -k "$keychainPassword" "$KEYCHAIN_PATH"
-          security list-keychains -d user -s "$KEYCHAIN_PATH"
+          security set-key-partition-list -S apple-tool:,apple: -k "$keychainPassword" "$RUNNER_TEMP/signing.keychain-db"
+          security list-keychains -d user -s "$RUNNER_TEMP/signing.keychain-db"
           rm "$RUNNER_TEMP/dist.p12"
 
       - name: Install provisioning profile
@@ -79,6 +77,6 @@ jobs:
       - name: Remove signing material
         if: always()
         run: |
-          security delete-keychain "$KEYCHAIN_PATH" || true
+          security delete-keychain "$RUNNER_TEMP/signing.keychain-db" || true
           rm -f "$RUNNER_TEMP/AuthKey.p8" \
             "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles/zenvend-production.mobileprovision"
